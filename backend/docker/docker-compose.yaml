@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: "ftns-db"
+      PGDATA: /home/postgres/pgdata/data
+    volumes:
+      - ftns-data:/home/postgres/pgdata
+    ports:
+      - "5434:5432"
+    env_file:
+      - ../.env
+  
+  ftns-backend:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+
+    image: ftns-backend
+
+    ports:
+      - "8181:8181"
+      
+    env_file:
+      - ../.env
+      
+    environment:
+      POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: "5432"
+
+    depends_on:
+      - postgres
+    stop_grace_period: ${SERVER_GRACEFUL_SHUTDOWN_TIMEOUT}
+
+volumes:
+  ftns-data:
