@@ -7,6 +7,8 @@ import (
 )
 
 // all services
+//
+//nolint:unused
 type Services struct {
 	userService users.UserService
 	authService auth.AuthService
