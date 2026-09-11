@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"ftns-asst/internal/config"
+	"ftns-asst/internal/repository"
 	"ftns-asst/internal/rest"
 	"ftns-asst/internal/service"
+	"log"
 	"net/http"
 )
 
@@ -17,6 +19,11 @@ type App struct {
 
 // initialize app components
 func New(ctx context.Context, cfg *config.Config) *App {
+	_, err := repository.ConnectToDB(ctx, cfg.Postgres())
+	if err != nil {
+		log.Panicf("failed connect to DB: %s", err.Error())
+	}
+
 	services := service.NewServices(cfg)
 
 	httpServer := rest.NewServer(cfg, *services)
@@ -32,7 +39,7 @@ func (a *App) Run(rootCtx context.Context) error {
 	shutdownChan := make(chan error)
 	go func() {
 		<-rootCtx.Done()
-		shutdownCtx, cancel := context.WithTimeout(rootCtx, a.config.ShutdownTimeoutSec)
+		shutdownCtx, cancel := context.WithTimeout(rootCtx, a.config.ShutdownTimeout)
 		defer cancel()
 		err := a.httpServer.Shutdown(shutdownCtx)
 		if err != nil {
