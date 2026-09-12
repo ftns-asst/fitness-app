@@ -4,7 +4,7 @@ CREATE TABLE users (
     display_name VARCHAR(100) NOT NULL,
     pass_hash TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now() ON UPDATE,
 );
 
 CREATE TABLE user_profiles (
@@ -13,5 +13,5 @@ CREATE TABLE user_profiles (
     gender VARCHAR(15),
     height_cm SMALLINT,
     weight_kg DOUBLE,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW() ON UPDATE,
 );
