@@ -1,0 +1,181 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "Fitness Assistant API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "fitness.nought.ru",
+    "basePath": "/api/v1",
+    "paths": {
+        "/auth/check-email": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Check if email is already taken",
+                "operationId": "checkEmail",
+                "parameters": [
+                    {
+                        "description": "CheckEmail body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CheckEmailRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/CheckEmailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get user by ID",
+                "operationId": "getUserByID",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "withProfile query param",
+                        "name": "withProfile",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/UserWithProfile"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "CheckEmailRequestBody": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "CheckEmailResponse": {
+            "type": "object",
+            "properties": {
+                "free": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "UserProfile": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "integer"
+                },
+                "gender": {
+                    "type": "string",
+                    "enum": [
+                        "male",
+                        " female"
+                    ]
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "weight": {
+                    "type": "integer"
+                }
+            }
+        },
+        "UserWithProfile": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "profile": {
+                    "$ref": "#/definitions/UserProfile"
+                }
+            }
+        }
+    }
+}

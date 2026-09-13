@@ -144,3 +144,20 @@ func (r *UserRepo) GetUserWithProfileByID(ctx context.Context, id uuid.UUID) (*m
 		Profile: &res.UserProfile,
 	}, nil
 }
+
+func (r *UserRepo) CheckUserWithEmailExists(ctx context.Context, email string) (exists bool, err error) {
+	conn := r.db(ctx)
+
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM users
+			WHERE users.email = $1	
+		)
+	`
+	err = conn.QueryRow(ctx, query, email).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("select scan failed: %w", err)
+	}
+
+	return exists, nil
+}

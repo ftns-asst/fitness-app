@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type db interface {
@@ -22,3 +22,17 @@ var (
 	ErrNotFound       = errors.New("not found repo eror")
 	ErrNoAffectedRows = errors.New("no affected rows repo error")
 )
+
+type Repositories struct {
+	user *UserRepo
+}
+
+func NewRepositories(db db) *Repositories {
+	return &Repositories{
+		user: NewUserRepo(db),
+	}
+}
+
+func (r *Repositories) User() *UserRepo {
+	return r.user
+}

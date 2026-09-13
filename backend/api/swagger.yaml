@@ -1,0 +1,120 @@
+basePath: /api/v1
+definitions:
+  CheckEmailRequestBody:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  CheckEmailResponse:
+    properties:
+      free:
+        type: boolean
+    type: object
+  UserProfile:
+    properties:
+      age:
+        type: integer
+      gender:
+        enum:
+        - male
+        - ' female'
+        type: string
+      height:
+        type: integer
+      weight:
+        type: integer
+    type: object
+  UserWithProfile:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      profile:
+        $ref: '#/definitions/UserProfile'
+    type: object
+host: fitness.nought.ru
+info:
+  contact: {}
+  title: Fitness Assistant API
+  version: "1.0"
+paths:
+  /auth/check-email:
+    post:
+      consumes:
+      - application/json
+      operationId: checkEmail
+      parameters:
+      - description: CheckEmail body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/CheckEmailRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CheckEmailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Check if email is already taken
+      tags:
+      - auth
+  /users/{id}:
+    get:
+      consumes:
+      - application/json
+      operationId: getUserByID
+      parameters:
+      - description: withProfile query param
+        in: query
+        name: withProfile
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserWithProfile'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get user by ID
+      tags:
+      - users
+swagger: "2.0"

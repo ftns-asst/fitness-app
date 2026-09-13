@@ -26,6 +26,14 @@ else
 endif
 
 
+test-run:
+	go test -v -cover ./...
+	
 lint-run:
 	docker run -t --rm -v .:/app -w /app/ golangci/golangci-lint:v2.12.2 \
 		golangci-lint run --no-config -E govet,staticcheck
+
+gen-swag:
+	swag init -g cmd/main.go -o api --parseDependency --parseInternal 
+
+

@@ -19,12 +19,13 @@ type App struct {
 
 // initialize app components
 func New(ctx context.Context, cfg *config.Config) *App {
-	_, err := repository.ConnectToDB(ctx, cfg.Postgres())
+	db, err := repository.ConnectToDB(ctx, cfg.Postgres())
 	if err != nil {
 		log.Panicf("failed connect to DB: %s", err.Error())
 	}
 
-	services := service.NewServices(cfg)
+	repositories := repository.NewRepositories(db)
+	services := service.NewServices(cfg, *repositories, db)
 
 	httpServer := rest.NewServer(cfg, *services)
 
