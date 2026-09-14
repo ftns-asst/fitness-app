@@ -1,4 +1,4 @@
-package dto
+package mapper
 
 import (
 	"ftns-asst/internal/model"

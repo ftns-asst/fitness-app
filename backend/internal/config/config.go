@@ -8,9 +8,12 @@ import (
 
 // app config
 type Config struct {
-	HTTPServerPort  string        `env:"HTTP_SERVER_PORT,required"`
-	ShutdownTimeout time.Duration `env:"SERVER_GRACEFUL_SHUTDOWN_TIMEOUT" envDefault:"10s"`
-	postgres        *PostgresConfig
+	HTTPServerPort            string        `env:"HTTP_SERVER_PORT,required"`
+	ShutdownTimeout           time.Duration `env:"SERVER_GRACEFUL_SHUTDOWN_TIMEOUT" envDefault:"10s"`
+	AccessTokenJWTSecretKey   string        `env:"ACCESS_TOKEN_JWT_SECRET_KEY,required"`
+	RefreshTokenJWTSecretKey  string        `env:"REFRESH_TOKEN_JWT_SECRET_KEY,required"`
+	RefreshTokenHashSecretKey string        `env:"REFRESH_TOKEN_HASH_SECRET,required"`
+	postgres                  *PostgresConfig
 }
 
 func (c *Config) Postgres() *PostgresConfig {

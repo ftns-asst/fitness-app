@@ -20,28 +20,46 @@ func newHandlers(services *service.Services) *Handlers {
 	}
 }
 
+func (h *Handlers) RegisterRoutes(r *gin.RouterGroup) {
+	h.auth.RegisterRoutes(r)
+}
+
+type ErrorResponse struct {
+	Key     string `json:"key"`
+	Message string `json:"message"`
+}
+
+// func handleError(c *gin.Context, err error) {
+// 	handleServiceError(c, model.NewError(err))
+// }
+
 // write http response based on service error
 func handleError(c *gin.Context, err error) {
+	serr := &model.ServiceError{}
+	if !errors.As(err, &serr) {
+		serr = model.NewError(err)
+	}
 	responseCode := http.StatusInternalServerError
-	msg := "internal"
+	resp := ErrorResponse{
+		Key:     serr.Key,
+		Message: "internal server error",
+	}
 
 	switch {
-	case errors.Is(err, model.ErrBadRequest):
+	case errors.Is(serr.Err, model.ErrUnauthorized):
+		responseCode = http.StatusUnauthorized
+	case errors.Is(serr.Err, model.ErrBadRequest):
 		responseCode = http.StatusBadRequest
-	case errors.Is(err, model.ErrNotFound):
+	case errors.Is(serr.Err, model.ErrNotFound):
 		responseCode = http.StatusNotFound
-	case errors.Is(err, model.ErrServiceUnavailable):
+	case errors.Is(serr.Err, model.ErrServiceUnavailable):
 		responseCode = http.StatusServiceUnavailable
 	}
 
 	if responseCode != http.StatusInternalServerError {
-		msg = err.Error()
+		resp.Message = err.Error()
 	}
 
-	log.Println(err)
-	c.JSON(responseCode, gin.H{"error": msg})
-}
-
-func (h *Handlers) RegisterRoutes(r *gin.RouterGroup) {
-	h.auth.RegisterRoutes(r)
+	log.Printf("Error: %#v", err)
+	c.JSON(responseCode, resp)
 }

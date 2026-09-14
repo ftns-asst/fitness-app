@@ -36,6 +36,7 @@ func (u *UserService) CheckUserWithEmailExists(ctx context.Context, email string
 	return exists, nil
 }
 
+// get user by id with optional profile
 func (s *UserService) GetUserByID(ctx context.Context, id uuid.UUID, withProfile bool) (*model.UserWithProfile, error) {
 	var res *model.UserWithProfile
 	var err error
@@ -61,4 +62,28 @@ func (s *UserService) GetUserByID(ctx context.Context, id uuid.UUID, withProfile
 	}
 
 	return res, nil
+}
+
+// get user by email
+func (s *UserService) GetUserByEmail(ctx context.Context, email string) (res *model.User, err error) {
+	res, err = s.userRepo.GetUserByEmail(ctx, email)
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, fmt.Errorf("failed to get user by email: %w", model.ErrNotFound)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by id: %w", err)
+	}
+
+	return res, nil
+}
+
+// create new user
+func (s *UserService) CreateUser(ctx context.Context, user *model.User) (*model.User, error) {
+	var err error
+
+	user, err = s.userRepo.CreateUser(ctx, user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+	return user, nil
 }

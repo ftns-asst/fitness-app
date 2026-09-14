@@ -18,7 +18,7 @@ type Services struct {
 
 func NewServices(cfg *config.Config, repositories repository.Repositories, transactor model.Transactor) *Services {
 	user := users.NewService(cfg, repositories.User(), transactor)
-	auth := auth.NewService(cfg, user, transactor)
+	auth := auth.NewService(cfg, user, repositories.Auth(), transactor)
 	return &Services{
 		userService: user,
 		authService: auth,

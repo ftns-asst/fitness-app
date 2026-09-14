@@ -90,6 +90,28 @@ func (r *UserRepo) GetUserByID(ctx context.Context, id uuid.UUID) (*model.User, 
 	return res, nil
 }
 
+// get user by email
+func (r *UserRepo) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+	query := `
+		SELECT * FROM users
+		WHERE users.email = $1
+	`
+	conn := r.db(ctx)
+	rows, err := conn.Query(ctx, query, email)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("select failed: %w", err)
+	}
+
+	res, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[model.User])
+	if err != nil {
+		return nil, fmt.Errorf("collect row failed: %w", err)
+	}
+	return res, nil
+}
+
 // get list of users by IDs
 func (r *UserRepo) GetUserListByIDs(ctx context.Context, ids []uuid.UUID) ([]*model.User, error) {
 	if len(ids) == 0 {

@@ -34,9 +34,9 @@ func (h *UserHandler) RegisterRoutes(r *gin.RouterGroup) {
 // @Param id path uuid.UUID true "user id path param"
 // @Param withProfile query bool false "if true - resposne with user profile"
 // @Success 200 {object} dto.UserWithProfileResponse
-// @Failure      400  {object}  map[string]any
-// @Failure      404  {object}  map[string]any
-// @Failure      500  {object}  map[string]any
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
 // @Router /users/{id} [get]
 func (h *UserHandler) GetUserByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))

@@ -42,7 +42,7 @@ make test-run
 
 ```bash
 # generate swagger docs
-make swagger-gen
+make gen-swag
 ```
 
 ### Swagger API UI

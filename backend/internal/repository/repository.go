@@ -25,14 +25,20 @@ var (
 
 type Repositories struct {
 	user *UserRepo
+	auth *AuthRepo
 }
 
 func NewRepositories(db db) *Repositories {
 	return &Repositories{
 		user: NewUserRepo(db),
+		auth: NewAuthRepo(db),
 	}
 }
 
 func (r *Repositories) User() *UserRepo {
 	return r.user
+}
+
+func (r *Repositories) Auth() *AuthRepo {
+	return r.auth
 }
