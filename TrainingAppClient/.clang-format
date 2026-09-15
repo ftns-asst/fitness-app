@@ -1,0 +1,25 @@
+# Автоматизация раскладки текста по docs/CODE_STYLE.md §10.1.
+# Контролирует только то, что не проверяется на код-ревью; имена и префиксы — ревью.
+Language: Cpp
+BasedOnStyle: LLVM
+UseTab: ForIndentation
+TabWidth: 4
+IndentWidth: 4
+ColumnLimit: 120
+BreakBeforeBraces: Allman
+AccessModifierOffset: -4
+PointerAlignment: Right
+AlwaysBreakAfterReturnType: None
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+IndentCaseLabels: false
+BreakBeforeBinaryOperators: None
+AlignAfterOpenBracket: Align
+AlignOperands: Align
+ContinuationIndentWidth: 4
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+DerivePointerAlignment: false
+SortIncludes: CaseSensitive
