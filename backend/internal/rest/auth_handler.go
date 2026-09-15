@@ -28,8 +28,8 @@ func (h *AuthHandler) RegisterRoutes(r *gin.RouterGroup) {
 	r.POST("/auth/check-email", h.CheckEmail)
 	r.POST("/auth/signup", h.SignUp)
 	r.POST("/auth/login", h.LogIn)
-	r.POST("/auth/refresh", h.LogIn)
-	
+	r.POST("/auth/refresh", h.RefreshTokens)
+
 }
 
 // CheckEmail godoc
@@ -55,6 +55,7 @@ func (h *AuthHandler) CheckEmail(c *gin.Context) {
 	exists, err := h.userService.CheckUserWithEmailExists(c.Request.Context(), body.Email)
 	if err != nil {
 		handleError(c, err)
+		return
 	}
 
 	c.JSON(http.StatusOK, dto.CheckEmailResponse{
@@ -142,7 +143,7 @@ func (h *AuthHandler) RefreshTokens(c *gin.Context) {
 
 	result, err := h.authService.RefreshTokens(c.Request.Context(), body.RefreshToken)
 	if err != nil {
-		handleError(c, err)
+		handleError(c, fmt.Errorf("failed to refresh tokens: %w", err))
 		return
 	}
 

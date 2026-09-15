@@ -33,9 +33,10 @@ func genToken(userID uuid.UUID, secret string, expiresAt time.Time) (*model.Toke
 			RegisteredClaims: jwt.RegisteredClaims{
 				ExpiresAt: jwt.NewNumericDate(expiresAt),
 			},
-		})
+		},
+	)
 
-	tokenString, err := token.SignedString(secret)
+	tokenString, err := token.SignedString([]byte(secret))
 	if err != nil {
 		return nil, err
 	}
@@ -48,14 +49,13 @@ var (
 )
 
 func ParseJWTToken(tokenString string, secret string) (*model.TokenInfo, error) {
-	token, err := jwt.ParseWithClaims(tokenString,
-		&UserJWTClaims{},
-		func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
+	claims := &UserJWTClaims{}
+
+	token, err := jwt.ParseWithClaims(tokenString, claims,
+		func(token *jwt.Token) (any, error) {
 			return []byte(secret), nil
 		},
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
 		jwt.WithExpirationRequired(),
 		jwt.WithLeeway(30*time.Second),
 	)
@@ -66,27 +66,13 @@ func ParseJWTToken(tokenString string, secret string) (*model.TokenInfo, error) 
 		}
 		return nil, fmt.Errorf("invalid JWT: %w", err)
 	}
-
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		strId, ok := claims["userID"].(string)
-		fmt.Println(strId)
-		if !ok {
-			return nil, fmt.Errorf("invalid token")
-		}
-		userId, err := uuid.Parse(strId)
-		if err != nil {
-			return nil, fmt.Errorf("invalid userId in token")
-		}
-
-		expiration, err := claims.GetExpirationTime()
-		if err != nil {
-			return nil, fmt.Errorf("failed get expiration time")
-		}
-		return &model.TokenInfo{
-			Token:     tokenString,
-			UserID:    userId,
-			ExpiresAt: expiration.Time,
-		}, nil
+	if !token.Valid || claims.UserID == uuid.Nil {
+		return nil, errors.New("invalid token")
 	}
-	return nil, fmt.Errorf("invalid token")
+
+	return &model.TokenInfo{
+		Token:     tokenString,
+		UserID:    claims.UserID,
+		ExpiresAt: claims.ExpiresAt.Time,
+	}, nil
 }

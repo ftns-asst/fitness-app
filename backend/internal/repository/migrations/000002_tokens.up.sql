@@ -4,5 +4,5 @@ CREATE TABLE tokens (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     token_hash TEXT NOT NULL,
     used_at TIMESTAMPTZ,
-    expires_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
 );

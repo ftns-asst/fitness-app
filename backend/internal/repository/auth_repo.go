@@ -76,8 +76,7 @@ func (r *AuthRepo) SetTokenUsedByID(ctx context.Context, id uuid.UUID) error {
 		UPDATE tokens
 		SET used_at = now()
 		WHERE tokens.id = $1 
-			AND tokens.used_at IS NULL
-		VALUES ($1, $2, $3)`
+			AND tokens.used_at IS NULL`
 
 	conn := r.db(ctx)
 	res, err := conn.Exec(ctx, query, id)

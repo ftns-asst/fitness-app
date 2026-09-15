@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"errors"
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/util"
 	"strings"
@@ -14,8 +15,15 @@ func AuthMiddleware(secretKey string) gin.HandlerFunc {
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
 		tokenInfo, err := util.ParseJWTToken(token, secretKey)
+		if errors.Is(err, util.ErrTokenExpired) {
+			c.Abort()
+			handleError(c, model.AuthErrorTokenExpired())
+			return
+		}
 		if err != nil {
-			handleError(c, err)
+			c.Abort()
+			handleError(c, model.AuthErrorInvalidToken())
+			return
 		}
 
 		c.Set(model.ContextKeyUserID, tokenInfo.UserID)

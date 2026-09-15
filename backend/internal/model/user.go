@@ -23,12 +23,12 @@ type User struct {
 }
 
 type UserProfile struct {
-	UserID    uuid.UUID `db:"user_id"`
-	Age       uint      `db:"age"`
-	Gender    Gender    `db:"gender"`
-	HeightCm  uint      `db:"height"`
-	WeightKg  uint      `db:"weight"`
-	UpdatedAt time.Time `db:"updated_at"`
+	UserID    uuid.UUID  `db:"user_id"`
+	Age       *uint      `db:"age"`
+	Gender    *Gender    `db:"gender"`
+	HeightCm  *uint      `db:"height_cm"`
+	WeightKg  *uint      `db:"weight_kg"`
+	UpdatedAt *time.Time `db:"updated_at"`
 }
 
 type UserWithProfile struct {

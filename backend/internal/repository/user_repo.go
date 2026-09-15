@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"ftns-asst/internal/model"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -137,16 +138,64 @@ func (r *UserRepo) GetUserListByIDs(ctx context.Context, ids []uuid.UUID) ([]*mo
 	return res, nil
 }
 
-type userUserProfile struct {
-	model.User
-	model.UserProfile
+type userWithProfile struct {
+	ID            uuid.UUID `db:"user_id"`
+	Name          string    `db:"display_name"`
+	Email         string    `db:"email"`
+	PasswordHash  string    `db:"pass_hash"`
+	CreatedAt     time.Time `db:"created_at"`
+	UserUpdatedAt time.Time `db:"user_updated_at"`
+
+	ProfileUserID    *uuid.UUID `db:"profile_user_id"`
+	Age              *uint      `db:"age"`
+	Gender           *string    `db:"gender"`
+	HeightCm         *uint      `db:"height_cm"`
+	WeightKg         *uint      `db:"weight_kg"`
+	ProfileUpdatedAt *time.Time `db:"profile_updated_at"`
+}
+
+func (u *userWithProfile) ToModel() *model.UserWithProfile {
+	var profile *model.UserProfile
+	if u.ProfileUserID != nil {
+		profile = &model.UserProfile{
+			UserID:    *u.ProfileUserID,
+			Age:       u.Age,
+			Gender:    (*model.Gender)(u.Gender),
+			HeightCm:  u.HeightCm,
+			WeightKg:  u.WeightKg,
+			UpdatedAt: u.ProfileUpdatedAt,
+		}
+	}
+	return &model.UserWithProfile{
+		User: model.User{
+			ID:           u.ID,
+			Name:         u.Name,
+			Email:        u.Email,
+			PasswordHash: u.PasswordHash,
+			UpdatedAt:    u.UserUpdatedAt,
+		},
+
+		Profile: profile,
+	}
 }
 
 func (r *UserRepo) GetUserWithProfileByID(ctx context.Context, id uuid.UUID) (*model.UserWithProfile, error) {
 	query := `
-		SELECT * FROM users
-		LEFT JOIN user_profiles ON user_profiles.user_id = users.id
-		WHERE users.id = $1
+		SELECT u.id AS user_id, 
+			u.display_name AS display_name,
+			u.email,
+			u.pass_hash,
+			u.created_at,
+			u.updated_at AS user_updated_at,
+        	p.user_id AS profile_user_id, 
+			p.age,
+			p.gender,
+			p.height_cm,
+			p.weight_kg,
+			p.updated_at AS profile_updated_at
+		FROM users u
+		LEFT JOIN user_profiles p ON p.user_id = u.id
+		WHERE u.id = $1
 	`
 	conn := r.db(ctx)
 	rows, err := conn.Query(ctx, query, id)
@@ -157,14 +206,11 @@ func (r *UserRepo) GetUserWithProfileByID(ctx context.Context, id uuid.UUID) (*m
 		return nil, fmt.Errorf("select failed: %w", err)
 	}
 
-	res, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[userUserProfile])
+	res, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[userWithProfile])
 	if err != nil {
 		return nil, fmt.Errorf("collect row failed: %w", err)
 	}
-	return &model.UserWithProfile{
-		User:    res.User,
-		Profile: &res.UserProfile,
-	}, nil
+	return res.ToModel(), nil
 }
 
 func (r *UserRepo) CheckUserWithEmailExists(ctx context.Context, email string) (exists bool, err error) {

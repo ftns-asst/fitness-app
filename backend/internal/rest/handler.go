@@ -68,6 +68,6 @@ func handleError(c *gin.Context, err error) {
 		resp.Message = err.Error()
 	}
 
-	log.Printf("Error: %#v", err)
+	log.Printf("Error: %v", err)
 	c.JSON(responseCode, resp)
 }

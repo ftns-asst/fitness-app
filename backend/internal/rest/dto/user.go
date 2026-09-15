@@ -18,10 +18,10 @@ type UserResponse struct {
 } // @Name User
 
 type UserProfileResponse struct {
-	Age      uint   `json:"age"`
-	Gender   string `json:"gender" enums:"male, female"`
-	HeightCm uint   `json:"height"`
-	WeightKg uint   `json:"weight"`
+	Age      uint   `json:"age,omitempty"`
+	Gender   string `json:"gender,omitempty" enums:"male,female"`
+	HeightCm uint   `json:"height,omitempty"`
+	WeightKg uint   `json:"weight,omitempty"`
 } // @Name UserProfile
 
 type UserWithProfileResponse struct {

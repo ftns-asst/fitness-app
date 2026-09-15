@@ -27,7 +27,7 @@ func NewServer(cfg *config.Config, services service.Services) *http.Server {
 	}))
 	handlers := newHandlers(cfg, &services)
 	api := r.Group("/api/v1")
-	handlers.auth.RegisterRoutes(api)
+	handlers.RegisterRoutes(api)
 
 	api.GET("/swagger/*any", func(c *gin.Context) {
 		if p := c.Param("any"); p == "" || p == "/" {

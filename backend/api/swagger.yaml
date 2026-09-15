@@ -83,7 +83,7 @@ definitions:
       gender:
         enum:
         - male
-        - ' female'
+        - female
         type: string
       height:
         type: integer

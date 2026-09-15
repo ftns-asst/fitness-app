@@ -42,17 +42,20 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		handleError(c, fmt.Errorf("failed to parse id param: %w: %w", err, model.ErrBadRequest))
+		return
 	}
 
 	var p dto.GetUserQueryParams
-	err = c.ShouldBindUri(&p)
+	err = c.ShouldBindQuery(&p)
 	if err != nil {
 		handleError(c, fmt.Errorf("failed to get query params: %w: %w", err, model.ErrBadRequest))
+		return
 	}
 
 	user, err := h.userService.GetUserByID(c.Request.Context(), id, p.WithProfile)
 	if err != nil {
 		handleError(c, err)
+		return
 	}
 
 	c.JSON(http.StatusOK, user)
