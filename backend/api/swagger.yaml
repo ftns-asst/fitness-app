@@ -191,7 +191,7 @@ paths:
       summary: Log in an existing user
       tags:
       - auth
-  /auth/refres:
+  /auth/refresh:
     post:
       consumes:
       - application/json

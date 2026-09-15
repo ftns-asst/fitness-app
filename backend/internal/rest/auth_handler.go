@@ -26,6 +26,10 @@ func NewAuthHandler(authService *auth.AuthService, userService *users.UserServic
 
 func (h *AuthHandler) RegisterRoutes(r *gin.RouterGroup) {
 	r.POST("/auth/check-email", h.CheckEmail)
+	r.POST("/auth/signup", h.SignUp)
+	r.POST("/auth/login", h.LogIn)
+	r.POST("/auth/refresh", h.LogIn)
+	
 }
 
 // CheckEmail godoc
@@ -127,7 +131,7 @@ func (h *AuthHandler) LogIn(c *gin.Context) {
 // @Failure      400  {object}  ErrorResponse
 // @Failure      404  {object}  ErrorResponse
 // @Failure      500  {object}  ErrorResponse
-// @Router /auth/refres [post]
+// @Router /auth/refresh [post]
 func (h *AuthHandler) RefreshTokens(c *gin.Context) {
 	var body dto.RefreshTokensRequestBody
 	err := c.ShouldBindJSON(&body)

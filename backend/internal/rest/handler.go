@@ -2,6 +2,7 @@ package rest
 
 import (
 	"errors"
+	"ftns-asst/internal/config"
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/service"
 	"log"
@@ -11,17 +12,24 @@ import (
 )
 
 type Handlers struct {
+	cfg  *config.Config
 	auth *AuthHandler
+	user *UserHandler
 }
 
-func newHandlers(services *service.Services) *Handlers {
+func newHandlers(cfg *config.Config, services *service.Services) *Handlers {
 	return &Handlers{
+		cfg:  cfg,
 		auth: NewAuthHandler(services.Auth(), services.User()),
+		user: NewUserHandler(services.User()),
 	}
 }
 
 func (h *Handlers) RegisterRoutes(r *gin.RouterGroup) {
+	authMid := AuthMiddleware(h.cfg.AccessTokenJWTSecretKey)
+
 	h.auth.RegisterRoutes(r)
+	h.user.RegisterRoutes(r, authMid)
 }
 
 type ErrorResponse struct {

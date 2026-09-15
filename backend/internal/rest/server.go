@@ -25,7 +25,7 @@ func NewServer(cfg *config.Config, services service.Services) *http.Server {
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: false,
 	}))
-	handlers := newHandlers(&services)
+	handlers := newHandlers(cfg, &services)
 	api := r.Group("/api/v1")
 	handlers.auth.RegisterRoutes(api)
 

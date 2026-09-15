@@ -15,14 +15,14 @@ type UserHandler struct {
 	userService *users.UserService
 }
 
-func NewUserHandler(userService users.UserService) *UserHandler {
+func NewUserHandler(userService *users.UserService) *UserHandler {
 	return &UserHandler{
-		userService: &userService,
+		userService: userService,
 	}
 }
 
-func (h *UserHandler) RegisterRoutes(r *gin.RouterGroup) {
-	r.GET("/users/:id", h.GetUserByID)
+func (h *UserHandler) RegisterRoutes(r *gin.RouterGroup, authMid gin.HandlerFunc) {
+	r.GET("/users/:id", authMid, h.GetUserByID)
 }
 
 // GetUserByID godoc

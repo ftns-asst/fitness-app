@@ -119,7 +119,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/refres": {
+        "/auth/refresh": {
             "post": {
                 "consumes": [
                     "application/json"

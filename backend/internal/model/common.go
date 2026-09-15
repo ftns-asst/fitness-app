@@ -11,7 +11,8 @@ import (
 type ContextKey string
 
 const (
-	ContextKeyTx ContextKey = "tx"
+	ContextKeyTx     ContextKey = "tx"
+	ContextKeyUserID ContextKey = "userID"
 )
 
 type Transactor interface {
