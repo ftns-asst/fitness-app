@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/rest/dto"
+	"ftns-asst/internal/rest/dto/mapper"
 	"ftns-asst/internal/service/users"
 	"net/http"
 
@@ -58,5 +59,5 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, mapper.ConvertUserWithProfileToDTO(user))
 }
