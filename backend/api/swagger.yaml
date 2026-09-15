@@ -1,0 +1,294 @@
+basePath: /api/v1
+definitions:
+  CheckEmailRequestBody:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  CheckEmailResponse:
+    properties:
+      free:
+        type: boolean
+    type: object
+  LogInRequestBody:
+    properties:
+      email:
+        type: string
+      password:
+        maxLength: 64
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  LogInResponse:
+    properties:
+      tokens:
+        $ref: '#/definitions/Tokens'
+      user:
+        $ref: '#/definitions/User'
+    type: object
+  RefreshTokensRequestBody:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  RefreshTokensResponse:
+    properties:
+      tokens:
+        $ref: '#/definitions/Tokens'
+    type: object
+  SignUpRequestBody:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        maxLength: 64
+        minLength: 8
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  Tokens:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  UserProfile:
+    properties:
+      age:
+        type: integer
+      gender:
+        enum:
+        - male
+        - female
+        type: string
+      height:
+        type: integer
+      weight:
+        type: integer
+    type: object
+  UserWithProfile:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      profile:
+        $ref: '#/definitions/UserProfile'
+    type: object
+  ftns-asst_internal_rest_dto.SignUpResponse:
+    properties:
+      tokens:
+        $ref: '#/definitions/Tokens'
+      user:
+        $ref: '#/definitions/User'
+    type: object
+  internal_rest.ErrorResponse:
+    properties:
+      key:
+        type: string
+      message:
+        type: string
+    type: object
+host: fitness.nought.ru
+info:
+  contact: {}
+  title: Fitness Assistant API
+  version: "1.0"
+paths:
+  /auth/check-email:
+    post:
+      consumes:
+      - application/json
+      operationId: checkEmail
+      parameters:
+      - description: CheckEmail body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/CheckEmailRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CheckEmailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+      summary: Check if email is already taken
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      operationId: logIn
+      parameters:
+      - description: LogIn body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/LogInRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/LogInResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+      summary: Log in an existing user
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      operationId: refreshTokens
+      parameters:
+      - description: RefreshTokens body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/RefreshTokensRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/RefreshTokensResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+      summary: Refresh authentication tokens
+      tags:
+      - auth
+  /auth/signup:
+    post:
+      consumes:
+      - application/json
+      operationId: signUp
+      parameters:
+      - description: SignUp body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/SignUpRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ftns-asst_internal_rest_dto.SignUpResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+      summary: Sign up a new user
+      tags:
+      - auth
+  /users/{id}:
+    get:
+      consumes:
+      - application/json
+      operationId: getUserByID
+      parameters:
+      - description: if true - resposne with user profile
+        in: query
+        name: withProfile
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserWithProfile'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_rest.ErrorResponse'
+      summary: Get user by ID
+      tags:
+      - users
+swagger: "2.0"
