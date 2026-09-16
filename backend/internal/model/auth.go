@@ -29,13 +29,18 @@ type TokenInfo struct {
 	ExpiresAt time.Time
 }
 
-type RefreshToken struct {
+type Token struct {
 	ID        uuid.UUID  `db:"id"`
 	UserID    uuid.UUID  `db:"user_id"`
 	TokenHash string     `db:"token_hash"`
 	UsedAt    *time.Time `db:"used_at"`
 	ExpiresAt time.Time  `db:"expires_at"`
 }
+
+type RefreshToken Token
+
+// password recovery token
+type ResetToken Token
 
 const ValidPasswordChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:,.<>?/"
 
@@ -104,3 +109,12 @@ const (
 	PasswordRecoveryStatusIncorrect PasswordRecoveryStatus = "incorrect"
 	PasswordRecoveryStatusExpired   PasswordRecoveryStatus = "expired"
 )
+
+// verification code for password recovery
+type VerificationCode struct {
+	ID        uuid.UUID  `db:"id"`
+	UserID    uuid.UUID  `db:"user_id"`
+	Code      string     `db:"code"`
+	UsedAt    *time.Time `db:"used_at"`
+	ExpiresAt time.Time  `db:"expires_at"`
+}
