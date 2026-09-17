@@ -19,7 +19,7 @@ type SignUpRequestBody struct {
 type SignUpResponse struct {
 	User   *UserResponse `json:"user"`
 	Tokens *Tokens       `json:"tokens"`
-}
+} //@Name SignUpResponse
 
 // --- Login ---
 

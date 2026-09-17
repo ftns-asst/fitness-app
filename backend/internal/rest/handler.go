@@ -35,7 +35,7 @@ func (h *Handlers) RegisterRoutes(r *gin.RouterGroup) {
 type ErrorResponse struct {
 	Key     string `json:"key"`
 	Message string `json:"message"`
-}
+} //@Name ErrorResponse
 
 // func handleError(c *gin.Context, err error) {
 // 	handleServiceError(c, model.NewError(err))

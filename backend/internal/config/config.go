@@ -14,10 +14,15 @@ type Config struct {
 	RefreshTokenJWTSecretKey  string        `env:"REFRESH_TOKEN_JWT_SECRET_KEY,required"`
 	RefreshTokenHashSecretKey string        `env:"REFRESH_TOKEN_HASH_SECRET,required"`
 	postgres                  *PostgresConfig
+	smtp                      *util.SMTPConfig
 }
 
 func (c *Config) Postgres() *PostgresConfig {
 	return c.postgres
+}
+
+func (c *Config) SMTP() *util.SMTPConfig {
+	return c.smtp
 }
 
 type PostgresConfig struct {
@@ -38,5 +43,6 @@ func (c *PostgresConfig) ConnString() string {
 func MustRead() *Config {
 	cfg := util.Ptr(util.MustReadFromEnv[Config]())
 	cfg.postgres = util.Ptr(util.MustReadFromEnv[PostgresConfig]())
+	cfg.smtp = util.Ptr(util.MustReadFromEnv[util.SMTPConfig]())
 	return cfg
 }

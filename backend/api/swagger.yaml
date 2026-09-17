@@ -12,6 +12,13 @@ definitions:
       free:
         type: boolean
     type: object
+  ErrorResponse:
+    properties:
+      key:
+        type: string
+      message:
+        type: string
+    type: object
   LogInRequestBody:
     properties:
       email:
@@ -30,6 +37,13 @@ definitions:
         $ref: '#/definitions/Tokens'
       user:
         $ref: '#/definitions/User'
+    type: object
+  PasswordRecoveryRequestBody:
+    properties:
+      email:
+        type: string
+    required:
+    - email
     type: object
   RefreshTokensRequestBody:
     properties:
@@ -57,6 +71,13 @@ definitions:
     - email
     - name
     - password
+    type: object
+  SignUpResponse:
+    properties:
+      tokens:
+        $ref: '#/definitions/Tokens'
+      user:
+        $ref: '#/definitions/User'
     type: object
   Tokens:
     properties:
@@ -103,20 +124,6 @@ definitions:
       profile:
         $ref: '#/definitions/UserProfile'
     type: object
-  ftns-asst_internal_rest_dto.SignUpResponse:
-    properties:
-      tokens:
-        $ref: '#/definitions/Tokens'
-      user:
-        $ref: '#/definitions/User'
-    type: object
-  internal_rest.ErrorResponse:
-    properties:
-      key:
-        type: string
-      message:
-        type: string
-    type: object
 host: fitness.nought.ru
 info:
   contact: {}
@@ -145,15 +152,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
       summary: Check if email is already taken
       tags:
       - auth
@@ -179,16 +186,49 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
       summary: Log in an existing user
+      tags:
+      - auth
+  /auth/password-recovery:
+    post:
+      consumes:
+      - application/json
+      operationId: passwordRecovery
+      parameters:
+      - description: Request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PasswordRecoveryRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Recover password by email, sends verification code to email, no response
+        data
       tags:
       - auth
   /auth/refresh:
@@ -213,15 +253,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
       summary: Refresh authentication tokens
       tags:
       - auth
@@ -243,19 +283,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/ftns-asst_internal_rest_dto.SignUpResponse'
+            $ref: '#/definitions/SignUpResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
       summary: Sign up a new user
       tags:
       - auth
@@ -279,15 +319,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
       summary: Get user by ID
       tags:
       - users

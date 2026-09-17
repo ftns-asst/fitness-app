@@ -30,6 +30,9 @@ func (h *AuthHandler) RegisterRoutes(r *gin.RouterGroup) {
 	r.POST("/auth/login", h.LogIn)
 	r.POST("/auth/refresh", h.RefreshTokens)
 
+	r.POST("/auth/password-recovery", h.PasswordRecovery)
+	// r.POST("/auth/password-recovery/verify")
+	// r.POST("/auth/password-recovery/reset")
 }
 
 // CheckEmail godoc
@@ -148,4 +151,33 @@ func (h *AuthHandler) RefreshTokens(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, mapper.ConvertTokensToDTO(result))
+}
+
+// PasswordRecovery godoc
+// @Id passwordRecovery
+// @Tags auth
+// @Summary Recover password by email, sends verification code to email, no response data
+// @Accept json
+// @Produce json
+// @Param request body dto.PasswordRecoveryRequestBody true "Request body"
+// @Success 200
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router /auth/password-recovery [post]
+func (h *AuthHandler) PasswordRecovery(c *gin.Context) {
+	var body dto.PasswordRecoveryRequestBody
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to read request body: %w:%w", err, model.ErrBadRequest))
+		return
+	}
+
+	err = h.authService.StartPasswordRecovery(c.Request.Context(), body.Email)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.Status(http.StatusOK)
 }

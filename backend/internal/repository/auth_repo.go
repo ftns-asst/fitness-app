@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"ftns-asst/internal/model"
+	"ftns-asst/internal/util"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -94,18 +95,23 @@ func (r *AuthRepo) SetTokenUsedByID(ctx context.Context, id uuid.UUID) error {
 // save new verification code, set other codes as expired
 func (r *AuthRepo) CreateVerificationCodeAndSetOtherExpired(ctx context.Context, code *model.VerificationCode) (*model.VerificationCode, error) {
 	query := `
-		UPDATE verification_codes vc
-		SET expires_at = now() - interval '1 minute'
-		WHERE vc.user_id = $1
-			AND vc.used_at IS NULL
-			AND vc.expires_at > now();
+		WITH expired AS (
+			UPDATE verification_codes
+			SET expires_at = now() - interval '1 minute'
+			WHERE user_id = $1
+				AND used_at IS NULL
+				AND expires_at > now()
+		)
+		INSERT INTO verification_codes (user_id, code_hash, expires_at)
+		VALUES ($1, $2, $3)
+		RETURNING id`
 
-		INSERT INTO verification_codes vc (user_id, code, expires_at)
-		VALUES ($2, $3, $4)
-		RETURNING vc.id;`
-
+	hash, err := util.HashSHA256(code.Code, "dfjdksldfjsdf")
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash code: %w", err)
+	}
 	conn := r.db(ctx)
-	err := conn.QueryRow(ctx, query, code.UserID, code.UserID, code.Code, code.ExpiresAt).Scan(&code.ID)
+	err = conn.QueryRow(ctx, query, code.UserID, hash, code.ExpiresAt).Scan(&code.ID)
 	if err != nil {
 		return nil, fmt.Errorf("insert scan failed: %w", err)
 	}
@@ -137,7 +143,7 @@ func (r *AuthRepo) SetCodeUsedByID(ctx context.Context, id uuid.UUID) error {
 
 // get code that not used or expired (there should be only ONE such)
 func (r *AuthRepo) GetCodeNotUsedNotExpiredByUserID(ctx context.Context, userID uuid.UUID) (*model.VerificationCode, error) {
-		query := `
+	query := `
 		SELECT * FROM verification_codes vc
 		WHERE vc.user_id = $1
 			AND vc.used_at IS NULL,
@@ -160,8 +166,6 @@ func (r *AuthRepo) GetCodeNotUsedNotExpiredByUserID(ctx context.Context, userID 
 	}
 	return code, nil
 }
-
-
 
 // create reset token
 func (r *AuthRepo) CreateResetToken(ctx context.Context, token *model.ResetToken) (*model.ResetToken, error) {

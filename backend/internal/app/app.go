@@ -8,6 +8,7 @@ import (
 	"ftns-asst/internal/repository"
 	"ftns-asst/internal/rest"
 	"ftns-asst/internal/service"
+	"ftns-asst/internal/util"
 	"log"
 	"net/http"
 )
@@ -24,8 +25,9 @@ func New(ctx context.Context, cfg *config.Config) *App {
 		log.Panicf("failed connect to DB: %s", err.Error())
 	}
 
+	mailer := util.NewSMTPClient(cfg.SMTP())
 	repositories := repository.NewRepositories(db)
-	services := service.NewServices(cfg, *repositories, db)
+	services := service.NewServices(cfg, *repositories, mailer, db)
 
 	httpServer := rest.NewServer(cfg, *services)
 

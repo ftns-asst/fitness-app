@@ -11,6 +11,8 @@ import (
 const (
 	AccessTokenExpireTime  time.Duration = 30 * time.Minute
 	RefreshTokenExpireTime time.Duration = 10 * 24 * time.Hour
+
+	VerificationCodeExpireTime time.Duration = 10 * time.Minute
 )
 
 // jwt authentication tokens

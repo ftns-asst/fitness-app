@@ -19,6 +19,10 @@ type Transactor interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
+type Mailer interface {
+	SendEmail(toEmail string, subjectRaw string, body string) error
+}
+
 func CheckRollback(ctx context.Context, tx pgx.Tx) {
 	err := tx.Rollback(ctx)
 	if err != nil && !errors.Is(err, pgx.ErrTxClosed) {
