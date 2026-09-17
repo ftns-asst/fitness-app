@@ -139,13 +139,13 @@ PageScaffold {
             spacing: 0
 
             Repeater {
-                model: 3
+                model: MockCatalog.workoutHistory
 
                 delegate: ExerciseRow {
                     width: parent.width
-                    title: [qsTr("Тренировка A · Full body"), qsTr("Тренировка B · Спина"), qsTr("Тренировка A · Full body")][index]
-                    setsText: [qsTr("12 сентября · 52 мин · 12,4 т"), qsTr("10 сентября · 48 мин · 9,8 т"), qsTr("8 сентября · 55 мин · 11,9 т")][index]
-                    showDivider: index < 2
+                    title: modelData.title
+                    setsText: modelData.dateText + " · " + modelData.durationText + " · " + modelData.tonnageText
+                    showDivider: index < MockCatalog.workoutHistory.length - 1
 
                     onClicked: Demo.notify(qsTr("Детали тренировки — этап D4"))
                 }

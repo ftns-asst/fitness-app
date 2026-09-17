@@ -9,7 +9,8 @@ import QtQuick
 // семействами («Inter Medium», «Inter Semi Bold»), а Regular и Bold — в
 // семействе «Inter». Поэтому у каждого веса своё семейство: иначе Qt не найдёт
 // начертание внутри «Inter» и подменит его ближайшим (Medium → Regular).
-// Маппинг проверяется зондом шрифтов в qml/Main.qml (строка fontWeights в --diag).
+// Маппинг проверяется зондом шрифтов в qml/Main.qml (строки fontWeights15 и
+// fontWeights40 в --diag).
 QtObject {
     readonly property string fontFamily: "Inter"
     readonly property string fontFamilyMedium: "Inter Medium"

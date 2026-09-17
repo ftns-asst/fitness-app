@@ -41,7 +41,8 @@ static void Set_System_Bars_Appearance(bool in_dark_mode)
 	controller = window.callObjectMethod("getWindowInsetsController", "()Landroid/view/WindowInsetsController;");
 
 	if (controller.isValid() == false)
-	{// API < 30: оставляем системные значения по умолчанию.
+	{
+		// API < 30: оставляем системные значения по умолчанию.
 		return;
 	}
 

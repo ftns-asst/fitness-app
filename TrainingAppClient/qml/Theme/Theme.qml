@@ -2,7 +2,7 @@ pragma Singleton
 import QtQuick
 
 // Design tokens: единственный источник цветов, скруглений и размеров.
-// Источник значений: docs/fitness-assistant-frontend-design.mk §3, §8.
+// Источник значений: docs/fitness-assistant-frontend-design.md §3, §8.
 QtObject {
     // — Переключаемый акцент (§3.1): синий по умолчанию —
     readonly property var accentPalette: ["#505DD5", "#0FB5A5", "#F2542D", "#8B46E0"]

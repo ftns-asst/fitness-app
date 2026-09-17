@@ -2,7 +2,7 @@
 
 QML-клиент приложения **«Фитнес-помощник»**: план дня, запись тренировок, каталог программ и упражнений, прогресс и история.
 
-Целевая платформа — **Android**. Стек — **Qt 6 / QML** (проект требует Qt 6.8+, в разработке — 6.11.2). Сейчас это **демо-интерфейс** на mock-данных: четыре вкладки приведены к дизайн-референсу. Запись подходов, таймер, auth и сеть — следующие этапы.
+Целевая платформа — **Android**. Стек — **Qt 6 / QML** (проект требует Qt 6.8+, в разработке — 6.11.2). Сейчас это **демо-интерфейс** на mock-данных: четыре вкладки приведены к дизайн-референсу, контракт данных и mock auth/users API подготовлены. Экраны auth, запись подходов, таймер и сеть — следующие этапы.
 
 ## Продукт
 
@@ -75,6 +75,39 @@ $env:QT_FORCE_STDERR_LOGGING = '1'
 
 Норматив: `problems=0` на всех четырёх вкладках при ширине 360 / 390 / 480 px, в рамке и в тёмной теме. Тени `MultiEffect` и горизонтальный скролл chips аудит не считает ошибкой.
 
+### Тесты и локальные gates
+
+Единый скрипт выполняет проверку `qmlformat`, `clang-format`, конфигурацию
+CMake, `qmllint`, desktop-сборку и все CTest-тесты:
+
+```powershell
+.\scripts\run-gates.ps1 `
+    -BuildDir build/gates `
+    -Generator Ninja `
+    -QtPrefix D:\Qt\6.11.2\mingw_64
+```
+
+Зарегистрированные тесты:
+
+- `qml_mock_contract` — auth/users mock API, ошибки, сессия, токены и роли
+  `MockCatalog`;
+- `ui_smoke_tab_0..3` — запуск настоящего приложения в offscreen-режиме и
+  проверка `--diag` (`problems=0`) для каждой основной вкладки.
+
+GitHub Actions workflow `.github/workflows/training-app-ci.yml` запускает тот
+же скрипт на каждом `push` в любую ветку и для каждого pull request. Workflow
+выполняется после отправки коммитов на GitHub; для проверки непосредственно
+перед локальным commit можно один раз явно включить версионируемый hook:
+
+```powershell
+.\scripts\install-git-hooks.ps1
+```
+
+Команда только устанавливает `core.hooksPath=.githooks` в текущем clone и не
+создаёт commit/push. После включения неуспешный gate блокирует локальный commit.
+Для обязательного запрета merge включите в GitHub branch protection required
+status check `Format, build and test (Qt 6.11.2)`.
+
 ### Android
 
 Portrait-only, label «Фитнес-помощник». Kit: `Qt 6.11.2 for Android x86_64`. На устройстве рамка телефона не рисуется: Safe Area, системные полосы под тему, «назад» закрывает Dev-панель и стек деталей.
@@ -90,7 +123,9 @@ qml/DevPanel.qml          панель дизайн-ревью
 qml/Pages/                Сегодня, Планы, Упражнения, Профиль
 qml/Components/           кнопки, карточки, график, heatmap, tab bar
 qml/Theme/                цвета, типографика Inter, отступы
-qml/Mock/                 Demo + MockCatalog
+qml/Mock/                 UI demo, mock-каталог, auth/users API и сессия
+tests/                    QML unit tests и UI smoke через CTest
+scripts/                  единый gate и opt-in установка Git hooks
 src/Platform/             цвет системных полос Android
 android/                  манифест (portrait-lock)
 resources/InterFont/      встроенные начертания Inter
@@ -101,8 +136,9 @@ docs/                     дизайн, референс, roadmap
 
 | Документ | Содержание |
 |---|---|
-| [`docs/fitness-assistant-frontend-design.mk`](docs/fitness-assistant-frontend-design.mk) | Навигация, токены, экраны |
+| [`docs/fitness-assistant-frontend-design.md`](docs/fitness-assistant-frontend-design.md) | Навигация, токены, экраны |
 | [`docs/reference-ui/README.md`](docs/reference-ui/README.md) | Скриншоты-референс и CLI |
 | [`docs/04-roadmap.md`](docs/04-roadmap.md) | Фазы: mock → C++ → сеть → релиз |
+| [`docs/mock-data-contract.md`](docs/mock-data-contract.md) | Роли моделей, mock API и assumed DTO |
 | [`docs/android/README.md`](docs/android/README.md) | Сборка на эмулятор, чек-лист |
 | [`docs/CODE_STYLE.md`](docs/CODE_STYLE.md) | Стиль C++ |

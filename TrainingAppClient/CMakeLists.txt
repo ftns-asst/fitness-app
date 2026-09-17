@@ -3,11 +3,13 @@ cmake_minimum_required(VERSION 3.16)
 project(TrainingAppClient VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(QT_QML_GENERATE_QMLLS_INI ON)
+option(TRAINING_APP_GENERATE_QMLLS_INI "Generate .qmlls.ini for IDE builds" ON)
+set(QT_QML_GENERATE_QMLLS_INI ${TRAINING_APP_GENERATE_QMLLS_INI})
 
 find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 QuickLayouts QuickEffects)
 
 qt_standard_project_setup(REQUIRES 6.8)
+include(CTest)
 
 # Content of downloaded design from Figma to Qt or similar
 if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/importedcontent/CMakeLists.txt")
@@ -41,7 +43,11 @@ set_source_files_properties(
     qml/Theme/Typography.qml
     qml/Theme/Spacing.qml
     qml/Mock/Demo.qml
+    qml/Mock/ApiErrorText.qml
+    qml/Mock/MockApi.qml
     qml/Mock/MockCatalog.qml
+    qml/Mock/MockSession.qml
+    qml/Mock/MockTokenStore.qml
     qml/Components/BackRouter.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
@@ -63,7 +69,11 @@ qt_add_qml_module(appTrainingAppClient
 
         # Presentation-only mock layer of the UI demo
         qml/Mock/Demo.qml
+        qml/Mock/ApiErrorText.qml
+        qml/Mock/MockApi.qml
         qml/Mock/MockCatalog.qml
+        qml/Mock/MockSession.qml
+        qml/Mock/MockTokenStore.qml
 
         # UI components
         qml/Components/AppButton.qml
@@ -123,3 +133,10 @@ install(TARGETS appTrainingAppClient
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+# QML unit/smoke tests run on desktop. Android tests need a deployed test
+# runner and are outside the local CTest contour.
+if (BUILD_TESTING AND NOT ANDROID)
+    find_package(Qt6 REQUIRED COMPONENTS QuickTest Test)
+    add_subdirectory(tests)
+endif()

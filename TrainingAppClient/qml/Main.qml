@@ -186,7 +186,8 @@ ApplicationWindow {
         });
 
         console.log("[audit] interFamilies=" + JSON.stringify(inter) + " totalFamilies=" + families.length);
-        console.log("[audit] fontWeights normal=" + Math.round(fontProbe.widthNormal) + " medium=" + Math.round(fontProbe.widthMedium) + " demibold=" + Math.round(fontProbe.widthDemiBold) + " bold=" + Math.round(fontProbe.widthBold));
+        console.log("[audit] fontWeights15 normal=" + Math.round(fontProbe.normal15) + " medium=" + Math.round(fontProbe.medium15) + " demibold=" + Math.round(fontProbe.demiBold15) + " bold=" + Math.round(fontProbe.bold15));
+        console.log("[audit] fontWeights40 normal=" + Math.round(fontProbe.normal40) + " medium=" + Math.round(fontProbe.medium40) + " demibold=" + Math.round(fontProbe.demiBold40) + " bold=" + Math.round(fontProbe.bold40));
         console.log("[audit] contentWidth=" + Math.round(deviceScreen.width) + " problems=" + problems.length);
 
         for (let p = 0; p < problems.length; ++p) {
@@ -194,10 +195,11 @@ ApplicationWindow {
         }
     }
 
-    // — Зонд шрифтов: один и тот же текст в четырёх весах при одинаковом
-    // pixelSize. Если ширины не возрастают Normal < Medium < DemiBold < Bold,
-    // вес не сопоставился с начертанием (например, Medium лежит в отдельном
-    // семействе) — это видно в выводе --diag без визуального осмотра.
+    // — Зонд шрифтов: измеряем advanceWidth одного и того же текста в четырёх
+    // весах при 15 и 40 px (TextMetrics, без визуальных элементов). Если ширины
+    // совпадают, вес не сопоставился с начертанием (например, Medium лежит
+    // в отдельном семействе) — это видно в выводе --diag без визуального осмотра.
+    // Контейнер — Item: у QtObject нет default-свойства для вложенных объектов.
     Item {
         id: fontProbe
 
@@ -206,53 +208,102 @@ ApplicationWindow {
         height: 0
 
         readonly property string sampleText: "Приседания со штангой 62,5"
-        readonly property real widthNormal: probeNormal.implicitWidth
-        readonly property real widthMedium: probeMedium.implicitWidth
-        readonly property real widthDemiBold: probeDemiBold.implicitWidth
-        readonly property real widthBold: probeBold.implicitWidth
 
-        Label {
-            id: probeNormal
+        readonly property real normal15: metricsNormal15.advanceWidth
+        readonly property real medium15: metricsMedium15.advanceWidth
+        readonly property real demiBold15: metricsDemiBold15.advanceWidth
+        readonly property real bold15: metricsBold15.advanceWidth
+        readonly property real normal40: metricsNormal40.advanceWidth
+        readonly property real medium40: metricsMedium40.advanceWidth
+        readonly property real demiBold40: metricsDemiBold40.advanceWidth
+        readonly property real bold40: metricsBold40.advanceWidth
 
-            text: fontProbe.sampleText
+        TextMetrics {
+            id: metricsNormal15
+
             font: Qt.font({
                 family: Typography.fontFamily,
                 pixelSize: 15,
                 weight: Font.Normal
             })
+            text: fontProbe.sampleText
         }
 
-        Label {
-            id: probeMedium
+        TextMetrics {
+            id: metricsMedium15
 
-            text: fontProbe.sampleText
             font: Qt.font({
                 family: Typography.fontFamilyMedium,
                 pixelSize: 15,
                 weight: Font.Medium
             })
+            text: fontProbe.sampleText
         }
 
-        Label {
-            id: probeDemiBold
+        TextMetrics {
+            id: metricsDemiBold15
 
-            text: fontProbe.sampleText
             font: Qt.font({
                 family: Typography.fontFamilyDemiBold,
                 pixelSize: 15,
                 weight: Font.DemiBold
             })
+            text: fontProbe.sampleText
         }
 
-        Label {
-            id: probeBold
+        TextMetrics {
+            id: metricsBold15
 
-            text: fontProbe.sampleText
             font: Qt.font({
                 family: Typography.fontFamily,
                 pixelSize: 15,
                 weight: Font.Bold
             })
+            text: fontProbe.sampleText
+        }
+
+        TextMetrics {
+            id: metricsNormal40
+
+            font: Qt.font({
+                family: Typography.fontFamily,
+                pixelSize: 40,
+                weight: Font.Normal
+            })
+            text: fontProbe.sampleText
+        }
+
+        TextMetrics {
+            id: metricsMedium40
+
+            font: Qt.font({
+                family: Typography.fontFamilyMedium,
+                pixelSize: 40,
+                weight: Font.Medium
+            })
+            text: fontProbe.sampleText
+        }
+
+        TextMetrics {
+            id: metricsDemiBold40
+
+            font: Qt.font({
+                family: Typography.fontFamilyDemiBold,
+                pixelSize: 40,
+                weight: Font.DemiBold
+            })
+            text: fontProbe.sampleText
+        }
+
+        TextMetrics {
+            id: metricsBold40
+
+            font: Qt.font({
+                family: Typography.fontFamily,
+                pixelSize: 40,
+                weight: Font.Bold
+            })
+            text: fontProbe.sampleText
         }
     }
 
