@@ -255,6 +255,10 @@ func genNumericCode() (string, error) {
 	return fmt.Sprintf("%0*d", 6, value), nil
 }
 
+func genResetToken() string {
+	return util.RandStr()
+}
+
 func (s *AuthService) StartPasswordRecovery(ctx context.Context, email string) error {
 	tx, err := s.tx.Begin(ctx)
 	if err != nil {
@@ -276,10 +280,15 @@ func (s *AuthService) StartPasswordRecovery(ctx context.Context, email string) e
 		return fmt.Errorf("failed to gen code: %w", err)
 	}
 
+	hashedCode, err := util.HashSHA256(codeValue, s.cfg.VerificationCodeHashSecretKey)
+	if err != nil {
+		return fmt.Errorf("failed to hash code: %w", err)
+	}
+
 	_, err = s.authRepo.CreateVerificationCodeAndSetOtherExpired(ctx,
 		&model.VerificationCode{
 			UserID:    user.ID,
-			Code:      codeValue,
+			CodeHash:  hashedCode,
 			ExpiresAt: time.Now().Add(model.VerificationCodeExpireTime),
 		},
 	)
@@ -301,4 +310,133 @@ func (s *AuthService) StartPasswordRecovery(ctx context.Context, email string) e
 	}()
 
 	return nil
+}
+
+func (s *AuthService) VerifyCode(ctx context.Context, email string, codeValue string) (resetToken string, err error) {
+	tx, err := s.tx.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed begin transaction: %w", err)
+	}
+	defer model.CheckRollback(ctx, tx)
+	ctx = context.WithValue(ctx, model.ContextKeyTx, tx)
+
+	user, err := s.userService.GetUserByEmail(ctx, email)
+	if errors.Is(err, repository.ErrNotFound) {
+		return "", fmt.Errorf("not found user with email: %w", model.ErrNotFound)
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to get user by email: %w", model.ErrNotFound)
+	}
+
+	code, err := s.authRepo.GetCodeNotUsedByUserID(ctx, user.ID)
+	if errors.Is(err, repository.ErrNotFound) {
+		return "", model.AuthErrorRecoveryCodeInvalid()
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to get code from repo: %w", err)
+	}
+
+	if code.ExpiresAt.Before(time.Now()) {
+		return "", model.AuthErrorRecoveryCodeExpired()
+	}
+
+	inputCodeHash, err := util.HashSHA256(codeValue, s.cfg.VerificationCodeHashSecretKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash input code: %w", err)
+	}
+
+	if code.CodeHash != inputCodeHash {
+		return "", model.AuthErrorRecoveryCodeInvalid()
+	}
+
+	err = s.authRepo.SetCodeUsedByID(ctx, code.ID)
+	if err != nil {
+		return "", fmt.Errorf("failed to set code used by ID: %w", err)
+	}
+
+	tokenValue := genResetToken()
+	hashedToken, err := util.HashSHA256(tokenValue, s.cfg.ResetTokenHashSecretKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash token: %w", err)
+	}
+	resetPasswordToken := &model.ResetToken{
+		UserID:    user.ID,
+		TokenHash: hashedToken,
+		ExpiresAt: time.Now().Add(model.ResetTokenExpireTime),
+	}
+
+	// save token
+	_, err = s.authRepo.CreateResetToken(ctx, resetPasswordToken)
+	if err != nil {
+		return "", fmt.Errorf("failed to save reset token: %w", err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return tokenValue, nil
+}
+
+func (s *AuthService) ResetPassword(ctx context.Context, newPassword string, resetToken string) (res *model.SuccessResetPasswordResult, err error) {
+	tx, err := s.tx.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed begin transaction: %w", err)
+	}
+	defer model.CheckRollback(ctx, tx)
+	ctx = context.WithValue(ctx, model.ContextKeyTx, tx)
+
+	hashedToken, err := util.HashSHA256(resetToken, s.cfg.ResetTokenHashSecretKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash input code: %w", err)
+	}
+
+	token, err := s.authRepo.GetNotUsedResetTokenByHash(ctx, hashedToken)
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, model.AuthErrorResetTokenInvalid()
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to reset token repo: %w", err)
+	}
+
+	if token.ExpiresAt.Before(time.Now()) {
+		return nil, model.AuthErrorResetTokenExpired()
+	}
+
+	user, err := s.userService.GetUserByID(ctx, token.UserID, false)
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, model.AuthErrorResetTokenInvalid()
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by ID: %w", err)
+	}
+
+	err = s.authRepo.SetResetTokenUsedByID(ctx, token.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mark reset token used by ID: %w", err)
+	}
+
+	tokens, err := s.genTokens(token.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.saveRefreshToken(ctx, tokens.RefreshToken.UserID, tokens.RefreshToken.Token, tokens.RefreshToken.ExpiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save refresh token: %w", err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return &model.SuccessResetPasswordResult{
+		User: &user.User,
+		Tokens: &model.Tokens{
+			AccessToken:  tokens.AccessToken.Token,
+			RefreshToken: tokens.RefreshToken.Token,
+		},
+	}, nil
 }

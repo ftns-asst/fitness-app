@@ -69,3 +69,13 @@ func ConvertLogInResultToDTO(m *model.SuccessLogInResult) *dto.LogInResponse {
 		Tokens: ConvertTokensToDTO(m.Tokens),
 	}
 }
+
+func ConvertResetPasswordResultToDTO(m *model.SuccessResetPasswordResult) *dto.ResetPasswordResponse {
+	if m == nil {
+		return nil
+	}
+	return &dto.ResetPasswordResponse{
+		User:   ConvertUserToDTO(m.User),
+		Tokens: ConvertTokensToDTO(m.Tokens),
+	}
+}

@@ -13,6 +13,7 @@ const (
 	RefreshTokenExpireTime time.Duration = 10 * 24 * time.Hour
 
 	VerificationCodeExpireTime time.Duration = 10 * time.Minute
+	ResetTokenExpireTime       time.Duration = 15 * time.Minute
 )
 
 // jwt authentication tokens
@@ -103,6 +104,11 @@ type SuccessLogInResult struct {
 	Tokens *Tokens
 }
 
+type SuccessResetPasswordResult struct {
+	User   *User
+	Tokens *Tokens
+}
+
 // password recovery result status
 type PasswordRecoveryStatus string
 
@@ -116,7 +122,7 @@ const (
 type VerificationCode struct {
 	ID        uuid.UUID  `db:"id"`
 	UserID    uuid.UUID  `db:"user_id"`
-	Code      string     `db:"code"`
+	CodeHash  string     `db:"code_hash"`
 	UsedAt    *time.Time `db:"used_at"`
 	ExpiresAt time.Time  `db:"expires_at"`
 }

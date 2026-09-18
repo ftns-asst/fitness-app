@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"ftns-asst/internal/model"
-	"ftns-asst/internal/util"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -106,12 +105,8 @@ func (r *AuthRepo) CreateVerificationCodeAndSetOtherExpired(ctx context.Context,
 		VALUES ($1, $2, $3)
 		RETURNING id`
 
-	hash, err := util.HashSHA256(code.Code, "dfjdksldfjsdf")
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash code: %w", err)
-	}
 	conn := r.db(ctx)
-	err = conn.QueryRow(ctx, query, code.UserID, hash, code.ExpiresAt).Scan(&code.ID)
+	err := conn.QueryRow(ctx, query, code.UserID, code.CodeHash, code.ExpiresAt).Scan(&code.ID)
 	if err != nil {
 		return nil, fmt.Errorf("insert scan failed: %w", err)
 	}
@@ -141,13 +136,12 @@ func (r *AuthRepo) SetCodeUsedByID(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// get code that not used or expired (there should be only ONE such)
-func (r *AuthRepo) GetCodeNotUsedNotExpiredByUserID(ctx context.Context, userID uuid.UUID) (*model.VerificationCode, error) {
+// get not used code(there should be only ONE such)
+func (r *AuthRepo) GetCodeNotUsedByUserID(ctx context.Context, userID uuid.UUID) (*model.VerificationCode, error) {
 	query := `
 		SELECT * FROM verification_codes vc
 		WHERE vc.user_id = $1
-			AND vc.used_at IS NULL,
-			AND vc.expires_at > now();
+			AND vc.used_at IS NULL
 		`
 
 	conn := r.db(ctx)
@@ -183,16 +177,15 @@ func (r *AuthRepo) CreateResetToken(ctx context.Context, token *model.ResetToken
 	return token, nil
 }
 
-func (r *AuthRepo) GetNotUsedResetTokenByUserIDAndHash(ctx context.Context, userID uuid.UUID, hash string) (*model.ResetToken, error) {
+func (r *AuthRepo) GetNotUsedResetTokenByHash(ctx context.Context, hash string) (*model.ResetToken, error) {
 	query := `
 		SELECT * FROM reset_tokens
-		WHERE reset_tokens.user_id = $1
-			AND reset_tokens.token_hash = $2
+		WHERE reset_tokens.token_hash = $1
 			AND reset_tokens.used_at IS NULL
 		`
 
 	conn := r.db(ctx)
-	rows, err := conn.Query(ctx, query, userID, hash)
+	rows, err := conn.Query(ctx, query, hash)
 	if err != nil {
 		return nil, fmt.Errorf("select failed: %w", err)
 	}

@@ -8,13 +8,15 @@ import (
 
 // app config
 type Config struct {
-	HTTPServerPort            string        `env:"HTTP_SERVER_PORT,required"`
-	ShutdownTimeout           time.Duration `env:"SERVER_GRACEFUL_SHUTDOWN_TIMEOUT" envDefault:"10s"`
-	AccessTokenJWTSecretKey   string        `env:"ACCESS_TOKEN_JWT_SECRET_KEY,required"`
-	RefreshTokenJWTSecretKey  string        `env:"REFRESH_TOKEN_JWT_SECRET_KEY,required"`
-	RefreshTokenHashSecretKey string        `env:"REFRESH_TOKEN_HASH_SECRET,required"`
-	postgres                  *PostgresConfig
-	smtp                      *util.SMTPConfig
+	HTTPServerPort                string        `env:"HTTP_SERVER_PORT,required"`
+	ShutdownTimeout               time.Duration `env:"SERVER_GRACEFUL_SHUTDOWN_TIMEOUT" envDefault:"10s"`
+	AccessTokenJWTSecretKey       string        `env:"ACCESS_TOKEN_JWT_SECRET_KEY,required"`
+	RefreshTokenJWTSecretKey      string        `env:"REFRESH_TOKEN_JWT_SECRET_KEY,required"`
+	RefreshTokenHashSecretKey     string        `env:"REFRESH_TOKEN_HASH_SECRET,required"`
+	VerificationCodeHashSecretKey string        `env:"VERIFICATION_CODE_HASH_SECRET,required"`
+	ResetTokenHashSecretKey       string        `env:"RESET_TOKEN_HASH_SECERT,required"`
+	postgres                      *PostgresConfig
+	smtp                          *util.SMTPConfig
 }
 
 func (c *Config) Postgres() *PostgresConfig {

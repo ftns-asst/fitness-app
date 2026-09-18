@@ -32,7 +32,7 @@ func (h *UserHandler) RegisterRoutes(r *gin.RouterGroup, authMid gin.HandlerFunc
 // @Summary Get user by ID
 // @Accept json
 // @Produce json
-// @Param id path uuid.UUID true "user id path param"
+// @Param id path string true "user id" format(uuid)
 // @Param withProfile query bool false "if true - resposne with user profile"
 // @Success 200 {object} dto.UserWithProfileResponse
 // @Failure      400  {object}  ErrorResponse

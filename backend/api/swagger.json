@@ -161,6 +161,110 @@
                 }
             }
         },
+        "/auth/password-recovery/reset": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Reset password by reset token",
+                "operationId": "resetPassword",
+                "parameters": [
+                    {
+                        "description": "Request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ResetPasswordRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResetPasswordResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/password-recovery/verify": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Verify otp code",
+                "operationId": "verifyCode",
+                "parameters": [
+                    {
+                        "description": "Request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/VerifyRecoveryCodeRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/VerifyRecoveryCodeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/refresh": {
             "post": {
                 "consumes": [
@@ -279,6 +383,14 @@
                 "summary": "Get user by ID",
                 "operationId": "getUserByID",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "user id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "boolean",
                         "description": "if true - resposne with user profile",
@@ -404,6 +516,34 @@
                 }
             }
         },
+        "ResetPasswordRequestBody": {
+            "type": "object",
+            "required": [
+                "new_password",
+                "reset_token"
+            ],
+            "properties": {
+                "new_password": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 8
+                },
+                "reset_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "ResetPasswordResponse": {
+            "type": "object",
+            "properties": {
+                "tokens": {
+                    "$ref": "#/definitions/Tokens"
+                },
+                "user": {
+                    "$ref": "#/definitions/User"
+                }
+            }
+        },
         "SignUpRequestBody": {
             "type": "object",
             "required": [
@@ -502,6 +642,31 @@
                 },
                 "profile": {
                     "$ref": "#/definitions/UserProfile"
+                }
+            }
+        },
+        "VerifyRecoveryCodeRequestBody": {
+            "type": "object",
+            "required": [
+                "code",
+                "email"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "maxLength": 6,
+                    "minLength": 6
+                },
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "VerifyRecoveryCodeResponse": {
+            "type": "object",
+            "properties": {
+                "reset_token": {
+                    "type": "string"
                 }
             }
         }

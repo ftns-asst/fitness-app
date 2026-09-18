@@ -29,6 +29,8 @@ const (
 	AuthErrorTokenExpiredKey      = "token_expired"
 	AuthRecoveryCodeInvalidKey    = "recovery_code_invalid"
 	AuthRecoveryCodeExpiredKey    = "recovery_code_expired"
+	AuthResetTokenInvalidKey      = "reset_token_invalid"
+	AuthResetTokenExpiredKey      = "reset_token_expired"
 )
 
 func NewError(err error) *ServiceError {
@@ -66,16 +68,30 @@ func AuthErrorTokenExpired() *ServiceError {
 	}
 }
 
-func AuthRecoveryCodeInvalid() *ServiceError {
+func AuthErrorRecoveryCodeInvalid() *ServiceError {
 	return &ServiceError{
 		Err: fmt.Errorf("invalid recovery code: %w", ErrBadRequest),
 		Key: AuthRecoveryCodeInvalidKey,
 	}
 }
 
-func AuthRecoveryCodeExpired() *ServiceError {
+func AuthErrorRecoveryCodeExpired() *ServiceError {
 	return &ServiceError{
 		Err: fmt.Errorf("expired recovery code: %w", ErrBadRequest),
 		Key: AuthRecoveryCodeExpiredKey,
+	}
+}
+
+func AuthErrorResetTokenInvalid() *ServiceError {
+	return &ServiceError{
+		Err: fmt.Errorf("invalid reset token: %w", ErrBadRequest),
+		Key: AuthResetTokenInvalidKey,
+	}
+}
+
+func AuthErrorResetTokenExpired() *ServiceError {
+	return &ServiceError{
+		Err: fmt.Errorf("expired reset token: %w", ErrBadRequest),
+		Key: AuthResetTokenExpiredKey,
 	}
 }

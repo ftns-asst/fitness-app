@@ -57,6 +57,25 @@ definitions:
       tokens:
         $ref: '#/definitions/Tokens'
     type: object
+  ResetPasswordRequestBody:
+    properties:
+      new_password:
+        maxLength: 64
+        minLength: 8
+        type: string
+      reset_token:
+        type: string
+    required:
+    - new_password
+    - reset_token
+    type: object
+  ResetPasswordResponse:
+    properties:
+      tokens:
+        $ref: '#/definitions/Tokens'
+      user:
+        $ref: '#/definitions/User'
+    type: object
   SignUpRequestBody:
     properties:
       email:
@@ -123,6 +142,23 @@ definitions:
         type: string
       profile:
         $ref: '#/definitions/UserProfile'
+    type: object
+  VerifyRecoveryCodeRequestBody:
+    properties:
+      code:
+        maxLength: 6
+        minLength: 6
+        type: string
+      email:
+        type: string
+    required:
+    - code
+    - email
+    type: object
+  VerifyRecoveryCodeResponse:
+    properties:
+      reset_token:
+        type: string
     type: object
 host: fitness.nought.ru
 info:
@@ -231,6 +267,74 @@ paths:
         data
       tags:
       - auth
+  /auth/password-recovery/reset:
+    post:
+      consumes:
+      - application/json
+      operationId: resetPassword
+      parameters:
+      - description: Request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ResetPasswordRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ResetPasswordResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Reset password by reset token
+      tags:
+      - auth
+  /auth/password-recovery/verify:
+    post:
+      consumes:
+      - application/json
+      operationId: verifyCode
+      parameters:
+      - description: Request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/VerifyRecoveryCodeRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/VerifyRecoveryCodeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Verify otp code
+      tags:
+      - auth
   /auth/refresh:
     post:
       consumes:
@@ -305,6 +409,12 @@ paths:
       - application/json
       operationId: getUserByID
       parameters:
+      - description: user id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
       - description: if true - resposne with user profile
         in: query
         name: withProfile
