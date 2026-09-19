@@ -1,0 +1,19 @@
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: always
+    networks:
+      default:
+      proxy:
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ftns-nginx.conf:/etc/nginx/conf.d/ftns-nginx.conf:ro
+      - /conf:/etc/nginx/conf.d 
+
+networks:
+  proxy:
+    external: true

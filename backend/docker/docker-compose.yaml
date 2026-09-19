@@ -21,6 +21,10 @@ services:
     ports:
       - "8181:8181"
       
+    networks:
+      default:
+      proxy:
+
     env_file:
       - ../.env
       
@@ -34,3 +38,8 @@ services:
 
 volumes:
   ftns-data:
+
+
+networks:
+  proxy:
+    external: true
