@@ -62,6 +62,13 @@ endforeach()
 
 file(WRITE "${MOCK_IMPORT_DIR}/qmldir" "${MOCK_IMPORT_QMLDIR}")
 
+qt_add_executable(tst_App_Context
+    cpp/tst_App_Context.cpp
+)
+target_link_libraries(tst_App_Context PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME app_context COMMAND tst_App_Context)
+set_tests_properties(app_context PROPERTIES TIMEOUT 20)
+
 # Автономные экраны входа и регистрации (issue 2) на пяти компоновках каждая.
 foreach(auth_screen IN ITEMS auth-login auth-signup)
     foreach(auth_viewport IN ITEMS 360 390 480 frame dark)

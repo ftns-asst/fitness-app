@@ -104,6 +104,9 @@ $env:QT_FORCE_STDERR_LOGGING = '1'
   `AppShell` остаётся живым под auth overlay; страницы получают данные через
   mock-backed presentation-контракты, готовые к замене на `Avm_*`.
   Скриншоты: `auth-login-light.png`, `auth-signup-light.png`.
+- Фаза V, issue 3 выполнена: добавлен `AsApp_Context`, слои
+  `src/Data`/`Domain`/`Presentation`, Qt Network/Sql/Test и конфигурация API URL
+  (`--api-url` → QSettings → env → default). UI визуально не изменён.
 - Добавлен ранний тестовый контур: QML unit-тесты mock API/контракта, четыре
   offscreen UI smoke-теста через `--diag`, единый `scripts/run-gates.ps1`,
   opt-in pre-commit hook и GitHub Actions на все push/PR. Fake HTTP-сервер и

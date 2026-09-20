@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(TRAINING_APP_GENERATE_QMLLS_INI "Generate .qmlls.ini for IDE builds" ON)
 set(QT_QML_GENERATE_QMLLS_INI ${TRAINING_APP_GENERATE_QMLLS_INI})
 
-find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 QuickLayouts QuickEffects)
+find_package(Qt6 REQUIRED COMPONENTS Network Quick QuickControls2 QuickLayouts QuickEffects Sql)
 
 qt_standard_project_setup(REQUIRES 6.8)
 include(CTest)
@@ -19,6 +19,16 @@ endif()
 qt_add_executable(appTrainingAppClient
     main.cpp
 )
+
+# Минимальный C++ core используется приложением и unit-тестами. Data/Domain/
+# Presentation наполняются в следующих issues, зависимости Network/Sql уже
+# фиксируют границу инфраструктурного слоя.
+add_library(TrainingAppCore STATIC
+    src/App/App_Context.h
+    src/App/App_Context.cpp
+)
+target_include_directories(TrainingAppCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(TrainingAppCore PUBLIC Qt6::Core Qt6::Network Qt6::Sql)
 
 # Шрифт Inter (§3.2 дизайн-дока). Встраиваем только начертания, которые реально
 # использует Typography.qml: Normal (Regular), Medium, DemiBold (Semi Bold),
@@ -135,7 +145,7 @@ set_target_properties(appTrainingAppClient PROPERTIES
 target_include_directories(appTrainingAppClient PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/Platform)
 
 target_link_libraries(appTrainingAppClient
-    PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::QuickLayouts Qt6::QuickEffects
+    PRIVATE TrainingAppCore Qt6::Quick Qt6::QuickControls2 Qt6::QuickLayouts Qt6::QuickEffects
 )
 
 # Собственный пакет Android (portrait-lock, имя приложения): этап M1.

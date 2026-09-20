@@ -207,8 +207,8 @@ Issue 33 блокирован бэкендом (восстановление п�
 |---|---|---|
 | 1 | выполнен | MockCatalog для S2, MockApi/MockSession/MockTokenStore, ApiErrorText, `docs/mock-data-contract.md` |
 | 2 | выполнен | AuthPage: login/signup, check-email, валидация, локальные параметры, роутинг сессии, logout, failMode, QML/UI-тесты |
-| 3 | не начат | следующий — каркас C++-слоя |
-| 4 | частично | CTest, QML unit/UI smoke, gates, pre-commit hook и CI готовы; fake HTTP и C++ Qt Test — после issue 3 |
+| 3 | выполнен | `AsApp_Context`, Data/Domain/Presentation, Network/Sql/Test, base URL, архитектура и API-контракт, Qt Test |
+| 4 | частично | CTest, QML unit/UI smoke, базовый C++ Qt Test, gates, pre-commit hook и CI готовы; fake HTTP server и API test utilities ещё не реализованы |
 | 5–40 | не начат | — |
 
 Backlog (вне scope плана): хаптика/звуки, уведомления о тренировках, экспорт

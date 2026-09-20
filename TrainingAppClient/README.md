@@ -2,7 +2,9 @@
 
 QML-клиент приложения **«Фитнес-помощник»**: план дня, запись тренировок, каталог программ и упражнений, прогресс и история.
 
-Целевая платформа — **Android**. Стек — **Qt 6 / QML** (проект требует Qt 6.8+, в разработке — 6.11.2). Сейчас это **демо-интерфейс** на mock-данных: четыре вкладки приведены к дизайн-референсу, контракт данных и mock auth/users API подготовлены. Экраны auth, запись подходов, таймер и сеть — следующие этапы.
+Целевая платформа — **Android**. Стек — **Qt 6 / QML / C++** (проект требует
+Qt 6.8+, в разработке — 6.11.2). UI пока работает на mock-данных; минимальный
+C++ composition root и конфигурация будущего API уже подключены.
 
 ## Продукт
 
@@ -48,7 +50,8 @@ QML-клиент приложения **«Фитнес-помощник»**: п�
 
 ## Сборка и запуск
 
-Нужны Qt 6.8+ и модули Quick, Quick Controls 2, Layouts, Effects. Сборка через Qt Creator (CMake).
+Нужны Qt 6.8+ и модули Quick, Quick Controls 2, Layouts, Effects, Network, Sql;
+для desktop-тестов также Test и QuickTest. Сборка через Qt Creator (CMake).
 
 ### Desktop
 
@@ -65,6 +68,7 @@ Kit: `Desktop Qt 6.11.2 MinGW 64-bit`, каталог `build/Desktop_Qt_6_11_2_M
 | `--unauth` | оставить гостя даже при `--tab` / `--screen` / `--authenticated` |
 | `--open-auth` | открыть вход как из «Профиля» (гость, экран закрываемый) |
 | `--auth-fail <operation:key>` | принудительная ошибка auth mock API |
+| `--api-url <url>` | base URL будущего API; выше QSettings/env/default |
 | `--dark` | тёмная тема |
 | `--accent <0..3>` | цвет акцента |
 | `--width <px>` / `--height <px>` | размер окна |
@@ -96,6 +100,7 @@ CMake, `qmllint`, desktop-сборку и все CTest-тесты:
 
 - `qml_tests` — auth/users mock API, ошибки, сессия, токены, роли
   `MockCatalog`, presentation-контракты и состояния `AuthPage`;
+- `app_context` — Qt Test приоритетов и валидации API base URL;
 - `tst_auth_page.qml` — валидация, login/signup, занятый email, failMode,
   транзакционное сохранение локальных параметров, гостевой вход и logout;
 - `ui_smoke_tab_0..3` — `--diag` для каждой основной вкладки;
@@ -131,7 +136,11 @@ qml/Pages/                Auth, Сегодня, Планы, Упражнения
 qml/Components/           кнопки, карточки, график, heatmap, tab bar
 qml/Theme/                цвета, типографика Inter, отступы
 qml/Mock/                 UI demo, mock-каталог, auth/users API и сессия
-tests/                    QML unit tests и UI smoke через CTest
+src/App/                  AsApp_Context и конфигурация запуска
+src/Data/                 HTTP/SQLite/repository implementations (issues 5+)
+src/Domain/               сущности, repository contracts, domain services
+src/Presentation/         будущие C++ ViewModel и QAbstractListModel
+tests/                    C++/QML unit tests и UI smoke через CTest
 scripts/                  единый gate и opt-in установка Git hooks
 src/Platform/             цвет системных полос Android
 android/                  манифест (portrait-lock)
@@ -144,6 +153,8 @@ docs/                     дизайн, референс, roadmap
 | Документ | Содержание |
 |---|---|
 | [`docs/fitness-assistant-frontend-design.md`](docs/fitness-assistant-frontend-design.md) | Навигация, токены, экраны |
+| [`docs/01-architecture.md`](docs/01-architecture.md) | Слои C++, composition root, конфигурация API |
+| [`docs/03-api-contract.md`](docs/03-api-contract.md) | Реальный контракт auth/users и открытые вопросы |
 | [`docs/reference-ui/README.md`](docs/reference-ui/README.md) | Скриншоты-референс и CLI |
 | [`docs/04-roadmap.md`](docs/04-roadmap.md) | Фазы: mock → C++ → сеть → релиз |
 | [`docs/mock-data-contract.md`](docs/mock-data-contract.md) | Роли моделей, mock API и assumed DTO |

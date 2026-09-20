@@ -1,6 +1,10 @@
+#include "App/App_Context.h"
+
+#include <QCoreApplication>
 #include <QFontDatabase>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QQmlContext>
 #include <QQuickStyle>
 
 //---------------------------------------------------------------------------
@@ -35,8 +39,22 @@ int main(int argc, char *argv[])
 {
 	// Локальные объекты объявлены до исполняемого кода (§5.2).
 	QGuiApplication app(argc, argv);
+	AsApp_Context app_context;
 	QQmlApplicationEngine engine;
 	int loaded_fonts;
+	bool context_initialized;
+
+	QCoreApplication::setOrganizationName("FitnessAssistant");
+	QCoreApplication::setOrganizationDomain("fitness.nought.ru");
+	QCoreApplication::setApplicationName("TrainingAppClient");
+
+	context_initialized = app_context.Initialize(QCoreApplication::arguments());
+
+	if (context_initialized == false)
+	{
+		qCritical("App context initialization failed: %s", qUtf8Printable(app_context.Last_Error()));
+		return 2;
+	}
 
 	loaded_fonts = Load_Inter_Fonts();
 
@@ -55,6 +73,7 @@ int main(int argc, char *argv[])
 	    &engine, &QQmlApplicationEngine::objectCreationFailed, &app, []() { QCoreApplication::exit(-1); },
 	    Qt::QueuedConnection);
 
+	engine.rootContext()->setContextProperty("AppContext", &app_context);
 	engine.loadFromModule("TrainingAppClient", "Main");
 
 	return QGuiApplication::exec();
