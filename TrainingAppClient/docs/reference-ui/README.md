@@ -66,6 +66,11 @@
 |---|---|
 | `--frame` | окно-рамка 390×812 (§6.3) |
 | `--tab <0..3>` | стартовая вкладка |
+| `--screen auth-login\|auth-signup\|today\|plans\|exercises\|profile` | прямой запуск экрана для ревью |
+| `--authenticated` | создать mock-сессию и открыть приложение |
+| `--unauth` | гость даже при `--tab` / `--screen` / `--authenticated` |
+| `--open-auth` | вход как из «Профиля» (без сессии, закрываемый) |
+| `--auth-fail <operation:key>` | принудительная ошибка MockApi на auth-экране |
 | `--dark`, `--accent <0..3>` | тема и акцент |
 | `--width <px>`, `--height <px>` | размер окна: проверка узких 360 dp и широких окон |
 | `--screenshot <путь.png>` | снимок контента и выход (ревью/CI) |
@@ -93,6 +98,12 @@ $env:QT_FORCE_STDERR_LOGGING = '1'
   добавлены mock-данные всех экранов S2 и асинхронные `MockApi`, `MockSession`,
   `MockTokenStore`, `ApiErrorText`. Контракт и assumed-поля backend DTO — в
   `docs/mock-data-contract.md`. Визуальный UI этап не меняет.
+- Фаза S1, issue 2 выполнена: адаптивный `AuthPage` с входом и регистрацией,
+  debounce/blur `check-email`, локальной валидацией, параметрами тела и целью,
+  гостевым стартом (вход из «Профиля»), logout и состояниями `MockApi.failMode`.
+  `AppShell` остаётся живым под auth overlay; страницы получают данные через
+  mock-backed presentation-контракты, готовые к замене на `Avm_*`.
+  Скриншоты: `auth-login-light.png`, `auth-signup-light.png`.
 - Добавлен ранний тестовый контур: QML unit-тесты mock API/контракта, четыре
   offscreen UI smoke-теста через `--diag`, единый `scripts/run-gates.ps1`,
   opt-in pre-commit hook и GitHub Actions на все push/PR. Fake HTTP-сервер и

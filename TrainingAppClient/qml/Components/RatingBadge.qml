@@ -6,19 +6,19 @@ import TrainingAppClient
 Rectangle {
     id: badge
 
-    implicitWidth: badgeLabel.implicitWidth + Spacing.listGap * 2
-    implicitHeight: 24
-    radius: Theme.radiusSm
-    color: Theme.accentTint
-
     property string text: ""
+
+    color: Theme.accentTint
+    implicitHeight: 24
+    implicitWidth: badgeLabel.implicitWidth + Spacing.listGap * 2
+    radius: Theme.radiusSm
 
     Label {
         id: badgeLabel
 
         anchors.centerIn: parent
-        text: badge.text
-        font: Typography.captionStrong
         color: Theme.accent
+        font: Typography.captionStrong
+        text: badge.text
     }
 }

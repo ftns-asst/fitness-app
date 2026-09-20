@@ -9,6 +9,14 @@
 Источник предметных данных — `qml/Mock/MockCatalog.qml`. Auth-состояние и API
 разделены на `MockSession`, `MockTokenStore`, `MockApi` и `ApiErrorText`.
 
+Страницы не обращаются к этим mock-синглтонам напрямую. Между UI и mock-слоем
+находятся стабильные presentation-контракты из `qml/Presentation/`:
+`AuthViewModel`, `TodayViewModel`, `PlansViewModel`, `ExercisesViewModel` и
+`ProfileViewModel`. В фазе V/A их реализации заменяются на `Avm_*`, а входные
+свойства и delegates страниц остаются без изменений.
+Состояние и async-координация формы находятся в `AuthFormController`, поэтому
+`AuthPage` не владеет transport/repository-логикой.
+
 ## 1. Общие правила
 
 - Идентификаторы — непустые строки, стабильные между запусками seed-данных.
@@ -127,7 +135,6 @@ Enum профиля:
 
 ### 3.1. Источник контракта
 
-Проверено 17 сентября 2026 года по Swagger 2.0:
 `http://94.228.166.134:8181/api/v1/swagger/doc.json` (`host`:
 `fitness.nought.ru`, `basePath`: `/api/v1`). Схемы wire DTO и заявленные
 HTTP-коды ниже берутся из Swagger. Требование `Authorization: Bearer
@@ -281,7 +288,9 @@ errors. Остальные ключи ниже пока являются кли�
 - сигналы `authenticatedChangedByApi`, `loggedOut`, `sessionExpired`.
 
 Неудачный refresh с `invalid_token` / `token_expired` очищает токены и переводит
-сессию в `sessionExpired`. Роутинг по этому состоянию реализует issue 2.
+сессию в `sessionExpired`. Роутинг (issue 2): гость работает во вкладках без
+сессии; вход открывается из «Профиля»; `sessionExpired` принудительно показывает
+экран входа.
 
 ## 5. Правило миграции на C++
 

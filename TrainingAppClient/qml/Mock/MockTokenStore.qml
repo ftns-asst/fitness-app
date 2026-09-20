@@ -7,13 +7,18 @@ QtObject {
     id: store
 
     property string accessToken: ""
-    property string refreshToken: ""
-    readonly property bool hasTokens: accessToken.length > 0 && refreshToken.length > 0
     readonly property string authorizationHeader: accessToken.length > 0 ? "Bearer " + accessToken : ""
+    readonly property bool hasTokens: accessToken.length > 0 && refreshToken.length > 0
+    property string refreshToken: ""
 
-    signal tokensSaved
     signal tokensCleared
+    signal tokensSaved
 
+    function clear() {
+        store.accessToken = "";
+        store.refreshToken = "";
+        store.tokensCleared();
+    }
     function save(tokens) {
         if (tokens === undefined || tokens === null || !tokens.accessToken || !tokens.refreshToken) {
             console.warn("MockTokenStore: получен неполный DTO токенов");
@@ -25,13 +30,6 @@ QtObject {
         store.tokensSaved();
         return true;
     }
-
-    function clear() {
-        store.accessToken = "";
-        store.refreshToken = "";
-        store.tokensCleared();
-    }
-
     function snapshot() {
         return {
             accessToken: store.accessToken,

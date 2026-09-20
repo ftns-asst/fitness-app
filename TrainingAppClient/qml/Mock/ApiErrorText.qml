@@ -4,7 +4,6 @@ import QtQuick
 // Единое отображение ключей API в локализованный текст. В фазе V реализация
 // переедет в AApi_Error, а QML-контракт textFor(key) останется прежним.
 QtObject {
-    readonly property string fallbackText: qsTr("Не удалось выполнить операцию")
     readonly property var errorTexts: ({
             email_taken: qsTr("Этот email уже используется"),
             email_not_found: qsTr("Проверьте email"),
@@ -29,6 +28,7 @@ QtObject {
             recovery_code_expired: qsTr("Срок действия кода истёк"),
             undefined_error: fallbackText
         })
+    readonly property string fallbackText: qsTr("Не удалось выполнить операцию")
 
     function textFor(key) {
         const text = errorTexts[key];

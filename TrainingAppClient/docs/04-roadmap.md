@@ -56,7 +56,7 @@
 | # | Issue | Состав | Размер |
 |---|---|---|---|
 | 1 | Контракт mock-данных и mock-API | Расширение `qml/Mock/MockCatalog.qml`; синглтоны `qml/Mock/MockSession.qml` и `qml/Mock/MockApi.qml` (`check-email`/`signup`/`login`/`refresh`/`GET /users/{id}` с ключами ошибок бэкенда и переключаемым `failMode`); `MockTokenStore`; синглтон `ApiErrorText` (`key → qsTr`, включая зарезервированные `recovery_code_*`); док `docs/mock-data-contract.md` («поле → роль модели / поле DTO»). Данные для всех экранов S2: сессия и подходы (`weight/reps/rpe/note/done`), таймер, карточка плана (`description/infoTiles/days`), отзывы, карточка упражнения (`tags/technique/recordTiles/progressPoints`), анкета подбора, детали истории, параметры профиля | L |
-| 2 | Auth-экраны на mock | `qml/Pages/Auth/AuthPage.qml`: Логин + Регистрация. Регистрация: email → `check-email` (потеря фокуса/debounce), занят → ошибка + «Войти»; имя + пароль (валидация 8–64, латиница/цифры/спецсимволы); параметры тела и цель — на том же экране (локально); `signup` → токены → «Сегодня». Вход: `incorrect_password` → «Неверный пароль», 404 → «Проверьте email». «Забыли пароль?» — под флагом (issue 33). Роутинг: нет сессии → Auth, есть → «Сегодня»; выход. Состояния через `MockApi.failMode` | L |
+| 2 | Auth-экраны на mock | `qml/Pages/Auth/AuthPage.qml`: Логин + Регистрация. Регистрация: email → `check-email` (потеря фокуса/debounce), занят → ошибка + «Войти»; имя + пароль (валидация 8–64, латиница/цифры/спецсимволы); параметры тела и цель — на том же экране (локально); `signup` → токены → возврат на вкладку-источник. Вход: `incorrect_password` → «Неверный пароль», подтверждённый в будущем `email_not_found` → «Проверьте email», текущий backend `500/undefined_error` → общая ошибка. «Забыли пароль?» — под флагом (issue 33). Роутинг: обычный запуск — гость (вкладки без сессии); вход из «Профиля» («Войти» вместо аватара), экран закрываемый; `sessionExpired` → принудительный вход; выход. Состояния через `MockApi.failMode` | L |
 
 ### Фаза V — вертикальный срез реального auth (issues 3–9)
 
@@ -206,8 +206,8 @@ Issue 33 блокирован бэкендом (восстановление п�
 | Issue | Статус | Примечание |
 |---|---|---|
 | 1 | выполнен | MockCatalog для S2, MockApi/MockSession/MockTokenStore, ApiErrorText, `docs/mock-data-contract.md` |
-| 2 | не начат | следующий — auth-экраны на mock |
-| 3 | не начат | каркас C++-слоя |
+| 2 | выполнен | AuthPage: login/signup, check-email, валидация, локальные параметры, роутинг сессии, logout, failMode, QML/UI-тесты |
+| 3 | не начат | следующий — каркас C++-слоя |
 | 4 | частично | CTest, QML unit/UI smoke, gates, pre-commit hook и CI готовы; fake HTTP и C++ Qt Test — после issue 3 |
 | 5–40 | не начат | — |
 

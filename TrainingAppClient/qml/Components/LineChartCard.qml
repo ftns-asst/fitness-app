@@ -7,46 +7,40 @@ import TrainingAppClient
 AppCard {
     id: card
 
+    property string captionText: ""
+    property string title: ""
+    property var values: []
+
     implicitWidth: 320
     spacing: Spacing.itemGap
 
-    property string title: ""
-    property string captionText: ""
-    property var values: []
-
     Label {
-        width: parent.width
-        text: card.title
-        font: Typography.bodyStrong
         color: Theme.textPrimary
         elide: Text.ElideRight
+        font: Typography.bodyStrong
+        text: card.title
+        width: parent.width
     }
-
     Label {
-        width: parent.width
-        text: card.captionText
-        font: Typography.caption
         color: Theme.textSecondary
-        visible: text.length > 0
         elide: Text.ElideRight
-    }
-
-    Item {
+        font: Typography.caption
+        text: card.captionText
+        visible: text.length > 0
         width: parent.width
+    }
+    Item {
 
         // Высота графика пропорциональна ширине, но в разумных пределах (§4.8).
         height: Math.round(Math.max(100, Math.min(160, width * 0.38)))
+        width: parent.width
 
         Canvas {
             id: chart
 
             anchors.fill: parent
 
-            // Перерисовка при изменении геометрии: без этого график остаётся
-            // «растянутым» прежним кадром после ресайза окна.
-            onWidthChanged: chart.requestPaint()
             onHeightChanged: chart.requestPaint()
-
             onPaint: {
                 const ctx = getContext("2d");
                 const w = width;
@@ -115,25 +109,27 @@ AppCard {
                 ctx.fill();
             }
 
+            // Перерисовка при изменении геометрии: без этого график остаётся
+            // «растянутым» прежним кадром после ресайза окна.
+            onWidthChanged: chart.requestPaint()
+
             // Перерисовка при смене данных, акцента и темы.
             Connections {
-                target: card
-
                 function onValuesChanged() {
                     chart.requestPaint();
                 }
+
+                target: card
             }
-
             Connections {
-                target: Theme
-
                 function onAccentIndexChanged() {
                     chart.requestPaint();
                 }
-
                 function onDarkModeChanged() {
                     chart.requestPaint();
                 }
+
+                target: Theme
             }
         }
     }

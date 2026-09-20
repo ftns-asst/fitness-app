@@ -8,22 +8,22 @@ import TrainingAppClient
 Item {
     id: chips
 
-    implicitWidth: 320
-    implicitHeight: Theme.touchMin
-
-    property var items: []
     property int currentIndex: 0
+    property var items: []
 
     signal selected(int index)
+
+    implicitHeight: Theme.touchMin
+    implicitWidth: 320
 
     Flickable {
         id: chipsFlick
 
         anchors.fill: parent
-        contentWidth: chipsRow.width + Spacing.screenPadding
-        contentHeight: height
-        clip: true
         boundsBehavior: Flickable.StopAtBounds
+        clip: true
+        contentHeight: height
+        contentWidth: chipsRow.width + Spacing.screenPadding
 
         Row {
             id: chipsRow
@@ -44,12 +44,12 @@ Item {
 
                     background: Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width
+                        border.color: Theme.border
+                        border.width: chip.active ? 0 : Theme.borderWidth
+                        color: chip.active ? Theme.accent : Theme.surface
                         height: 36
                         radius: Theme.radiusLg
-                        color: chip.active ? Theme.accent : Theme.surface
-                        border.width: chip.active ? 0 : Theme.borderWidth
-                        border.color: Theme.border
+                        width: parent.width
 
                         Behavior on color {
                             ColorAnimation {
@@ -57,14 +57,13 @@ Item {
                             }
                         }
                     }
-
                     contentItem: Label {
                         id: chipLabel
 
-                        text: modelData
-                        font: Typography.captionStrong
                         color: chip.active ? Theme.accentForeground : Theme.textSecondary
+                        font: Typography.captionStrong
                         horizontalAlignment: Text.AlignHCenter
+                        text: modelData
                         verticalAlignment: Text.AlignVCenter
                     }
 
@@ -76,19 +75,20 @@ Item {
 
     // Подсказка прокручиваемости ряда: правый fade, пока есть контент за краем.
     Rectangle {
+        anchors.bottom: parent.bottom
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        width: 24
         visible: chipsFlick.contentWidth > chipsFlick.width && chipsFlick.contentX + chipsFlick.width < chipsFlick.contentWidth - 1
+        width: 24
+
         gradient: Gradient {
             GradientStop {
-                position: 0.0
                 color: "transparent"
+                position: 0.0
             }
             GradientStop {
-                position: 1.0
                 color: Theme.background
+                position: 1.0
             }
         }
     }

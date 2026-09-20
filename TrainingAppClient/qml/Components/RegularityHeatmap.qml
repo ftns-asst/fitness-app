@@ -8,15 +8,8 @@ import TrainingAppClient
 AppCard {
     id: card
 
-    implicitWidth: 320
-    spacing: Spacing.listGap
-
-    property string title: ""
-    property var weeks: []
-
     // Уровни насыщенности: 0 тренировок — серый tile, 1..3 — рост opacity акцента.
     readonly property var levelAlphas: [0.15, 0.35, 0.6, 1.0]
-
     readonly property string periodText: {
         const n = card.weeks.length;
         const mod10 = n % 10;
@@ -32,6 +25,8 @@ AppCard {
 
         return n + " " + qsTr("недель");
     }
+    property string title: ""
+    property var weeks: []
 
     function cellColor(value) {
         if (value <= 0) {
@@ -43,22 +38,24 @@ AppCard {
         return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, alpha);
     }
 
+    implicitWidth: 320
+    spacing: Spacing.listGap
+
     RowLayout {
-        width: parent.width
         spacing: Spacing.itemGap
+        width: parent.width
 
         Label {
             Layout.fillWidth: true
-            text: card.title
-            font: Typography.bodyStrong
             color: Theme.textPrimary
             elide: Text.ElideRight
+            font: Typography.bodyStrong
+            text: card.title
         }
-
         Label {
-            text: card.periodText
-            font: Typography.caption
             color: Theme.textSecondary
+            font: Typography.caption
+            text: card.periodText
         }
     }
 
@@ -66,19 +63,19 @@ AppCard {
     Grid {
         id: cellsGrid
 
-        width: parent.width
-        columns: 12
         columnSpacing: Spacing.itemGap
+        columns: 12
         rowSpacing: Spacing.itemGap
+        width: parent.width
 
         Repeater {
             model: card.weeks
 
             delegate: Rectangle {
-                width: (cellsGrid.width - (cellsGrid.columns - 1) * cellsGrid.columnSpacing) / cellsGrid.columns
+                color: card.cellColor(modelData)
                 height: width
                 radius: 4
-                color: card.cellColor(modelData)
+                width: (cellsGrid.width - (cellsGrid.columns - 1) * cellsGrid.columnSpacing) / cellsGrid.columns
             }
         }
     }
@@ -87,15 +84,14 @@ AppCard {
     // Подпись занимает остаток строки и переносится: на 360 dp строка иначе
     // не влезает и текст вылезает за карточку.
     RowLayout {
-        width: parent.width
         spacing: Spacing.itemGap
+        width: parent.width
 
         Label {
-            text: qsTr("реже")
-            font: Typography.caption
             color: Theme.textMuted
+            font: Typography.caption
+            text: qsTr("реже")
         }
-
         Row {
             spacing: 4
 
@@ -103,26 +99,24 @@ AppCard {
                 model: card.levelAlphas
 
                 delegate: Rectangle {
-                    width: 14
+                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, modelData)
                     height: 14
                     radius: 4
-                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, modelData)
+                    width: 14
                 }
             }
         }
-
         Label {
-            text: qsTr("чаще")
-            font: Typography.caption
             color: Theme.textMuted
+            font: Typography.caption
+            text: qsTr("чаще")
         }
-
         Label {
             Layout.fillWidth: true
-            text: qsTr("0–3 тренировки в неделю")
-            font: Typography.caption
             color: Theme.textMuted
+            font: Typography.caption
             horizontalAlignment: Text.AlignRight
+            text: qsTr("0–3 тренировки в неделю")
             wrapMode: Text.WordWrap
         }
     }

@@ -8,42 +8,42 @@ import TrainingAppClient
 PageScaffold {
     id: page
 
-    title: MockCatalog.todayPlan.title
+    required property var viewModel
+
+    title: viewModel.plan.title
 
     // — Hero card (§4.2): CTA внутри карточки, а не в прокручиваемом списке —
     HeroCard {
-        width: parent.width
-        badgesText: MockCatalog.todayPlan.badges.join(" · ")
-        summaryText: MockCatalog.todayPlan.exerciseCount + " " + qsTr("упражнений") + " · " + MockCatalog.todayPlan.durationText
-        weekIndex: MockCatalog.todayPlan.weekIndex
-        weeksTotal: MockCatalog.todayPlan.weeksTotal
+        badgesText: page.viewModel.plan.badges.join(" · ")
         ctaText: qsTr("Начать тренировку")
+        summaryText: page.viewModel.plan.exerciseCount + " " + qsTr("упражнений") + " · " + page.viewModel.plan.durationText
+        weekIndex: page.viewModel.plan.weekIndex
+        weeksTotal: page.viewModel.plan.weeksTotal
+        width: parent.width
 
         onStartClicked: Demo.notify(qsTr("Запись тренировки — этап D2"))
     }
-
     Label {
-        text: qsTr("План на сегодня")
-        font: Typography.captionStrong
         color: Theme.textSecondary
+        font: Typography.captionStrong
+        text: qsTr("План на сегодня")
     }
-
     AppCard {
-        width: parent.width
-        paddingVertical: Spacing.itemGap
         paddingHorizontal: 0
+        paddingVertical: Spacing.itemGap
         spacing: 0
+        width: parent.width
 
         Repeater {
-            model: MockCatalog.todayExercises
+            model: page.viewModel.exercises
 
             delegate: ExerciseRow {
-                width: parent.width
                 number: index + 1
-                title: modelData.title
                 setsText: modelData.setsText
+                showDivider: index < page.viewModel.exercises.length - 1
+                title: modelData.title
                 weightText: modelData.weightText
-                showDivider: index < MockCatalog.todayExercises.length - 1
+                width: parent.width
 
                 onClicked: Demo.notify(qsTr("Карточка упражнения — этап D3"))
             }
@@ -53,21 +53,20 @@ PageScaffold {
     // — Два равноширинных secondary-действия (референс 2080). RowLayout вместо
     // ручного расчёта ширины: кнопки честно делят строку на любой ширине —
     RowLayout {
-        width: parent.width
         spacing: Spacing.itemGap
+        width: parent.width
 
         AppButton {
             Layout.fillWidth: true
-            variant: "secondary"
             text: qsTr("Другой план")
+            variant: AppButton.Secondary
 
             onClicked: Demo.notify(qsTr("Каталог планов — вкладка «Планы»"))
         }
-
         AppButton {
             Layout.fillWidth: true
-            variant: "secondary"
             text: qsTr("История")
+            variant: AppButton.Secondary
 
             onClicked: Demo.notify(qsTr("История — вкладка «Профиль», этап D4"))
         }
@@ -75,28 +74,26 @@ PageScaffold {
 
     // — Личный рекорд (референс 2081) —
     AppCard {
-        width: parent.width
         spacing: 2
+        width: parent.width
 
         Label {
-            width: parent.width
-            text: MockCatalog.todayRecord.label
-            font: Typography.caption
             color: Theme.textSecondary
-        }
-
-        Label {
-            width: parent.width
-            text: MockCatalog.todayRecord.title
-            font: Typography.bodyStrong
-            color: Theme.textPrimary
-        }
-
-        Label {
-            width: parent.width
-            text: MockCatalog.todayRecord.dateText
             font: Typography.caption
+            text: page.viewModel.record.label
+            width: parent.width
+        }
+        Label {
+            color: Theme.textPrimary
+            font: Typography.bodyStrong
+            text: page.viewModel.record.title
+            width: parent.width
+        }
+        Label {
             color: Theme.textMuted
+            font: Typography.caption
+            text: page.viewModel.record.dateText
+            width: parent.width
         }
     }
 }

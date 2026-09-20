@@ -6,20 +6,19 @@ import TrainingAppClient
 Item {
     id: control
 
-    implicitWidth: 300
-    implicitHeight: Theme.touchMin
-
-    property var items: []
     property int currentIndex: 0
+    property var items: []
 
     signal selected(int index)
 
+    implicitHeight: Theme.touchMin
+    implicitWidth: 300
+
     Rectangle {
         anchors.fill: parent
-        radius: Theme.radiusLg
         color: Theme.surfaceMuted
+        radius: Theme.radiusLg
     }
-
     Row {
         anchors.fill: parent
         anchors.margins: 4
@@ -33,12 +32,12 @@ Item {
 
                 readonly property bool active: control.currentIndex === index
 
-                width: (control.width - 8 - Math.max(0, control.items.length - 1) * 4) / Math.max(1, control.items.length)
                 height: control.height - 8
+                width: (control.width - 8 - Math.max(0, control.items.length - 1) * 4) / Math.max(1, control.items.length)
 
                 background: Rectangle {
-                    radius: Theme.radiusLg - 4
                     color: segment.active ? Theme.accent : "transparent"
+                    radius: Theme.radiusLg - 4
 
                     Behavior on color {
                         ColorAnimation {
@@ -46,14 +45,13 @@ Item {
                         }
                     }
                 }
-
                 contentItem: Label {
-                    text: modelData
-                    font: Typography.captionStrong
                     color: segment.active ? Theme.accentForeground : Theme.textMuted
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
                     elide: Text.ElideRight
+                    font: Typography.captionStrong
+                    horizontalAlignment: Text.AlignHCenter
+                    text: modelData
+                    verticalAlignment: Text.AlignVCenter
                 }
 
                 onClicked: {

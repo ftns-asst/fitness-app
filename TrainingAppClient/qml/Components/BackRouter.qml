@@ -9,36 +9,14 @@ import QtQuick
 QtObject {
     id: router
 
-    // Монотонный счётчик изменений набора/состояний обработчиков:
-    // на него опираются биндинги `isActive` в BackHandler, чтобы
-    // пересчитываться при каждом изменении.
-    property int revision: 0
-
     // Зарегистрированные BackHandler'ы. Свойство var: присваиваем новую
     // ссылку на каждый регистр/снятие, чтобы список не мутировали за спиной QML.
     property var handlers: ([])
 
-    function register(handler) {
-        const list = handlers.slice();
-        list.push(handler);
-        handlers = list;
-        ++revision;
-    }
-
-    function unregister(handler) {
-        const index = handlers.indexOf(handler);
-        if (index !== -1) {
-            const list = handlers.slice();
-            list.splice(index, 1);
-            handlers = list;
-            ++revision;
-        }
-    }
-
-    // Вызывается обработчиком при изменении priority/enabled.
-    function touch() {
-        ++revision;
-    }
+    // Монотонный счётчик изменений набора/состояний обработчиков:
+    // на него опираются биндинги `isActive` в BackHandler, чтобы
+    // пересчитываться при каждом изменении.
+    property int revision: 0
 
     // Включённый обработчик с наибольшим priority либо null.
     function activeHandler() {
@@ -58,5 +36,25 @@ QtObject {
         const best = activeHandler();
         if (best !== null)
             best.backPerformed();
+    }
+    function register(handler) {
+        const list = handlers.slice();
+        list.push(handler);
+        handlers = list;
+        ++revision;
+    }
+
+    // Вызывается обработчиком при изменении priority/enabled.
+    function touch() {
+        ++revision;
+    }
+    function unregister(handler) {
+        const index = handlers.indexOf(handler);
+        if (index !== -1) {
+            const list = handlers.slice();
+            list.splice(index, 1);
+            handlers = list;
+            ++revision;
+        }
     }
 }

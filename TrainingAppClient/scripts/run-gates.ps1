@@ -170,6 +170,6 @@ Invoke-Checked $cmake "--build" $resolvedBuildDir "--target" "appTrainingAppClie
 
 $env:QT_QPA_PLATFORM = "offscreen"
 $env:QT_FORCE_STDERR_LOGGING = "1"
-Invoke-Checked $ctest "--test-dir" $resolvedBuildDir "--output-on-failure" "--timeout" "60"
+Invoke-Checked $ctest "--test-dir" $resolvedBuildDir "--output-on-failure" "--timeout" "60" "--parallel" "4"
 
 Write-Host "All TrainingAppClient gates passed." -ForegroundColor Green

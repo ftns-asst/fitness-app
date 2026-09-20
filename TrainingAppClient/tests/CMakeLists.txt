@@ -1,34 +1,87 @@
 # qmltestrunner is a separate process and cannot see resources embedded in the
 # application executable. Build a test import directory from the exact
-# production mock files instead of maintaining test copies.
+# production QML files instead of maintaining test copies.
+#
+# Список файлов не поддерживается вручную: копируем весь каталог qml/ и
+# генерируем qmldir, иначе тестовый модуль ломается при добавлении новых
+# компонентов (например, страниц, на которые ссылается AppShell). Singletons
+# перечислены явно: прагму `pragma Singleton` генератор qmldir не читает.
 set(MOCK_IMPORT_ROOT "${CMAKE_CURRENT_BINARY_DIR}/imports")
 set(MOCK_IMPORT_DIR "${MOCK_IMPORT_ROOT}/TrainingAppClient")
+
+file(REMOVE_RECURSE "${MOCK_IMPORT_DIR}")
 file(MAKE_DIRECTORY "${MOCK_IMPORT_DIR}")
 
-set(MOCK_QML_FILES
-    ApiErrorText.qml
-    MockApi.qml
-    MockCatalog.qml
-    MockSession.qml
-    MockTokenStore.qml
+set(SINGLETON_QML_NAMES
+    ApiErrorText
+    AuthViewModel
+    BackRouter
+    Demo
+    ExercisesViewModel
+    MockApi
+    MockCatalog
+    MockSession
+    MockTokenStore
+    PlansViewModel
+    ProfileViewModel
+    Spacing
+    Theme
+    TodayViewModel
+    Typography
 )
 
-foreach(mock_file IN LISTS MOCK_QML_FILES)
+file(GLOB_RECURSE PRODUCTION_QML_FILES CONFIGURE_DEPENDS
+    RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/../qml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../qml/*.qml"
+)
+
+set(MOCK_IMPORT_QMLDIR "module TrainingAppClient\n")
+set(MOCK_IMPORT_TYPE_NAMES)
+
+foreach(qml_file IN LISTS PRODUCTION_QML_FILES)
+    get_filename_component(qml_name "${qml_file}" NAME_WE)
+    if (qml_name IN_LIST MOCK_IMPORT_TYPE_NAMES)
+        message(FATAL_ERROR
+            "Duplicate QML type name '${qml_name}' in production sources. "
+            "The test module cannot flatten both files into one URI."
+        )
+    endif()
+    list(APPEND MOCK_IMPORT_TYPE_NAMES "${qml_name}")
     configure_file(
-        "${CMAKE_CURRENT_SOURCE_DIR}/../qml/Mock/${mock_file}"
-        "${MOCK_IMPORT_DIR}/${mock_file}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../qml/${qml_file}"
+        "${MOCK_IMPORT_DIR}/${qml_name}.qml"
         COPYONLY
     )
+
+    if (qml_name IN_LIST SINGLETON_QML_NAMES)
+        string(APPEND MOCK_IMPORT_QMLDIR "singleton ${qml_name} 1.0 ${qml_name}.qml\n")
+    else()
+        string(APPEND MOCK_IMPORT_QMLDIR "${qml_name} 1.0 ${qml_name}.qml\n")
+    endif()
 endforeach()
 
-file(WRITE "${MOCK_IMPORT_DIR}/qmldir"
-    "module TrainingAppClient\n"
-    "singleton ApiErrorText 1.0 ApiErrorText.qml\n"
-    "singleton MockApi 1.0 MockApi.qml\n"
-    "singleton MockCatalog 1.0 MockCatalog.qml\n"
-    "singleton MockSession 1.0 MockSession.qml\n"
-    "singleton MockTokenStore 1.0 MockTokenStore.qml\n"
-)
+file(WRITE "${MOCK_IMPORT_DIR}/qmldir" "${MOCK_IMPORT_QMLDIR}")
+
+# Автономные экраны входа и регистрации (issue 2) на пяти компоновках каждая.
+foreach(auth_screen IN ITEMS auth-login auth-signup)
+    foreach(auth_viewport IN ITEMS 360 390 480 frame dark)
+        set(auth_test_name "ui_smoke_${auth_screen}_${auth_viewport}")
+        add_test(
+            NAME "${auth_test_name}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DAPP_EXECUTABLE=$<TARGET_FILE:appTrainingAppClient>"
+                "-DQT_RUNTIME_DIR=$<TARGET_FILE_DIR:Qt6::Core>"
+                "-DSCREEN=${auth_screen}"
+                "-DVIEWPORT=${auth_viewport}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/run_ui_smoke.cmake"
+        )
+        set_tests_properties("${auth_test_name}" PROPERTIES
+            PASS_REGULAR_EXPRESSION "problems=0"
+            FAIL_REGULAR_EXPRESSION "TEXT-WIDTH|TEXT-HEIGHT|OVERFLOW-X|ZERO-WIDTH|QQmlApplicationEngine failed|ReferenceError|TypeError|is not a type"
+            TIMEOUT 20
+        )
+    endforeach()
+endforeach()
 
 if (TARGET Qt6::qmltestrunner)
     set(QML_TEST_RUNNER "$<TARGET_FILE:Qt6::qmltestrunner>")
@@ -37,16 +90,16 @@ else()
 endif()
 
 add_test(
-    NAME qml_mock_contract
+    NAME qml_tests
     COMMAND "${QML_TEST_RUNNER}"
         -input "${CMAKE_CURRENT_SOURCE_DIR}/qml"
         -import "${MOCK_IMPORT_ROOT}"
         -platform offscreen
 )
 
-set_tests_properties(qml_mock_contract PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QML_DISABLE_DISK_CACHE=1"
-    TIMEOUT 30
+set_tests_properties(qml_tests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QML_DISABLE_DISK_CACHE=1;QT_QUICK_CONTROLS_STYLE=Basic"
+    TIMEOUT 60
 )
 
 # These tests load the production QML module through the real executable and
@@ -61,6 +114,44 @@ foreach(tab_index RANGE 0 3)
             -P "${CMAKE_CURRENT_SOURCE_DIR}/run_ui_smoke.cmake"
     )
     set_tests_properties("ui_smoke_tab_${tab_index}" PROPERTIES
+        PASS_REGULAR_EXPRESSION "problems=0"
+        FAIL_REGULAR_EXPRESSION "TEXT-WIDTH|TEXT-HEIGHT|OVERFLOW-X|ZERO-WIDTH|QQmlApplicationEngine failed|ReferenceError|TypeError|is not a type"
+        TIMEOUT 20
+    )
+endforeach()
+
+# Гостевой режим: вкладка «Профиль» доступна без сессии, вход открывается
+# кнопкой «Войти» (та же логика, что и у делегата вкладки).
+foreach(auth_viewport IN ITEMS 360 390 480 frame dark)
+    set(guest_test_name "ui_smoke_profile_unauth_${auth_viewport}")
+    add_test(
+        NAME "${guest_test_name}"
+        COMMAND "${CMAKE_COMMAND}"
+            "-DAPP_EXECUTABLE=$<TARGET_FILE:appTrainingAppClient>"
+            "-DQT_RUNTIME_DIR=$<TARGET_FILE_DIR:Qt6::Core>"
+            "-DTAB_INDEX=3"
+            "-DVIEWPORT=${auth_viewport}"
+            "-DUNAUTH=1"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/run_ui_smoke.cmake"
+    )
+    set_tests_properties("${guest_test_name}" PROPERTIES
+        PASS_REGULAR_EXPRESSION "problems=0"
+        FAIL_REGULAR_EXPRESSION "TEXT-WIDTH|TEXT-HEIGHT|OVERFLOW-X|ZERO-WIDTH|QQmlApplicationEngine failed|ReferenceError|TypeError|is not a type"
+        TIMEOUT 20
+    )
+
+    # Экран входа, открытый как из «Профиля»: сессии нет, экран закрываемый.
+    set(guest_auth_test_name "ui_smoke_auth_from_profile_${auth_viewport}")
+    add_test(
+        NAME "${guest_auth_test_name}"
+        COMMAND "${CMAKE_COMMAND}"
+            "-DAPP_EXECUTABLE=$<TARGET_FILE:appTrainingAppClient>"
+            "-DQT_RUNTIME_DIR=$<TARGET_FILE_DIR:Qt6::Core>"
+            "-DVIEWPORT=${auth_viewport}"
+            "-DOPEN_AUTH=1"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/run_ui_smoke.cmake"
+    )
+    set_tests_properties("${guest_auth_test_name}" PROPERTIES
         PASS_REGULAR_EXPRESSION "problems=0"
         FAIL_REGULAR_EXPRESSION "TEXT-WIDTH|TEXT-HEIGHT|OVERFLOW-X|ZERO-WIDTH|QQmlApplicationEngine failed|ReferenceError|TypeError|is not a type"
         TIMEOUT 20

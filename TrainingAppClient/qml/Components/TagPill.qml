@@ -6,19 +6,19 @@ import TrainingAppClient
 Rectangle {
     id: pill
 
-    implicitWidth: pillLabel.implicitWidth + Spacing.listGap * 2
-    implicitHeight: 22
-    radius: Theme.radiusSm
-    color: Theme.surfaceMuted
-
     property string text: ""
+
+    color: Theme.surfaceMuted
+    implicitHeight: 22
+    implicitWidth: pillLabel.implicitWidth + Spacing.listGap * 2
+    radius: Theme.radiusSm
 
     Label {
         id: pillLabel
 
         anchors.centerIn: parent
-        text: pill.text
-        font: Typography.caption
         color: Theme.textSecondary
+        font: Typography.caption
+        text: pill.text
     }
 }

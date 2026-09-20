@@ -7,13 +7,13 @@ import TrainingAppClient
 Item {
     id: row
 
-    implicitWidth: 240
-    implicitHeight: Theme.touchMin
-
-    property string title: ""
-    property string valueText: ""
     property string dateText: ""
     property bool showDivider: true
+    property string title: ""
+    property string valueText: ""
+
+    implicitHeight: Theme.touchMin
+    implicitWidth: 240
 
     RowLayout {
         anchors.fill: parent
@@ -23,38 +23,35 @@ Item {
 
         Label {
             Layout.fillWidth: true
-            text: row.title
-            font: Typography.body
             color: Theme.textPrimary
             elide: Text.ElideRight
+            font: Typography.body
+            text: row.title
         }
-
         Label {
             Layout.maximumWidth: 120
-            text: row.valueText
-            font: Typography.bodyStrong
             color: Theme.textPrimary
             elide: Text.ElideRight
+            font: Typography.bodyStrong
+            text: row.valueText
         }
-
         Label {
             Layout.maximumWidth: 72
-            text: row.dateText
-            font: Typography.caption
             color: Theme.textMuted
-            visible: text.length > 0
             elide: Text.ElideRight
+            font: Typography.caption
+            text: row.dateText
+            visible: text.length > 0
         }
     }
-
     Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
-        anchors.right: parent.right
         anchors.leftMargin: Spacing.screenPadding
+        anchors.right: parent.right
         anchors.rightMargin: Spacing.screenPadding
-        height: Theme.borderWidth
         color: Theme.border
+        height: Theme.borderWidth
         visible: row.showDivider
     }
 }

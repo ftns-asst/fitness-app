@@ -48,6 +48,11 @@ set_source_files_properties(
     qml/Mock/MockCatalog.qml
     qml/Mock/MockSession.qml
     qml/Mock/MockTokenStore.qml
+    qml/Presentation/AuthViewModel.qml
+    qml/Presentation/ExercisesViewModel.qml
+    qml/Presentation/PlansViewModel.qml
+    qml/Presentation/ProfileViewModel.qml
+    qml/Presentation/TodayViewModel.qml
     qml/Components/BackRouter.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
@@ -75,16 +80,26 @@ qt_add_qml_module(appTrainingAppClient
         qml/Mock/MockSession.qml
         qml/Mock/MockTokenStore.qml
 
+        # Stable presentation contracts (mock-backed until phase V)
+        qml/Presentation/AuthFormController.qml
+        qml/Presentation/AuthViewModel.qml
+        qml/Presentation/ExercisesViewModel.qml
+        qml/Presentation/PlansViewModel.qml
+        qml/Presentation/ProfileViewModel.qml
+        qml/Presentation/TodayViewModel.qml
+
         # UI components
         qml/Components/AppButton.qml
         qml/Components/AppCard.qml
         qml/Components/AppIcon.qml
+        qml/Components/AppTextField.qml
         qml/Components/BackHandler.qml
         qml/Components/BackRouter.qml
         qml/Components/BottomTabBar.qml
         qml/Components/CatalogExerciseRow.qml
         qml/Components/ExerciseRow.qml
         qml/Components/FilterChips.qml
+        qml/Components/FormChoice.qml
         qml/Components/HeroCard.qml
         qml/Components/LineChartCard.qml
         qml/Components/MetricCard.qml
@@ -96,6 +111,7 @@ qt_add_qml_module(appTrainingAppClient
         qml/Components/TagPill.qml
 
         # Screens
+        qml/Pages/Auth/AuthPage.qml
         qml/Pages/Today/TodayPage.qml
         qml/Pages/Plans/PlansPage.qml
         qml/Pages/Exercises/ExercisesPage.qml

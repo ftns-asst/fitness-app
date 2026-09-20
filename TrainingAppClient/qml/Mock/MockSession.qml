@@ -6,11 +6,12 @@ import QtQuick
 QtObject {
     id: session
 
+    readonly property bool authenticated: state === "authenticated" && user !== null && MockTokenStore.hasTokens
+    property var localProfile: null
+    property bool offline: false
+    property var profile: null
     property string state: "anonymous"
     property var user: null
-    property var profile: null
-    property bool offline: false
-    readonly property bool authenticated: state === "authenticated" && user !== null && MockTokenStore.hasTokens
     readonly property string userId: user !== null && user.id ? String(user.id) : ""
 
     signal authenticatedChangedByApi
@@ -30,7 +31,35 @@ QtObject {
         session.authenticatedChangedByApi();
         return true;
     }
-
+    function clearLocalProfile() {
+        session.localProfile = null;
+    }
+    function expire() {
+        MockTokenStore.clear();
+        session.user = null;
+        session.profile = null;
+        session.localProfile = null;
+        session.offline = false;
+        session.state = "sessionExpired";
+        session.sessionExpired();
+    }
+    function logout() {
+        MockTokenStore.clear();
+        session.user = null;
+        session.profile = null;
+        session.localProfile = null;
+        session.offline = false;
+        session.state = "anonymous";
+        session.loggedOut();
+    }
+    function reset() {
+        MockTokenStore.clear();
+        session.user = null;
+        session.profile = null;
+        session.localProfile = null;
+        session.offline = false;
+        session.state = "anonymous";
+    }
     function restore(userDto, profileDto, isOffline) {
         if (!MockTokenStore.hasTokens || userDto === undefined || userDto === null || !userDto.id) {
             return false;
@@ -43,30 +72,12 @@ QtObject {
         session.authenticatedChangedByApi();
         return true;
     }
+    function saveLocalProfile(localProfileDto) {
+        if (localProfileDto === undefined || localProfileDto === null) {
+            return false;
+        }
 
-    function logout() {
-        MockTokenStore.clear();
-        session.user = null;
-        session.profile = null;
-        session.offline = false;
-        session.state = "anonymous";
-        session.loggedOut();
-    }
-
-    function expire() {
-        MockTokenStore.clear();
-        session.user = null;
-        session.profile = null;
-        session.offline = false;
-        session.state = "sessionExpired";
-        session.sessionExpired();
-    }
-
-    function reset() {
-        MockTokenStore.clear();
-        session.user = null;
-        session.profile = null;
-        session.offline = false;
-        session.state = "anonymous";
+        session.localProfile = localProfileDto;
+        return true;
     }
 }

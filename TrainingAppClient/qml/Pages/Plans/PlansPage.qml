@@ -8,41 +8,23 @@ import TrainingAppClient
 PageScaffold {
     id: page
 
-    title: qsTr("Планы тренировок")
-    caption: qsTr("Возьмите готовый шаблон как есть или скопируйте и измените под себя")
-
+    required property var viewModel
     property int sortIndex: 0
+    readonly property var visiblePlans: viewModel.sortedPlans(sortIndex)
 
-    readonly property var visiblePlans: {
-        const items = MockCatalog.plans.slice();
-
-        if (page.sortIndex === 0) {
-            items.sort(function (a, b) {
-                return b.ratingAvg - a.ratingAvg;
-            });
-        } else if (page.sortIndex === 1) {
-            items.sort(function (a, b) {
-                return b.reviewCount - a.reviewCount;
-            });
-        } else {
-            items.sort(function (a, b) {
-                return a.createdAt < b.createdAt ? 1 : -1;
-            });
-        }
-
-        return items;
-    }
+    caption: qsTr("Возьмите готовый шаблон как есть или скопируйте и измените под себя")
+    title: qsTr("Планы тренировок")
 
     // — Promo-карточка подбора: короткий опрос — этап D3 —
     AppCard {
-        width: parent.width
-        surfaceColor: Theme.accentTint
         borderColor: "transparent"
         spacing: 0
+        surfaceColor: Theme.accentTint
+        width: parent.width
 
         RowLayout {
-            width: parent.width
             spacing: Spacing.listGap
+            width: parent.width
 
             ColumnLayout {
                 Layout.fillWidth: true
@@ -50,25 +32,23 @@ PageScaffold {
 
                 Label {
                     Layout.fillWidth: true
-                    text: qsTr("Не знаете, что выбрать?")
-                    font: Typography.bodyStrong
                     color: Theme.textPrimary
+                    font: Typography.bodyStrong
+                    text: qsTr("Не знаете, что выбрать?")
                     wrapMode: Text.WordWrap
                 }
-
                 Label {
                     Layout.fillWidth: true
-                    text: qsTr("3 вопроса об опыте, днях и инвентаре")
-                    font: Typography.caption
                     color: Theme.textSecondary
+                    font: Typography.caption
+                    text: qsTr("3 вопроса об опыте, днях и инвентаре")
                     wrapMode: Text.WordWrap
                 }
             }
-
             AppButton {
-                variant: "primary"
                 compact: true
                 text: qsTr("Подобрать")
+                variant: AppButton.Primary
 
                 onClicked: Demo.notify(qsTr("Опрос подбора плана — этап D3"))
             }
@@ -77,18 +57,17 @@ PageScaffold {
 
     // — Сортировка: рейтинг, популярность по отзывам, новые сверху —
     FilterChips {
-        width: parent.width
-        items: [qsTr("По рейтингу"), qsTr("Популярные"), qsTr("По времени")]
         currentIndex: page.sortIndex
+        items: [qsTr("По рейтингу"), qsTr("Популярные"), qsTr("По времени")]
+        width: parent.width
 
         onSelected: function (index) {
             page.sortIndex = index;
         }
     }
-
     Column {
-        width: parent.width
         spacing: Spacing.listGap
+        width: parent.width
 
         Repeater {
             model: page.visiblePlans
@@ -98,8 +77,8 @@ PageScaffold {
             // height → planCard.height вместе с anchors.fill даёт цикл биндингов
             // и схлопывание карточки.
             delegate: Item {
-                width: parent.width
                 implicitHeight: planCard.implicitHeight
+                width: parent.width
 
                 AppCard {
                     id: planCard
@@ -108,35 +87,33 @@ PageScaffold {
                     spacing: Spacing.itemGap
 
                     RowLayout {
-                        width: parent.width
                         spacing: Spacing.itemGap
+                        width: parent.width
 
                         Label {
                             Layout.fillWidth: true
-                            text: modelData.title
-                            font: Typography.bodyStrong
                             color: Theme.textPrimary
                             elide: Text.ElideRight
+                            font: Typography.bodyStrong
+                            text: modelData.title
                         }
-
                         RatingBadge {
                             Layout.alignment: Qt.AlignTop
                             text: "★ " + modelData.ratingAvg.toFixed(1).replace(".", ",")
                         }
                     }
-
                     Label {
-                        width: parent.width
-                        text: modelData.subtitle
-                        font: Typography.caption
                         color: Theme.textSecondary
+                        font: Typography.caption
+                        text: modelData.subtitle
+                        width: parent.width
                         wrapMode: Text.WordWrap
                     }
 
                     // Flow вместо Row: на узких экранах три pill не всегда влезают
                     Flow {
-                        width: parent.width
                         spacing: Spacing.itemGap
+                        width: parent.width
 
                         Repeater {
                             model: [modelData.goal, modelData.level, modelData.reviewText]
@@ -147,9 +124,9 @@ PageScaffold {
                         }
                     }
                 }
-
                 MouseArea {
                     anchors.fill: parent
+
                     onClicked: Demo.notify(qsTr("Карточка плана и «взять план» — этап D3"))
                 }
             }

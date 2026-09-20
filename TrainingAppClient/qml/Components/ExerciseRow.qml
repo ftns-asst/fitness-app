@@ -7,21 +7,21 @@ import TrainingAppClient
 Item {
     id: row
 
-    implicitWidth: 240
-    implicitHeight: 56
-
     property int number: 0
-    property string title: ""
     property string setsText: ""
-    property string weightText: ""
     property bool showDivider: true
+    property string title: ""
+    property string weightText: ""
 
     signal clicked
 
+    implicitHeight: 56
+    implicitWidth: 240
+
     Rectangle {
         anchors.fill: parent
-        radius: Theme.radiusMd
         color: pressArea.pressed ? Theme.surfaceMuted : "transparent"
+        radius: Theme.radiusMd
 
         Behavior on color {
             ColorAnimation {
@@ -29,7 +29,6 @@ Item {
             }
         }
     }
-
     RowLayout {
         anchors.fill: parent
         anchors.leftMargin: Spacing.screenPadding
@@ -37,39 +36,37 @@ Item {
         spacing: Spacing.listGap
 
         Rectangle {
-            Layout.preferredWidth: 30
             Layout.preferredHeight: 30
-            radius: 15
+            Layout.preferredWidth: 30
             color: Theme.surfaceMuted
+            radius: 15
             visible: row.number > 0
 
             Label {
                 anchors.centerIn: parent
-                text: (row.number < 10 ? "0" : "") + row.number
-                font: Typography.captionStrong
                 color: Theme.textSecondary
+                font: Typography.captionStrong
+                text: (row.number < 10 ? "0" : "") + row.number
             }
         }
-
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 2
 
             Label {
                 Layout.fillWidth: true
-                text: row.title
-                font: Typography.bodyStrong
                 color: Theme.textPrimary
                 elide: Text.ElideRight
+                font: Typography.bodyStrong
+                text: row.title
             }
-
             Label {
                 Layout.fillWidth: true
-                text: row.setsText
-                font: Typography.caption
                 color: Theme.textMuted
-                visible: text.length > 0
                 elide: Text.ElideRight
+                font: Typography.caption
+                text: row.setsText
+                visible: text.length > 0
             }
         }
 
@@ -77,29 +74,28 @@ Item {
         // чтобы длинное значение не сжимало название до нуля —
         Label {
             Layout.maximumWidth: 96
-            text: row.weightText
-            font: Typography.caption
             color: Theme.textMuted
-            visible: text.length > 0
             elide: Text.ElideRight
+            font: Typography.caption
+            text: row.weightText
+            visible: text.length > 0
         }
     }
-
     Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
-        anchors.right: parent.right
         anchors.leftMargin: Spacing.screenPadding
+        anchors.right: parent.right
         anchors.rightMargin: Spacing.screenPadding
-        height: Theme.borderWidth
         color: Theme.border
+        height: Theme.borderWidth
         visible: row.showDivider
     }
-
     MouseArea {
         id: pressArea
 
         anchors.fill: parent
+
         onClicked: row.clicked()
     }
 }

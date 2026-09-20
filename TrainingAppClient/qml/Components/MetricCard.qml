@@ -8,57 +8,55 @@ import TrainingAppClient
 AppCard {
     id: card
 
-    implicitWidth: 120
-    paddingVertical: Spacing.cardPadding - 4
-    paddingHorizontal: Spacing.cardPadding - 4
-    spacing: 2
-    surfaceColor: card.highlight ? Theme.accentTint : Theme.surfaceMuted
-    borderColor: "transparent"
-    elevated: false
-
-    property bool highlight: false
-
-    // positive | negative | neutral
-    property string label: ""
-    property string valueText: ""
-    property string deltaText: ""
-    property string deltaKind: "neutral"
-
     readonly property color deltaColor: {
         if (deltaKind === "negative")
             return Theme.negative;
 
         return deltaKind === "positive" ? Theme.accent : Theme.textMuted;
     }
+    property string deltaKind: "neutral"
+    property string deltaText: ""
+    property bool highlight: false
+
+    // positive | negative | neutral
+    property string label: ""
+    property string valueText: ""
+
+    borderColor: "transparent"
+    elevated: false
+    implicitWidth: 120
+    paddingHorizontal: Spacing.cardPadding - 4
+    paddingVertical: Spacing.cardPadding - 4
+    spacing: 2
+    surfaceColor: card.highlight ? Theme.accentTint : Theme.surfaceMuted
 
     Label {
-        width: parent.width
-        text: card.label
-        font: Typography.caption
         color: card.highlight ? Theme.accent : Theme.textSecondary
         elide: Text.ElideRight
+        font: Typography.caption
+        text: card.label
+        width: parent.width
     }
 
     // Значение само ужимается по ширине tile: на узких экранах (360 dp) крупный
     // metric иначе вылезает за границы карточки.
     Label {
-        width: parent.width
-        text: card.valueText
+        color: Theme.textPrimary
+        elide: Text.ElideRight
         font: Typography.metric
         fontSizeMode: Text.HorizontalFit
         minimumPixelSize: 16
-        color: Theme.textPrimary
-        elide: Text.ElideRight
-    }
-
-    Label {
+        text: card.valueText
         width: parent.width
-        text: card.deltaText
-        font: Typography.captionStrong
+    }
+    Label {
         color: card.deltaColor
-        visible: text.length > 0
+        elide: Text.ElideRight
+        font: Typography.captionStrong
         fontSizeMode: Text.HorizontalFit
         minimumPixelSize: 10
-        elide: Text.ElideRight
+        text: card.deltaText
+        visible: text.length > 0
+        width: parent.width
     }
 }

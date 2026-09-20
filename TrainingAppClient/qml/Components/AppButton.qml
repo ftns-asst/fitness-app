@@ -6,36 +6,41 @@ import TrainingAppClient
 Button {
     id: button
 
-    // primary | secondary | ghost
-    property string variant: "primary"
+    enum Variant {
+        Primary,
+        Secondary,
+        Ghost
+    }
 
     // compact — primary высотой 44 px: кнопка внутри карточек.
     property bool compact: false
-
-    implicitHeight: variant === "primary" && !compact ? Theme.buttonPrimary : Theme.buttonSecondary
-    implicitWidth: Math.max(Theme.touchMin * 2, textLabel.implicitWidth + Spacing.screenPadding * 2)
-
     readonly property color textColor: {
-        if (variant === "primary")
+        if (variant === AppButton.Primary)
             return Theme.accentForeground;
 
-        return variant === "secondary" ? Theme.textPrimary : Theme.accent;
+        return variant === AppButton.Secondary ? Theme.textPrimary : Theme.accent;
     }
 
+    // primary | secondary | ghost
+    property int variant: AppButton.Primary
+
+    implicitHeight: variant === AppButton.Primary && !compact ? Theme.buttonPrimary : Theme.buttonSecondary
+    implicitWidth: Math.max(Theme.touchMin * 2, textLabel.implicitWidth + Spacing.screenPadding * 2)
+
     background: Rectangle {
-        radius: button.variant === "primary" ? Theme.radiusLg : Theme.radiusMd
+        border.color: Theme.border
+        border.width: button.variant === AppButton.Secondary ? Theme.borderWidth : 0
         color: {
-            if (button.variant === "ghost")
+            if (button.variant === AppButton.Ghost)
                 return button.pressed ? Theme.surfaceMuted : "transparent";
 
-            if (button.variant === "secondary")
+            if (button.variant === AppButton.Secondary)
                 return button.pressed ? Theme.surfaceMuted : Theme.surface;
 
             return button.pressed ? Theme.accentPressed : Theme.accent;
         }
-        border.width: button.variant === "secondary" ? Theme.borderWidth : 0
-        border.color: Theme.border
         opacity: button.enabled ? 1.0 : 0.45
+        radius: button.variant === AppButton.Primary ? Theme.radiusLg : Theme.radiusMd
 
         Behavior on color {
             ColorAnimation {
@@ -43,16 +48,15 @@ Button {
             }
         }
     }
-
     contentItem: Label {
         id: textLabel
 
-        text: button.text
-        font: Typography.bodyStrong
         color: button.textColor
-        opacity: button.enabled ? 1.0 : 0.6
-        horizontalAlignment: Text.AlignHCenter
-        verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
+        font: Typography.bodyStrong
+        horizontalAlignment: Text.AlignHCenter
+        opacity: button.enabled ? 1.0 : 0.6
+        text: button.text
+        verticalAlignment: Text.AlignVCenter
     }
 }

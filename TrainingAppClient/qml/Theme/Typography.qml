@@ -12,20 +12,6 @@ import QtQuick
 // Маппинг проверяется зондом шрифтов в qml/Main.qml (строки fontWeights15 и
 // fontWeights40 в --diag).
 QtObject {
-    readonly property string fontFamily: "Inter"
-    readonly property string fontFamilyMedium: "Inter Medium"
-    readonly property string fontFamilyDemiBold: "Inter Semi Bold"
-
-    readonly property font screenTitle: Qt.font({
-        family: fontFamily,
-        pixelSize: 22,
-        weight: Font.Bold
-    })
-    readonly property font sectionTitle: Qt.font({
-        family: fontFamilyDemiBold,
-        pixelSize: 17,
-        weight: Font.DemiBold
-    })
     readonly property font body: Qt.font({
         family: fontFamily,
         pixelSize: 15,
@@ -46,15 +32,13 @@ QtObject {
         pixelSize: 12,
         weight: Font.Medium
     })
+    readonly property string fontFamily: "Inter"
+    readonly property string fontFamilyDemiBold: "Inter Semi Bold"
+    readonly property string fontFamilyMedium: "Inter Medium"
     readonly property font metric: Qt.font({
         family: fontFamily,
         pixelSize: 28,
         weight: Font.Bold
-    })
-    readonly property font tabLabel: Qt.font({
-        family: fontFamilyMedium,
-        pixelSize: 11,
-        weight: Font.Medium
     })
     readonly property font overline: Qt.font({
         family: fontFamilyMedium,
@@ -62,5 +46,20 @@ QtObject {
         weight: Font.Medium,
         capitalization: Font.AllUppercase,
         letterSpacing: 1
+    })
+    readonly property font screenTitle: Qt.font({
+        family: fontFamily,
+        pixelSize: 22,
+        weight: Font.Bold
+    })
+    readonly property font sectionTitle: Qt.font({
+        family: fontFamilyDemiBold,
+        pixelSize: 17,
+        weight: Font.DemiBold
+    })
+    readonly property font tabLabel: Qt.font({
+        family: fontFamilyMedium,
+        pixelSize: 11,
+        weight: Font.Medium
     })
 }

@@ -8,78 +8,75 @@ import TrainingAppClient
 Item {
     id: row
 
-    implicitWidth: 320
-    implicitHeight: card.implicitHeight
-
-    property string title: ""
     property string subtitle: ""
+    property string title: ""
 
     signal clicked
+
+    implicitHeight: card.implicitHeight
+    implicitWidth: 320
 
     AppCard {
         id: card
 
         anchors.fill: parent
-        paddingVertical: Spacing.listGap + 2
         paddingHorizontal: Spacing.cardPadding
+        paddingVertical: Spacing.listGap + 2
         spacing: 0
 
         RowLayout {
-            width: parent.width
             spacing: Spacing.listGap
+            width: parent.width
 
             // Плейсхолдер фото техники: изображения добавит этап M3 (каталог с сервера).
             // 64 px — минимум, при котором подпись «фото техники» влезает в две
             // строки без обрезки (слово «техники» — 52 px при caption 12 px).
             Rectangle {
-                Layout.preferredWidth: 64
                 Layout.preferredHeight: 64
-                radius: Theme.radiusMd
+                Layout.preferredWidth: 64
                 color: Theme.surfaceMuted
+                radius: Theme.radiusMd
 
                 Label {
                     anchors.centerIn: parent
-                    width: parent.width - Spacing.itemGap
-                    text: qsTr("фото техники")
-                    font: Typography.caption
                     color: Theme.textMuted
+                    font: Typography.caption
                     horizontalAlignment: Text.AlignHCenter
+                    text: qsTr("фото техники")
+                    width: parent.width - Spacing.itemGap
                     wrapMode: Text.WordWrap
                 }
             }
-
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 2
 
                 Label {
                     Layout.fillWidth: true
-                    text: row.title
-                    font: Typography.bodyStrong
                     color: Theme.textPrimary
                     elide: Text.ElideRight
+                    font: Typography.bodyStrong
+                    text: row.title
                 }
-
                 Label {
                     Layout.fillWidth: true
-                    text: row.subtitle
-                    font: Typography.caption
                     color: Theme.textMuted
-                    visible: text.length > 0
                     elide: Text.ElideRight
+                    font: Typography.caption
+                    text: row.subtitle
+                    visible: text.length > 0
                 }
             }
-
             Label {
-                text: "\u203A"
-                font: Typography.body
                 color: Theme.textMuted
+                font: Typography.body
+                text: "\u203A"
             }
         }
     }
-
     MouseArea {
         anchors.fill: parent
+
         onClicked: row.clicked()
     }
 }
