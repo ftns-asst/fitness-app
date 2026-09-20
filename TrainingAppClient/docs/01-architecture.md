@@ -83,10 +83,11 @@ AppContext.initialized
 - если выбранный источник невалиден, переход к источнику меньшего приоритета
   запрещён, чтобы клиент не подключился к неожиданному окружению.
 
-Default соответствует Swagger `host=fitness.nought.ru`,
-`basePath=/api/v1`. Swagger не объявляет scheme; на 20.09.2026 HTTP доступен,
-а HTTPS с текущей тестовой машины не устанавливает соединение. Production URL
-и TLS остаются **запрошено у backend/DevOps**.
+Default соответствует подтверждённому backend URL
+`http://fitness.nought.ru/api/v1`. Документация доступна по адресу
+`http://fitness.nought.ru/api/v1/swagger`, Swagger JSON — по
+`http://fitness.nought.ru/api/v1/swagger/doc.json`. Отдельные staging/prod URL
+и перевод на HTTPS остаются **запрошено у backend/DevOps**.
 
 ## 5. Владение и жизненный цикл
 
@@ -124,7 +125,7 @@ Default соответствует Swagger `host=fitness.nought.ru`,
 
 ## 8. Следующие шаги
 
-- issue 4: fake HTTP server и C++ API-test utilities;
+- issue 4: выполнен — CTest/QML smoke/gates/CI и fake HTTP server;
 - issue 5: `AsHttp_Client`, `AApi_Error`, timeout/retry;
 - issue 6: `AsSql_Database` и schema v1;
 - issue 7: `AsToken_Store` и single-flight refresh;

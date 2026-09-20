@@ -70,10 +70,11 @@
 | 8 | Auth-интеграция | `AAuth_Api` (`check-email`, `signup`, `login`, `refresh`, локальный logout), `AAuth_Repository`, `Avm_Auth` (`idle/checkingEmail/emailTaken/signingUp/loggingIn/error(key)/authenticated/sessionExpired`); замена `MockApi` без правок UI; сохранение сессии; выход | M |
 | 9 | Профиль с сервера | `AUsers_Api.Get_User(id, withProfile=true)` → `profile_cache`; показ имени, email, возраста, пола, роста, веса; локальные поля (уровень, цель, частота) из `profile_local`; изменения → БД + `sync_outbox` (воркер — issue 34) + статус «сохранено локально»; офлайн — кэш с пометкой | M |
 
-**Блокеры issues 5–9 (ответы бэкенда):** схемы `user`/`tokens`/`profile`;
-заголовок авторизации; base URL окружений и тестовые учётки; семантика 404 при
-login; набор спецсимволов пароля и ключ ошибки; ротация refresh; серверный
-logout. До ответов — разработка против fake-сервера, поля в
+**Блокеры issues 5–9 (ответы бэкенда):** заголовок авторизации; staging/prod
+URL, HTTPS и тестовые учётки; семантика 404 при login; набор спецсимволов
+пароля и ключ ошибки; точные refresh error keys; серверный logout. Deployed
+URL и схемы `user`/`tokens`/`profile` уже получены. До остальных ответов —
+разработка против fake-сервера, поля в
 `docs/03-api-contract.md` помечены «assumed».
 
 ### Фаза S2 — остальные экраны на mock (issues 10–21)
@@ -156,7 +157,9 @@ Issue 33 блокирован бэкендом (восстановление п�
 2. **Получено:** приватные endpoint используют `Authorization: Bearer
    <access_token>`; при 401 — `POST /auth/refresh` с `refresh_token`, новая пара
    атомарно заменяет старую. Swagger security metadata пока неполна.
-3. Осталось: base URL окружений (dev/staging/prod), тестовые учётки, рателимиты.
+3. **Получено:** deployed API `http://fitness.nought.ru/api/v1`, Swagger UI
+   `http://fitness.nought.ru/api/v1/swagger`. Осталось: staging/prod URL, HTTPS,
+   тестовые учётки и рателимиты.
 4. **Наблюдается:** `POST /auth/login` при несуществующем email возвращает
    `500/undefined_error`. Запрошено у бэкенда: заменить на стабильный 4xx и
    отдельный key (`email_not_found`) либо формально закрепить текущую семантику.
@@ -208,7 +211,7 @@ Issue 33 блокирован бэкендом (восстановление п�
 | 1 | выполнен | MockCatalog для S2, MockApi/MockSession/MockTokenStore, ApiErrorText, `docs/mock-data-contract.md` |
 | 2 | выполнен | AuthPage: login/signup, check-email, валидация, локальные параметры, роутинг сессии, logout, failMode, QML/UI-тесты |
 | 3 | выполнен | `AsApp_Context`, Data/Domain/Presentation, Network/Sql/Test, base URL, архитектура и API-контракт, Qt Test |
-| 4 | частично | CTest, QML unit/UI smoke, базовый C++ Qt Test, gates, pre-commit hook и CI готовы; fake HTTP server и API test utilities ещё не реализованы |
+| 4 | выполнен | CTest, Qt Test, qmltestrunner/object smoke, fake HTTP server на QTcpServer, gates, pre-commit hook и CI |
 | 5–40 | не начат | — |
 
 Backlog (вне scope плана): хаптика/звуки, уведомления о тренировках, экспорт

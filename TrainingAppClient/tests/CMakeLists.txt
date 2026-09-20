@@ -69,6 +69,20 @@ target_link_libraries(tst_App_Context PRIVATE TrainingAppCore Qt6::Test)
 add_test(NAME app_context COMMAND tst_App_Context)
 set_tests_properties(app_context PROPERTIES TIMEOUT 20)
 
+add_library(TrainingAppTestSupport STATIC
+    Support/Test_Http_Server.h
+    Support/Test_Http_Server.cpp
+)
+target_include_directories(TrainingAppTestSupport PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(TrainingAppTestSupport PUBLIC Qt6::Core Qt6::Network)
+
+qt_add_executable(tst_Test_Http_Server
+    cpp/tst_Test_Http_Server.cpp
+)
+target_link_libraries(tst_Test_Http_Server PRIVATE TrainingAppTestSupport Qt6::Test)
+add_test(NAME test_http_server COMMAND tst_Test_Http_Server)
+set_tests_properties(test_http_server PROPERTIES TIMEOUT 20)
+
 # Автономные экраны входа и регистрации (issue 2) на пяти компоновках каждая.
 foreach(auth_screen IN ITEMS auth-login auth-signup)
     foreach(auth_viewport IN ITEMS 360 390 480 frame dark)

@@ -34,7 +34,8 @@ public:
 
 private:
 	static bool Normalize_Api_Base_URL(const QString &in_value, QString &out_value, QString &out_error);
-	static bool Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found, QString &out_error);
+	static bool Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found,
+	                                  QString &out_error);
 
 	QString Api_Base_URL;
 	QString Api_URL_Source;

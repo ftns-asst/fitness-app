@@ -107,10 +107,10 @@ $env:QT_FORCE_STDERR_LOGGING = '1'
 - Фаза V, issue 3 выполнена: добавлен `AsApp_Context`, слои
   `src/Data`/`Domain`/`Presentation`, Qt Network/Sql/Test и конфигурация API URL
   (`--api-url` → QSettings → env → default). UI визуально не изменён.
-- Добавлен ранний тестовый контур: QML unit-тесты mock API/контракта, четыре
-  offscreen UI smoke-теста через `--diag`, единый `scripts/run-gates.ps1`,
-  opt-in pre-commit hook и GitHub Actions на все push/PR. Fake HTTP-сервер и
-  C++ API-тесты остаются в полном scope issue 4.
+- Фаза V, issue 4 выполнена: Qt Test, QML object/unit tests, offscreen UI smoke
+  через `--diag`, fake HTTP server на `QTcpServer`, единый
+  `scripts/run-gates.ps1`, opt-in pre-commit hook и GitHub Actions на все
+  push/PR.
 - Этап M1 (Android-контур) выполнен: portrait-lock и имя приложения в
   собственном `android/AndroidManifest.xml`, системная кнопка «назад»
   (BackHandler: панель → стек деталей → выход), цвет системных полос под тему

@@ -166,7 +166,8 @@ if ($QtPrefix) {
 }
 
 Invoke-Checked $cmake @configureArguments
-Invoke-Checked $cmake "--build" $resolvedBuildDir "--target" "appTrainingAppClient_qmllint" "appTrainingAppClient" "--parallel"
+Invoke-Checked $cmake "--build" $resolvedBuildDir "--parallel"
+Invoke-Checked $cmake "--build" $resolvedBuildDir "--target" "appTrainingAppClient_qmllint" "--parallel"
 
 $env:QT_QPA_PLATFORM = "offscreen"
 $env:QT_FORCE_STDERR_LOGGING = "1"

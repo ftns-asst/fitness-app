@@ -53,6 +53,10 @@ C++ composition root и конфигурация будущего API уже п�
 Нужны Qt 6.8+ и модули Quick, Quick Controls 2, Layouts, Effects, Network, Sql;
 для desktop-тестов также Test и QuickTest. Сборка через Qt Creator (CMake).
 
+Задеплоенный API: `http://fitness.nought.ru/api/v1`. Документация backend:
+`http://fitness.nought.ru/api/v1/swagger`. Реальные сетевые запросы будут
+подключены в issues 5–9; текущий UI по-прежнему использует mock auth/data.
+
 ### Desktop
 
 Kit: `Desktop Qt 6.11.2 MinGW 64-bit`, каталог `build/Desktop_Qt_6_11_2_MinGW_64_bit_Debug`. Цель — `appTrainingAppClient`.
@@ -101,8 +105,11 @@ CMake, `qmllint`, desktop-сборку и все CTest-тесты:
 - `qml_tests` — auth/users mock API, ошибки, сессия, токены, роли
   `MockCatalog`, presentation-контракты и состояния `AuthPage`;
 - `app_context` — Qt Test приоритетов и валидации API base URL;
+- `test_http_server` — GET/POST, headers/body, очередь ответов, delay,
+  disconnect, malformed и split-body сценарии fake HTTP server;
 - `tst_auth_page.qml` — валидация, login/signup, занятый email, failMode,
   транзакционное сохранение локальных параметров, гостевой вход и logout;
+- `tst_qml_object_smoke.qml` — создание `AppShell`, `AuthPage` и form controls;
 - `ui_smoke_tab_0..3` — `--diag` для каждой основной вкладки;
 - `ui_smoke_auth-*` — login/signup при 360/390/480 px, framed и dark.
 
@@ -140,7 +147,7 @@ src/App/                  AsApp_Context и конфигурация запуск
 src/Data/                 HTTP/SQLite/repository implementations (issues 5+)
 src/Domain/               сущности, repository contracts, domain services
 src/Presentation/         будущие C++ ViewModel и QAbstractListModel
-tests/                    C++/QML unit tests и UI smoke через CTest
+tests/                    C++/QML unit tests, fake HTTP и UI smoke через CTest
 scripts/                  единый gate и opt-in установка Git hooks
 src/Platform/             цвет системных полос Android
 android/                  манифест (portrait-lock)

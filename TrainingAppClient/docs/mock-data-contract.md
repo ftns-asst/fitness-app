@@ -135,8 +135,9 @@ Enum профиля:
 
 ### 3.1. Источник контракта
 
-`http://94.228.166.134:8181/api/v1/swagger/doc.json` (`host`:
-`fitness.nought.ru`, `basePath`: `/api/v1`). Схемы wire DTO и заявленные
+Задеплоенный API: `http://fitness.nought.ru/api/v1`; документация:
+`http://fitness.nought.ru/api/v1/swagger`; JSON-контракт:
+`http://fitness.nought.ru/api/v1/swagger/doc.json`. Схемы wire DTO и заявленные
 HTTP-коды ниже берутся из Swagger. Требование `Authorization: Bearer
 <access_token>` для приватных endpoint и rotation refresh-токенов подтверждено
 бэкендом отдельно: Swagger пока не содержит `securityDefinitions`, security у

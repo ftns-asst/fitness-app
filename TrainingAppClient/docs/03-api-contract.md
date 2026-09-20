@@ -2,9 +2,11 @@
 
 ## 1. Источники и статусы достоверности
 
-Проверено 20.09.2026 по Swagger 2.0:
+Backend задеплоен и проверен 20.09.2026:
 
-- `http://94.228.166.134:8181/api/v1/swagger/doc.json`;
+- API base URL: `http://fitness.nought.ru/api/v1` — **подтверждено backend**;
+- Swagger UI: `http://fitness.nought.ru/api/v1/swagger`;
+- Swagger JSON: `http://fitness.nought.ru/api/v1/swagger/doc.json`;
 - Swagger `host`: `fitness.nought.ru`;
 - Swagger `basePath`: `/api/v1`;
 - Swagger `schemes`: пустой массив.
@@ -17,8 +19,10 @@
 - **assumed** — временное клиентское предположение;
 - **запрошено у backend** — блокер до включения реальной интеграции.
 
-Default клиента: `http://fitness.nought.ru/api/v1`. Production/staging URL и
-HTTPS — **запрошено у backend/DevOps**.
+Default клиента совпадает с задеплоенным API:
+`http://fitness.nought.ru/api/v1`. Корень `/api/v1/` не является отдельным
+endpoint и отвечает `404`; это не признак недоступности API. Отдельные
+staging/prod URL и HTTPS — **запрошено у backend/DevOps**.
 
 ## 2. Общие правила
 
@@ -290,7 +294,8 @@ Swagger задаёт только тип string. Текущий клиентск
 
 ## 7. Запрошено у backend
 
-1. Dev/staging/prod URL, обязательность HTTPS и тестовые учётки.
+1. Staging/prod URL, сроки перехода на HTTPS и тестовые учётки. Dev/deployed
+   URL уже получен: `http://fitness.nought.ru/api/v1`.
 2. Точный формат Authorization и обязательные headers.
 3. Required-поля успешных responses и формат/expiry токенов.
 4. Refresh rotation/reuse semantics.
