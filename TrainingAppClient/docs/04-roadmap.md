@@ -212,7 +212,8 @@ Issue 33 блокирован бэкендом (восстановление п�
 | 2 | выполнен | AuthPage: login/signup, check-email, валидация, локальные параметры, роутинг сессии, logout, failMode, QML/UI-тесты |
 | 3 | выполнен | `AsApp_Context`, Data/Domain/Presentation, Network/Sql/Test, base URL, архитектура и API-контракт, Qt Test |
 | 4 | выполнен | CTest, Qt Test, qmltestrunner/object smoke, fake HTTP server на QTcpServer, gates, pre-commit hook и CI |
-| 5–40 | не начат | — |
+| 5 | выполнен | `AsHttp_Client`, `AApi_Error`, единый request/response DTO, timeout, retry network/5xx, безопасное логирование, fake-server тесты |
+| 6–40 | не начат | — |
 
 Backlog (вне scope плана): хаптика/звуки, уведомления о тренировках, экспорт
 данных, планшеты/landscape, Android Keystore (JNI), серверная реализация

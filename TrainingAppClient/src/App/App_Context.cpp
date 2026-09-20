@@ -1,5 +1,7 @@
 #include "App/App_Context.h"
 
+#include "Data/Network/Http_Client.h"
+
 #include <QSettings>
 #include <QUrl>
 #include <QVariant>
@@ -35,6 +37,12 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	Api_URL_Source.clear();
 	Initialized = false;
 	Last_Error_Text.clear();
+
+	if (HTTP_Client_Instance != 0)
+	{
+		delete HTTP_Client_Instance;
+		HTTP_Client_Instance = 0;
+	}
 	candidate.clear();
 	source.clear();
 	command_line_found = false;
@@ -85,6 +93,16 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 
 	Api_Base_URL = normalized_url;
 	Api_URL_Source = source;
+	HTTP_Client_Instance = new AsHttp_Client(QUrl(Api_Base_URL), this);
+
+	if (HTTP_Client_Instance->Base_URL().isValid() == false)
+	{
+		Last_Error_Text = HTTP_Client_Instance->Last_Error();
+		delete HTTP_Client_Instance;
+		HTTP_Client_Instance = 0;
+		return false;
+	}
+
 	Initialized = true;
 
 	qInfo("App context: API base URL source=%s url=%s", qUtf8Printable(Api_URL_Source), qUtf8Printable(Api_Base_URL));
@@ -110,6 +128,11 @@ bool AsApp_Context::initialized() const
 QString AsApp_Context::Last_Error() const
 {
 	return Last_Error_Text;
+}
+//----------------------------------------------------------------------------
+AsHttp_Client *AsApp_Context::HTTP_Client() const
+{
+	return HTTP_Client_Instance;
 }
 //----------------------------------------------------------------------------
 QString AsApp_Context::Default_Api_Base_URL()

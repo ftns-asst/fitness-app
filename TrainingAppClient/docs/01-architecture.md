@@ -93,7 +93,8 @@ Default соответствует подтверждённому backend URL
 
 - `AsApp_Context` живёт на стеке `main()` дольше `QQmlApplicationEngine`.
 - Будущие сервисы создаются с parent `AsApp_Context`.
-- `QNetworkAccessManager` будет один на HTTP-клиент, issue 5.
+- `AsHttp_Client` владеет одним `QNetworkAccessManager`; composition root владеет
+  одним `AsHttp_Client` (issue 5 выполнен).
 - Соединение SQLite и миграции появляются в issue 6.
 - Token store и single-flight refresh появляются в issue 7.
 - ViewModel реального auth появляется в issue 8 и заменяет mock-backed
@@ -116,9 +117,10 @@ Default соответствует подтверждённому backend URL
 
 | Target | Назначение |
 |---|---|
-| `TrainingAppCore` | `AsApp_Context`, будущие Data/Domain/Presentation классы |
+| `TrainingAppCore` | `AsApp_Context`, `AsHttp_Client`, `AApi_Error`, будущие Data/Domain/Presentation классы |
 | `appTrainingAppClient` | executable + QML module |
 | `tst_App_Context` | Qt Test конфигурации запуска |
+| `tst_Http_Client` | Qt Test API-ядра против fake HTTP server |
 
 `TrainingAppCore` связан с `Qt6::Core`, `Qt6::Network`, `Qt6::Sql`; тест связан
 с `Qt6::Test`. UI executable дополнительно использует Quick/Controls/Layouts.
@@ -126,7 +128,7 @@ Default соответствует подтверждённому backend URL
 ## 8. Следующие шаги
 
 - issue 4: выполнен — CTest/QML smoke/gates/CI и fake HTTP server;
-- issue 5: `AsHttp_Client`, `AApi_Error`, timeout/retry;
+- issue 5: выполнен — `AsHttp_Client`, `AApi_Error`, timeout/retry и безопасные логи;
 - issue 6: `AsSql_Database` и schema v1;
 - issue 7: `AsToken_Store` и single-flight refresh;
 - issue 8: `AAuth_Api`, repository и `Avm_Auth`;

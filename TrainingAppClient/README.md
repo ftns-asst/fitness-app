@@ -54,8 +54,10 @@ C++ composition root и конфигурация будущего API уже п�
 для desktop-тестов также Test и QuickTest. Сборка через Qt Creator (CMake).
 
 Задеплоенный API: `http://fitness.nought.ru/api/v1`. Документация backend:
-`http://fitness.nought.ru/api/v1/swagger`. Реальные сетевые запросы будут
-подключены в issues 5–9; текущий UI по-прежнему использует mock auth/data.
+`http://fitness.nought.ru/api/v1/swagger`. В issue 5 готово API-ядро
+`AsHttp_Client` (timeout/retry/error mapping), но endpoint-адаптеры и реальный
+Auth UI подключаются в issues 7–9; текущий UI по-прежнему использует mock
+auth/data.
 
 ### Desktop
 
@@ -107,6 +109,9 @@ CMake, `qmllint`, desktop-сборку и все CTest-тесты:
 - `app_context` — Qt Test приоритетов и валидации API base URL;
 - `test_http_server` — GET/POST, headers/body, очередь ответов, delay,
   disconnect, malformed и split-body сценарии fake HTTP server;
+- `http_client` — единый response DTO, error mapping, timeout, network/5xx
+  retry, retry exhaustion, JSON и отсутствие токенов/query/backend message в
+  логах;
 - `tst_auth_page.qml` — валидация, login/signup, занятый email, failMode,
   транзакционное сохранение локальных параметров, гостевой вход и logout;
 - `tst_qml_object_smoke.qml` — создание `AppShell`, `AuthPage` и form controls;

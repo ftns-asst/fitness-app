@@ -6,10 +6,12 @@
 #include <QString>
 #include <QStringList>
 
+class AsHttp_Client;
+
 //----------------------------------------------------------------------------
-// Корневой контекст приложения. На этапе issue 3 владеет только конфигурацией
-// окружения; сетевые, SQL- и presentation-сервисы добавляются последующими
-// issues и создаются здесь в порядке их зависимостей.
+// Корневой контекст приложения. Владеет конфигурацией окружения и единым
+// AsHttp_Client; SQL- и presentation-сервисы добавляются последующими issues и
+// создаются здесь в порядке их зависимостей.
 //----------------------------------------------------------------------------
 class AsApp_Context : public QObject
 {
@@ -27,6 +29,7 @@ public:
 	QString apiUrlSource() const;
 	bool initialized() const;
 	QString Last_Error() const;
+	AsHttp_Client *HTTP_Client() const;
 
 	static QString Default_Api_Base_URL();
 	static QString Environment_Variable_Name();
@@ -41,5 +44,6 @@ private:
 	QString Api_URL_Source;
 	bool Initialized = false;
 	QString Last_Error_Text;
+	AsHttp_Client *HTTP_Client_Instance = 0;
 };
 //----------------------------------------------------------------------------

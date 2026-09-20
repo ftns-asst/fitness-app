@@ -1,5 +1,7 @@
 #include "App/App_Context.h"
 
+#include "Data/Network/Http_Client.h"
+
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -32,6 +34,8 @@ void AApp_Context_Test::defaultUrlIsUsed()
 	QCOMPARE(context.apiBaseUrl(), AsApp_Context::Default_Api_Base_URL());
 	QCOMPARE(context.apiUrlSource(), QString("default"));
 	QVERIFY(context.initialized());
+	QVERIFY(context.HTTP_Client() != 0);
+	QCOMPARE(context.HTTP_Client()->Base_URL(), QUrl(AsApp_Context::Default_Api_Base_URL()));
 }
 //----------------------------------------------------------------------------
 void AApp_Context_Test::environmentOverridesDefault()

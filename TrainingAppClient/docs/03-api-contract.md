@@ -240,9 +240,33 @@ Swagger задаёт только тип string. Текущий клиентск
 | `network_error`, `timeout`, `server_error`, `rate_limited` | client mapping |
 | `recovery_code_invalid`, `recovery_code_expired` | reserved issue 33 |
 
-Маппинг HTTP status → key будет реализован в `AApi_Error` issue 5. До
-подтверждения нельзя считать `401`, `404` или `500` достаточным для определения
-конкретного UX-текста.
+Маппинг HTTP status → key реализован в `AApi_Error` issue 5. Валидный непустой
+backend `key` имеет приоритет. Если DTO отсутствует/невалиден или key пустой:
+
+| Условие | Fallback key |
+|---|---|
+| network error без HTTP status | `network_error` |
+| transfer timeout / HTTP 408 | `timeout` |
+| HTTP 400 | `validation_error` |
+| HTTP 401 | `invalid_token` |
+| HTTP 404 | `not_found` |
+| HTTP 429 | `rate_limited` |
+| HTTP 5xx | `server_error` |
+| остальное | `undefined_error` |
+
+`401 → invalid_token` — только transport fallback. Если backend вернул
+`token_expired`, он сохраняется. До подтверждения нельзя считать один status
+достаточным для конкретного UX-сценария.
+
+`AsHttp_Client` по умолчанию использует timeout 10 секунд и максимум два retry
+(250/500 мс) для network errors без HTTP status и HTTP 5xx. Generic GET retry
+разрешает; JSON POST запрещает его по умолчанию, пока endpoint-адаптер явно не
+подтвердит повторяемость операции. `401`, `400`, `404`, `408`, `429` не
+повторяются. Auto-refresh не является transport retry и реализуется issue 7.
+
+Логи содержат request id, method, path без query, status/network code, attempt и
+retry delay. Body, headers, query, access/refresh token и backend message не
+логируются.
 
 ## 6. Сценарии 1–5
 

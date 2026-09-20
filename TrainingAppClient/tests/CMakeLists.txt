@@ -83,6 +83,13 @@ target_link_libraries(tst_Test_Http_Server PRIVATE TrainingAppTestSupport Qt6::T
 add_test(NAME test_http_server COMMAND tst_Test_Http_Server)
 set_tests_properties(test_http_server PROPERTIES TIMEOUT 20)
 
+qt_add_executable(tst_Http_Client
+    cpp/tst_Http_Client.cpp
+)
+target_link_libraries(tst_Http_Client PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME http_client COMMAND tst_Http_Client)
+set_tests_properties(http_client PROPERTIES TIMEOUT 30)
+
 # Автономные экраны входа и регистрации (issue 2) на пяти компоновках каждая.
 foreach(auth_screen IN ITEMS auth-login auth-signup)
     foreach(auth_viewport IN ITEMS 360 390 480 frame dark)

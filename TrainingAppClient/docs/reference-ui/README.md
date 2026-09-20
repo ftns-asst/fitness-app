@@ -111,6 +111,9 @@ $env:QT_FORCE_STDERR_LOGGING = '1'
   через `--diag`, fake HTTP server на `QTcpServer`, единый
   `scripts/run-gates.ps1`, opt-in pre-commit hook и GitHub Actions на все
   push/PR.
+- Фаза V, issue 5 выполнена: `AsHttp_Client`, `AApi_Error`, timeout,
+  exponential retry для network/5xx, единый response DTO и безопасное
+  логирование. UI визуально не изменён и до issue 8 остаётся на mock auth.
 - Этап M1 (Android-контур) выполнен: portrait-lock и имя приложения в
   собственном `android/AndroidManifest.xml`, системная кнопка «назад»
   (BackHandler: панель → стек деталей → выход), цвет системных полос под тему
