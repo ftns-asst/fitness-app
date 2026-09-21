@@ -87,3 +87,20 @@ func (s *UserService) CreateUser(ctx context.Context, user *model.User) (*model.
 	}
 	return user, nil
 }
+
+// update user profile
+func (s *UserService) UpdateUserProfile(ctx context.Context, userID uuid.UUID, input *model.UpdateUserProfileInput) (*model.UserProfile, error) {
+	if input == nil {
+		return nil, fmt.Errorf("update user profile input can't be nil")
+	}
+
+	updated, err := s.userRepo.CreateOrUpdateUserProfile(ctx, userID, input)
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, fmt.Errorf("not found user profile to update id: %s, err: %w", userID, model.ErrNotFound)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to update id: %s, err: %w", userID, err)
+	}
+
+	return updated, nil
+}

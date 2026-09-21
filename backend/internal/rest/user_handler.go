@@ -24,6 +24,7 @@ func NewUserHandler(userService *users.UserService) *UserHandler {
 
 func (h *UserHandler) RegisterRoutes(r *gin.RouterGroup, authMid gin.HandlerFunc) {
 	r.GET("/users/:id", authMid, h.GetUserByID)
+	r.PATCH("/users/me/profile", authMid, h.UpdateUserProfile)
 }
 
 // GetUserByID godoc
@@ -60,4 +61,40 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, mapper.ConvertUserWithProfileToDTO(user))
+}
+
+// UpdateUserProfile godoc
+// @Id updateUserProfile
+// @Tags users
+// @Summary Update user profile
+// @Accept json
+// @Produce json
+// @Param request body dto.UpdateUserProfileRequestBody true "request body"
+// @Success 200 {object} dto.UserProfileResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router /users/me/profile [patch]
+func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
+	userID, err := tryGetUserIDFromCtx(c.Request.Context())
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	var body dto.UpdateUserProfileRequestBody
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to get body from request: %w: %w", err, model.ErrBadRequest))
+		return
+	}
+
+	profile, err := h.userService.UpdateUserProfile(c.Request.Context(), userID,
+		mapper.ConvertUpdateUserProfileInputFromDTO(&body))
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, mapper.ConvertProfileToDTO(profile))
 }

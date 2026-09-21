@@ -1,14 +1,18 @@
 package rest
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"ftns-asst/internal/config"
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/service"
+	"ftns-asst/internal/util"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Handlers struct {
@@ -70,4 +74,12 @@ func handleError(c *gin.Context, err error) {
 
 	log.Printf("Error: %v", err)
 	c.JSON(responseCode, resp)
+}
+
+func tryGetUserIDFromCtx(ctx context.Context) (uuid.UUID, error) {
+	id, ok := util.GetUserIDFromCtx(ctx)
+	if !ok {
+		return uuid.Nil, fmt.Errorf("failed to get user ID from context")
+	}
+	return id, nil
 }

@@ -18,7 +18,7 @@ func ConvertUserToDTO(m *model.User) *dto.UserResponse {
 	}
 }
 
-func ConvertProfileToDT(m *model.UserProfile) *dto.UserProfileResponse {
+func ConvertProfileToDTO(m *model.UserProfile) *dto.UserProfileResponse {
 	if m == nil {
 		return nil
 	}
@@ -36,6 +36,18 @@ func ConvertUserWithProfileToDTO(m *model.UserWithProfile) *dto.UserWithProfileR
 	}
 	return &dto.UserWithProfileResponse{
 		UserResponse: util.UnPtr(ConvertUserToDTO(util.Ptr(m.User))),
-		Profile:      ConvertProfileToDT(m.Profile),
+		Profile:      ConvertProfileToDTO(m.Profile),
+	}
+}
+
+func ConvertUpdateUserProfileInputFromDTO(d *dto.UpdateUserProfileRequestBody) *model.UpdateUserProfileInput {
+	if d == nil {
+		return nil
+	}
+	return &model.UpdateUserProfileInput{
+		Age:      d.Age,
+		HeightCm: d.HeightCm,
+		WeightKg: d.WeightKg,
+		Gender:   d.Gender,
 	}
 }

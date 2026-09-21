@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"errors"
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/util"
@@ -26,6 +27,8 @@ func AuthMiddleware(secretKey string) gin.HandlerFunc {
 			return
 		}
 
-		c.Set(model.ContextKeyUserID, tokenInfo.UserID)
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), model.ContextKeyUserID, tokenInfo.UserID))
+
+		c.Next()
 	}
 }

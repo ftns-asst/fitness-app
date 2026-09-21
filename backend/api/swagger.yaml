@@ -105,6 +105,26 @@ definitions:
       refresh_token:
         type: string
     type: object
+  UpdateUserProfileRequestBody:
+    properties:
+      age:
+        maximum: 150
+        minimum: 1
+        type: integer
+      gender:
+        enum:
+        - male
+        - female
+        type: string
+      height:
+        maximum: 300
+        minimum: 1
+        type: integer
+      weight:
+        maximum: 500
+        minimum: 1
+        type: integer
+    type: object
   User:
     properties:
       created_at:
@@ -439,6 +459,40 @@ paths:
           schema:
             $ref: '#/definitions/ErrorResponse'
       summary: Get user by ID
+      tags:
+      - users
+  /users/me/profile:
+    patch:
+      consumes:
+      - application/json
+      operationId: updateUserProfile
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateUserProfileRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserProfile'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Update user profile
       tags:
       - users
 swagger: "2.0"

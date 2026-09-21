@@ -48,25 +48,33 @@ func (r *UserRepo) CreateUser(ctx context.Context, user *model.User) (*model.Use
 }
 
 // create or update user profile with coalesce for partially updating
-func (r *UserRepo) CreateOrUpdateUserProfile(ctx context.Context, profile *model.UserProfile) (*model.UserProfile, error) {
+func (r *UserRepo) CreateOrUpdateUserProfile(ctx context.Context, userID uuid.UUID, input *model.UpdateUserProfileInput) (*model.UserProfile, error) {
 	query := `
-		INSERT INTO user_profiles(age, gender, height_cm, weight_kd)
-		VALUES ($1, $2, $3, $4)
-		RETURNING updated_at
+		INSERT INTO user_profiles(user_id, age, gender, height_cm, weight_kg)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (user_id) 
 		DO UPDATE SET 
-			age = COALESCE(EXCLUDED.age),
-			gender = COALESCE(EXCLUDED.gender),
-			height_cm = COALESCE(EXCLUDED.height_cm)
-			weight_kg = COALESCE(EXCLUDED.weight_kd);`
+			age = COALESCE(EXCLUDED.age, user_profiles.age),
+			gender = COALESCE(EXCLUDED.gender, user_profiles.gender),
+			height_cm = COALESCE(EXCLUDED.height_cm, user_profiles.height_cm),
+			weight_kg = COALESCE(EXCLUDED.weight_kg, user_profiles.weight_kg)
+		RETURNING *;`
 
 	conn := r.db(ctx)
-	err := conn.QueryRow(ctx, query, profile.Age, profile.Gender, profile.HeightCm, profile.WeightKg).
-		Scan(&profile.UpdatedAt)
-	if err != nil {
-		return nil, fmt.Errorf("insert scan failed: %w", err)
+
+	rows, err := conn.Query(ctx, query, userID, input.Age, input.Gender, input.HeightCm, input.WeightKg)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
 	}
-	return profile, nil
+	if err != nil {
+		return nil, fmt.Errorf("insert failed: %w", err)
+	}
+
+	res, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[model.UserProfile])
+	if err != nil {
+		return nil, fmt.Errorf("collect row failed: %w", err)
+	}
+	return res, nil
 }
 
 // get user by id

@@ -1,6 +1,12 @@
 package util
 
-import "crypto/rand"
+import (
+	"context"
+	"crypto/rand"
+	"ftns-asst/internal/model"
+
+	"github.com/google/uuid"
+)
 
 // returns pointer to value
 func Ptr[T any](value T) *T {
@@ -17,4 +23,9 @@ func UnPtr[T any](ptr *T) T {
 
 func RandStr() string {
 	return rand.Text()
+}
+
+func GetUserIDFromCtx(ctx context.Context) (uuid.UUID, bool) {
+	u, ok := ctx.Value(model.ContextKeyUserID).(uuid.UUID)
+	return u, ok
 }
