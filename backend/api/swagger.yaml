@@ -461,6 +461,38 @@ paths:
       summary: Get user by ID
       tags:
       - users
+  /users/me:
+    get:
+      consumes:
+      - application/json
+      operationId: getMe
+      parameters:
+      - description: if true - resposne with user profile
+        in: query
+        name: withProfile
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserWithProfile'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Get user by provided access token
+      tags:
+      - users
   /users/me/profile:
     patch:
       consumes:
