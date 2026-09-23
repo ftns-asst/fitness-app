@@ -6,8 +6,10 @@
 #include <QString>
 #include <QStringList>
 
+class AsAuth_Session;
 class AsHttp_Client;
 class AsSql_Database;
+class AsToken_Store;
 
 //----------------------------------------------------------------------------
 // Корневой контекст приложения. Владеет конфигурацией окружения и единым
@@ -32,6 +34,8 @@ public:
 	QString Last_Error() const;
 	AsHttp_Client *HTTP_Client() const;
 	AsSql_Database *SQL_Database() const;
+	AsToken_Store *Token_Store() const;
+	AsAuth_Session *Auth_Session() const;
 
 	static const QString Default_Api_Base_URL;
 	static const QString Environment_Variable_Name;
@@ -39,7 +43,8 @@ public:
 
 private:
 	static bool Normalize_Api_Base_URL(const QString &in_value, QString &out_value, QString &out_error);
-	static bool Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found,QString &out_error);
+	static bool Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found,
+	                                  QString &out_error);
 
 	QString Api_Base_URL;
 	QString Api_URL_Source;
@@ -47,5 +52,7 @@ private:
 	QString Last_Error_Text;
 	AsHttp_Client *HTTP_Client_Instance = 0;
 	AsSql_Database *SQL_Database_Instance = 0;
+	AsToken_Store *Token_Store_Instance = 0;
+	AsAuth_Session *Auth_Session_Instance = 0;
 };
 //----------------------------------------------------------------------------

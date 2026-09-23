@@ -5,6 +5,10 @@
 - `cpp/tst_App_Context.cpp` — конфигурация composition root;
 - `cpp/tst_Test_Http_Server.cpp` — самотестирование fake HTTP server;
 - `cpp/tst_Http_Client.cpp` — API error mapping, DTO, timeout/retry и redaction;
+- `cpp/tst_Sql_Database.cpp` — schema v1, миграции и constraints;
+- `cpp/tst_Token_Store.cpp` — auth_tokens: save/load/ротация/clear и cold start;
+- `cpp/tst_Auth_Session.cpp` — single-flight refresh: гонка 401, один refresh,
+  один повтор, `sessionExpired`, transport-сбой и redaction логов;
 - `qml/tst_mock_contract.qml` — mock API и data roles;
 - `qml/tst_auth_page.qml` — auth state/UI interaction;
 - `qml/tst_qml_object_smoke.qml` — создание ключевых production QML-типов;

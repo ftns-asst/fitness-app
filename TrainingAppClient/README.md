@@ -109,6 +109,13 @@ CMake, `qmllint`, desktop-сборку и все CTest-тесты:
 - `app_context` — Qt Test приоритетов API base URL и composition root;
 - `sql_database` — создание и идемпотентная миграция SQLite schema v1,
   backend-aligned cache-поля, constraints и ошибки открытия;
+- `token_store` — сохранение/чтение/ротация/очистка auth_tokens, cold start
+  после повторного открытия базы, отклонение пустых токенов;
+- `auth_session` — single-flight refresh на fake-сервере: Bearer-заголовок из
+  хранилища, один `POST /auth/refresh` при гонке параллельных 401, один повтор
+  исходного запроса, очистка токенов и `sessionExpired` при HTTP-отказе
+  refresh, сохранение локальной сессии при transport-сбое, отсутствие токенов
+  в логах;
 - `test_http_server` — GET/POST, headers/body, очередь ответов, delay,
   disconnect, malformed и split-body сценарии fake HTTP server;
 - `http_client` — единый response DTO, error mapping, timeout, network/5xx

@@ -76,6 +76,20 @@ target_link_libraries(tst_Sql_Database PRIVATE TrainingAppCore Qt6::Test)
 add_test(NAME sql_database COMMAND tst_Sql_Database)
 set_tests_properties(sql_database PROPERTIES TIMEOUT 20)
 
+qt_add_executable(tst_Token_Store
+    cpp/tst_Token_Store.cpp
+)
+target_link_libraries(tst_Token_Store PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME token_store COMMAND tst_Token_Store)
+set_tests_properties(token_store PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Auth_Session
+    cpp/tst_Auth_Session.cpp
+)
+target_link_libraries(tst_Auth_Session PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME auth_session COMMAND tst_Auth_Session)
+set_tests_properties(auth_session PROPERTIES TIMEOUT 30)
+
 add_library(TrainingAppTestSupport STATIC
     Support/Test_Http_Server.h
     Support/Test_Http_Server.cpp

@@ -97,7 +97,10 @@ Default соответствует подтверждённому backend URL
   одним `AsHttp_Client` (issue 5 выполнен).
 - `AsApp_Context` владеет одним `AsSql_Database`; SQLite открывается в приватном
   `QStandardPaths::AppDataLocation`, schema v1 мигрирует транзакционно (issue 6).
-- Token store и single-flight refresh появляются в issue 7.
+- `AsApp_Context` владеет одним `AsToken_Store` (поверх `AsSql_Database`) и одним
+  `AsAuth_Session` (поверх `AsHttp_Client` и `AsToken_Store`); session
+  single-flight refresh реализован issue 7. При переинициализации сервисы
+  удаляются в порядке, обратном созданию: session → token store → HTTP → SQLite.
 - ViewModel реального auth появляется в issue 8 и заменяет mock-backed
   `AuthViewModel` без изменения `AuthPage`.
 
@@ -118,10 +121,12 @@ Default соответствует подтверждённому backend URL
 
 | Target | Назначение |
 |---|---|
-| `TrainingAppCore` | `AsApp_Context`, `AsHttp_Client`, `AApi_Error`, `AsSql_Database`, будущие Domain/Presentation классы |
+| `TrainingAppCore` | `AsApp_Context`, `AsHttp_Client`, `AApi_Error`, `AsSql_Database`, `AsToken_Store`, `AsAuth_Session`, будущие Domain/Presentation классы |
 | `appTrainingAppClient` | executable + QML module |
 | `tst_App_Context` | Qt Test конфигурации запуска и composition root |
 | `tst_Sql_Database` | Qt Test SQLite schema v1 и миграций |
+| `tst_Token_Store` | Qt Test хранилища auth_tokens |
+| `tst_Auth_Session` | Qt Test single-flight refresh на fake HTTP server |
 | `tst_Http_Client` | Qt Test API-ядра против fake HTTP server |
 
 `TrainingAppCore` связан с `Qt6::Core`, `Qt6::Network`, `Qt6::Sql`; тест связан
@@ -132,6 +137,6 @@ Default соответствует подтверждённому backend URL
 - issue 4: выполнен — CTest/QML smoke/gates/CI и fake HTTP server;
 - issue 5: выполнен — `AsHttp_Client`, `AApi_Error`, timeout/retry и безопасные логи;
 - issue 6: выполнен — `AsSql_Database`, приватная SQLite и schema v1;
-- issue 7: `AsToken_Store` и single-flight refresh;
+- issue 7: выполнен — `AsToken_Store`, `AsAuth_Session`, single-flight refresh;
 - issue 8: `AAuth_Api`, repository и `Avm_Auth`;
 - issue 9: users/profile cache и offline state.

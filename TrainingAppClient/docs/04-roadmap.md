@@ -214,7 +214,8 @@ Issue 33 блокирован бэкендом (восстановление п�
 | 4 | выполнен | CTest, Qt Test, qmltestrunner/object smoke, fake HTTP server на QTcpServer, gates, pre-commit hook и CI |
 | 5 | выполнен | `AsHttp_Client`, `AApi_Error`, единый request/response DTO, timeout, retry network/5xx, безопасное логирование, fake-server тесты |
 | 6 | выполнен | `AsSql_Database`, приватная SQLite, schema v1, идемпотентные миграции и тесты временной БД |
-| 7–40 | не начат | — |
+| 7 | выполнен | `AsToken_Store` (auth_tokens, атомарный upsert/ротация), `AsAuth_Session` (single-flight refresh, один повтор исходного запроса, `sessionExpired` при HTTP-отказе refresh, cold start из SQLite), тесты истёк access/refresh и гонки |
+| 8–40 | не начат | — |
 
 Backlog (вне scope плана): хаптика/звуки, уведомления о тренировках, экспорт
 данных, планшеты/landscape, Android Keystore (JNI), серверная реализация

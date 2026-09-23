@@ -1,5 +1,7 @@
 #include "App/App_Context.h"
 
+#include "Data/Auth/Auth_Session.h"
+#include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
 
@@ -28,7 +30,8 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments)
 	return Initialize(in_arguments, settings, environment_url);
 }
 //----------------------------------------------------------------------------
-bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_settings, const QByteArray &in_environment_url)
+bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_settings,
+                               const QByteArray &in_environment_url)
 {
 	QString candidate;
 	QString normalized_url;
@@ -42,12 +45,24 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	Initialized = false;
 	Last_Error_Text.clear();
 
+	if (Auth_Session_Instance != 0)
+	{
+		delete Auth_Session_Instance;
+		Auth_Session_Instance = 0;
+	}
+
+	if (Token_Store_Instance != 0)
+	{
+		delete Token_Store_Instance;
+		Token_Store_Instance = 0;
+	}
+
 	if (HTTP_Client_Instance != 0)
 	{
 		delete HTTP_Client_Instance;
 		HTTP_Client_Instance = 0;
 	}
-	
+
 	if (SQL_Database_Instance != 0)
 	{
 		delete SQL_Database_Instance;
@@ -124,6 +139,11 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 		return false;
 	}
 
+	// Composition root: token store поверх приватной SQLite, auth-сессия
+	// поверх HTTP-клиента и token store (issue 7).
+	Token_Store_Instance = new AsToken_Store(SQL_Database_Instance, this);
+	Auth_Session_Instance = new AsAuth_Session(HTTP_Client_Instance, Token_Store_Instance, this);
+
 	Initialized = true;
 
 	qInfo("App context: API base URL source=%s url=%s", qUtf8Printable(Api_URL_Source), qUtf8Printable(Api_Base_URL));
@@ -159,6 +179,16 @@ AsHttp_Client *AsApp_Context::HTTP_Client() const
 AsSql_Database *AsApp_Context::SQL_Database() const
 {
 	return SQL_Database_Instance;
+}
+//----------------------------------------------------------------------------
+AsToken_Store *AsApp_Context::Token_Store() const
+{
+	return Token_Store_Instance;
+}
+//----------------------------------------------------------------------------
+AsAuth_Session *AsApp_Context::Auth_Session() const
+{
+	return Auth_Session_Instance;
 }
 //----------------------------------------------------------------------------
 bool AsApp_Context::Normalize_Api_Base_URL(const QString &in_value, QString &out_value, QString &out_error)
@@ -202,7 +232,8 @@ bool AsApp_Context::Normalize_Api_Base_URL(const QString &in_value, QString &out
 	return true;
 }
 //----------------------------------------------------------------------------
-bool AsApp_Context::Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found,QString &out_error)
+bool AsApp_Context::Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found,
+                                          QString &out_error)
 {
 	int found_count;
 

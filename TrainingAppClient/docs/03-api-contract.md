@@ -303,7 +303,12 @@ retry delay. Body, headers, query, access/refresh token и backend message не
 4. Новая пара токенов атомарно заменяет старую.
 5. Исходный запрос повторяется один раз.
 
-Реализация — issue 7; повторные ретраи после второго auth failure запрещены.
+Реализовано в issue 7 (`AsAuth_Session`). Зафиксированные клиентские решения:
+один `POST /auth/refresh` на очередь параллельных auth failure; запросы,
+пришедшие во время refresh, отправляются после него; второй auth failure после
+refresh не ретраится повторно и не сбрасывает сохранённые токены; transport-сбой
+refresh и невалидный JSON 200-ответ трактуются как transport-сбой (сессия
+сохраняется); только HTTP-подтверждённый отказ refresh завершает сессию.
 
 ### Сценарий 5. Refresh неуспешен
 
@@ -325,7 +330,8 @@ retry delay. Body, headers, query, access/refresh token и backend message не
 
 `auth_tokens` содержит полученные access/refresh token и их клиентские сроки.
 Это не копия серверной таблицы `tokens`: серверные `token_hash`, `used_at` и
-внутренний `id` клиенту неизвестны. Запись и ротация токенов реализуются issue 7.
+внутренний `id` клиенту неизвестны. Запись, ротация и очистка реализованы в
+issue 7 (`AsToken_Store`, `AsAuth_Session`).
 
 ## 8. Запрошено у backend
 

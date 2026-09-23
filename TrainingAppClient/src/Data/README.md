@@ -20,4 +20,15 @@ retry, `Post_JSON` по умолчанию его запрещает. Auto-refre
 `created_at`, `updated_at`, `age`, `gender`, `height_cm`, `weight_kg`, но никогда
 не хранит серверные `pass_hash` и `token_hash`.
 
+`Auth/` реализует issue 7:
+
+- `AsToken_Store` — хранилище пары токенов в таблице `auth_tokens`
+  (единственная строка id = 1): атомарный upsert при ротации, ISO-даты expiry,
+  чтение для cold start; значения токенов не логируются;
+- `AsAuth_Session` — приватные запросы с `Authorization: Bearer <token>`
+  (assumed до ответа backend) и single-flight refresh: первый auth failure
+  отправляет один `POST /auth/refresh`, параллельные запросы ждут в очереди и
+  повторяются по одному разу с новой парой токенов; HTTP-отказ refresh очищает
+  токены и сигналит `sessionExpired`, transport-сбой сессию сохраняет.
+
 Зависит от Qt и внешних систем; не содержит визуального QML.

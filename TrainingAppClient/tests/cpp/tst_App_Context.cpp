@@ -1,5 +1,7 @@
 #include "App/App_Context.h"
 
+#include "Data/Auth/Auth_Session.h"
+#include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
 
@@ -40,6 +42,10 @@ void AApp_Context_Test::defaultUrlIsUsed()
 	QVERIFY(context.SQL_Database()->Is_Open());
 	QCOMPARE(context.SQL_Database()->Get_Schema_Version(), 1);
 	QCOMPARE(context.HTTP_Client()->Base_URL(), QUrl(AsApp_Context::Default_Api_Base_URL));
+	QVERIFY(context.Token_Store() != 0);
+	QVERIFY(context.Auth_Session() != 0);
+	QVERIFY(context.Token_Store()->Has_Tokens() == false);
+	QVERIFY(context.Auth_Session()->Has_Session() == false);
 }
 //----------------------------------------------------------------------------
 void AApp_Context_Test::environmentOverridesDefault()

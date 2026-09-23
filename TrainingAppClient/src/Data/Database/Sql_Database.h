@@ -13,8 +13,8 @@ class AsSql_Database : public QObject
 {
 	Q_OBJECT
 	Q_PROPERTY(bool open READ Is_Open CONSTANT)
-	Q_PROPERTY(QString path READ Database_Path CONSTANT)
-	Q_PROPERTY(int schemaVersion READ Schema_Version CONSTANT)
+	Q_PROPERTY(QString path READ Get_Database_Path CONSTANT)
+	Q_PROPERTY(int schemaVersion READ Get_Schema_Version CONSTANT)
 
 public:
 	explicit AsSql_Database(QObject *in_parent = 0);
@@ -27,6 +27,10 @@ public:
 	QString Get_Database_Path() const;
 	int Get_Schema_Version() const;
 	QString Get_Last_Error() const;
+
+	// Соединение для Data-сервисов (token store, репозитории). Неактивно,
+	// пока база не открыта; владельцем соединения остаётся AsSql_Database.
+	QSqlDatabase Sql_Connection() const;
 
 	static QString Get_Default_Database_Path();
 	static int Get_Current_Schema_Version();

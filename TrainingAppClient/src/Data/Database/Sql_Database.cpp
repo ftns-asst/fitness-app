@@ -241,3 +241,11 @@ QString AsSql_Database::Connection_Name() const
 	return Connection_Name_Text;
 }
 //----------------------------------------------------------------------------
+QSqlDatabase AsSql_Database::Sql_Connection() const
+{
+	if (Database_Handle == 0)
+		return QSqlDatabase();
+
+	return *Database_Handle;
+}
+//----------------------------------------------------------------------------
