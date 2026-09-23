@@ -1,5 +1,6 @@
 #include "App/App_Context.h"
 
+#include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
 
 #include <QSettings>
@@ -31,11 +32,14 @@ void AApp_Context_Test::defaultUrlIsUsed()
 
 	QVERIFY(directory.isValid());
 	QVERIFY(context.Initialize({"app"}, settings, QByteArray()));
-	QCOMPARE(context.apiBaseUrl(), AsApp_Context::Default_Api_Base_URL());
+	QCOMPARE(context.apiBaseUrl(), AsApp_Context::Default_Api_Base_URL);
 	QCOMPARE(context.apiUrlSource(), QString("default"));
 	QVERIFY(context.initialized());
 	QVERIFY(context.HTTP_Client() != 0);
-	QCOMPARE(context.HTTP_Client()->Base_URL(), QUrl(AsApp_Context::Default_Api_Base_URL()));
+	QVERIFY(context.SQL_Database() != 0);
+	QVERIFY(context.SQL_Database()->Is_Open());
+	QCOMPARE(context.SQL_Database()->Get_Schema_Version(), 1);
+	QCOMPARE(context.HTTP_Client()->Base_URL(), QUrl(AsApp_Context::Default_Api_Base_URL));
 }
 //----------------------------------------------------------------------------
 void AApp_Context_Test::environmentOverridesDefault()
@@ -55,7 +59,7 @@ void AApp_Context_Test::settingsOverrideEnvironment()
 	QSettings settings(directory.filePath("settings.ini"), QSettings::IniFormat);
 	AsApp_Context context;
 
-	settings.setValue(AsApp_Context::Settings_Key(), "https://settings.example/api/v1");
+	settings.setValue(AsApp_Context::Settings_Key, "https://settings.example/api/v1");
 
 	QVERIFY(context.Initialize({"app"}, settings, "https://env.example/api/v1"));
 	QCOMPARE(context.apiBaseUrl(), QString("https://settings.example/api/v1"));
@@ -68,7 +72,7 @@ void AApp_Context_Test::commandLineOverridesSettings()
 	QSettings settings(directory.filePath("settings.ini"), QSettings::IniFormat);
 	AsApp_Context context;
 
-	settings.setValue(AsApp_Context::Settings_Key(), "https://settings.example/api/v1");
+	settings.setValue(AsApp_Context::Settings_Key, "https://settings.example/api/v1");
 
 	QVERIFY(
 	    context.Initialize({"app", "--api-url", "https://cli.example/api/v2"}, settings, "https://env.example/api/v1"));
@@ -92,7 +96,7 @@ void AApp_Context_Test::invalidSelectedSourceFails()
 	QSettings settings(directory.filePath("settings.ini"), QSettings::IniFormat);
 	AsApp_Context context;
 
-	settings.setValue(AsApp_Context::Settings_Key(), "file:///tmp/api");
+	settings.setValue(AsApp_Context::Settings_Key, "file:///tmp/api");
 
 	QVERIFY(context.Initialize({"app"}, settings, "https://env.example/api/v1") == false);
 	QVERIFY(context.initialized() == false);

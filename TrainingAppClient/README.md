@@ -106,7 +106,9 @@ CMake, `qmllint`, desktop-сборку и все CTest-тесты:
 
 - `qml_tests` — auth/users mock API, ошибки, сессия, токены, роли
   `MockCatalog`, presentation-контракты и состояния `AuthPage`;
-- `app_context` — Qt Test приоритетов и валидации API base URL;
+- `app_context` — Qt Test приоритетов API base URL и composition root;
+- `sql_database` — создание и идемпотентная миграция SQLite schema v1,
+  backend-aligned cache-поля, constraints и ошибки открытия;
 - `test_http_server` — GET/POST, headers/body, очередь ответов, delay,
   disconnect, malformed и split-body сценарии fake HTTP server;
 - `http_client` — единый response DTO, error mapping, timeout, network/5xx

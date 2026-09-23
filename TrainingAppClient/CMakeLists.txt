@@ -26,6 +26,8 @@ qt_add_executable(appTrainingAppClient
 add_library(TrainingAppCore STATIC
     src/App/App_Context.h
     src/App/App_Context.cpp
+    src/Data/Database/Sql_Database.h
+    src/Data/Database/Sql_Database.cpp
     src/Data/Network/Api_Error.h
     src/Data/Network/Api_Error.cpp
     src/Data/Network/Http_Client.h

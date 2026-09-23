@@ -69,6 +69,13 @@ target_link_libraries(tst_App_Context PRIVATE TrainingAppCore Qt6::Test)
 add_test(NAME app_context COMMAND tst_App_Context)
 set_tests_properties(app_context PROPERTIES TIMEOUT 20)
 
+qt_add_executable(tst_Sql_Database
+    cpp/tst_Sql_Database.cpp
+)
+target_link_libraries(tst_Sql_Database PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME sql_database COMMAND tst_Sql_Database)
+set_tests_properties(sql_database PROPERTIES TIMEOUT 20)
+
 add_library(TrainingAppTestSupport STATIC
     Support/Test_Http_Server.h
     Support/Test_Http_Server.cpp

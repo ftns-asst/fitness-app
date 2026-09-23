@@ -112,8 +112,7 @@ int AsHttp_Client::Get(const QString &in_path, const QMap<QByteArray, QByteArray
 	return Send(request);
 }
 //----------------------------------------------------------------------------
-int AsHttp_Client::Post_JSON(const QString &in_path, const QJsonObject &in_body,
-                             const QMap<QByteArray, QByteArray> &in_headers, bool in_retry_enabled)
+int AsHttp_Client::Post_JSON(const QString &in_path, const QJsonObject &in_body, const QMap<QByteArray, QByteArray> &in_headers, bool in_retry_enabled)
 {
 	SHttp_Request request;
 

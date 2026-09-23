@@ -7,6 +7,7 @@
 #include <QStringList>
 
 class AsHttp_Client;
+class AsSql_Database;
 
 //----------------------------------------------------------------------------
 // Корневой контекст приложения. Владеет конфигурацией окружения и единым
@@ -30,20 +31,21 @@ public:
 	bool initialized() const;
 	QString Last_Error() const;
 	AsHttp_Client *HTTP_Client() const;
+	AsSql_Database *SQL_Database() const;
 
-	static QString Default_Api_Base_URL();
-	static QString Environment_Variable_Name();
-	static QString Settings_Key();
+	static const QString Default_Api_Base_URL;
+	static const QString Environment_Variable_Name;
+	static const QString Settings_Key;
 
 private:
 	static bool Normalize_Api_Base_URL(const QString &in_value, QString &out_value, QString &out_error);
-	static bool Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found,
-	                                  QString &out_error);
+	static bool Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found,QString &out_error);
 
 	QString Api_Base_URL;
 	QString Api_URL_Source;
 	bool Initialized = false;
 	QString Last_Error_Text;
 	AsHttp_Client *HTTP_Client_Instance = 0;
+	AsSql_Database *SQL_Database_Instance = 0;
 };
 //----------------------------------------------------------------------------

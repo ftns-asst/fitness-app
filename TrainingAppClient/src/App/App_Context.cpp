@@ -1,5 +1,6 @@
 #include "App/App_Context.h"
 
+#include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
 
 #include <QSettings>
@@ -8,6 +9,10 @@
 
 //----------------------------------------------------------------------------
 // AsApp_Context
+//----------------------------------------------------------------------------
+const QString AsApp_Context::Default_Api_Base_URL = "http://fitness.nought.ru/api/v1";
+const QString AsApp_Context::Environment_Variable_Name = "TRAINING_APP_API_URL";
+const QString AsApp_Context::Settings_Key = "network/apiUrl";
 //----------------------------------------------------------------------------
 AsApp_Context::AsApp_Context(QObject *in_parent) : QObject(in_parent)
 {
@@ -18,13 +23,12 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments)
 	QSettings settings;
 	QByteArray environment_url;
 
-	environment_url = qgetenv(Environment_Variable_Name().toUtf8().constData());
+	environment_url = qgetenv(Environment_Variable_Name.toUtf8().constData());
 
 	return Initialize(in_arguments, settings, environment_url);
 }
 //----------------------------------------------------------------------------
-bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_settings,
-                               const QByteArray &in_environment_url)
+bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_settings, const QByteArray &in_environment_url)
 {
 	QString candidate;
 	QString normalized_url;
@@ -43,6 +47,13 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 		delete HTTP_Client_Instance;
 		HTTP_Client_Instance = 0;
 	}
+	
+	if (SQL_Database_Instance != 0)
+	{
+		delete SQL_Database_Instance;
+		SQL_Database_Instance = 0;
+	}
+
 	candidate.clear();
 	source.clear();
 	command_line_found = false;
@@ -61,7 +72,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	}
 	else
 	{
-		candidate = in_settings.value(Settings_Key()).toString().trimmed();
+		candidate = in_settings.value(Settings_Key).toString().trimmed();
 
 		if (candidate.isEmpty() == false)
 		{
@@ -77,7 +88,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 			}
 			else
 			{
-				candidate = Default_Api_Base_URL();
+				candidate = Default_Api_Base_URL;
 				source = "default";
 			}
 		}
@@ -93,6 +104,16 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 
 	Api_Base_URL = normalized_url;
 	Api_URL_Source = source;
+	SQL_Database_Instance = new AsSql_Database(this);
+
+	if (SQL_Database_Instance->Open() == false)
+	{
+		Last_Error_Text = SQL_Database_Instance->Get_Last_Error();
+		delete SQL_Database_Instance;
+		SQL_Database_Instance = 0;
+		return false;
+	}
+
 	HTTP_Client_Instance = new AsHttp_Client(QUrl(Api_Base_URL), this);
 
 	if (HTTP_Client_Instance->Base_URL().isValid() == false)
@@ -135,19 +156,9 @@ AsHttp_Client *AsApp_Context::HTTP_Client() const
 	return HTTP_Client_Instance;
 }
 //----------------------------------------------------------------------------
-QString AsApp_Context::Default_Api_Base_URL()
+AsSql_Database *AsApp_Context::SQL_Database() const
 {
-	return "http://fitness.nought.ru/api/v1";
-}
-//----------------------------------------------------------------------------
-QString AsApp_Context::Environment_Variable_Name()
-{
-	return "TRAINING_APP_API_URL";
-}
-//----------------------------------------------------------------------------
-QString AsApp_Context::Settings_Key()
-{
-	return "network/apiUrl";
+	return SQL_Database_Instance;
 }
 //----------------------------------------------------------------------------
 bool AsApp_Context::Normalize_Api_Base_URL(const QString &in_value, QString &out_value, QString &out_error)
@@ -191,18 +202,16 @@ bool AsApp_Context::Normalize_Api_Base_URL(const QString &in_value, QString &out
 	return true;
 }
 //----------------------------------------------------------------------------
-bool AsApp_Context::Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found,
-                                          QString &out_error)
+bool AsApp_Context::Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found,QString &out_error)
 {
 	int found_count;
-	int i;
 
 	out_value.clear();
 	out_error.clear();
 	out_found = false;
 	found_count = 0;
 
-	for (i = 0; i < in_arguments.size(); ++i)
+	for (int i = 0; i < in_arguments.size(); ++i)
 	{
 		if (in_arguments.at(i) != "--api-url")
 			continue;

@@ -316,7 +316,18 @@ retry delay. Body, headers, query, access/refresh token и backend message не
 Сетевой timeout сам по себе не должен уничтожать валидную локальную сессию —
 точная offline policy фиксируется в issues 7 и 9.
 
-## 7. Запрошено у backend
+## 7. Отображение backend БД в клиентскую SQLite v1
+
+Клиент не копирует серверную схему буквально. Полезные поля `users` сохраняются
+в `user_cache`: `id`, `email`, `display_name`, `created_at`, `updated_at`; поля
+`user_profiles` — в `profile_cache`: `age`, `gender`, `height_cm`, `weight_kg`,
+`updated_at`. Серверный `pass_hash` никогда не передаётся и не хранится.
+
+`auth_tokens` содержит полученные access/refresh token и их клиентские сроки.
+Это не копия серверной таблицы `tokens`: серверные `token_hash`, `used_at` и
+внутренний `id` клиенту неизвестны. Запись и ротация токенов реализуются issue 7.
+
+## 8. Запрошено у backend
 
 1. Staging/prod URL, сроки перехода на HTTPS и тестовые учётки. Dev/deployed
    URL уже получен: `http://fitness.nought.ru/api/v1`.
