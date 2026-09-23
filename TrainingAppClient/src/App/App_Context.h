@@ -6,10 +6,13 @@
 #include <QString>
 #include <QStringList>
 
+class AAuth_Repository;
 class AsAuth_Session;
 class AsHttp_Client;
 class AsSql_Database;
 class AsToken_Store;
+class AUsers_Repository;
+class Avm_Auth;
 
 //----------------------------------------------------------------------------
 // Корневой контекст приложения. Владеет конфигурацией окружения и единым
@@ -36,6 +39,9 @@ public:
 	AsSql_Database *SQL_Database() const;
 	AsToken_Store *Token_Store() const;
 	AsAuth_Session *Auth_Session() const;
+	AAuth_Repository *Auth_Repository() const;
+	Avm_Auth *Auth_VM() const;
+	AUsers_Repository *Users_Repository() const;
 
 	static const QString Default_Api_Base_URL;
 	static const QString Environment_Variable_Name;
@@ -54,5 +60,8 @@ private:
 	AsSql_Database *SQL_Database_Instance = 0;
 	AsToken_Store *Token_Store_Instance = 0;
 	AsAuth_Session *Auth_Session_Instance = 0;
+	AAuth_Repository *Auth_Repository_Instance = 0;
+	Avm_Auth *Auth_VM_Instance = 0;
+	AUsers_Repository *Users_Repository_Instance = 0;
 };
 //----------------------------------------------------------------------------

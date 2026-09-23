@@ -9,6 +9,11 @@
 - `cpp/tst_Token_Store.cpp` — auth_tokens: save/load/ротация/clear и cold start;
 - `cpp/tst_Auth_Session.cpp` — single-flight refresh: гонка 401, один refresh,
   один повтор, `sessionExpired`, transport-сбой и redaction логов;
+- `cpp/tst_Auth_Api.cpp` — auth DTO, валидация обязательных полей и ключи;
+- `cpp/tst_Auth_Repository.cpp` — сохранение сессии, logout, cold start;
+- `cpp/tst_Avm_Auth.cpp` — состояния auth ViewModel;
+- `cpp/tst_Users_Api.cpp` — users DTO, профиль, ключи, refresh-ретрай;
+- `cpp/tst_Users_Repository.cpp` — кэш профиля, офлайн-фолбэк, outbox;
 - `qml/tst_mock_contract.qml` — mock API и data roles;
 - `qml/tst_auth_page.qml` — auth state/UI interaction;
 - `qml/tst_qml_object_smoke.qml` — создание ключевых production QML-типов;

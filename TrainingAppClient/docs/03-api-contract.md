@@ -295,6 +295,11 @@ retry delay. Body, headers, query, access/refresh token и backend message не
 4. Отсутствующий `profile` трактуется как «не заполнен».
 5. При отсутствии сети используется cache с offline-маркером (issue 9).
 
+Реализовано в issue 9: `AUsers_Api` отдаёт DTO через auth-сессию;
+`AUsers_Repository` пишет `user_cache`/`profile_cache`, при любой ошибке
+возвращает сохранённый кэш с маркером `from_cache` и исходной ошибкой как
+офлайн-пометкой. Единицы height/weight остаются assumed (§4).
+
 ### Сценарий 4. Истёк access token
 
 1. Приватный запрос получает auth failure (точный status/key ожидается).
@@ -332,6 +337,10 @@ refresh и невалидный JSON 200-ответ трактуются как 
 Это не копия серверной таблицы `tokens`: серверные `token_hash`, `used_at` и
 внутренний `id` клиенту неизвестны. Запись, ротация и очистка реализованы в
 issue 7 (`AsToken_Store`, `AsAuth_Session`).
+
+`user_cache` после успешного login/signup пишет `AAuth_Repository` (issue 8) в
+фиксированном порядке: кэш пользователя → пара токенов → активация сессии;
+локальный logout очищает только токены и сохраняет кэш (сценарий 5).
 
 ## 8. Запрошено у backend
 

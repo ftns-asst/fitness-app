@@ -1,9 +1,11 @@
 #include "App/App_Context.h"
 
+#include "Data/Auth/Auth_Repository.h"
 #include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
+#include "Presentation/Auth_VM.h"
 
 #include <QSettings>
 #include <QTemporaryDir>
@@ -46,6 +48,11 @@ void AApp_Context_Test::defaultUrlIsUsed()
 	QVERIFY(context.Auth_Session() != 0);
 	QVERIFY(context.Token_Store()->Has_Tokens() == false);
 	QVERIFY(context.Auth_Session()->Has_Session() == false);
+	QVERIFY(context.Auth_Repository() != 0);
+	QVERIFY(context.Auth_VM() != 0);
+	QCOMPARE(context.Auth_VM()->state(), QString("idle"));
+	QVERIFY(context.Auth_Repository()->Has_Local_Session() == false);
+	QVERIFY(context.Users_Repository() != 0);
 }
 //----------------------------------------------------------------------------
 void AApp_Context_Test::environmentOverridesDefault()

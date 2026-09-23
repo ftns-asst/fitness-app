@@ -101,6 +101,15 @@ Default соответствует подтверждённому backend URL
   `AsAuth_Session` (поверх `AsHttp_Client` и `AsToken_Store`); session
   single-flight refresh реализован issue 7. При переинициализации сервисы
   удаляются в порядке, обратном созданию: session → token store → HTTP → SQLite.
+- `AsApp_Context` владеет одним `AAuth_Repository` (поверх HTTP/SQLite/token
+  store/session; сам владеет `AAuth_Api`) и одним `Avm_Auth` (issue 8).
+  Порядок создания: SQLite → HTTP → token store → session → repository →
+  ViewModel; порядок удаления — обратный.
+- `AsApp_Context` владеет одним `AUsers_Repository` поверх auth-сессии и SQLite
+  (issue 9); сам репозиторий владеет `AUsers_Api`.
+- QML-страницы остаются на presentation-mock до снятия backend-блокеров;
+  `Avm_Auth` подключается к `AuthViewModel` при активации реального входа без
+  изменения контрактов страниц.
 - ViewModel реального auth появляется в issue 8 и заменяет mock-backed
   `AuthViewModel` без изменения `AuthPage`.
 
@@ -121,12 +130,17 @@ Default соответствует подтверждённому backend URL
 
 | Target | Назначение |
 |---|---|
-| `TrainingAppCore` | `AsApp_Context`, `AsHttp_Client`, `AApi_Error`, `AsSql_Database`, `AsToken_Store`, `AsAuth_Session`, будущие Domain/Presentation классы |
+| `TrainingAppCore` | `AsApp_Context`, `AsHttp_Client`, `AApi_Error`, `AsSql_Database`, `AsToken_Store`, `AsAuth_Session`, `AAuth_Api`, `AAuth_Repository`, `Avm_Auth`, `AUsers_Api`, `AUsers_Repository`, будущие Domain/Presentation классы |
 | `appTrainingAppClient` | executable + QML module |
 | `tst_App_Context` | Qt Test конфигурации запуска и composition root |
 | `tst_Sql_Database` | Qt Test SQLite schema v1 и миграций |
 | `tst_Token_Store` | Qt Test хранилища auth_tokens |
 | `tst_Auth_Session` | Qt Test single-flight refresh на fake HTTP server |
+| `tst_Auth_Api` | Qt Test auth-адаптера: DTO, валидация, ключи ошибок |
+| `tst_Auth_Repository` | Qt Test сохранения сессии, logout и cold start |
+| `tst_Avm_Auth` | Qt Test состояний auth ViewModel |
+| `tst_Users_Api` | Qt Test users endpoint: DTO, профиль, ключи ошибок, refresh-ретрай |
+| `tst_Users_Repository` | Qt Test кэша профиля, офлайн-фолбэка, profile_local и sync_outbox |
 | `tst_Http_Client` | Qt Test API-ядра против fake HTTP server |
 
 `TrainingAppCore` связан с `Qt6::Core`, `Qt6::Network`, `Qt6::Sql`; тест связан
@@ -138,5 +152,8 @@ Default соответствует подтверждённому backend URL
 - issue 5: выполнен — `AsHttp_Client`, `AApi_Error`, timeout/retry и безопасные логи;
 - issue 6: выполнен — `AsSql_Database`, приватная SQLite и schema v1;
 - issue 7: выполнен — `AsToken_Store`, `AsAuth_Session`, single-flight refresh;
-- issue 8: `AAuth_Api`, repository и `Avm_Auth`;
-- issue 9: users/profile cache и offline state.
+- issue 8: выполнен (C++-слой) — `AAuth_Api`, `AAuth_Repository`, `Avm_Auth`;
+  подключение `Avm_Auth` к QML — при снятии backend-блокеров;
+- issue 9: выполнен (C++-слой) — `AUsers_Api`, `AUsers_Repository`, кэш
+  профиля, офлайн-фолбэк, `profile_local`/`sync_outbox`;
+- issue 10: фаза S2 — остальные экраны на mock.

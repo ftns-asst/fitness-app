@@ -90,6 +90,41 @@ target_link_libraries(tst_Auth_Session PRIVATE TrainingAppCore TrainingAppTestSu
 add_test(NAME auth_session COMMAND tst_Auth_Session)
 set_tests_properties(auth_session PROPERTIES TIMEOUT 30)
 
+qt_add_executable(tst_Auth_Api
+    cpp/tst_Auth_Api.cpp
+)
+target_link_libraries(tst_Auth_Api PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME auth_api COMMAND tst_Auth_Api)
+set_tests_properties(auth_api PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Auth_Repository
+    cpp/tst_Auth_Repository.cpp
+)
+target_link_libraries(tst_Auth_Repository PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME auth_repository COMMAND tst_Auth_Repository)
+set_tests_properties(auth_repository PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Avm_Auth
+    cpp/tst_Avm_Auth.cpp
+)
+target_link_libraries(tst_Avm_Auth PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME auth_vm COMMAND tst_Avm_Auth)
+set_tests_properties(auth_vm PROPERTIES TIMEOUT 30)
+
+qt_add_executable(tst_Users_Api
+    cpp/tst_Users_Api.cpp
+)
+target_link_libraries(tst_Users_Api PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME users_api COMMAND tst_Users_Api)
+set_tests_properties(users_api PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Users_Repository
+    cpp/tst_Users_Repository.cpp
+)
+target_link_libraries(tst_Users_Repository PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME users_repository COMMAND tst_Users_Repository)
+set_tests_properties(users_repository PROPERTIES TIMEOUT 20)
+
 add_library(TrainingAppTestSupport STATIC
     Support/Test_Http_Server.h
     Support/Test_Http_Server.cpp

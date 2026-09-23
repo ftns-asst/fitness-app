@@ -26,6 +26,10 @@ qt_add_executable(appTrainingAppClient
 add_library(TrainingAppCore STATIC
     src/App/App_Context.h
     src/App/App_Context.cpp
+    src/Data/Auth/Auth_Api.h
+    src/Data/Auth/Auth_Api.cpp
+    src/Data/Auth/Auth_Repository.h
+    src/Data/Auth/Auth_Repository.cpp
     src/Data/Auth/Auth_Session.h
     src/Data/Auth/Auth_Session.cpp
     src/Data/Auth/Token_Store.h
@@ -36,6 +40,12 @@ add_library(TrainingAppCore STATIC
     src/Data/Network/Api_Error.cpp
     src/Data/Network/Http_Client.h
     src/Data/Network/Http_Client.cpp
+    src/Data/Users/Users_Api.h
+    src/Data/Users/Users_Api.cpp
+    src/Data/Users/Users_Repository.h
+    src/Data/Users/Users_Repository.cpp
+    src/Presentation/Auth_VM.h
+    src/Presentation/Auth_VM.cpp
 )
 target_include_directories(TrainingAppCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(TrainingAppCore PUBLIC Qt6::Core Qt6::Network Qt6::Sql)

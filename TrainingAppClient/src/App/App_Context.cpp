@@ -1,9 +1,12 @@
 #include "App/App_Context.h"
 
+#include "Data/Auth/Auth_Repository.h"
 #include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
+#include "Data/Users/Users_Repository.h"
+#include "Presentation/Auth_VM.h"
 
 #include <QSettings>
 #include <QUrl>
@@ -44,6 +47,24 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	Api_URL_Source.clear();
 	Initialized = false;
 	Last_Error_Text.clear();
+
+	if (Users_Repository_Instance != 0)
+	{
+		delete Users_Repository_Instance;
+		Users_Repository_Instance = 0;
+	}
+
+	if (Auth_VM_Instance != 0)
+	{
+		delete Auth_VM_Instance;
+		Auth_VM_Instance = 0;
+	}
+
+	if (Auth_Repository_Instance != 0)
+	{
+		delete Auth_Repository_Instance;
+		Auth_Repository_Instance = 0;
+	}
 
 	if (Auth_Session_Instance != 0)
 	{
@@ -144,6 +165,15 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	Token_Store_Instance = new AsToken_Store(SQL_Database_Instance, this);
 	Auth_Session_Instance = new AsAuth_Session(HTTP_Client_Instance, Token_Store_Instance, this);
 
+	// Auth-интеграция (issue 8): репозиторий и ViewModel поверх тех же
+	// зависимостей; QML остаётся на mock до снятия backend-блокеров.
+	Auth_Repository_Instance = new AAuth_Repository(HTTP_Client_Instance, SQL_Database_Instance, Token_Store_Instance,
+	                                                Auth_Session_Instance, this);
+	Auth_VM_Instance = new Avm_Auth(Auth_Repository_Instance, this);
+
+	// Профиль с сервера (issue 9): репозиторий поверх auth-сессии и SQLite.
+	Users_Repository_Instance = new AUsers_Repository(Auth_Session_Instance, SQL_Database_Instance, this);
+
 	Initialized = true;
 
 	qInfo("App context: API base URL source=%s url=%s", qUtf8Printable(Api_URL_Source), qUtf8Printable(Api_Base_URL));
@@ -189,6 +219,21 @@ AsToken_Store *AsApp_Context::Token_Store() const
 AsAuth_Session *AsApp_Context::Auth_Session() const
 {
 	return Auth_Session_Instance;
+}
+//----------------------------------------------------------------------------
+AAuth_Repository *AsApp_Context::Auth_Repository() const
+{
+	return Auth_Repository_Instance;
+}
+//----------------------------------------------------------------------------
+Avm_Auth *AsApp_Context::Auth_VM() const
+{
+	return Auth_VM_Instance;
+}
+//----------------------------------------------------------------------------
+AUsers_Repository *AsApp_Context::Users_Repository() const
+{
+	return Users_Repository_Instance;
 }
 //----------------------------------------------------------------------------
 bool AsApp_Context::Normalize_Api_Base_URL(const QString &in_value, QString &out_value, QString &out_error)

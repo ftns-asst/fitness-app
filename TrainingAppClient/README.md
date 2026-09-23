@@ -116,6 +116,20 @@ CMake, `qmllint`, desktop-сборку и все CTest-тесты:
   исходного запроса, очистка токенов и `sessionExpired` при HTTP-отказе
   refresh, сохранение локальной сессии при transport-сбое, отсутствие токенов
   в логах;
+- `auth_api` — DTO check-email/signup/login, валидация обязательных полей
+  (`free`, `user.id`, пара токенов), passthrough backend-ключей;
+- `auth_repository` — атомарное сохранение user_cache и токенов после
+  login/signup, неудачный вход без следов, локальный logout с сохранением
+  кэша, cold start, форвард `sessionExpired`;
+- `auth_vm` — состояния auth ViewModel: idle/checkingEmail/emailTaken/
+  signingUp/loggingIn/error(key)/authenticated/sessionExpired, локальный
+  logout, cold start;
+- `users_api` — DTO `GET /users/{id}?withProfile=true` через auth-сессию
+  (Bearer, refresh-ретрай), профиль с assumed-единицами cm/kg, отсутствие
+  profile — не ошибка, ключи 404/undefined_error;
+- `users_repository` — user_cache/profile_cache после ответа сервера,
+  офлайн-фолбэк с маркером `from_cache` и ошибкой `timeout`, кэш без сети,
+  `profile_local` + `sync_outbox` + статус `saved_locally`;
 - `test_http_server` — GET/POST, headers/body, очередь ответов, delay,
   disconnect, malformed и split-body сценарии fake HTTP server;
 - `http_client` — единый response DTO, error mapping, timeout, network/5xx

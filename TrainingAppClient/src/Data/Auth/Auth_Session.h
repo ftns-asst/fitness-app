@@ -29,6 +29,8 @@ public:
 
 	int Send_Authed(const SHttp_Request &in_request);
 	bool Restore_From_Store();
+	bool Adopt_Session(const SStored_Tokens &in_tokens);
+	void Drop_Session();
 	bool Has_Session() const;
 	QString User_ID() const;
 	QString Last_Error() const;

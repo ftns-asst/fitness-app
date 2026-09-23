@@ -65,6 +65,28 @@ bool AsAuth_Session::Restore_From_Store()
 	return true;
 }
 //----------------------------------------------------------------------------
+bool AsAuth_Session::Adopt_Session(const SStored_Tokens &in_tokens)
+{
+	if (in_tokens.User_ID.isEmpty() || in_tokens.Access_Token.isEmpty() || in_tokens.Refresh_Token.isEmpty())
+		return false;
+
+	// Login/signup: репозиторий уже сохранил пару токенов, сессия активируется
+	// в памяти без повторного обращения к store.
+	Session_Tokens = in_tokens;
+	Session_Active = true;
+	qCInfo(AUTH_Session_Log).noquote() << "session adopted";
+
+	return true;
+}
+//----------------------------------------------------------------------------
+void AsAuth_Session::Drop_Session()
+{
+	// Локальный logout: только память; постоянные токены очищает репозиторий.
+	Session_Active = false;
+	Session_Tokens = SStored_Tokens();
+	qCInfo(AUTH_Session_Log).noquote() << "session dropped";
+}
+//----------------------------------------------------------------------------
 bool AsAuth_Session::Has_Session() const
 {
 	return Session_Active;
