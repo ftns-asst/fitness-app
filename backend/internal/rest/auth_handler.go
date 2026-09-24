@@ -5,19 +5,17 @@ import (
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/rest/dto"
 	"ftns-asst/internal/rest/dto/mapper"
-	"ftns-asst/internal/service/auth"
-	"ftns-asst/internal/service/users"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
-	authService *auth.AuthService
-	userService *users.UserService
+	authService AuthService
+	userService UserService
 }
 
-func NewAuthHandler(authService *auth.AuthService, userService *users.UserService) *AuthHandler {
+func NewAuthHandler(authService AuthService, userService UserService) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
 		userService: userService,

@@ -2,6 +2,7 @@
 
 include ./.env
 
+
 server-run:
 	go run cmd/main.go
 
@@ -36,4 +37,6 @@ lint-run:
 gen-swag:
 	swag init -g cmd/main.go -o api --parseDependency --parseInternal 
 
-
+gen-mock:
+	go install github.com/vektra/mockery/v3@v3.8.0
+	mockery

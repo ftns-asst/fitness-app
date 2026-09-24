@@ -19,15 +19,15 @@ import (
 
 type AuthService struct {
 	cfg         *config.Config
-	userService *users.UserService
-	authRepo    *repository.AuthRepo
+	userService UserProvider
+	authRepo    AuthRepo
 	mailer      model.Mailer
 	tx          model.Transactor
 }
 
 func NewService(cfg *config.Config,
 	userService *users.UserService,
-	authRepo *repository.AuthRepo,
+	authRepo AuthRepo,
 	mailer model.Mailer,
 	transactor model.Transactor,
 ) *AuthService {

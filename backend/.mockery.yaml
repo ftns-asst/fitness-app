@@ -1,0 +1,16 @@
+
+all: false
+template: testify
+dir: '{{.InterfaceDir}}'
+pkgname: '{{.SrcPackageName}}'
+recursive: false
+structname: "Mock{{.InterfaceName}}"
+filename: mocks_test.go
+
+packages:
+  ftns-asst/internal/rest:           
+    { config: { all: true } }
+  ftns-asst/internal/service/auth:    
+    { config: { all: true } }
+  ftns-asst/internal/service/users:   
+    { config: { all: true } }

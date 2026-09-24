@@ -13,12 +13,12 @@ import (
 
 type UserService struct {
 	cfg      *config.Config
-	userRepo *repository.UserRepo
+	userRepo UserRepo
 	tx       model.Transactor
 }
 
 func NewService(cfg *config.Config,
-	userRepo *repository.UserRepo,
+	userRepo UserRepo,
 	transactor model.Transactor,
 ) *UserService {
 	return &UserService{
