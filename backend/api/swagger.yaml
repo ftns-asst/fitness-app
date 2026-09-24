@@ -12,6 +12,13 @@ definitions:
       free:
         type: boolean
     type: object
+  ErrorResponse:
+    properties:
+      key:
+        type: string
+      message:
+        type: string
+    type: object
   LogInRequestBody:
     properties:
       email:
@@ -31,6 +38,13 @@ definitions:
       user:
         $ref: '#/definitions/User'
     type: object
+  PasswordRecoveryRequestBody:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
   RefreshTokensRequestBody:
     properties:
       refresh_token:
@@ -42,6 +56,25 @@ definitions:
     properties:
       tokens:
         $ref: '#/definitions/Tokens'
+    type: object
+  ResetPasswordRequestBody:
+    properties:
+      new_password:
+        maxLength: 64
+        minLength: 8
+        type: string
+      reset_token:
+        type: string
+    required:
+    - new_password
+    - reset_token
+    type: object
+  ResetPasswordResponse:
+    properties:
+      tokens:
+        $ref: '#/definitions/Tokens'
+      user:
+        $ref: '#/definitions/User'
     type: object
   SignUpRequestBody:
     properties:
@@ -58,12 +91,39 @@ definitions:
     - name
     - password
     type: object
+  SignUpResponse:
+    properties:
+      tokens:
+        $ref: '#/definitions/Tokens'
+      user:
+        $ref: '#/definitions/User'
+    type: object
   Tokens:
     properties:
       access_token:
         type: string
       refresh_token:
         type: string
+    type: object
+  UpdateUserProfileRequestBody:
+    properties:
+      age:
+        maximum: 150
+        minimum: 1
+        type: integer
+      gender:
+        enum:
+        - male
+        - female
+        type: string
+      height:
+        maximum: 300
+        minimum: 1
+        type: integer
+      weight:
+        maximum: 500
+        minimum: 1
+        type: integer
     type: object
   User:
     properties:
@@ -103,18 +163,21 @@ definitions:
       profile:
         $ref: '#/definitions/UserProfile'
     type: object
-  ftns-asst_internal_rest_dto.SignUpResponse:
+  VerifyRecoveryCodeRequestBody:
     properties:
-      tokens:
-        $ref: '#/definitions/Tokens'
-      user:
-        $ref: '#/definitions/User'
-    type: object
-  internal_rest.ErrorResponse:
-    properties:
-      key:
+      code:
+        maxLength: 6
+        minLength: 6
         type: string
-      message:
+      email:
+        type: string
+    required:
+    - code
+    - email
+    type: object
+  VerifyRecoveryCodeResponse:
+    properties:
+      reset_token:
         type: string
     type: object
 host: fitness.nought.ru
@@ -145,15 +208,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
       summary: Check if email is already taken
       tags:
       - auth
@@ -179,16 +242,117 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
       summary: Log in an existing user
+      tags:
+      - auth
+  /auth/password-recovery:
+    post:
+      consumes:
+      - application/json
+      operationId: passwordRecovery
+      parameters:
+      - description: Request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PasswordRecoveryRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Recover password by email, sends verification code to email, no response
+        data
+      tags:
+      - auth
+  /auth/password-recovery/reset:
+    post:
+      consumes:
+      - application/json
+      operationId: resetPassword
+      parameters:
+      - description: Request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ResetPasswordRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ResetPasswordResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Reset password by reset token
+      tags:
+      - auth
+  /auth/password-recovery/verify:
+    post:
+      consumes:
+      - application/json
+      operationId: verifyCode
+      parameters:
+      - description: Request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/VerifyRecoveryCodeRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/VerifyRecoveryCodeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Verify otp code
       tags:
       - auth
   /auth/refresh:
@@ -213,15 +377,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
       summary: Refresh authentication tokens
       tags:
       - auth
@@ -243,19 +407,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/ftns-asst_internal_rest_dto.SignUpResponse'
+            $ref: '#/definitions/SignUpResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
       summary: Sign up a new user
       tags:
       - auth
@@ -264,6 +428,44 @@ paths:
       consumes:
       - application/json
       operationId: getUserByID
+      parameters:
+      - description: user id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: if true - resposne with user profile
+        in: query
+        name: withProfile
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserWithProfile'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Get user by ID
+      tags:
+      - users
+  /users/me:
+    get:
+      consumes:
+      - application/json
+      operationId: getMe
       parameters:
       - description: if true - resposne with user profile
         in: query
@@ -279,16 +481,50 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_rest.ErrorResponse'
-      summary: Get user by ID
+            $ref: '#/definitions/ErrorResponse'
+      summary: Get user by provided access token
+      tags:
+      - users
+  /users/me/profile:
+    patch:
+      consumes:
+      - application/json
+      operationId: updateUserProfile
+      parameters:
+      - description: request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateUserProfileRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserProfile'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Update user profile
       tags:
       - users
 swagger: "2.0"

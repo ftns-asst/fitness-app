@@ -21,7 +21,7 @@ git clone https://github.com/ftns-asst/fitness-app
 cd fitness-app/backend
 
 # run server (including db)
-make server-run
+make server-up
 ```
 
 #### Lint

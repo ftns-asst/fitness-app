@@ -28,3 +28,10 @@ type UserWithProfileResponse struct {
 	UserResponse
 	Profile *UserProfileResponse `json:"profile,omitempty"`
 } // @Name UserWithProfile
+
+type UpdateUserProfileRequestBody struct {
+	Age      *uint   `json:"age" binding:"omitempty,min=1,max=150"`
+	Gender   *string `json:"gender" binding:"omitempty,oneof=male female"`
+	HeightCm *uint   `json:"height" binding:"omitempty,min=1,max=300"`
+	WeightKg *uint   `json:"weight" binding:"omitempty,min=1,max=500"`
+} // @Name UpdateUserProfileRequestBody

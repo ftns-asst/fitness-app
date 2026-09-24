@@ -35,3 +35,10 @@ type UserWithProfile struct {
 	User
 	Profile *UserProfile
 }
+
+type UpdateUserProfileInput struct {
+	Age      *uint
+	Gender   *string
+	HeightCm *uint
+	WeightKg *uint
+} // @Name UpdateUserProfileRequestBody

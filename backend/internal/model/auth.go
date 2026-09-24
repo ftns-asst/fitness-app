@@ -11,6 +11,9 @@ import (
 const (
 	AccessTokenExpireTime  time.Duration = 30 * time.Minute
 	RefreshTokenExpireTime time.Duration = 10 * 24 * time.Hour
+
+	VerificationCodeExpireTime time.Duration = 10 * time.Minute
+	ResetTokenExpireTime       time.Duration = 15 * time.Minute
 )
 
 // jwt authentication tokens
@@ -29,13 +32,18 @@ type TokenInfo struct {
 	ExpiresAt time.Time
 }
 
-type RefreshToken struct {
+type Token struct {
 	ID        uuid.UUID  `db:"id"`
 	UserID    uuid.UUID  `db:"user_id"`
 	TokenHash string     `db:"token_hash"`
 	UsedAt    *time.Time `db:"used_at"`
 	ExpiresAt time.Time  `db:"expires_at"`
 }
+
+type RefreshToken Token
+
+// password recovery token
+type ResetToken Token
 
 const ValidPasswordChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:,.<>?/"
 
@@ -96,6 +104,11 @@ type SuccessLogInResult struct {
 	Tokens *Tokens
 }
 
+type SuccessResetPasswordResult struct {
+	User   *User
+	Tokens *Tokens
+}
+
 // password recovery result status
 type PasswordRecoveryStatus string
 
@@ -104,3 +117,12 @@ const (
 	PasswordRecoveryStatusIncorrect PasswordRecoveryStatus = "incorrect"
 	PasswordRecoveryStatusExpired   PasswordRecoveryStatus = "expired"
 )
+
+// verification code for password recovery
+type VerificationCode struct {
+	ID        uuid.UUID  `db:"id"`
+	UserID    uuid.UUID  `db:"user_id"`
+	CodeHash  string     `db:"code_hash"`
+	UsedAt    *time.Time `db:"used_at"`
+	ExpiresAt time.Time  `db:"expires_at"`
+}
