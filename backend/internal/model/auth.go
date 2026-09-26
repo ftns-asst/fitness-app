@@ -125,4 +125,13 @@ type VerificationCode struct {
 	CodeHash  string     `db:"code_hash"`
 	UsedAt    *time.Time `db:"used_at"`
 	ExpiresAt time.Time  `db:"expires_at"`
+	RevokedAt *time.Time `db:"revoked_at"`
+}
+
+func (c *VerificationCode) IsExpired() bool {
+	return c.ExpiresAt.Before(time.Now())
+}
+
+func (c *VerificationCode) IsRevoked() bool {
+	return c.RevokedAt != nil
 }

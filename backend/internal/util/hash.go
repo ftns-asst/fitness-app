@@ -4,7 +4,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/alexedwards/argon2id"
@@ -45,10 +44,10 @@ func CompareSHA256(value, targetHash, secret string) (bool, error) {
 		return false, err
 	}
 
-	expectedBytes, err1 := hex.DecodeString(targetHash)
-	receivedBytes, err2 := hex.DecodeString(valueHash)
+	expectedBytes, err1 := base64.RawStdEncoding.DecodeString(targetHash)
+	receivedBytes, err2 := base64.RawStdEncoding.DecodeString(valueHash)
 	if err1 != nil || err2 != nil {
-		return false, fmt.Errorf("failed to decode hash string")
+		return false, fmt.Errorf("failed to decode hash string: %w, %w", err1, err2)
 	}
 
 	return hmac.Equal(expectedBytes, receivedBytes), nil

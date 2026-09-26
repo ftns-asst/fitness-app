@@ -91,15 +91,15 @@ func (r *AuthRepo) SetTokenUsedByID(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// save new verification code, set other codes as expired
-func (r *AuthRepo) CreateVerificationCodeAndSetOtherExpired(ctx context.Context, code *model.VerificationCode) (*model.VerificationCode, error) {
+// save new verification code, set other codes as revoked
+func (r *AuthRepo) CreateVerificationCodeAndRevokeOther(ctx context.Context, code *model.VerificationCode) (*model.VerificationCode, error) {
 	query := `
 		WITH expired AS (
 			UPDATE verification_codes
-			SET expires_at = now() - interval '1 minute'
+			SET revoked_at = now()
 			WHERE user_id = $1
 				AND used_at IS NULL
-				AND expires_at > now()
+				AND revoked_at IS NULL
 		)
 		INSERT INTO verification_codes (user_id, code_hash, expires_at)
 		VALUES ($1, $2, $3)
@@ -121,6 +121,7 @@ func (r *AuthRepo) SetCodeUsedByID(ctx context.Context, id uuid.UUID) error {
 		SET used_at = now()
 		WHERE vc.id = $1
 			AND vc.used_at IS NULL
+			AND vs.revoked_at IS NULL
 			AND vc.expires_at > now()`
 
 	conn := r.db(ctx)
@@ -136,12 +137,13 @@ func (r *AuthRepo) SetCodeUsedByID(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// get not used code(there should be only ONE such)
-func (r *AuthRepo) GetCodeNotUsedByUserID(ctx context.Context, userID uuid.UUID) (*model.VerificationCode, error) {
+// get not used or revoked code(there should be only ONE such)
+func (r *AuthRepo) GetCodeNotUsedOrRevokedByUserID(ctx context.Context, userID uuid.UUID) (*model.VerificationCode, error) {
 	query := `
 		SELECT * FROM verification_codes vc
 		WHERE vc.user_id = $1
 			AND vc.used_at IS NULL
+			AND vc.revoked_at IS NULL;
 		`
 
 	conn := r.db(ctx)
