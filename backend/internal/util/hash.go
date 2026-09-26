@@ -45,7 +45,7 @@ func CompareSHA256(value, targetHash, secret string) (bool, error) {
 	expectedBytes, err1 := base64.RawStdEncoding.DecodeString(targetHash)
 	receivedBytes, err2 := base64.RawStdEncoding.DecodeString(valueHash)
 	if err1 != nil || err2 != nil {
-		return false, fmt.Errorf("failed to decode hash string")
+		return false, fmt.Errorf("failed to decode hash string: %w, %w", err1, err2)
 	}
 
 	return hmac.Equal(expectedBytes, receivedBytes), nil
