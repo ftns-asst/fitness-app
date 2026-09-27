@@ -247,7 +247,7 @@ func (s *AuthService) genTokens(userID uuid.UUID) (*model.TokensWithInfo, error)
 }
 
 func genNumericCode() (string, error) {
-	max := big.NewInt(999999)
+	max := big.NewInt(1000000)
 	value, err := rand.Int(rand.Reader, max)
 	if err != nil {
 		return "", err
@@ -272,7 +272,7 @@ func (s *AuthService) StartPasswordRecovery(ctx context.Context, email string) e
 		return fmt.Errorf("not found user with email: %w", model.ErrNotFound)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to get user by email: %w", model.ErrNotFound)
+		return fmt.Errorf("failed to get user by email: %w", err)
 	}
 
 	codeValue, err := genNumericCode()
@@ -285,7 +285,7 @@ func (s *AuthService) StartPasswordRecovery(ctx context.Context, email string) e
 		return fmt.Errorf("failed to hash code: %w", err)
 	}
 
-	_, err = s.authRepo.CreateVerificationCodeAndSetOtherExpired(ctx,
+	_, err = s.authRepo.CreateVerificationCodeAndRevokeOther(ctx,
 		&model.VerificationCode{
 			UserID:    user.ID,
 			CodeHash:  hashedCode,
@@ -325,31 +325,35 @@ func (s *AuthService) VerifyCode(ctx context.Context, email string, codeValue st
 		return "", fmt.Errorf("not found user with email: %w", model.ErrNotFound)
 	}
 	if err != nil {
-		return "", fmt.Errorf("failed to get user by email: %w", model.ErrNotFound)
+		return "", fmt.Errorf("failed to get user by email: %w", err)
 	}
 
-	code, err := s.authRepo.GetCodeNotUsedByUserID(ctx, user.ID)
+	code, err := s.authRepo.GetCodeNotUsedOrRevokedByUserID(ctx, user.ID)
 	if errors.Is(err, repository.ErrNotFound) {
+		log.Println("code not found")
 		return "", model.AuthErrorRecoveryCodeInvalid()
 	}
 	if err != nil {
 		return "", fmt.Errorf("failed to get code from repo: %w", err)
 	}
 
-	if code.ExpiresAt.Before(time.Now()) {
+	if code.IsExpired() {
 		return "", model.AuthErrorRecoveryCodeExpired()
 	}
 
-	inputCodeHash, err := util.HashSHA256(codeValue, s.cfg.VerificationCodeHashSecretKey)
+	isCorrect, err := util.CompareSHA256(codeValue, code.CodeHash, s.cfg.VerificationCodeHashSecretKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to hash input code: %w", err)
+		return "", fmt.Errorf("failed to compare input code: %w", err)
 	}
-
-	if code.CodeHash != inputCodeHash {
+	if !isCorrect {
+		log.Println("code is incorrect")
 		return "", model.AuthErrorRecoveryCodeInvalid()
 	}
 
 	err = s.authRepo.SetCodeUsedByID(ctx, code.ID)
+	if errors.Is(err, repository.ErrNoAffectedRows) {
+		return "", model.AuthErrorRecoveryCodeInvalid()
+	}
 	if err != nil {
 		return "", fmt.Errorf("failed to set code used by ID: %w", err)
 	}
@@ -387,6 +391,11 @@ func (s *AuthService) ResetPassword(ctx context.Context, newPassword string, res
 	defer model.CheckRollback(ctx, tx)
 	ctx = context.WithValue(ctx, model.ContextKeyTx, tx)
 
+	err = model.ValidatePassword(newPassword)
+	if err != nil {
+		return nil, fmt.Errorf("invalid new password: %w: %w", err, model.ErrBadRequest)
+	}
+
 	hashedToken, err := util.HashSHA256(resetToken, s.cfg.ResetTokenHashSecretKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash input code: %w", err)
@@ -417,9 +426,24 @@ func (s *AuthService) ResetPassword(ctx context.Context, newPassword string, res
 		return nil, fmt.Errorf("failed to mark reset token used by ID: %w", err)
 	}
 
+	hashedPassword, err := util.Hash(newPassword)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	err = s.userService.UpdateUserPassword(ctx, user.ID, hashedPassword)
+	if err != nil {
+		return nil, err
+	}
+
 	tokens, err := s.genTokens(token.UserID)
 	if err != nil {
 		return nil, err
+	}
+
+	err = s.authRepo.SetUserTokensUsed(ctx, token.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set user refresh tokens used: %w", err)
 	}
 
 	_, err = s.saveRefreshToken(ctx, tokens.RefreshToken.UserID, tokens.RefreshToken.Token, tokens.RefreshToken.ExpiresAt)

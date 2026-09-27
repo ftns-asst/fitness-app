@@ -85,14 +85,14 @@ func (r *UserRepo) GetUserByID(ctx context.Context, id uuid.UUID) (*model.User, 
 	`
 	conn := r.db(ctx)
 	rows, err := conn.Query(ctx, query, id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrNotFound
-	}
 	if err != nil {
 		return nil, fmt.Errorf("select failed: %w", err)
 	}
 
 	res, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[model.User])
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("collect row failed: %w", err)
 	}
@@ -207,14 +207,14 @@ func (r *UserRepo) GetUserWithProfileByID(ctx context.Context, id uuid.UUID) (*m
 	`
 	conn := r.db(ctx)
 	rows, err := conn.Query(ctx, query, id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrNotFound
-	}
 	if err != nil {
 		return nil, fmt.Errorf("select failed: %w", err)
 	}
 
 	res, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[userWithProfile])
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("collect row failed: %w", err)
 	}
@@ -236,4 +236,20 @@ func (r *UserRepo) CheckUserWithEmailExists(ctx context.Context, email string) (
 	}
 
 	return exists, nil
+}
+
+func (r *UserRepo) UpdateUserPassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) (err error) {
+	conn := r.db(ctx)
+
+	query := `
+		UPDATE users u
+		SET pass_hash = $2
+		WHERE u.id = $1;
+	`
+	_, err = conn.Exec(ctx, query, userID, newPasswordHash)
+	if err != nil {
+		return fmt.Errorf("update failed: %w", err)
+	}
+
+	return nil
 }

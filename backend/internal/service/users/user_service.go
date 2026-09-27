@@ -7,6 +7,7 @@ import (
 	"ftns-asst/internal/config"
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/repository"
+	"ftns-asst/internal/util"
 
 	"github.com/google/uuid"
 )
@@ -103,4 +104,19 @@ func (s *UserService) UpdateUserProfile(ctx context.Context, userID uuid.UUID, i
 	}
 
 	return updated, nil
+}
+
+// update user password hash, DO NOT USE WITH RAW PASSWORD OR
+func (s *UserService) UpdateUserPassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) error {
+	isValid := util.IsValidHash(newPasswordHash)
+	if !isValid {
+		return fmt.Errorf("new password hash is invalid")
+	}
+
+	err := s.userRepo.UpdateUserPassword(ctx, userID, newPasswordHash)
+	if err != nil {
+		return fmt.Errorf("failed to update user password: %w", err)
+	}
+
+	return nil
 }
