@@ -23,10 +23,10 @@ func ConvertProfileToDTO(m *model.UserProfile) *dto.UserProfileResponse {
 		return nil
 	}
 	return &dto.UserProfileResponse{
-		Age:      *m.Age,
-		Gender:   string(*m.Gender),
-		HeightCm: *m.HeightCm,
-		WeightKg: *m.WeightKg,
+		Age:      util.UnPtr(m.Age),
+		Gender:   string(util.UnPtr(m.Gender)),
+		HeightCm: util.UnPtr(m.HeightCm),
+		WeightKg: util.UnPtr(m.WeightKg),
 	}
 }
 

@@ -391,6 +391,11 @@ func (s *AuthService) ResetPassword(ctx context.Context, newPassword string, res
 	defer model.CheckRollback(ctx, tx)
 	ctx = context.WithValue(ctx, model.ContextKeyTx, tx)
 
+	err = model.ValidatePassword(newPassword)
+	if err != nil {
+		return nil, fmt.Errorf("invalid new password: %w: %w", err, model.ErrBadRequest)
+	}
+
 	hashedToken, err := util.HashSHA256(resetToken, s.cfg.ResetTokenHashSecretKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash input code: %w", err)
@@ -421,9 +426,24 @@ func (s *AuthService) ResetPassword(ctx context.Context, newPassword string, res
 		return nil, fmt.Errorf("failed to mark reset token used by ID: %w", err)
 	}
 
+	hashedPassword, err := util.Hash(newPassword)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	err = s.userService.UpdateUserPassword(ctx, user.ID, hashedPassword)
+	if err != nil {
+		return nil, err
+	}
+
 	tokens, err := s.genTokens(token.UserID)
 	if err != nil {
 		return nil, err
+	}
+
+	err = s.authRepo.SetUserTokensUsed(ctx, token.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set user refresh tokens used: %w", err)
 	}
 
 	_, err = s.saveRefreshToken(ctx, tokens.RefreshToken.UserID, tokens.RefreshToken.Token, tokens.RefreshToken.ExpiresAt)
