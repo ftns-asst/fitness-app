@@ -57,14 +57,20 @@ func (i *AuthInput) Validate() error {
 	if strings.TrimSpace(i.Email) == "" || strings.TrimSpace(i.Password) == "" {
 		return fmt.Errorf("email or password must be not blank: %w", ErrBadRequest)
 	}
-	if len(i.Password) < 8 {
+
+	err := ValidatePassword(i.Password)
+	return err
+}
+
+func ValidatePassword(password string) error {
+	if len(password) < 8 {
 		return fmt.Errorf("password must be at least 8 characters long: %w", ErrBadRequest)
 	}
-	if len(i.Password) > 64 {
+	if len(password) > 64 {
 		return fmt.Errorf("password must be at most 64 characters long: %w", ErrBadRequest)
 	}
 
-	for _, c := range i.Password {
+	for _, c := range password {
 		if !strings.ContainsRune(ValidPasswordChars, c) {
 			return fmt.Errorf("password contains invalid character: %w", ErrBadRequest)
 		}

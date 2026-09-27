@@ -91,6 +91,22 @@ func (r *AuthRepo) SetTokenUsedByID(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+func (r *AuthRepo) SetUserTokensUsed(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE tokens
+		SET used_at = now()
+		WHERE tokens.user_id = $1
+			AND tokens.used_at IS NULL`
+
+	conn := r.db(ctx)
+	_, err := conn.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("update failed: %w", err)
+	}
+
+	return nil
+}
+
 // save new verification code, set other codes as revoked
 func (r *AuthRepo) CreateVerificationCodeAndRevokeOther(ctx context.Context, code *model.VerificationCode) (*model.VerificationCode, error) {
 	query := `
@@ -121,7 +137,7 @@ func (r *AuthRepo) SetCodeUsedByID(ctx context.Context, id uuid.UUID) error {
 		SET used_at = now()
 		WHERE vc.id = $1
 			AND vc.used_at IS NULL
-			AND vs.revoked_at IS NULL
+			AND vC.revoked_at IS NULL
 			AND vc.expires_at > now()`
 
 	conn := r.db(ctx)

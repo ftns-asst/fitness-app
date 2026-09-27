@@ -237,3 +237,19 @@ func (r *UserRepo) CheckUserWithEmailExists(ctx context.Context, email string) (
 
 	return exists, nil
 }
+
+func (r *UserRepo) UpdateUserPassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) (err error) {
+	conn := r.db(ctx)
+
+	query := `
+		UPDATE users u
+		SET pass_hash = $2
+		WHERE u.id = $1;
+	`
+	_, err = conn.Exec(ctx, query, userID, newPasswordHash)
+	if err != nil {
+		return fmt.Errorf("update failed: %w", err)
+	}
+
+	return nil
+}
