@@ -52,7 +52,7 @@ type AuthInput struct {
 	Password string
 }
 
-// validate auth input, email checked in gin validation
+// validate auth input, email checked in dto validation
 func (i *AuthInput) Validate() error {
 	if strings.TrimSpace(i.Email) == "" || strings.TrimSpace(i.Password) == "" {
 		return fmt.Errorf("email or password must be not blank: %w", ErrBadRequest)

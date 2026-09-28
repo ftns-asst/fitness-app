@@ -4,7 +4,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/alexedwards/argon2id"
@@ -34,19 +33,17 @@ func HashSHA256(value, secret string) (string, error) {
 	}
 	sha := hash.Sum(nil)
 
-	// Кодируем результат в hex-строку для удобства передачи
 	return base64.RawStdEncoding.EncodeToString(sha), nil
 }
 
 func CompareSHA256(value, targetHash, secret string) (bool, error) {
-	// Вычисляем правильную подпись для текущего сообщения
 	valueHash, err := HashSHA256(value, secret)
 	if err != nil {
 		return false, err
 	}
 
-	expectedBytes, err1 := hex.DecodeString(targetHash)
-	receivedBytes, err2 := hex.DecodeString(valueHash)
+	expectedBytes, err1 := base64.RawStdEncoding.DecodeString(targetHash)
+	receivedBytes, err2 := base64.RawStdEncoding.DecodeString(valueHash)
 	if err1 != nil || err2 != nil {
 		return false, fmt.Errorf("failed to decode hash string")
 	}

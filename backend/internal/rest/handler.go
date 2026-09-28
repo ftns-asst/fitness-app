@@ -7,7 +7,7 @@ import (
 	"ftns-asst/internal/config"
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/service"
-	"ftns-asst/internal/util"
+	"ftns-asst/internal/util/ctxt"
 	"log"
 	"net/http"
 
@@ -77,7 +77,7 @@ func handleError(c *gin.Context, err error) {
 }
 
 func tryGetUserIDFromCtx(ctx context.Context) (uuid.UUID, error) {
-	id, ok := util.GetUserIDFromCtx(ctx)
+	id, ok := ctxt.GetUserIDFromCtx(ctx)
 	if !ok {
 		return uuid.Nil, fmt.Errorf("failed to get user ID from context")
 	}

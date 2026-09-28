@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"ftns-asst/internal/model"
-	"ftns-asst/internal/util"
+	"ftns-asst/internal/util/jwtutil"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -15,8 +15,8 @@ func AuthMiddleware(secretKey string) gin.HandlerFunc {
 		authHeader := c.GetHeader("Authorization")
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
-		tokenInfo, err := util.ParseJWTToken(token, secretKey)
-		if errors.Is(err, util.ErrTokenExpired) {
+		tokenInfo, err := jwtutil.ParseJWTToken(token, secretKey)
+		if errors.Is(err, jwtutil.ErrTokenExpired) {
 			c.Abort()
 			handleError(c, model.AuthErrorTokenExpired())
 			return
