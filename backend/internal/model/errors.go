@@ -20,6 +20,9 @@ type ServiceError struct {
 func (e *ServiceError) Error() string {
 	return e.Err.Error()
 }
+func (e *ServiceError) Unwrap() error {
+	return e.Err
+}
 
 const (
 	DefaultErrorKey               = "undefined_error"
