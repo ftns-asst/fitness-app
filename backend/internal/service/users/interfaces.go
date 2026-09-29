@@ -16,5 +16,6 @@ type (
 		GetUserByID(ctx context.Context, id uuid.UUID) (*model.User, error)
 		GetUserListByIDs(ctx context.Context, ids []uuid.UUID) ([]*model.User, error)
 		GetUserWithProfileByID(ctx context.Context, id uuid.UUID) (*model.UserWithProfile, error)
+		UpdateUserPassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) (err error)
 	}
 )

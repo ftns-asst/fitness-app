@@ -527,3 +527,66 @@ func (_c *MockUserRepo_GetUserWithProfileByID_Call) RunAndReturn(run func(ctx co
 	_c.Call.Return(run)
 	return _c
 }
+
+// UpdateUserPassword provides a mock function for the type MockUserRepo
+func (_mock *MockUserRepo) UpdateUserPassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) error {
+	ret := _mock.Called(ctx, userID, newPasswordHash)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateUserPassword")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) error); ok {
+		r0 = returnFunc(ctx, userID, newPasswordHash)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepo_UpdateUserPassword_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserPassword'
+type MockUserRepo_UpdateUserPassword_Call struct {
+	*mock.Call
+}
+
+// UpdateUserPassword is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID uuid.UUID
+//   - newPasswordHash string
+func (_e *MockUserRepo_Expecter) UpdateUserPassword(ctx any, userID any, newPasswordHash any) *MockUserRepo_UpdateUserPassword_Call {
+	return &MockUserRepo_UpdateUserPassword_Call{Call: _e.mock.On("UpdateUserPassword", ctx, userID, newPasswordHash)}
+}
+
+func (_c *MockUserRepo_UpdateUserPassword_Call) Run(run func(ctx context.Context, userID uuid.UUID, newPasswordHash string)) *MockUserRepo_UpdateUserPassword_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepo_UpdateUserPassword_Call) Return(err error) *MockUserRepo_UpdateUserPassword_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepo_UpdateUserPassword_Call) RunAndReturn(run func(ctx context.Context, userID uuid.UUID, newPasswordHash string) error) *MockUserRepo_UpdateUserPassword_Call {
+	_c.Call.Return(run)
+	return _c
+}
