@@ -37,6 +37,7 @@ int AUsers_Api::Get_User(const QString &in_user_id, bool in_with_profile)
 		return 0;
 
 	Pending_Gets.insert(request_id, in_user_id);
+	qCInfo(USERS_Api_Log).noquote() << "get-user started" << request_id;
 
 	return request_id;
 }
@@ -60,6 +61,11 @@ void AUsers_Api::Finish_Get_User(int in_request_id, const QString &in_user_id, c
 	Q_UNUSED(in_user_id);
 
 	Parse_User(in_response, user, error);
+
+	if (error.Is_Error())
+		qCInfo(USERS_Api_Log).noquote() << "get-user finished" << in_request_id << "error key=" << error.Key();
+	else
+		qCInfo(USERS_Api_Log).noquote() << "get-user finished" << in_request_id << "ok";
 
 	emit getUserFinished(in_request_id, user, error);
 }

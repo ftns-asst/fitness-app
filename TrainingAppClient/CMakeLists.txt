@@ -24,8 +24,49 @@ qt_add_executable(appTrainingAppClient
 # Presentation наполняются в следующих issues, зависимости Network/Sql уже
 # фиксируют границу инфраструктурного слоя.
 add_library(TrainingAppCore STATIC
+    src/Presentation/List_Model.h
+    src/Presentation/List_Model.cpp
+    src/Presentation/Program_Rows.h
+    src/Presentation/Program_Rows.cpp
+    src/Presentation/Program_Stats_VM.h
+    src/Presentation/Program_Stats_VM.cpp
+    src/Presentation/Program_VM.h
+    src/Presentation/Program_VM.cpp
     src/App/App_Context.h
     src/App/App_Context.cpp
+    src/App/App_Logger.h
+    src/App/App_Logger.cpp
+    src/Domain/Error_State.h
+    src/Domain/Error_State.cpp
+    src/Domain/Program_Model.h
+    src/Domain/Program_Model.cpp
+    src/Domain/Program_Service.h
+    src/Domain/Program_Service.cpp
+    src/Domain/Rule_Engine.h
+    src/Domain/Rule_Engine.cpp
+    src/Domain/Progress_Stats.h
+    src/Domain/Progress_Calculator.h
+    src/Domain/Progress_Support.h
+    src/Domain/Lifetime_Calculator.h
+    src/Domain/Stats_Encoder.h
+    src/Domain/Program_Stats_Calculator.h
+    src/Domain/Progress_Calculator.cpp
+    src/Domain/Progress_Support.cpp
+    src/Domain/Lifetime_Calculator.cpp
+    src/Domain/Stats_Encoder.cpp
+    src/Domain/Program_Stats_Calculator.cpp
+    src/Data/Program/Program_Repository_Base.h
+    src/Data/Program/Program_Repository_Base.cpp
+    src/Data/Program/Workout_Repository.h
+    src/Data/Program/Workout_Repository.cpp
+    src/Data/Program/Program_Repository.h
+    src/Data/Program/Program_Repository.cpp
+    src/Data/Program/Rule_Repository.h
+    src/Data/Program/Rule_Repository.cpp
+    src/Data/Program/Measurement_Repository.h
+    src/Data/Program/Measurement_Repository.cpp
+    src/Data/Program/Stats_Repository.h
+    src/Data/Program/Stats_Repository.cpp
     src/Data/Auth/Auth_Api.h
     src/Data/Auth/Auth_Api.cpp
     src/Data/Auth/Auth_Repository.h
@@ -46,6 +87,8 @@ add_library(TrainingAppCore STATIC
     src/Data/Users/Users_Repository.cpp
     src/Presentation/Auth_VM.h
     src/Presentation/Auth_VM.cpp
+    src/Presentation/Auth_Qml_Bridge.h
+    src/Presentation/Auth_Qml_Bridge.cpp
 )
 target_include_directories(TrainingAppCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(TrainingAppCore PUBLIC Qt6::Core Qt6::Network Qt6::Sql)
@@ -92,6 +135,8 @@ qt_add_qml_module(appTrainingAppClient
     SOURCES
         src/Platform/Platform_Chrome.h
         src/Platform/Platform_Chrome.cpp
+        src/Presentation/Program_Qml.h
+        src/Presentation/Program_Qml.cpp
     QML_FILES
         qml/Main.qml
         qml/AppShell.qml
@@ -163,6 +208,10 @@ set_target_properties(appTrainingAppClient PROPERTIES
 # include-путь, потому что сгенерированная qt_add_qml_module регистрация типов
 # подключает заголовки по базовому имени: #if __has_include(<Platform_Chrome.h>).
 target_include_directories(appTrainingAppClient PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/Platform)
+
+# Те же правила для Presentation: сгенерированная регистрация типов ищет
+# заголовки по базовому имени (#if __has_include(<Program_Qml.h>)).
+target_include_directories(appTrainingAppClient PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/Presentation)
 
 target_link_libraries(appTrainingAppClient
     PRIVATE TrainingAppCore Qt6::Quick Qt6::QuickControls2 Qt6::QuickLayouts Qt6::QuickEffects

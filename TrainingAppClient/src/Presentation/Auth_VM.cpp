@@ -7,6 +7,14 @@ Q_LOGGING_CATEGORY(AUTH_VM_Log, "trainingapp.auth.vm")
 //----------------------------------------------------------------------------
 // Avm_Auth
 //----------------------------------------------------------------------------
+const QString Avm_Auth::State_Idle = "idle";
+const QString Avm_Auth::State_Authenticated = "authenticated";
+const QString Avm_Auth::State_Checking_Email = "checkingEmail";
+const QString Avm_Auth::State_Signing_Up = "signingUp";
+const QString Avm_Auth::State_Logging_In = "loggingIn";
+const QString Avm_Auth::State_Email_Taken = "emailTaken";
+const QString Avm_Auth::State_Session_Expired = "sessionExpired";
+//----------------------------------------------------------------------------
 Avm_Auth::Avm_Auth(AAuth_Repository *in_repository, QObject *in_parent)
     : QObject(in_parent), Repository_Instance(in_repository)
 {
@@ -34,7 +42,7 @@ QString Avm_Auth::errorKey() const
 //----------------------------------------------------------------------------
 bool Avm_Auth::authenticated() const
 {
-	return Current_State == "authenticated";
+	return Current_State == State_Authenticated;
 }
 //----------------------------------------------------------------------------
 void Avm_Auth::Check_Email(const QString &in_email)
@@ -45,7 +53,7 @@ void Avm_Auth::Check_Email(const QString &in_email)
 		return;
 	}
 
-	Set_State("checkingEmail");
+	Set_State(State_Checking_Email);
 
 	if (Repository_Instance->Check_Email(in_email) == 0)
 		Set_Error_State("undefined_error");
@@ -59,7 +67,7 @@ void Avm_Auth::Signup(const QString &in_email, const QString &in_name, const QSt
 		return;
 	}
 
-	Set_State("signingUp");
+	Set_State(State_Signing_Up);
 
 	if (Repository_Instance->Signup(in_email, in_name, in_password) == 0)
 		Set_Error_State("undefined_error");
@@ -73,7 +81,7 @@ void Avm_Auth::Login(const QString &in_email, const QString &in_password)
 		return;
 	}
 
-	Set_State("loggingIn");
+	Set_State(State_Logging_In);
 
 	if (Repository_Instance->Login(in_email, in_password) == 0)
 		Set_Error_State("undefined_error");
@@ -97,7 +105,7 @@ bool Avm_Auth::Restore_Local_Session()
 	restored = Repository_Instance->Restore_Local_Session();
 
 	if (restored)
-		Set_State("authenticated");
+		Set_State(State_Authenticated);
 
 	return restored;
 }
@@ -113,9 +121,9 @@ void Avm_Auth::on_Check_Email_Finished(int in_request_id, bool in_free, const AA
 	}
 
 	if (in_free)
-		Set_State("idle");
+		Set_State(State_Idle);
 	else
-		Set_State("emailTaken");
+		Set_State(State_Email_Taken);
 }
 //----------------------------------------------------------------------------
 void Avm_Auth::on_Signup_Finished(int in_request_id, const SAuth_User &in_user, const AApi_Error &in_error)
@@ -126,7 +134,7 @@ void Avm_Auth::on_Signup_Finished(int in_request_id, const SAuth_User &in_user, 
 	if (in_error.Is_Error())
 		Set_Error_State(in_error.Key());
 	else
-		Set_State("authenticated");
+		Set_State(State_Authenticated);
 }
 //----------------------------------------------------------------------------
 void Avm_Auth::on_Login_Finished(int in_request_id, const SAuth_User &in_user, const AApi_Error &in_error)
@@ -137,17 +145,17 @@ void Avm_Auth::on_Login_Finished(int in_request_id, const SAuth_User &in_user, c
 	if (in_error.Is_Error())
 		Set_Error_State(in_error.Key());
 	else
-		Set_State("authenticated");
+		Set_State(State_Authenticated);
 }
 //----------------------------------------------------------------------------
 void Avm_Auth::on_Logged_Out()
 {
-	Set_State("idle");
+	Set_State(State_Idle);
 }
 //----------------------------------------------------------------------------
 void Avm_Auth::on_Session_Expired()
 {
-	Set_State("sessionExpired");
+	Set_State(State_Session_Expired);
 }
 //----------------------------------------------------------------------------
 void Avm_Auth::Set_State(const QString &in_state)

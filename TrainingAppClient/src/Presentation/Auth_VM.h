@@ -47,5 +47,13 @@ private:
 	AAuth_Repository *Repository_Instance;
 	QString Current_State;
 	QString Error_Key_Text;
+
+	static const QString State_Idle;
+	static const QString State_Authenticated;
+	static const QString State_Checking_Email;
+	static const QString State_Signing_Up;
+	static const QString State_Logging_In;
+	static const QString State_Email_Taken;
+	static const QString State_Session_Expired;
 };
 //----------------------------------------------------------------------------

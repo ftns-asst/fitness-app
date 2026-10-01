@@ -331,11 +331,10 @@ bool AsHttp_Client::Should_Retry(const AHttp_Operation *in_operation, int in_htt
 int AsHttp_Client::Retry_Delay_Ms(int in_attempt_count) const
 {
 	int delay_ms;
-	int i;
 
 	delay_ms = Initial_Retry_Delay;
 
-	for (i = 1; i < in_attempt_count; ++i)
+	for (int i = 1; i < in_attempt_count; ++i)
 	{
 		if (delay_ms > 30000 / 2)
 			return 30000;

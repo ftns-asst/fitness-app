@@ -1,4 +1,4 @@
-# qmltestrunner is a separate process and cannot see resources embedded in the
+﻿# qmltestrunner is a separate process and cannot see resources embedded in the
 # application executable. Build a test import directory from the exact
 # production QML files instead of maintaining test copies.
 #
@@ -76,6 +76,107 @@ target_link_libraries(tst_Sql_Database PRIVATE TrainingAppCore Qt6::Test)
 add_test(NAME sql_database COMMAND tst_Sql_Database)
 set_tests_properties(sql_database PROPERTIES TIMEOUT 20)
 
+qt_add_executable(tst_Program_Model
+    cpp/tst_Program_Model.cpp
+)
+target_link_libraries(tst_Program_Model PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME program_model COMMAND tst_Program_Model)
+set_tests_properties(program_model PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Program_Service
+    cpp/tst_Program_Service.cpp
+)
+target_link_libraries(tst_Program_Service PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME program_service COMMAND tst_Program_Service)
+set_tests_properties(program_service PROPERTIES
+    TIMEOUT 30
+    ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+)
+
+qt_add_executable(tst_Rule_Engine
+    cpp/tst_Rule_Engine.cpp
+)
+target_link_libraries(tst_Rule_Engine PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME rule_engine COMMAND tst_Rule_Engine)
+set_tests_properties(rule_engine PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_List_Model
+    cpp/tst_List_Model.cpp
+)
+target_link_libraries(tst_List_Model PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME list_model COMMAND tst_List_Model)
+set_tests_properties(list_model PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Program_Rows
+    cpp/tst_Program_Rows.cpp
+)
+target_link_libraries(tst_Program_Rows PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME program_rows COMMAND tst_Program_Rows)
+set_tests_properties(program_rows PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Program_Stats_VM
+    cpp/tst_Program_Stats_VM.cpp
+)
+target_link_libraries(tst_Program_Stats_VM PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME program_stats_vm COMMAND tst_Program_Stats_VM)
+set_tests_properties(program_stats_vm PROPERTIES TIMEOUT 30)
+
+qt_add_executable(tst_Workout_Repository
+    cpp/tst_Workout_Repository.cpp
+)
+target_link_libraries(tst_Workout_Repository PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME workout_repository COMMAND tst_Workout_Repository)
+set_tests_properties(workout_repository PROPERTIES TIMEOUT 30)
+
+qt_add_executable(tst_Program_VM
+    cpp/tst_Program_VM.cpp
+)
+target_link_libraries(tst_Program_VM PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME program_vm COMMAND tst_Program_VM)
+set_tests_properties(program_vm PROPERTIES TIMEOUT 30)
+
+qt_add_executable(tst_Error_State
+    cpp/tst_Error_State.cpp
+)
+target_link_libraries(tst_Error_State PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME error_state COMMAND tst_Error_State)
+set_tests_properties(error_state PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Progress_Calculator
+    cpp/tst_Progress_Calculator.cpp
+)
+target_link_libraries(tst_Progress_Calculator PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME progress_calculator COMMAND tst_Progress_Calculator)
+set_tests_properties(progress_calculator PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Program_Repository
+    cpp/tst_Program_Repository.cpp
+)
+target_link_libraries(tst_Program_Repository PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME program_repository COMMAND tst_Program_Repository)
+set_tests_properties(program_repository PROPERTIES TIMEOUT 30)
+
+qt_add_executable(tst_Rule_Repository
+    cpp/tst_Rule_Repository.cpp
+)
+target_link_libraries(tst_Rule_Repository PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME rule_repository COMMAND tst_Rule_Repository)
+set_tests_properties(rule_repository PROPERTIES TIMEOUT 30)
+
+qt_add_executable(tst_Measurement_Repository
+    cpp/tst_Measurement_Repository.cpp
+)
+target_link_libraries(tst_Measurement_Repository PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME measurement_repository COMMAND tst_Measurement_Repository)
+set_tests_properties(measurement_repository PROPERTIES TIMEOUT 30)
+
+qt_add_executable(tst_Stats_Repository
+    cpp/tst_Stats_Repository.cpp
+)
+target_link_libraries(tst_Stats_Repository PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME stats_repository COMMAND tst_Stats_Repository)
+set_tests_properties(stats_repository PROPERTIES TIMEOUT 30)
+
 qt_add_executable(tst_Token_Store
     cpp/tst_Token_Store.cpp
 )
@@ -124,6 +225,20 @@ qt_add_executable(tst_Users_Repository
 target_link_libraries(tst_Users_Repository PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
 add_test(NAME users_repository COMMAND tst_Users_Repository)
 set_tests_properties(users_repository PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Auth_Qml_Bridge
+    cpp/tst_Auth_Qml_Bridge.cpp
+)
+target_link_libraries(tst_Auth_Qml_Bridge PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME auth_qml_bridge COMMAND tst_Auth_Qml_Bridge)
+set_tests_properties(auth_qml_bridge PROPERTIES TIMEOUT 30)
+
+qt_add_executable(tst_App_Logger
+    cpp/tst_App_Logger.cpp
+)
+target_link_libraries(tst_App_Logger PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME app_logger COMMAND tst_App_Logger)
+set_tests_properties(app_logger PROPERTIES TIMEOUT 20)
 
 add_library(TrainingAppTestSupport STATIC
     Support/Test_Http_Server.h

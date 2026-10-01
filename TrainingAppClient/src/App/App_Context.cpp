@@ -1,4 +1,4 @@
-#include "App/App_Context.h"
+﻿#include "App/App_Context.h"
 
 #include "Data/Auth/Auth_Repository.h"
 #include "Data/Auth/Auth_Session.h"
@@ -6,11 +6,15 @@
 #include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
 #include "Data/Users/Users_Repository.h"
+#include "Presentation/Auth_Qml_Bridge.h"
 #include "Presentation/Auth_VM.h"
 
+#include <QLoggingCategory>
 #include <QSettings>
 #include <QUrl>
 #include <QVariant>
+
+Q_LOGGING_CATEGORY(APP_Context_Log, "trainingapp.app")
 
 //----------------------------------------------------------------------------
 // AsApp_Context
@@ -19,7 +23,7 @@ const QString AsApp_Context::Default_Api_Base_URL = "http://fitness.nought.ru/ap
 const QString AsApp_Context::Environment_Variable_Name = "TRAINING_APP_API_URL";
 const QString AsApp_Context::Settings_Key = "network/apiUrl";
 //----------------------------------------------------------------------------
-AsApp_Context::AsApp_Context(QObject *in_parent) : QObject(in_parent)
+AsApp_Context::AsApp_Context(QObject *in_parent) : QObject(in_parent), Error_State(&APP_Context_Log())
 {
 }
 //----------------------------------------------------------------------------
@@ -46,7 +50,13 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	Api_Base_URL.clear();
 	Api_URL_Source.clear();
 	Initialized = false;
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
+
+	if (Auth_Bridge_Instance != 0)
+	{
+		delete Auth_Bridge_Instance;
+		Auth_Bridge_Instance = 0;
+	}
 
 	if (Users_Repository_Instance != 0)
 	{
@@ -98,7 +108,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 
 	if (success == false)
 	{
-		Last_Error_Text = error;
+		Set_Last_Error(error);
 		return false;
 	}
 
@@ -134,7 +144,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 
 	if (success == false)
 	{
-		Last_Error_Text = QString("Некорректный API URL из источника %1: %2").arg(source, error);
+		Set_Last_Error(QString("Некорректный API URL из источника %1: %2").arg(source, error));
 		return false;
 	}
 
@@ -144,7 +154,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 
 	if (SQL_Database_Instance->Open() == false)
 	{
-		Last_Error_Text = SQL_Database_Instance->Get_Last_Error();
+		Set_Last_Error(SQL_Database_Instance->Get_Last_Error());
 		delete SQL_Database_Instance;
 		SQL_Database_Instance = 0;
 		return false;
@@ -154,7 +164,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 
 	if (HTTP_Client_Instance->Base_URL().isValid() == false)
 	{
-		Last_Error_Text = HTTP_Client_Instance->Last_Error();
+		Set_Last_Error(HTTP_Client_Instance->Last_Error());
 		delete HTTP_Client_Instance;
 		HTTP_Client_Instance = 0;
 		return false;
@@ -174,9 +184,16 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	// Профиль с сервера (issue 9): репозиторий поверх auth-сессии и SQLite.
 	Users_Repository_Instance = new AUsers_Repository(Auth_Session_Instance, SQL_Database_Instance, this);
 
+	// QML-мост реального auth (issue 8, подключение UI через --real-auth).
+	Auth_Bridge_Instance =
+	    new Avm_Auth_Bridge(Auth_Repository_Instance, Users_Repository_Instance, Auth_Session_Instance, this);
+
 	Initialized = true;
 
-	qInfo("App context: API base URL source=%s url=%s", qUtf8Printable(Api_URL_Source), qUtf8Printable(Api_Base_URL));
+	qCInfo(APP_Context_Log).noquote() << "initialized: api url" << Api_Base_URL << "source" << Api_URL_Source;
+	qCInfo(APP_Context_Log).noquote() << "sqlite schema" << SQL_Database_Instance->Get_Schema_Version()
+	                                  << "http timeout_ms" << HTTP_Client_Instance->Timeout_Ms() << "retry_max"
+	                                  << HTTP_Client_Instance->Max_Retry_Count();
 
 	return true;
 }
@@ -198,7 +215,12 @@ bool AsApp_Context::initialized() const
 //----------------------------------------------------------------------------
 QString AsApp_Context::Last_Error() const
 {
-	return Last_Error_Text;
+	return Error_State.Get_Last_Error();
+}
+//----------------------------------------------------------------------------
+bool AsApp_Context::Set_Last_Error(const QString &in_error)
+{
+	return Error_State.Set_Last_Error(in_error);
 }
 //----------------------------------------------------------------------------
 AsHttp_Client *AsApp_Context::HTTP_Client() const
@@ -234,6 +256,11 @@ Avm_Auth *AsApp_Context::Auth_VM() const
 AUsers_Repository *AsApp_Context::Users_Repository() const
 {
 	return Users_Repository_Instance;
+}
+//----------------------------------------------------------------------------
+Avm_Auth_Bridge *AsApp_Context::Auth_Bridge() const
+{
+	return Auth_Bridge_Instance;
 }
 //----------------------------------------------------------------------------
 bool AsApp_Context::Normalize_Api_Base_URL(const QString &in_value, QString &out_value, QString &out_error)

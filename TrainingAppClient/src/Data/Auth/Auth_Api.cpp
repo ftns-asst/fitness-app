@@ -34,6 +34,7 @@ int AAuth_Api::Check_Email(const QString &in_email)
 		return 0;
 
 	Pending_Operations.insert(transport_id, EOp_Check_Email);
+	qCInfo(AUTH_Api_Log).noquote() << "check-email started" << transport_id;
 
 	return transport_id;
 }
@@ -55,6 +56,7 @@ int AAuth_Api::Signup(const QString &in_email, const QString &in_name, const QSt
 		return 0;
 
 	Pending_Operations.insert(transport_id, EOp_Signup);
+	qCInfo(AUTH_Api_Log).noquote() << "signup started" << transport_id;
 
 	return transport_id;
 }
@@ -75,6 +77,7 @@ int AAuth_Api::Login(const QString &in_email, const QString &in_password)
 		return 0;
 
 	Pending_Operations.insert(transport_id, EOp_Login);
+	qCInfo(AUTH_Api_Log).noquote() << "login started" << transport_id;
 
 	return transport_id;
 }
@@ -120,6 +123,12 @@ void AAuth_Api::Finish_Check_Email(int in_request_id, const SHttp_Response &in_r
 	else
 		free_flag = in_response.JSON.object().value("free").toBool();
 
+	// free не логируем: это перечисление занятости чужих email.
+	if (error.Is_Error())
+		qCInfo(AUTH_Api_Log).noquote() << "check-email finished" << in_request_id << "error key=" << error.Key();
+	else
+		qCInfo(AUTH_Api_Log).noquote() << "check-email finished" << in_request_id << "ok";
+
 	emit checkEmailFinished(in_request_id, free_flag, error);
 }
 //----------------------------------------------------------------------------
@@ -130,6 +139,14 @@ void AAuth_Api::Finish_Session_Operation(EAuth_Operation in_operation, int in_re
 	AApi_Error error;
 
 	Parse_Session_Data(in_response, data, error);
+
+	// Обязательные поля валидируются выше; в лог — только исход и ключ ошибки.
+	if (error.Is_Error())
+		qCInfo(AUTH_Api_Log).noquote() << (in_operation == EOp_Signup ? "signup finished" : "login finished")
+		                               << in_request_id << "error key=" << error.Key();
+	else
+		qCInfo(AUTH_Api_Log).noquote() << (in_operation == EOp_Signup ? "signup finished" : "login finished")
+		                               << in_request_id << "ok";
 
 	if (in_operation == EOp_Signup)
 		emit signupFinished(in_request_id, data, error);

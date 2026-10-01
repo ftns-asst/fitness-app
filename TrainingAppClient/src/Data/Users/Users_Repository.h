@@ -29,6 +29,7 @@ public:
 	                        int &out_workouts_per_week);
 	bool Save_Local_Profile(const QString &in_user_id, const QString &in_level, const QString &in_goal,
 	                        int in_workouts_per_week, QString &out_status);
+	bool Clear_Local_Profile(const QString &in_user_id);
 	int Pending_Outbox_Count() const;
 
 	static const char *Status_Saved_Locally;

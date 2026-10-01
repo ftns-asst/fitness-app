@@ -42,7 +42,7 @@ void AApp_Context_Test::defaultUrlIsUsed()
 	QVERIFY(context.HTTP_Client() != 0);
 	QVERIFY(context.SQL_Database() != 0);
 	QVERIFY(context.SQL_Database()->Is_Open());
-	QCOMPARE(context.SQL_Database()->Get_Schema_Version(), 1);
+	QCOMPARE(context.SQL_Database()->Get_Schema_Version(), AsSql_Database::Get_Current_Schema_Version());
 	QCOMPARE(context.HTTP_Client()->Base_URL(), QUrl(AsApp_Context::Default_Api_Base_URL));
 	QVERIFY(context.Token_Store() != 0);
 	QVERIFY(context.Auth_Session() != 0);
@@ -53,6 +53,7 @@ void AApp_Context_Test::defaultUrlIsUsed()
 	QCOMPARE(context.Auth_VM()->state(), QString("idle"));
 	QVERIFY(context.Auth_Repository()->Has_Local_Session() == false);
 	QVERIFY(context.Users_Repository() != 0);
+	QVERIFY(context.Auth_Bridge() != 0);
 }
 //----------------------------------------------------------------------------
 void AApp_Context_Test::environmentOverridesDefault()

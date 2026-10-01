@@ -9,6 +9,11 @@ if (WIN32)
     set(ENV{PATH} "${QT_RUNTIME_DIR};$ENV{PATH}")
 endif()
 
+# Автодеплой Qt в binary dir кладёт только qwindows.dll, а relocatable prefix
+# загруженного Qt6Core.dll в этом случае указывает на build-каталог — offscreen
+# перестаёт находиться. Явно задаём каталог плагинов установки Qt.
+set(ENV{QT_QPA_PLATFORM_PLUGIN_PATH} "${QT_RUNTIME_DIR}/../plugins/platforms")
+
 set(app_arguments --diag --width 390 --height 812)
 if (DEFINED SCREEN)
     list(APPEND app_arguments --screen "${SCREEN}")

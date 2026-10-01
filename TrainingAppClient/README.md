@@ -1,4 +1,4 @@
-# TrainingAppClient
+﻿# TrainingAppClient
 
 QML-клиент приложения **«Фитнес-помощник»**: план дня, запись тренировок, каталог программ и упражнений, прогресс и история.
 
@@ -74,6 +74,7 @@ Kit: `Desktop Qt 6.11.2 MinGW 64-bit`, каталог `build/Desktop_Qt_6_11_2_M
 | `--unauth` | оставить гостя даже при `--tab` / `--screen` / `--authenticated` |
 | `--open-auth` | открыть вход как из «Профиля» (гость, экран закрываемый) |
 | `--auth-fail <operation:key>` | принудительная ошибка auth mock API |
+| `--real-auth` | реальный auth: экран входа работает с задеплоенным backend через `Avm_Auth_Bridge` (контекст-свойство `AuthBackend`); без флага — presentation-mock |
 | `--api-url <url>` | base URL будущего API; выше QSettings/env/default |
 | `--dark` | тёмная тема |
 | `--accent <0..3>` | цвет акцента |
@@ -89,6 +90,22 @@ $env:QT_FORCE_STDERR_LOGGING = '1'
 ```
 
 Норматив: `problems=0` на всех четырёх вкладках при ширине 360 / 390 / 480 px, в рамке и в тёмной теме. Тени `MultiEffect` и горизонтальный скролл chips аудит не считает ошибкой.
+
+### Логи
+
+`AsApp_Logger` (устанавливается в `main.cpp` до инициализации контекста) пишет
+каждое сообщение и в stderr, и в приватный файл
+`%APPDATA%/FitnessAssistant/TrainingAppClient/logs/app.log` (ротация по 2 МБ,
+`app.1.log` — одна резервная копия). Формат:
+`дата время.мс уровень категория: сообщение`; категории `trainingapp.*`
+(`app`, `sqlite`, `http`, `auth.*`, `users.*`) управляются стандартным
+`QT_LOGGING_RULES`, например `QT_LOGGING_RULES="qml.debug=false"`.
+
+Инвариант приватности (docs/01, §6): в логи не попадают email, пароли,
+access/refresh-токены, query и тела запросов, backend-сообщения и результат
+`free` check-email (перечисление занятости чужих адресов). Параллельные
+процессы CTest могут чередовать строки общего файла — в работе приложение
+одиночно.
 
 ### Тесты и локальные gates
 
@@ -107,6 +124,8 @@ CMake, `qmllint`, desktop-сборку и все CTest-тесты:
 - `qml_tests` — auth/users mock API, ошибки, сессия, токены, роли
   `MockCatalog`, presentation-контракты и состояния `AuthPage`;
 - `app_context` — Qt Test приоритетов API base URL и composition root;
+- `app_logger` — файловый логгер приложения: категория/уровень в строке,
+  ротация по размеру, восстановление Qt handler'а;
 - `sql_database` — создание и идемпотентная миграция SQLite schema v1,
   backend-aligned cache-поля, constraints и ошибки открытия;
 - `token_store` — сохранение/чтение/ротация/очистка auth_tokens, cold start
@@ -124,6 +143,10 @@ CMake, `qmllint`, desktop-сборку и все CTest-тесты:
 - `auth_vm` — состояния auth ViewModel: idle/checkingEmail/emailTaken/
   signingUp/loggingIn/error(key)/authenticated/sessionExpired, локальный
   logout, cold start;
+- `auth_qml_bridge` — QML-мост реального auth: контракт MockApi поверх
+  `AAuth_Repository`/`AUsers_Repository` (camelCase user DTO, ошибки
+  `{key, message, httpStatus}`), cold start `restoreSession`, локальный
+  профиль в реальную SQLite;
 - `users_api` — DTO `GET /users/{id}?withProfile=true` через auth-сессию
   (Bearer, refresh-ретрай), профиль с assumed-единицами cm/kg, отсутствие
   profile — не ошибка, ключи 404/undefined_error;
@@ -189,6 +212,7 @@ docs/                     дизайн, референс, roadmap
 |---|---|
 | [`docs/fitness-assistant-frontend-design.md`](docs/fitness-assistant-frontend-design.md) | Навигация, токены, экраны |
 | [`docs/01-architecture.md`](docs/01-architecture.md) | Слои C++, composition root, конфигурация API |
+| [`docs/02-program-model.md`](docs/02-program-model.md) | Программа тренировок: цель, срок, недельный план, правила, статистика |
 | [`docs/03-api-contract.md`](docs/03-api-contract.md) | Реальный контракт auth/users и открытые вопросы |
 | [`docs/reference-ui/README.md`](docs/reference-ui/README.md) | Скриншоты-референс и CLI |
 | [`docs/04-roadmap.md`](docs/04-roadmap.md) | Фазы: mock → C++ → сеть → релиз |

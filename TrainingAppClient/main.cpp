@@ -1,11 +1,16 @@
 #include "App/App_Context.h"
 
+#include "App/App_Logger.h"
+#include "Presentation/Auth_Qml_Bridge.h"
+
 #include <QCoreApplication>
 #include <QFontDatabase>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QStandardPaths>
+#include <QVariant>
 
 //---------------------------------------------------------------------------
 // Регистрация начертаний Inter из ресурсов (§3.2 дизайн-дока). Загружаем до
@@ -39,16 +44,35 @@ int main(int argc, char *argv[])
 {
 	// Локальные объекты объявлены до исполняемого кода (§5.2).
 	QGuiApplication app(argc, argv);
+	AsApp_Logger logger;
 	AsApp_Context app_context;
 	QQmlApplicationEngine engine;
+	QStringList arguments;
+	QString log_directory;
 	int loaded_fonts;
 	bool context_initialized;
+	bool logger_opened;
+	bool real_auth;
 
 	QCoreApplication::setOrganizationName("FitnessAssistant");
 	QCoreApplication::setOrganizationDomain("fitness.nought.ru");
 	QCoreApplication::setApplicationName("TrainingAppClient");
 
-	context_initialized = app_context.Initialize(QCoreApplication::arguments());
+	// Логгер ставится до инициализации контекста: строки инициализации
+	// попадают и в stderr (консоль/CI), и в приватный logs/app.log.
+	log_directory = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/logs";
+	logger_opened = logger.Open(log_directory);
+
+	if (logger_opened == false)
+		qWarning("Logger: файл лога недоступен, продолжаем только в stderr");
+
+	qInstallMessageHandler(&AsApp_Logger::Handle_Message);
+
+	arguments = QCoreApplication::arguments();
+	real_auth = arguments.indexOf("--real-auth") >= 0;
+	qInfo("app started: qt=%s real_auth=%d", qVersion(), real_auth ? 1 : 0);
+
+	context_initialized = app_context.Initialize(arguments);
 
 	if (context_initialized == false)
 	{
@@ -72,6 +96,14 @@ int main(int argc, char *argv[])
 	QObject::connect(
 	    &engine, &QQmlApplicationEngine::objectCreationFailed, &app, []() { QCoreApplication::exit(-1); },
 	    Qt::QueuedConnection);
+
+	// --real-auth: экран входа работает с настоящим backend через Avm_Auth_Bridge
+	// (контекст-свойство AuthBackend). Без флага UI остаётся на presentation-mock
+	// (qmltestrunner свойства не видит, все QML-тесты остаются на mock).
+	if (real_auth)
+		engine.rootContext()->setContextProperty("AuthBackend", app_context.Auth_Bridge());
+	else
+		engine.rootContext()->setContextProperty("AuthBackend", QVariant());
 
 	engine.rootContext()->setContextProperty("AppContext", &app_context);
 	engine.loadFromModule("TrainingAppClient", "Main");

@@ -1,6 +1,8 @@
-#pragma once
+﻿#pragma once
 
 #include <QByteArray>
+
+#include "Domain/Error_State.h"
 #include <QObject>
 #include <QSettings>
 #include <QString>
@@ -13,6 +15,7 @@ class AsSql_Database;
 class AsToken_Store;
 class AUsers_Repository;
 class Avm_Auth;
+class Avm_Auth_Bridge;
 
 //----------------------------------------------------------------------------
 // Корневой контекст приложения. Владеет конфигурацией окружения и единым
@@ -42,6 +45,7 @@ public:
 	AAuth_Repository *Auth_Repository() const;
 	Avm_Auth *Auth_VM() const;
 	AUsers_Repository *Users_Repository() const;
+	Avm_Auth_Bridge *Auth_Bridge() const;
 
 	static const QString Default_Api_Base_URL;
 	static const QString Environment_Variable_Name;
@@ -52,10 +56,14 @@ private:
 	static bool Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found,
 	                                  QString &out_error);
 
+	// Хранилище ошибки (рефакторинг ошибок): состояние и логирование в
+	// APP_Context_Log живут в AError_State.
+	bool Set_Last_Error(const QString &in_error);
+
 	QString Api_Base_URL;
 	QString Api_URL_Source;
 	bool Initialized = false;
-	QString Last_Error_Text;
+	AError_State Error_State;
 	AsHttp_Client *HTTP_Client_Instance = 0;
 	AsSql_Database *SQL_Database_Instance = 0;
 	AsToken_Store *Token_Store_Instance = 0;
@@ -63,5 +71,6 @@ private:
 	AAuth_Repository *Auth_Repository_Instance = 0;
 	Avm_Auth *Auth_VM_Instance = 0;
 	AUsers_Repository *Users_Repository_Instance = 0;
+	Avm_Auth_Bridge *Auth_Bridge_Instance = 0;
 };
 //----------------------------------------------------------------------------

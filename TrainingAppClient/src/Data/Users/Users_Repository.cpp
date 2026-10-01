@@ -145,6 +145,27 @@ bool AUsers_Repository::Save_Local_Profile(const QString &in_user_id, const QStr
 	return true;
 }
 //----------------------------------------------------------------------------
+bool AUsers_Repository::Clear_Local_Profile(const QString &in_user_id)
+{
+	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+		return false;
+
+	QSqlQuery query(Database_Instance->Sql_Connection());
+
+	query.prepare("DELETE FROM profile_local WHERE user_id = ?");
+	query.addBindValue(in_user_id);
+
+	if (query.exec() == false)
+	{
+		qCWarning(USERS_Repository_Log).noquote() << "profile_local clear failed";
+		return false;
+	}
+
+	qCInfo(USERS_Repository_Log).noquote() << "local profile cleared";
+
+	return true;
+}
+//----------------------------------------------------------------------------
 int AUsers_Repository::Pending_Outbox_Count() const
 {
 	QSqlQuery query(Database_Instance->Sql_Connection());

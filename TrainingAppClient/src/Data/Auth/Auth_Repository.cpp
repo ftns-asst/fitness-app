@@ -146,6 +146,8 @@ bool AAuth_Repository::Persist_Session(const SAuth_Session_Data &in_session_data
 		return false;
 	}
 
+	qCInfo(AUTH_Repository_Log).noquote() << "session persisted user" << in_session_data.User.ID;
+
 	return true;
 }
 //----------------------------------------------------------------------------

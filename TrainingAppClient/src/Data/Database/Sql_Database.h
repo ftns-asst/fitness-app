@@ -40,6 +40,7 @@ private:
 	bool Set_Last_Error(const QString &in_error);
 	bool Execute_SQL(const QString &in_sql);
 	bool Create_Schema_V1();
+	bool Create_Schema_V2();
 	bool Read_Schema_Version(int &out_version);
 	bool Write_Schema_Version(int in_version);
 	QString Connection_Name() const;

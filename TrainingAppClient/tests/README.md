@@ -1,4 +1,4 @@
-# Тестовая инфраструктура
+﻿# Тестовая инфраструктура
 
 ## Контуры
 
@@ -12,8 +12,36 @@
 - `cpp/tst_Auth_Api.cpp` — auth DTO, валидация обязательных полей и ключи;
 - `cpp/tst_Auth_Repository.cpp` — сохранение сессии, logout, cold start;
 - `cpp/tst_Avm_Auth.cpp` — состояния auth ViewModel;
+- `cpp/tst_Auth_Qml_Bridge.cpp` — QML-мост реального auth (контракт MockApi,
+  camelCase DTO, cold start, локальный профиль);
+- `cpp/tst_App_Logger.cpp` — файловый логгер: формат строки, ротация,
+   восстановление handler'а;
 - `cpp/tst_Users_Api.cpp` — users DTO, профиль, ключи, refresh-ретрай;
 - `cpp/tst_Users_Repository.cpp` — кэш профиля, офлайн-фолбэк, outbox;
+- `cpp/tst_Program_Model.cpp` — структуры модели программы, enum ↔ строка, JSON;
+- `cpp/tst_Program_Repository.cpp` — дерево программы, ревизии и транзакции;
+- `cpp/tst_Rule_Repository.cpp` — набор правил и отметки (защита `computed`);
+- `cpp/tst_Measurement_Repository.cpp` — замеры тела (upsert-слияние);
+- `cpp/tst_Stats_Repository.cpp` — кэш статистики и инвалидация;
+- `cpp/tst_Program_Service.cpp` — создание программы (снимок/с нуля),
+  переходы состояния и рекомендация веса;
+- `cpp/tst_Rule_Engine.cpp` — оценка правил-целей, расчётные отметки
+  (`computedFromSets`/`computedFromSessions`) и adherence;
+- `cpp/tst_Error_State.cpp` — общее хранилище ошибки: запись, чтение,
+  сброс в начале вызова;
+- `cpp/tst_List_Model.cpp` — базовый список Presentation: роли, данные,
+  инвалидация, копия строк;
+- `cpp/tst_Program_Rows.cpp` — маппинг домена в роли §7, `null` вместо
+  «не задано», тексты диапазонов и подписи целей;
+- `cpp/tst_Program_VM.cpp` — дерево программы из БД: скалярные свойства,
+  списки, выбор дня, сигнал `changed`;
+- `cpp/tst_Workout_Repository.cpp` — факты тренировок: фильтры по программе и
+  датам, снимок предписания, исключение соло-сессий;
+- `cpp/tst_Program_Stats_VM.cpp` — KPI программы по фактам, запись кэша
+  `program_stats`, отказ на неизвестной программе;
+- `cpp/tst_Progress_Calculator.cpp` — статистика программы и «всё время»,
+  JSON кэша, инвариант «полный пересчёт = инкрементальный», отказ на
+  некорректных входных данных;
 - `qml/tst_mock_contract.qml` — mock API и data roles;
 - `qml/tst_auth_page.qml` — auth state/UI interaction;
 - `qml/tst_qml_object_smoke.qml` — создание ключевых production QML-типов;

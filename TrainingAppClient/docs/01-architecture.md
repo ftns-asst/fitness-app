@@ -1,4 +1,4 @@
-# Архитектура клиента «Фитнес-помощник»
+﻿# Архитектура клиента «Фитнес-помощник»
 
 ## 1. Назначение
 
@@ -91,6 +91,9 @@ Default соответствует подтверждённому backend URL
 
 ## 5. Владение и жизненный цикл
 
+- `main.cpp` владеет `AsApp_Logger`: handler ставится до инициализации
+  контекста, каждая строка пишется в stderr и в приватный `logs/app.log`
+  с ротацией по размеру (2 МБ + одна резервная копия).
 - `AsApp_Context` живёт на стеке `main()` дольше `QQmlApplicationEngine`.
 - Будущие сервисы создаются с parent `AsApp_Context`.
 - `AsHttp_Client` владеет одним `QNetworkAccessManager`; composition root владеет
@@ -107,6 +110,11 @@ Default соответствует подтверждённому backend URL
   ViewModel; порядок удаления — обратный.
 - `AsApp_Context` владеет одним `AUsers_Repository` поверх auth-сессии и SQLite
   (issue 9); сам репозиторий владеет `AUsers_Api`.
+- `AsApp_Context` владеет одним `Avm_Auth_Bridge` — QML-мост реального auth
+  (issue 8, UI-подключение): контракт MockApi поверх `AAuth_Repository`/
+  `AUsers_Repository`. main.cpp выставляет его как контекст-свойство
+  `AuthBackend` только при `--real-auth`; реальные токены остаются в C++ SQLite,
+  в MockTokenStore попадают заглушки.
 - QML-страницы остаются на presentation-mock до снятия backend-блокеров;
   `Avm_Auth` подключается к `AuthViewModel` при активации реального входа без
   изменения контрактов страниц.
@@ -123,14 +131,16 @@ Default соответствует подтверждённому backend URL
 5. Access/refresh tokens не пишутся в обычный лог.
 6. Base URL может логироваться, но URL запросов с query и заголовки
    авторизации — нет.
-7. Ошибки инициализации возвращаются через `bool` + `Last_Error()`, без
+7. Email, пароли, значения `free` check-email и backend-сообщения не
+   логируются; ключи ошибок (`error key=...`) — могут.
+8. Ошибки инициализации возвращаются через `bool` + `Last_Error()`, без
    исключений.
 
 ## 7. CMake targets
 
 | Target | Назначение |
 |---|---|
-| `TrainingAppCore` | `AsApp_Context`, `AsHttp_Client`, `AApi_Error`, `AsSql_Database`, `AsToken_Store`, `AsAuth_Session`, `AAuth_Api`, `AAuth_Repository`, `Avm_Auth`, `AUsers_Api`, `AUsers_Repository`, будущие Domain/Presentation классы |
+| `TrainingAppCore` | `AsApp_Context`, `AsHttp_Client`, `AApi_Error`, `AsSql_Database`, `AsToken_Store`, `AsAuth_Session`, `AAuth_Api`, `AAuth_Repository`, `Avm_Auth`, `Avm_Auth_Bridge`, `AUsers_Api`, `AUsers_Repository`, будущие Domain/Presentation классы |
 | `appTrainingAppClient` | executable + QML module |
 | `tst_App_Context` | Qt Test конфигурации запуска и composition root |
 | `tst_Sql_Database` | Qt Test SQLite schema v1 и миграций |
@@ -139,6 +149,7 @@ Default соответствует подтверждённому backend URL
 | `tst_Auth_Api` | Qt Test auth-адаптера: DTO, валидация, ключи ошибок |
 | `tst_Auth_Repository` | Qt Test сохранения сессии, logout и cold start |
 | `tst_Avm_Auth` | Qt Test состояний auth ViewModel |
+| `tst_Auth_Qml_Bridge` | Qt Test QML-моста реального auth |
 | `tst_Users_Api` | Qt Test users endpoint: DTO, профиль, ключи ошибок, refresh-ретрай |
 | `tst_Users_Repository` | Qt Test кэша профиля, офлайн-фолбэка, profile_local и sync_outbox |
 | `tst_Http_Client` | Qt Test API-ядра против fake HTTP server |
@@ -157,3 +168,12 @@ Default соответствует подтверждённому backend URL
 - issue 9: выполнен (C++-слой) — `AUsers_Api`, `AUsers_Repository`, кэш
   профиля, офлайн-фолбэк, `profile_local`/`sync_outbox`;
 - issue 10: фаза S2 — остальные экраны на mock.
+
+Далее (см. `04-roadmap.md` §3, срез **W**): сначала C++ — issue 22 (схема v2 с
+таблицами программы, правил, отметок, статистики), 23 (`AProgram_Repository`,
+`ARule_Repository`, `AMeasurement_Repository`, `AStats_Repository`), 24 (роли
+моделей программы), 25 (`AsRule_Engine`, `AsProgram_Service`, расширенный
+`AsProgress_Calculator`), 26 (`Avm_Program`, `Avm_Program_Schedule`,
+`Avm_Program_Rules`, `Avm_Program_Stats`), затем UI — issues 41–44
+(«Моя программа», редактор расписания и дня, правила и отметки, статистика).
+Модель описана в `02-program-model.md`.
