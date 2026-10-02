@@ -63,17 +63,18 @@ func (r *UserRepo) CreateOrUpdateUserProfile(ctx context.Context, userID uuid.UU
 	conn := r.db(ctx)
 
 	rows, err := conn.Query(ctx, query, userID, input.Age, input.Gender, input.HeightCm, input.WeightKg)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrNotFound
-	}
 	if err != nil {
 		return nil, fmt.Errorf("insert failed: %w", err)
 	}
 
 	res, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[model.UserProfile])
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("collect row failed: %w", err)
 	}
+
 	return res, nil
 }
 

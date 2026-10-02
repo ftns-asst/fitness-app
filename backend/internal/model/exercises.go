@@ -1,6 +1,64 @@
 package model
 
-type MuscleGroup string
+import (
+	"errors"
+	"ftns-asst/internal/util"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type (
+	MuscleGroup string
+	Equipment   string
+	Exercise    struct {
+		ID           uuid.UUID     `db:"id"`
+		OwnerID      uuid.UUID     `db:"owner_id"`
+		IsPublic     bool          `db:"is_public"`
+		Name         string        `db:"name"`
+		Description  string        `db:"description"`
+		MuscleGroups []MuscleGroup `db:"muscle_group"`
+		Equipments   []Equipment   `db:"equipment"`
+		CreatedAt    time.Time     `db:"created_at"`
+	}
+	ExerciseListType string
+	ExerciseFilters  struct {
+		ListType     ExerciseListType
+		UserID       *uuid.UUID    // for own and user list types
+		MuscleGroups []MuscleGroup // filter by muscle groups
+		Equipments   []Equipment   // filter by available equipments
+	}
+
+	UpdateExerciseInput struct {
+		ID           uuid.UUID
+		IsPublic     *bool
+		Name         *string
+		Description  *string
+		MuscleGroups []MuscleGroup
+		Equipments   []Equipment
+	} // @Name UpdateExerciseRequestBody
+)
+
+const (
+	ExerciseListTypeAll        ExerciseListType = "all"         // basic + own + public
+	ExerciseListTypeOwn        ExerciseListType = "own"         // only own
+	ExerciseListTypePublic     ExerciseListType = "public"      // all public
+	ExerciseListTypePublicUser ExerciseListType = "public_user" // only public exercises of user
+	ExerciseListTypeBasic      ExerciseListType = "basic"       // only basic
+)
+
+var (
+	ErrUserIDRequired = errors.New("user id is required for this list type")
+)
+
+func (e *ExerciseFilters) ValidateAndDedup() error {
+	if e.UserID == nil && (e.ListType == ExerciseListTypeOwn || e.ListType == ExerciseListTypePublicUser) {
+		return ErrUserIDRequired
+	}
+	e.MuscleGroups = util.Dedup(e.MuscleGroups, func(m MuscleGroup) MuscleGroup { return m })
+	e.Equipments = util.Dedup(e.Equipments, func(e Equipment) Equipment { return e })
+	return nil
+}
 
 const (
 	MuscleGroupChest      MuscleGroup = "chest"       // грудные
@@ -25,7 +83,7 @@ const (
 	MuscleGroupCardio     MuscleGroup = "cardio"      // кардио (сердечно-сосудистая система)
 )
 
-var MuscleGroupList = []MuscleGroup{
+var MuscleGroupList = NewSet(
 	MuscleGroupChest,
 	MuscleGroupUpperBack,
 	MuscleGroupLowerBack,
@@ -46,9 +104,7 @@ var MuscleGroupList = []MuscleGroup{
 	MuscleGroupAbductors,
 	MuscleGroupCalves,
 	MuscleGroupCardio,
-}
-
-type Equipment string
+)
 
 const (
 	EquipmentBodyweight          Equipment = "bodyweight"            // Собственный вес
@@ -84,7 +140,7 @@ const (
 	EquipmentMat                 Equipment = "mat"                   // Коврик
 )
 
-var EquipmentList = []Equipment{
+var EquipmentList = NewSet(
 	EquipmentBodyweight,
 	EquipmentBarbell,
 	EquipmentEZBar,
@@ -116,4 +172,4 @@ var EquipmentList = []Equipment{
 	EquipmentRowingMachine,
 	EquipmentElliptical,
 	EquipmentMat,
-}
+)
