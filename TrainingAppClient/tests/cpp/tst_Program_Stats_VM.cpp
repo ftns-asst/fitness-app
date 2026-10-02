@@ -56,7 +56,9 @@ void AProgram_Stats_VM_Test::Seed_Exercise()
 {
 	QSqlQuery query(Database.Sql_Connection());
 
-	query.prepare("INSERT INTO exercises(id, title, muscle_group, equipment, is_custom, created_at) "
+	// Каталог приходит из AsSql_Database::Seed_Builtin_Exercises при Open(),
+	// поэтому фикстура идемпотентна: тот же id уже есть в базе.
+	query.prepare("INSERT OR IGNORE INTO exercises(id, title, muscle_group, equipment, is_custom, created_at) "
 	              "VALUES('ex_squat', 'Присед', 'legs', 'barbell', 0, '2026-09-28T00:00:00Z')");
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }

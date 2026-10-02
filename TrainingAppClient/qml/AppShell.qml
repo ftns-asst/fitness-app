@@ -13,6 +13,7 @@ Item {
     property real bottomInset: 0
     readonly property int currentTab: tabBar.currentIndex
     property var exercisesViewModel: ExercisesViewModel
+    property string initialProgramScreen: ""
     property int initialTab: 0
     property var plansViewModel: PlansViewModel
     property var profileViewModel: ProfileViewModel
@@ -34,7 +35,9 @@ Item {
     }
 
     Component.onCompleted: {
-        if (shell.initialTab > 0 && shell.initialTab < 4) {
+        if (shell.initialProgramScreen.length > 0) {
+            shell.openProgramScreen(shell.initialProgramScreen);
+        } else if (shell.initialTab > 0 && shell.initialTab < 4) {
             shell.showTab(shell.initialTab);
         }
     }
@@ -72,6 +75,8 @@ Item {
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
                 topInset: shell.topInset
                 viewModel: shell.plansViewModel
+
+                onMyProgramRequested: shell.openProgramCatalog()
             }
             ExercisesPage {
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
@@ -87,6 +92,172 @@ Item {
                 onLoginRequested: shell.authPageRequested(3)
                 onLogoutRequested: shell.auth.logout()
             }
+        }
+    }
+    // Запрос на открытие экрана программы из «Планов» — своей глобальной
+    // программы пользователь не ищет среди шаблонов, он открывает её сам.
+    signal myProgramRequested
+
+    // — Экраны глобальной программы (срез W11, issues 41–44) —
+    // Отдельный стек поверх вкладок: детали программы живут вне неё, поэтому
+    // вкладок не видно, а «назад» возвращает на вкладку, из которой пришли.
+    function openProgramCatalog() {
+        pages.push(programCatalogComponent);
+    }
+    function openProgramOverview(id) {
+        shell.programId = id === undefined ? "" : id;
+        pages.push(programOverviewComponent);
+    }
+
+    function openProgramEditor(id) {
+        shell.programId = id === undefined ? "" : id;
+        pages.push(programEditorComponent);
+    }
+
+    function openProgramRules() {
+        pages.push(programRulesComponent);
+    }
+
+    function openProgramStats(id) {
+        shell.programId = id === undefined ? "" : id;
+        pages.push(programStatsComponent);
+    }
+
+    // Открытие экрана по имени: используется дизайн-ревью (--screen) и
+    // восстановление состояния при возврате в приложение.
+    function openProgramScreen(name) {
+        const map = {
+            "program-catalog": openProgramCatalog,
+            "program-overview": openProgramOverview,
+            "program-edit": openProgramEditor,
+            "program-rules": openProgramRules,
+            "program-stats": openProgramStats,
+            // Экран дня открывается на первом дне недели: так он доступен из
+            // --screen для аудита вёрстки, как и остальные экраны программы.
+            "program-day": function () {
+                openProgramDay(1, 1);
+            }
+        };
+        const opener = map[name];
+
+        if (typeof opener === "function")
+            opener();
+    }
+
+    // День и вид дня, открываемые на экране дня. Экрану нужны оба значения до его
+    // создания, а задать их напрямую нельзя: страница живёт внутри Component, и
+    // её идентификатор из оболочки недоступен.
+    // Программа, открытая из каталога (срез S2). Пусто — активная: вход из
+    // вкладок открывает текущую, а каталог передаёт идентификатор.
+    property string programId: ""
+
+    property int programDayWeekday: 1
+    property int programDayKind: 1
+
+    // Открытый экран дня недели.
+    function openProgramDay(weekday, kind) {
+        programDayWeekday = weekday;
+        programDayKind = kind;
+        pages.push(programDayComponent);
+    }
+
+    // Открытый экран программы всегда над вкладками, поэтому «назад» просто
+    // снимает верхний элемент стека (см. BackHandler ниже).
+    function goBack() {
+        if (pages.depth > 1)
+            pages.pop();
+    }
+
+    Component {
+        id: programCatalogComponent
+
+        ProgramCatalogPage {
+            bottomInset: shell.bottomInset
+            topInset: shell.topInset
+
+            onBackRequested: shell.goBack()
+            onCreateRequested: shell.openProgramEditor()
+            // Открытие, правка и статистика приходят идентификатором: каталог
+            // показывает все программы, а не только активную, поэтому и переход
+            // должен нести конкретную программу.
+            onOpenRequested: function (programId) {
+                shell.openProgramOverview(programId);
+            }
+            onEditRequested: function (programId) {
+                shell.openProgramEditor(programId);
+            }
+            onStatsRequested: function (programId) {
+                shell.openProgramStats(programId);
+            }
+        }
+    }
+    Component {
+        id: programOverviewComponent
+
+        ProgramOverviewPage {
+            bottomInset: shell.bottomInset
+            topInset: shell.topInset
+            programId: shell.programId
+
+            onBackRequested: shell.goBack()
+            onCreateRequested: shell.openProgramEditor()
+            onEditRequested: function (programId) {
+                shell.openProgramEditor(programId);
+            }
+            onRulesRequested: shell.openProgramRules()
+            onStatsRequested: shell.openProgramStats()
+        }
+    }
+    Component {
+        id: programEditorComponent
+
+        ProgramEditPage {
+            bottomInset: shell.bottomInset
+            topInset: shell.topInset
+            programId: shell.programId
+
+            onBackRequested: shell.goBack()
+            onCreated: shell.goBack()
+            onDayRequested: function (weekday, dayKind) {
+                shell.openProgramDay(weekday, dayKind);
+            }
+        }
+    }
+    Component {
+        id: programDayComponent
+
+        ProgramDayPage {
+            bottomInset: shell.bottomInset
+            topInset: shell.topInset
+
+            // Экран создаётся в момент открытия, поэтому привязки успевают
+            // получить актуальные день и вид дня.
+            kind: shell.programDayKind
+            weekday: shell.programDayWeekday
+
+            onBackRequested: shell.goBack()
+            onCloseRequested: shell.goBack()
+        }
+    }
+    Component {
+        id: programRulesComponent
+
+        ProgramRulesPage {
+            bottomInset: shell.bottomInset
+            topInset: shell.topInset
+
+            onBackRequested: shell.goBack()
+        }
+    }
+    Component {
+        id: programStatsComponent
+
+        ProgramStatsPage {
+            bottomInset: shell.bottomInset
+            topInset: shell.topInset
+            programId: shell.programId
+
+            onBackRequested: shell.goBack()
         }
     }
     BottomTabBar {

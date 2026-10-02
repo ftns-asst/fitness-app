@@ -1,4 +1,4 @@
-﻿#include "Presentation/Program_VM.h"
+#include "Presentation/Program_VM.h"
 
 #include "Data/Program/Program_Repository.h"
 #include "Data/Program/Rule_Repository.h"
@@ -23,8 +23,21 @@ Avm_Program::Avm_Program(AProgram_Repository *in_program_repository, ARule_Repos
 	Goal_Targets->Set_Roles(Program_Rows::Goal_Target_Roles());
 	Rules->Set_Roles(Program_Rows::Rule_Roles());
 }
+// — QML-мост (camelCase) —
+// Обёртки отделены от методов предметной области: контракт экрана не должен
+// повторять внутренний стиль имён (§2 CODE_STYLE) и зависеть от него.
+bool Avm_Program::reload(const QString &in_user_id, const QString &in_program_id)
+{
+	return Reload(in_user_id, in_program_id);
+}
+
+void Avm_Program::selectDay(const QString &in_program_day_id)
+{
+	Select_Day(in_program_day_id);
+}
+
 //----------------------------------------------------------------------------
-bool Avm_Program::Reload(const QString &in_user_id)
+bool Avm_Program::Reload(const QString &in_user_id, const QString &in_program_id)
 {
 	QString program_id;
 
@@ -38,18 +51,37 @@ bool Avm_Program::Reload(const QString &in_user_id)
 		return false;
 	}
 
-	if (Program_Repository_Instance->Get_Active_Program_Id(in_user_id, program_id) == false || program_id.isEmpty())
+	// Пустой идентификатор — открыть активную программу: вход из вкладок
+	// по-прежнему показывает текущую, а каталог передаёт конкретную.
+	if (in_program_id.isEmpty())
 	{
-		// Активной программы может не быть — законное состояние «нет
-		// программы», но UI обязан отличать его от ошибки чтения.
-		Set_Error();
+		if (Program_Repository_Instance->Get_Active_Program_Id(in_user_id, program_id) == false || program_id.isEmpty())
+		{
+			// Активной программы может не быть — законное состояние «нет
+			// программы», но UI обязан отличать его от ошибки чтения.
+			Set_Error();
 
-		return false;
+			return false;
+		}
+	}
+	else
+	{
+		program_id = in_program_id;
 	}
 
 	if (Load_Tree(program_id) == false)
 	{
 		Set_Error();
+
+		return false;
+	}
+
+	// Владелец проверяется по загруженной программе, а не по идентификатору:
+	// программа должна принадлежать тому, кто её открывает.
+	if (Program.User_Id != in_user_id)
+	{
+		Clear_Tree();
+		Set_Error(Reason_Not_Owned);
 
 		return false;
 	}
@@ -166,6 +198,16 @@ bool Avm_Program::Load_Day_Exercises(const QString &in_program_day_id)
 	return true;
 }
 //----------------------------------------------------------------------------
+bool Avm_Program::Is_Read_Only() const
+{
+	// Без загруженной программы состояние неизвестно, и экран не должен
+	// блокировать действия из-за пустого дерева.
+	if (Has_Program() == false)
+		return false;
+
+	return Program_Model::Program_State_Is_Editable(Program.State) == false;
+}
+//----------------------------------------------------------------------------
 QString Avm_Program::Today_Text() const
 {
 	return QDate::currentDate().toString("yyyy-MM-dd");
@@ -176,14 +218,25 @@ void Avm_Program::Clear_Error()
 	Error_Key_Text.clear();
 }
 //----------------------------------------------------------------------------
-void Avm_Program::Set_Error()
+void Avm_Program::Set_Error(EReason in_reason)
 {
 	bool has_repository_error =
 	    Program_Repository_Instance != 0 && Program_Repository_Instance->Get_Last_Error().isEmpty() == false;
 
-	Error_Key_Text = has_repository_error ? "undefined_error" : "no_active_program";
+	// Причину отказа различаем явно: «нет активной программы» и «программа не
+	// найдена или чужая» — разные состояния экрана, и подменять их одним ключом
+	// значило бы показывать пользователю неверную подпись.
+	if (in_reason == Reason_Not_Owned)
+		Error_Key_Text = "program_not_found";
+	else
+		Error_Key_Text = has_repository_error ? "undefined_error" : "no_active_program";
 
 	qCInfo(PROGRAM_VM_Log).noquote() << "reload failed" << Error_Key_Text;
+
+	// Отказ обязан дойти до экрана: QML читает errorKey привязкой к changed(),
+	// без сигнала баннер состояния перечитывается только при успешном
+	// перезагрузе, и пользователь не видит, почему ничего не открылось.
+	emit changed();
 }
 //----------------------------------------------------------------------------
 bool Avm_Program::Has_Program() const
@@ -261,4 +314,3 @@ AList_Model *Avm_Program::rules() const
 	return Rules;
 }
 //----------------------------------------------------------------------------
-// PLACEHOLDER_LOAD

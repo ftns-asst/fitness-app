@@ -41,6 +41,13 @@ private:
 	bool Execute_SQL(const QString &in_sql);
 	bool Create_Schema_V1();
 	bool Create_Schema_V2();
+	// Базовый каталог упражнений (ex_squat/ex_bench/ex_row/ex_deadlift): без
+	// строк в exercises не сохраняется ни одно предписание дня — проверка FK
+	// program_day_exercises.exercise_id → exercises.id отвергает вставку.
+	// Запуск при каждом открытии безопасен: сначала чтение, запись только если
+	// каталог неполон (INSERT OR IGNORE), версия схемы не меняется, ручной
+	// каталог пользователя не трогается.
+	bool Seed_Builtin_Exercises();
 	bool Read_Schema_Version(int &out_version);
 	bool Write_Schema_Version(int in_version);
 	QString Connection_Name() const;

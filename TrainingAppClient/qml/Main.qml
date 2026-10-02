@@ -32,6 +32,9 @@ ApplicationWindow {
     // — Аргументы дизайн-ревью: --screen, --tab, --dark, --width/--height, --diag —
     readonly property int screenArgIndex: Qt.application.arguments.indexOf("--screen")
     readonly property int screenTab: ["today", "plans", "exercises", "profile"].indexOf(initialScreen)
+    // Экраны глобальной программы живут вне вкладок, поэтому --screen умеет
+    // открывать и их: без этого аудит вёрстки их не видел.
+    readonly property string initialProgramScreen: ["program-catalog", "program-overview", "program-edit", "program-rules", "program-stats", "program-day"].indexOf(initialScreen) >= 0 ? initialScreen : ""
 
     // — Режим снимка для дизайн-ревью и CI: --screenshot <путь> —
     readonly property int screenshotArgIndex: Qt.application.arguments.indexOf("--screenshot")
@@ -371,6 +374,7 @@ ApplicationWindow {
             auth: AuthViewModel
             bottomInset: deviceScreen.contentBottomInset
             enabled: !window.authOpen
+            initialProgramScreen: window.initialProgramScreen
             initialTab: window.activeTab
             topInset: deviceScreen.contentTopInset
 

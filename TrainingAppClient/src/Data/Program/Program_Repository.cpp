@@ -399,6 +399,35 @@ bool AProgram_Repository::Get_Active_Program_Id(const QString &in_user_id, QStri
 	return true;
 }
 //----------------------------------------------------------------------------
+bool AProgram_Repository::Load_Programs(const QString &in_user_id, QVector<SProgram> &out_programs)
+{
+	QSqlQuery query(Connection());
+
+	Clear_Last_Error();
+	out_programs.clear();
+
+	if (Check_Open() == false)
+		return false;
+
+	query.prepare("SELECT id, user_id, title, source_kind, source_template_id, goal, level, schedule_kind, state, "
+	              "revision, start_date, actual_start_date, weeks_total, extended_weeks, term_mode, created_at, "
+	              "updated_at, sync_state, note FROM programs WHERE user_id = ? ORDER BY updated_at DESC, id");
+	query.addBindValue(in_user_id);
+
+	if (query.exec() == false)
+		return Set_Last_Error(QString("Не удалось прочитать список программ: %1").arg(query.lastError().text()));
+
+	while (query.next())
+	{
+		SProgram program;
+
+		Read_Program_Row(query, program);
+		out_programs.push_back(program);
+	}
+
+	return true;
+}
+//----------------------------------------------------------------------------
 bool AProgram_Repository::Load_Goal_Targets(const QString &in_program_id, QVector<SGoal_Target> &out_targets)
 {
 	QSqlQuery query(Connection());
@@ -542,7 +571,6 @@ bool AProgram_Repository::Load_Schedule(const QString &in_program_id, QVector<SW
 
 	return true;
 }
-//----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 // Предписания всех дней программы одним запросом. Раньше здесь был цикл с
 bool AProgram_Repository::Load_Day_Exercises_By_Days(const QVector<SProgram_Day> &in_days,
@@ -1254,6 +1282,72 @@ bool AProgram_Repository::Replace_Goal_Targets(const QString &in_program_id, con
 
 	if (Connection().commit() == false)
 		return Set_Last_Error("Не удалось зафиксировать правку целей");
+
+	return true;
+}
+//----------------------------------------------------------------------------
+bool AProgram_Repository::Change_Profile(const QString &in_program_id, const QString &in_title, EProgram_Goal in_goal,
+                                         EProgram_Level in_level)
+{
+	SProgram program;
+	QSqlQuery query(Connection());
+	QJsonObject snapshot;
+
+	Clear_Last_Error();
+
+	if (Check_Open() == false)
+		return false;
+
+	if (Check_Editable(in_program_id, program) == false)
+		return false;
+
+	// Пустое название оставлять нельзя: каталог показывал бы строку без
+	// подписи, и найти программу было бы невозможно.
+	if (in_title.trimmed().isEmpty())
+		return Set_Last_Error("Название программы не может быть пустым");
+
+	if (Connection().transaction() == false)
+		return Set_Last_Error("Не удалось начать транзакцию");
+
+	// Снимок паспортных полей: журнал ревизий объясняет, что менялось, даже
+	// если правка потом откатывается глазами по экрану.
+	snapshot.insert("title", program.Title);
+	snapshot.insert("goal", To_String(program.Goal));
+	snapshot.insert("level", To_String(program.Level));
+
+	query.prepare("UPDATE programs SET title = ?, goal = ?, level = ?, revision = revision + 1, updated_at = ? "
+	              "WHERE id = ? AND revision = ?");
+	query.addBindValue(in_title.trimmed());
+	query.addBindValue(To_String(in_goal));
+	query.addBindValue(To_String(in_level));
+	query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+	query.addBindValue(in_program_id);
+	query.addBindValue(program.Revision);
+
+	if (query.exec() == false)
+	{
+		Connection().rollback();
+
+		return Set_Last_Error(QString("Не удалось изменить программу: %1").arg(query.lastError().text()));
+	}
+
+	if (query.numRowsAffected() != 1)
+	{
+		Connection().rollback();
+
+		return Set_Last_Error("Ревизия программы изменилась параллельно, правка отклонена");
+	}
+
+	if (Write_Revision_Row(in_program_id, program.Revision + 1, ERevision_Reason::Goal, "Изменение описания",
+	                       QString::fromUtf8(QJsonDocument(snapshot).toJson(QJsonDocument::Compact))) == false)
+	{
+		Connection().rollback();
+
+		return false;
+	}
+
+	if (Connection().commit() == false)
+		return Set_Last_Error("Не удалось сохранить изменения программы");
 
 	return true;
 }

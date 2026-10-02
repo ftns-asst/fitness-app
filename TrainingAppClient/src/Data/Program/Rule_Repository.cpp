@@ -1,4 +1,4 @@
-﻿#include "Data/Program/Rule_Repository.h"
+#include "Data/Program/Rule_Repository.h"
 
 #include <QDate>
 #include <QDateTime>
@@ -60,7 +60,6 @@ bool ARule_Repository::Is_Valid_Date(const QString &in_date) const
 
 	return date.isValid() && date.toString("yyyy-MM-dd") == in_date;
 }
-//----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 ARule_Repository::ARule_Repository(AsSql_Database *in_database, QObject *in_parent)
     : AProgram_Repository_Base(in_database, in_parent)

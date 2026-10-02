@@ -42,9 +42,23 @@ public:
 	                        const QString &in_date_to, QVector<SWorkout_Session> &out_sessions,
 	                        QVector<SSet_Log> &out_sets);
 
+	// Запись фактов. Сессия и подход пишутся отдельно: сессия создаётся один
+	// раз, подходы добавляются и правятся по мере тренировки. Идентификатор
+	// пустой — генерируется; непустой обновляет существующую строку, поэтому
+	// повторная запись подхода с тем же id идемпотентна.
+	bool Insert_Session(const SWorkout_Session &in_session);
+	bool Update_Session(const SWorkout_Session &in_session);
+	bool Save_Set(const SSet_Log &in_set);
+
+	// Черновик пользователя на дату: незавершённая сессия этого дня.
+	bool Find_Draft(const QString &in_user_id, const QString &in_date, SWorkout_Session &out_session);
+	bool Find_Session(const QString &in_session_id, SWorkout_Session &out_session);
+
 private:
 	// Общий разбор строки workouts; out_index — номер колонки с отступом,
 	// чтобы Load_Sessions читала разные наборы колонок.
 	bool Read_Session_Row(const QSqlQuery &in_query, int in_first_column, SWorkout_Session &out_session);
+	// Привязка значений сессии в порядке колонок Session_Columns.
+	void Bind_Session(QSqlQuery &in_query, const SWorkout_Session &in_session) const;
 };
 //----------------------------------------------------------------------------

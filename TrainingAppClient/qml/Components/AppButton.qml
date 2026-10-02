@@ -24,8 +24,15 @@ Button {
     // primary | secondary | ghost
     property int variant: AppButton.Primary
 
+    // Шрифт подписи вынесен в свойство, потому что implicitWidth обязан считать
+    // его же: иначе кнопка с мелким шрифтом в узкой карточке всё равно
+    // запрашивала бы ширину по основному шрифту и вылезала за край.
+    property font labelFont: Typography.bodyStrong
+
     implicitHeight: variant === AppButton.Primary && !compact ? Theme.buttonPrimary : Theme.buttonSecondary
-    implicitWidth: Math.max(Theme.touchMin * 2, textLabel.implicitWidth + Spacing.screenPadding * 2)
+    // Ширина считается по фактическим отступам, а не по константе: иначе
+    // заданный padding не влиял бы на ширину и кнопка не могла сжаться.
+    implicitWidth: Math.max(Theme.touchMin * 2, textLabel.implicitWidth + leftPadding + rightPadding)
 
     background: Rectangle {
         border.color: Theme.border
@@ -53,7 +60,7 @@ Button {
 
         color: button.textColor
         elide: Text.ElideRight
-        font: Typography.bodyStrong
+        font: button.labelFont
         horizontalAlignment: Text.AlignHCenter
         opacity: button.enabled ? 1.0 : 0.6
         text: button.text

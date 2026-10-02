@@ -11,6 +11,10 @@
 
 Q_LOGGING_CATEGORY(SQL_Log, "trainingapp.sqlite")
 
+// Столько строк показывает каталог упражнений после сида. Константа нужна
+// проверке «каталог уже полон, писать нечего» — она читается до записи.
+static const int Builtin_Exercise_Count = 4;
+
 //----------------------------------------------------------------------------
 AsSql_Database::AsSql_Database(QObject *in_parent) : QObject(in_parent)
 {
@@ -118,6 +122,18 @@ bool AsSql_Database::Migrate()
 	}
 
 	if (version < 2 && (Create_Schema_V2() == false || Write_Schema_Version(2) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	// Каталог упражнений проверяется при каждом открытии, а не только при
+	// создании схемы: базы, созданные до появления каталога, остались бы с
+	// пустой exercises, и создание любой программы молча отвергалось бы FK.
+	// Пока каталог полон, проверка читает и не пишет: миграция не занимает
+	// блокировку записи у соседних процессов.
+	if (Seed_Builtin_Exercises() == false)
 	{
 		Database_Handle->rollback();
 
@@ -390,6 +406,48 @@ bool AsSql_Database::Create_Schema_V2()
 	    "CREATE INDEX IF NOT EXISTS sets_session_idx ON sets(session_id)",
 	    "CREATE INDEX IF NOT EXISTS body_measurements_user_date_idx ON body_measurements(user_id, date)",
 	    "CREATE INDEX IF NOT EXISTS nutrition_entries_user_date_idx ON nutrition_entries(user_id, date)"};
+
+	for (int i = 0; i < statements.size(); ++i)
+	{
+		if (Execute_SQL(statements.at(i)) == false)
+			return false;
+	}
+
+	return true;
+}
+//----------------------------------------------------------------------------
+// Базовый каталог упражнений. Идентификаторы совпадают со списком редактора
+// (ProgramEditPage/ProgramDayPage: ex_squat/ex_bench/ex_row/ex_deadlift): предписание
+// дня ссылается на упражнение по идентификатору, поэтому без этих строк FK
+// отвергает вставку и создание программы падает. Повторный запуск безопасен:
+// пока все четыре строки на месте, метод только читает, а INSERT OR IGNORE
+// оставляет нетронутыми и пользовательские (is_custom=1), и уже вставленные
+// строки.
+//----------------------------------------------------------------------------
+bool AsSql_Database::Seed_Builtin_Exercises()
+{
+	QSqlQuery probe(*Database_Handle);
+
+	// Сначала чтение, и только потом запись: пока каталог на месте, сид не
+	// меняет файл. Апгрейд разделяемой блокировки внутри транзакции SQLite
+	// отдаёт ошибкой «database is locked» сразу, не дожидаясь busy_timeout,
+	// поэтому лишняя запись ломала открытие соседним smoke-процессам.
+	if (probe.exec("SELECT COUNT(*) FROM exercises WHERE id IN "
+	               "('ex_squat', 'ex_bench', 'ex_row', 'ex_deadlift')") == false)
+		return Set_Last_Error(QString("Не удалось прочитать каталог упражнений: %1").arg(probe.lastError().text()));
+
+	if (probe.next() && probe.value(0).toInt() == Builtin_Exercise_Count)
+		return true;
+
+	const QStringList statements = {
+	    "INSERT OR IGNORE INTO exercises(id, title, muscle_group, equipment, is_custom, created_at) "
+	    "VALUES('ex_squat', 'Присед', 'legs', 'barbell', 0, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+	    "INSERT OR IGNORE INTO exercises(id, title, muscle_group, equipment, is_custom, created_at) "
+	    "VALUES('ex_bench', 'Жим лёжа', 'chest', 'barbell', 0, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+	    "INSERT OR IGNORE INTO exercises(id, title, muscle_group, equipment, is_custom, created_at) "
+	    "VALUES('ex_row', 'Тяга', 'back', 'barbell', 0, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+	    "INSERT OR IGNORE INTO exercises(id, title, muscle_group, equipment, is_custom, created_at) "
+	    "VALUES('ex_deadlift', 'Становая', 'back', 'barbell', 0, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"};
 
 	for (int i = 0; i < statements.size(); ++i)
 	{

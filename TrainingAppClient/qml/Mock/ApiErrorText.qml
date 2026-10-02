@@ -26,6 +26,10 @@ QtObject {
             server_error: qsTr("Сервис временно недоступен"),
             recovery_code_invalid: qsTr("Неверный код восстановления"),
             recovery_code_expired: qsTr("Срок действия кода истёк"),
+            // Программа: локальные ключи ViewModel программы, не ответы сервера.
+            no_active_program: qsTr("Активной программы пока нет"),
+            program_not_found: qsTr("Программа не найдена"),
+            program_read_only: qsTr("Программа завершена — изменить её нельзя"),
             undefined_error: fallbackText
         })
     readonly property string fallbackText: qsTr("Не удалось выполнить операцию")

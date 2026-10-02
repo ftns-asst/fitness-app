@@ -43,28 +43,36 @@ private:
 
 	// Недели: срез по номеру недели. Дата сессии должна лежать в окне, иначе
 	// тренировка будущей недели попала бы в статистику.
-	void Fill_Week(const SProgress_Facts &in_facts, const QDate &in_start, const QDate &in_end, int in_slots_per_week, int in_week_index, SWeek_Aggregate &out_week) const;
-	void Accumulate_Session(const SProgress_Facts &in_facts, const SProgram_Rule *in_rpe_rule, const SWorkout_Session &in_session, SWeek_Aggregate &in_out_week) const;
+	void Fill_Week(const SProgress_Facts &in_facts, const QDate &in_start, const QDate &in_end, int in_slots_per_week,
+	               int in_week_index, SWeek_Aggregate &out_week) const;
+	void Accumulate_Session(const SProgress_Facts &in_facts, const SProgram_Rule *in_rpe_rule,
+	                        const SWorkout_Session &in_session, SWeek_Aggregate &in_out_week) const;
 	void Accumulate_Set(const SSet_Log &in_set, SWeek_Aggregate &in_out_week) const;
 
 	// Итоги — только из массива недель, поэтому оба пересчёта сходятся.
 	void Derive_Totals(SProgram_Stats &in_out_stats) const;
 	void Reset_Totals(SProgram_Stats &in_out_stats) const;
-	void Sum_Week_Volume(const SWeek_Aggregate &in_week, SProgram_Stats &in_out_stats, double &in_out_rpe_sum, int &in_out_rpe_count) const;
+	void Sum_Week_Volume(const SWeek_Aggregate &in_week, SProgram_Stats &in_out_stats, double &in_out_rpe_sum,
+	                     int &in_out_rpe_count) const;
 	void Track_Streaks(const QVector<SWeek_Aggregate> &in_weeks, SProgram_Stats &in_out_stats) const;
 
 	// Части, не привязанные к неделе.
-	void Collect_Strength(const SProgress_Facts &in_facts, const QDate &in_start, const QDate &in_end, SProgram_Stats &in_out_stats) const;
-	void Collect_Measurements(const SProgress_Facts &in_facts, const QDate &in_start, const QDate &in_end, SProgram_Stats &in_out_stats) const;
-	void Collect_Measurement_Deltas(const QVector<SBody_Measurement> &in_measurements, SProgram_Stats &in_out_stats) const;
+	void Collect_Strength(const SProgress_Facts &in_facts, const QDate &in_start, const QDate &in_end,
+	                      SProgram_Stats &in_out_stats) const;
+	void Collect_Measurements(const SProgress_Facts &in_facts, const QDate &in_start, const QDate &in_end,
+	                          SProgram_Stats &in_out_stats) const;
+	void Collect_Measurement_Deltas(const QVector<SBody_Measurement> &in_measurements,
+	                                SProgram_Stats &in_out_stats) const;
 	void Collect_Goals(const SProgress_Facts &in_facts, SProgram_Stats &in_out_stats) const;
 	void Apply_Goal_Progress(const SGoal_Target &in_target, double in_current, SGoal_Progress &in_out_progress) const;
 
 	// Правила: расчётные отметки из фактов плюс агрегация движком правил.
 	void Collect_Computed_Checkins(const SProgress_Facts &in_facts, QVector<SRule_Checkin> &in_out_checkins) const;
-	void Collect_Rule_Stats(const QVector<SProgram_Rule> &in_rules, const QVector<SRule_Checkin> &in_checkins, SProgram_Stats &in_out_stats) const;
+	void Collect_Rule_Stats(const QVector<SProgram_Rule> &in_rules, const QVector<SRule_Checkin> &in_checkins,
+	                        SProgram_Stats &in_out_stats) const;
 	void Apply_Average_Metric(const SProgram_Rule &in_rule, double in_average, SProgram_Stats &in_out_stats) const;
-	void Finish_Progress(const SProgress_Facts &in_facts, const QDate &in_start, const QDate &in_end, SProgram_Stats &in_out_stats) const;
+	void Finish_Progress(const SProgress_Facts &in_facts, const QDate &in_start, const QDate &in_end,
+	                     SProgram_Stats &in_out_stats) const;
 
 	// Текущее значение цели по её метрике. false — данных нет.
 	bool Read_Goal_Current(const SGoal_Target &in_target, const SProgram_Stats &in_stats, double &out_value) const;

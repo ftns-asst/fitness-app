@@ -15,6 +15,47 @@ PageScaffold {
     caption: qsTr("Возьмите готовый шаблон как есть или скопируйте и измените под себя")
     title: qsTr("Планы тренировок")
 
+    signal myProgramRequested
+
+    // — Вход в СВОЮ глобальную программу (экраны 41–44). Пользователь не ищет
+    // её среди шаблонов, а открывает сам, поэтому вход стоит первым.
+    AppCard {
+        borderColor: "transparent"
+        spacing: 0
+        surfaceColor: Theme.accentTint
+        width: parent.width
+
+        RowLayout {
+            spacing: Spacing.listGap
+            width: parent.width
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 4
+
+                Label {
+                    Layout.fillWidth: true
+                    color: Theme.accent
+                    font: Typography.bodyStrong
+                    text: qsTr("Моя программа")
+                    wrapMode: Text.WordWrap
+                }
+                Label {
+                    Layout.fillWidth: true
+                    color: Theme.textSecondary
+                    font: Typography.caption
+                    text: qsTr("Срок, цель, правила и свой план на каждый день")
+                    wrapMode: Text.WordWrap
+                }
+            }
+            AppButton {
+                onClicked: page.myProgramRequested()
+                text: qsTr("Открыть")
+                variant: AppButton.Primary
+            }
+        }
+    }
+
     // — Promo-карточка подбора: короткий опрос — этап D3 —
     AppCard {
         borderColor: "transparent"

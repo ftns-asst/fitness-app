@@ -46,6 +46,12 @@ public:
 	                       QVector<SProgram_Day> &out_days, QVector<SDay_Exercise> &out_exercises,
 	                       QVector<SWeek_Slot> &out_slots);
 	bool Get_Active_Program_Id(const QString &in_user_id, QString &out_program_id);
+	// Список всех программ пользователя (каталог, срез S1). Отличие от
+	// Load_Program: отсутствие строк — не ошибка, а пустой список. Каталог на
+	// первом запуске обязан звать создать программу, поэтому «нет ни одной
+	// программы» — нормальное состояние, в отличие от промаха по id.
+	// Порядок — по убыванию updated_at: первой идёт та, которую трогали последней.
+	bool Load_Programs(const QString &in_user_id, QVector<SProgram> &out_programs);
 	bool Load_Goal_Targets(const QString &in_program_id, QVector<SGoal_Target> &out_targets);
 	bool Load_Days(const QString &in_program_id, QVector<SProgram_Day> &out_days);
 	bool Load_Day_Exercises(const QString &in_program_day_id, QVector<SDay_Exercise> &out_exercises);
@@ -65,6 +71,11 @@ public:
 	                         const QVector<SWeek_Slot> &in_slots) override;
 	bool Replace_Goal_Targets(const QString &in_program_id, const QVector<SGoal_Target> &in_targets);
 	bool Change_Term(const QString &in_program_id, const STerm &in_term);
+	// Паспортные поля программы: название, цель и уровень. Отдельный метод,
+	// а не Replace_Structure: структура и описание меняются независимо, и
+	// правка заголовка не должна была бы трогать дни и предписания.
+	bool Change_Profile(const QString &in_program_id, const QString &in_title, EProgram_Goal in_goal,
+	                    EProgram_Level in_level);
 	bool Replace_Schedule(const QString &in_program_id, const QVector<SWeek_Slot> &in_slots);
 	bool Replace_Structure(const QString &in_program_id, const QVector<SProgram_Day> &in_days,
 	                       const QVector<SDay_Exercise> &in_exercises, const QVector<SWeek_Slot> &in_slots,

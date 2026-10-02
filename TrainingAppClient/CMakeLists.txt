@@ -32,6 +32,12 @@ add_library(TrainingAppCore STATIC
     src/Presentation/Program_Stats_VM.cpp
     src/Presentation/Program_VM.h
     src/Presentation/Program_VM.cpp
+    src/Presentation/Program_Edit_VM.h
+    src/Presentation/Program_Edit_VM.cpp
+    src/Presentation/Program_Rules_VM.h
+    src/Presentation/Program_Rules_VM.cpp
+    src/Presentation/Program_Catalog_VM.h
+    src/Presentation/Program_Catalog_VM.cpp
     src/App/App_Context.h
     src/App/App_Context.cpp
     src/App/App_Logger.h
@@ -44,6 +50,8 @@ add_library(TrainingAppCore STATIC
     src/Domain/Program_Service.cpp
     src/Domain/Rule_Engine.h
     src/Domain/Rule_Engine.cpp
+    src/Domain/Workout_Logger.h
+    src/Domain/Workout_Logger.cpp
     src/Domain/Progress_Stats.h
     src/Domain/Progress_Calculator.h
     src/Domain/Progress_Support.h
@@ -138,6 +146,19 @@ qt_add_qml_module(appTrainingAppClient
         src/Presentation/Program_Qml.h
         src/Presentation/Program_Qml.cpp
     QML_FILES
+        qml/Pages/Program/ProgramCatalogPage.qml
+    qml/Pages/Program/ProgramOverviewPage.qml
+        qml/Pages/Program/ProgramEditPage.qml
+        qml/Pages/Program/ProgramDayPage.qml
+        qml/Pages/Program/ProgramRulesPage.qml
+        qml/Pages/Program/ProgramStatsPage.qml
+        qml/Components/CheckinStatePill.qml
+        qml/Components/BackBar.qml
+        qml/Components/DateField.qml
+        qml/Components/AppComboBox.qml
+    qml/Components/AppNumberField.qml
+    qml/Components/CatalogProgramRow.qml
+    qml/Components/DayMapCell.qml
         qml/Main.qml
         qml/AppShell.qml
         qml/DevPanel.qml

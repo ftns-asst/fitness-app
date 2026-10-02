@@ -2,6 +2,11 @@
 
 #include "App/App_Logger.h"
 #include "Presentation/Auth_Qml_Bridge.h"
+#include "Presentation/Program_Catalog_VM.h"
+#include "Presentation/Program_Edit_VM.h"
+#include "Presentation/Program_Rules_VM.h"
+#include "Presentation/Program_Stats_VM.h"
+#include "Presentation/Program_VM.h"
 
 #include <QCoreApplication>
 #include <QFontDatabase>
@@ -24,7 +29,9 @@ static int Load_Inter_Fonts()
 	int loaded;
 	int i;
 
-	font_files << ":/fonts/Inter-Regular.otf" << ":/fonts/Inter-Medium.otf" << ":/fonts/Inter-SemiBold.otf"
+	font_files << ":/fonts/Inter-Regular.otf"
+	           << ":/fonts/Inter-Medium.otf"
+	           << ":/fonts/Inter-SemiBold.otf"
 	           << ":/fonts/Inter-Bold.otf";
 	loaded = 0;
 
@@ -106,6 +113,21 @@ int main(int argc, char *argv[])
 		engine.rootContext()->setContextProperty("AuthBackend", QVariant());
 
 	engine.rootContext()->setContextProperty("AppContext", &app_context);
+
+	// Стек модели программы (срез W11): экраны «Моя программа», «Правила» и
+	// «Статистика» работают на реальных данных из SQLite. Экземпляры создаёт
+	// composition root, поэтому экраны не знают о репозиториях.
+	//
+	// Передаются как QObject*: контекстное свойство QML хранится в QVariant,
+	// а пользовательские указатели на QObject конвертируются всегда, тогда как
+	// типы, не объявленные метай-типами, — нет.
+	engine.rootContext()->setContextProperty("ProgramVM", static_cast<QObject *>(app_context.Program_VM()));
+	engine.rootContext()->setContextProperty("ProgramCatalogVM",
+	                                         static_cast<QObject *>(app_context.Program_Catalog_VM()));
+	engine.rootContext()->setContextProperty("ProgramStatsVM", static_cast<QObject *>(app_context.Program_Stats_VM()));
+	engine.rootContext()->setContextProperty("ProgramRulesVM", static_cast<QObject *>(app_context.Program_Rules_VM()));
+	engine.rootContext()->setContextProperty("ProgramEditVM", static_cast<QObject *>(app_context.Program_Edit_VM()));
+
 	engine.loadFromModule("TrainingAppClient", "Main");
 
 	return QGuiApplication::exec();

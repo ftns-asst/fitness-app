@@ -1,14 +1,26 @@
-﻿#include "App/App_Context.h"
+#include "App/App_Context.h"
 
 #include "Data/Auth/Auth_Repository.h"
 #include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
+#include "Data/Program/Measurement_Repository.h"
+#include "Data/Program/Program_Repository.h"
+#include "Data/Program/Rule_Repository.h"
+#include "Data/Program/Stats_Repository.h"
+#include "Data/Program/Workout_Repository.h"
 #include "Data/Users/Users_Repository.h"
+#include "Domain/Program_Service.h"
+#include "Domain/Workout_Logger.h"
 #include "Presentation/Auth_Qml_Bridge.h"
 #include "Presentation/Auth_VM.h"
-
+#include "Presentation/Program_Catalog_VM.h"
+#include "Presentation/Program_Edit_VM.h"
+#include "Presentation/Program_Rules_VM.h"
+#include "Presentation/Program_Stats_VM.h"
+#include "Presentation/Program_VM.h"
+#include <QByteArray>
 #include <QLoggingCategory>
 #include <QSettings>
 #include <QUrl>
@@ -188,6 +200,8 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	Auth_Bridge_Instance =
 	    new Avm_Auth_Bridge(Auth_Repository_Instance, Users_Repository_Instance, Auth_Session_Instance, this);
 
+	Create_Program_Stack();
+
 	Initialized = true;
 
 	qCInfo(APP_Context_Log).noquote() << "initialized: api url" << Api_Base_URL << "source" << Api_URL_Source;
@@ -196,6 +210,32 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	                                  << HTTP_Client_Instance->Max_Retry_Count();
 
 	return true;
+}
+//----------------------------------------------------------------------------
+// Стек модели программы. Порядок важен: репозитории создаются раньше
+// сервисов, сервисы — раньше ViewModel, потому что каждый следующий получает
+// предыдущий конструктором. Владение — QObject-родитель (this), поэтому
+// разрушается стек автоматически.
+//----------------------------------------------------------------------------
+void AsApp_Context::Create_Program_Stack()
+{
+	Program_Repository_Instance = new AProgram_Repository(SQL_Database_Instance, this);
+	Rule_Repository_Instance = new ARule_Repository(SQL_Database_Instance, this);
+	Measurement_Repository_Instance = new AMeasurement_Repository(SQL_Database_Instance, this);
+	Stats_Repository_Instance = new AStats_Repository(SQL_Database_Instance, this);
+	Workout_Repository_Instance = new AWorkout_Repository(SQL_Database_Instance, this);
+
+	Program_Service_Instance = new AsProgram_Service(Program_Repository_Instance, this);
+	Workout_Logger_Instance = new AsWorkout_Logger(Workout_Repository_Instance, Program_Repository_Instance);
+
+	Program_VM_Instance = new Avm_Program(Program_Repository_Instance, Rule_Repository_Instance, this);
+	Program_Stats_VM_Instance =
+	    new Avm_Program_Stats(Program_Repository_Instance, Workout_Repository_Instance, Rule_Repository_Instance,
+	                          Measurement_Repository_Instance, Stats_Repository_Instance, this);
+	Program_Rules_VM_Instance = new Avm_Program_Rules(Program_Repository_Instance, Rule_Repository_Instance, this);
+	Program_Edit_VM_Instance =
+	    new Avm_Program_Edit(Program_Repository_Instance, Rule_Repository_Instance, Program_Service_Instance, this);
+	Program_Catalog_VM_Instance = new Avm_Program_Catalog(Program_Repository_Instance, this);
 }
 //----------------------------------------------------------------------------
 QString AsApp_Context::apiBaseUrl() const
@@ -346,5 +386,68 @@ bool AsApp_Context::Read_Command_Line_URL(const QStringList &in_arguments, QStri
 	out_found = found_count == 1;
 
 	return true;
+}
+//----------------------------------------------------------------------------
+// Геттеры стека модели программы: экраны 41–44 и логгер получают готовые
+// экземпляры из composition root, а не создают свои.
+//----------------------------------------------------------------------------
+AProgram_Repository *AsApp_Context::Program_Repository() const
+{
+	return Program_Repository_Instance;
+}
+//----------------------------------------------------------------------------
+ARule_Repository *AsApp_Context::Rule_Repository() const
+{
+	return Rule_Repository_Instance;
+}
+//----------------------------------------------------------------------------
+AMeasurement_Repository *AsApp_Context::Measurement_Repository() const
+{
+	return Measurement_Repository_Instance;
+}
+//----------------------------------------------------------------------------
+AStats_Repository *AsApp_Context::Stats_Repository() const
+{
+	return Stats_Repository_Instance;
+}
+//----------------------------------------------------------------------------
+AWorkout_Repository *AsApp_Context::Workout_Repository() const
+{
+	return Workout_Repository_Instance;
+}
+//----------------------------------------------------------------------------
+AsProgram_Service *AsApp_Context::Program_Service() const
+{
+	return Program_Service_Instance;
+}
+//----------------------------------------------------------------------------
+AsWorkout_Logger *AsApp_Context::Workout_Logger() const
+{
+	return Workout_Logger_Instance;
+}
+//----------------------------------------------------------------------------
+Avm_Program *AsApp_Context::Program_VM() const
+{
+	return Program_VM_Instance;
+}
+//----------------------------------------------------------------------------
+Avm_Program_Catalog *AsApp_Context::Program_Catalog_VM() const
+{
+	return Program_Catalog_VM_Instance;
+}
+//----------------------------------------------------------------------------
+Avm_Program_Stats *AsApp_Context::Program_Stats_VM() const
+{
+	return Program_Stats_VM_Instance;
+}
+//----------------------------------------------------------------------------
+Avm_Program_Rules *AsApp_Context::Program_Rules_VM() const
+{
+	return Program_Rules_VM_Instance;
+}
+//----------------------------------------------------------------------------
+Avm_Program_Edit *AsApp_Context::Program_Edit_VM() const
+{
+	return Program_Edit_VM_Instance;
 }
 //----------------------------------------------------------------------------

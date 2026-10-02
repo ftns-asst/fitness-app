@@ -64,13 +64,17 @@ public:
 
 	// Расчётная отметка из фактов тренировки. Отсутствие данных — не ошибка:
 	// возвращается отметка с состоянием unknown и без значения.
-	bool Build_Computed_Checkin(const SProgram_Rule &in_rule, const SWorkout_Session &in_session, const QVector<SSet_Log> &in_sets,  const QVector<SWorkout_Session> &in_earlier_sessions, SRule_Checkin &out_checkin);
+	bool Build_Computed_Checkin(const SProgram_Rule &in_rule, const SWorkout_Session &in_session,
+	                            const QVector<SSet_Log> &in_sets, const QVector<SWorkout_Session> &in_earlier_sessions,
+	                            SRule_Checkin &out_checkin);
 
 	// Сводка adherence одного правила по его отметкам.
-	bool Compute_Rule_Stats(const SProgram_Rule &in_rule, const QVector<SRule_Checkin> &in_checkins, SRule_Stats &out_stats);
+	bool Compute_Rule_Stats(const SProgram_Rule &in_rule, const QVector<SRule_Checkin> &in_checkins,
+	                        SRule_Stats &out_stats);
 
 	// Сводка adherence по всем правилам (агрегат отметок всех правил).
-	bool Compute_Overall_Stats(const QVector<SProgram_Rule> &in_rules, const QVector<SRule_Checkin> &in_checkins, SRule_Stats &out_stats);
+	bool Compute_Overall_Stats(const QVector<SProgram_Rule> &in_rules, const QVector<SRule_Checkin> &in_checkins,
+	                           SRule_Stats &out_stats);
 
 private:
 	// Хранилище ошибки (рефакторинг ошибок): состояние и логирование в

@@ -22,6 +22,11 @@
 class AList_Model : public QAbstractListModel
 {
 	Q_OBJECT
+	// Число строк доступно QML как свойство, а не только как метод rowCount():
+	// привязка к вызову метода движком не отслеживается, и экран, спрашивающий
+	// «сколько строк», оставался на значении первого кадра — добавленные
+	// упражнения не появлялись в списке дня, а заголовки каталога не показывались.
+	Q_PROPERTY(int count READ Row_Count NOTIFY countChanged)
 
 public:
 	explicit AList_Model(QObject *in_parent = 0);
@@ -39,6 +44,12 @@ public:
 	int rowCount(const QModelIndex &in_parent = QModelIndex()) const override;
 	QVariant data(const QModelIndex &in_index, int in_role = Qt::DisplayRole) const override;
 	QHash<int, QByteArray> roleNames() const override;
+
+signals:
+	// Состав строк меняет только Set_Rows, поэтому сигнал выдаётся оттуда:
+	// привязкам QML на count («упражнений: N», видимость группы) больше нечего
+	// ждать — иначе они остались бы на значении, прочитанном при создании экрана.
+	void countChanged();
 
 private:
 	QStringList Role_Name_List;

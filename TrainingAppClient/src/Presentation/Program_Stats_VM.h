@@ -57,12 +57,25 @@ class Avm_Program_Stats : public QObject
 	Q_PROPERTY(QString dataRangeTo READ dataRangeTo NOTIFY changed)
 	Q_PROPERTY(QString errorKey READ errorKey NOTIFY changed)
 
+	// Модели списков объявлены свойствами, а не только методами: иначе QML
+	// видел бы их как функции и получал пустую модель (§5 QML-контракт).
+	Q_PROPERTY(AList_Model *weeks READ weeks CONSTANT)
+	Q_PROPERTY(AList_Model *rule_stats READ rule_stats CONSTANT)
+	Q_PROPERTY(AList_Model *exercise_strength READ exercise_strength CONSTANT)
+	Q_PROPERTY(AList_Model *goal_progress READ goal_progress CONSTANT)
+	Q_PROPERTY(AList_Model *measurements READ measurements CONSTANT)
+
 public:
 	Avm_Program_Stats(AProgram_Repository *in_program_repository, AWorkout_Repository *in_workout_repository,
 	                  ARule_Repository *in_rule_repository, AMeasurement_Repository *in_measurement_repository,
 	                  AStats_Repository *in_stats_repository, QObject *in_parent = 0);
 
 	// Пересчёт статистики программы по её фактам и запись в кэш. Период по
+	// QML-мост: имена в нижнем регистре первой буквы, чтобы разметка не зависела
+	// от внутреннего стиля имён C++ (§2 CODE_STYLE). Подробности — в .cpp.
+	Q_INVOKABLE bool refresh(const QString &in_program_id, const QString &in_date_from = QString(),
+	                         const QString &in_date_to = QString());
+
 	// умолчанию — вся программа (пустые границы даты).
 	bool Refresh(const QString &in_program_id, const QString &in_date_from = QString(),
 	             const QString &in_date_to = QString());

@@ -117,7 +117,8 @@ bool AsRule_Engine::Evaluate_Value(const SProgram_Rule &in_rule, double in_value
 	return Set_Last_Error(QString("У правила %1 не задано целевое значение").arg(in_rule.ID));
 }
 //----------------------------------------------------------------------------
-bool AsRule_Engine::Evaluate_Checkin(const SProgram_Rule &in_rule, const SRule_Checkin &in_checkin, ECheckin_State &out_state)
+bool AsRule_Engine::Evaluate_Checkin(const SProgram_Rule &in_rule, const SRule_Checkin &in_checkin,
+                                     ECheckin_State &out_state)
 {
 	Clear_Last_Error();
 
@@ -138,7 +139,10 @@ bool AsRule_Engine::Evaluate_Checkin(const SProgram_Rule &in_rule, const SRule_C
 	return Evaluate_Value(in_rule, in_checkin.Value, out_state);
 }
 //----------------------------------------------------------------------------
-bool AsRule_Engine::Build_Computed_Checkin(const SProgram_Rule &in_rule, const SWorkout_Session &in_session, const QVector<SSet_Log> &in_sets,  const QVector<SWorkout_Session> &in_earlier_sessions, SRule_Checkin &out_checkin)
+bool AsRule_Engine::Build_Computed_Checkin(const SProgram_Rule &in_rule, const SWorkout_Session &in_session,
+                                           const QVector<SSet_Log> &in_sets,
+                                           const QVector<SWorkout_Session> &in_earlier_sessions,
+                                           SRule_Checkin &out_checkin)
 {
 	double value = 0;
 	bool has_value = false;
@@ -199,7 +203,8 @@ bool AsRule_Engine::Build_Computed_Checkin(const SProgram_Rule &in_rule, const S
 	return true;
 }
 //----------------------------------------------------------------------------
-bool AsRule_Engine::Compute_Rule_Stats(const SProgram_Rule &in_rule, const QVector<SRule_Checkin> &in_checkins, SRule_Stats &out_stats)
+bool AsRule_Engine::Compute_Rule_Stats(const SProgram_Rule &in_rule, const QVector<SRule_Checkin> &in_checkins,
+                                       SRule_Stats &out_stats)
 {
 	double value_sum = 0;
 	int value_count = 0;
@@ -241,7 +246,8 @@ bool AsRule_Engine::Compute_Rule_Stats(const SProgram_Rule &in_rule, const QVect
 	return true;
 }
 //----------------------------------------------------------------------------
-bool AsRule_Engine::Compute_Overall_Stats(const QVector<SProgram_Rule> &in_rules, const QVector<SRule_Checkin> &in_checkins, SRule_Stats &out_stats)
+bool AsRule_Engine::Compute_Overall_Stats(const QVector<SProgram_Rule> &in_rules,
+                                          const QVector<SRule_Checkin> &in_checkins, SRule_Stats &out_stats)
 {
 	SRule_Stats total;
 
@@ -272,7 +278,8 @@ bool AsRule_Engine::Compute_Overall_Stats(const QVector<SProgram_Rule> &in_rules
 	return true;
 }
 //----------------------------------------------------------------------------
-void AsRule_Engine::Compute_Max_Rpe_Value(const QVector<SSet_Log> &in_sets, double &out_value, bool &out_has_value) const
+void AsRule_Engine::Compute_Max_Rpe_Value(const QVector<SSet_Log> &in_sets, double &out_value,
+                                          bool &out_has_value) const
 {
 	out_value = 0;
 	out_has_value = false;
@@ -292,7 +299,8 @@ void AsRule_Engine::Compute_Max_Rpe_Value(const QVector<SSet_Log> &in_sets, doub
 	}
 }
 //----------------------------------------------------------------------------
-void AsRule_Engine::Compute_Progression_Value(const QVector<SSet_Log> &in_sets, double &out_value, bool &out_has_value) const
+void AsRule_Engine::Compute_Progression_Value(const QVector<SSet_Log> &in_sets, double &out_value,
+                                              bool &out_has_value) const
 {
 	int planned = 0;
 	int reached = 0;
@@ -320,7 +328,9 @@ void AsRule_Engine::Compute_Progression_Value(const QVector<SSet_Log> &in_sets, 
 	out_has_value = true;
 }
 //----------------------------------------------------------------------------
-void AsRule_Engine::Compute_Rest_Hours(const SWorkout_Session &in_session, const QVector<SWorkout_Session> &in_earlier_sessions, double &out_value, bool &out_has_value) const
+void AsRule_Engine::Compute_Rest_Hours(const SWorkout_Session &in_session,
+                                       const QVector<SWorkout_Session> &in_earlier_sessions, double &out_value,
+                                       bool &out_has_value) const
 {
 	QDateTime current = QDateTime::fromString(in_session.Started_At, Qt::ISODate);
 	QDateTime latest_end;
@@ -381,8 +391,10 @@ void AsRule_Engine::Accumulate_State(ECheckin_State in_state, SRule_Stats &out_s
 //----------------------------------------------------------------------------
 void AsRule_Engine::Finalize_Stats(SRule_Stats &out_stats) const
 {
-	out_stats.Evaluated_Count = out_stats.Done_Count + out_stats.Failed_Count + out_stats.Skipped_Count + out_stats.Partial_Count;
+	out_stats.Evaluated_Count =
+	    out_stats.Done_Count + out_stats.Failed_Count + out_stats.Skipped_Count + out_stats.Partial_Count;
 	out_stats.Has_Adherence_Percent = out_stats.Evaluated_Count > 0;
-	out_stats.Adherence_Percent = out_stats.Has_Adherence_Percent ? out_stats.Done_Count * 100.0 / out_stats.Evaluated_Count : 0;
+	out_stats.Adherence_Percent =
+	    out_stats.Has_Adherence_Percent ? out_stats.Done_Count * 100.0 / out_stats.Evaluated_Count : 0;
 }
 //----------------------------------------------------------------------------

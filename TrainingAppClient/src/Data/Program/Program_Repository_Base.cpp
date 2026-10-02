@@ -64,8 +64,10 @@ QVariant AProgram_Repository_Base::Int_Column(int in_value, bool in_has)
 //----------------------------------------------------------------------------
 bool AProgram_Repository_Base::Is_Read_Only_State(EProgram_State in_state)
 {
-	return in_state == EProgram_State::Completed || in_state == EProgram_State::Cancelled ||
-	       in_state == EProgram_State::Archived;
+	// Предикат взят из модели, а не продублирован здесь: по нему же экран
+	// решает, можно ли править программу, и две копии условия рано или поздно
+	// разошлись бы.
+	return Program_Model::Program_State_Is_Editable(in_state) == false;
 }
 //----------------------------------------------------------------------------
 bool AProgram_Repository_Base::Write_Revision_Row(const QString &in_program_id, int in_revision,

@@ -1,8 +1,19 @@
-﻿#include "Data/Program/Workout_Repository.h"
+#include "Data/Program/Workout_Repository.h"
 
 #include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QUuid>
+
+//----------------------------------------------------------------------------
+// Колонки workouts в порядке разбора Read_Session_Row. Одно описание на все
+// чтения и на запись Bind_Session: расхождение списков означало бы, что факт
+// читается не так, как пишется.
+//----------------------------------------------------------------------------
+static const char *Session_Columns =
+    "id, user_id, program_id, program_day_id, planned_date, planned_week_index, date, started_at, "
+    "completed_at, duration_seconds, state, deviation, exercise_count, set_count, tonnage_kg, avg_rpe, "
+    "program_revision, correction_of_session_id, note, sync_state";
 
 //----------------------------------------------------------------------------
 // AWorkout_Repository
@@ -29,9 +40,7 @@ bool AWorkout_Repository::Load_Sessions(const QString &in_user_id, const QString
 	if (Check_Open() == false)
 		return false;
 
-	sql = "SELECT id, user_id, program_id, program_day_id, planned_date, planned_week_index, date, started_at, "
-	      "completed_at, duration_seconds, state, deviation, exercise_count, set_count, tonnage_kg, avg_rpe, "
-	      "program_revision, correction_of_session_id, note, sync_state FROM workouts WHERE user_id = ?";
+	sql = QString("SELECT %1 FROM workouts WHERE user_id = ?").arg(Session_Columns);
 
 	if (in_program_id.isEmpty() == false)
 		sql += " AND program_id = ?";
@@ -173,7 +182,9 @@ bool AWorkout_Repository::Load_Sets(const QVector<QString> &in_session_ids, QVec
 	return true;
 }
 //----------------------------------------------------------------------------
-bool AWorkout_Repository::Load_Program_Facts(const QString &in_user_id, const QString &in_program_id, const QString &in_date_from, const QString &in_date_to, QVector<SWorkout_Session> &out_sessions, QVector<SSet_Log> &out_sets)
+bool AWorkout_Repository::Load_Program_Facts(const QString &in_user_id, const QString &in_program_id,
+                                             const QString &in_date_from, const QString &in_date_to,
+                                             QVector<SWorkout_Session> &out_sessions, QVector<SSet_Log> &out_sets)
 {
 	QVector<QString> session_ids;
 
@@ -187,6 +198,202 @@ bool AWorkout_Repository::Load_Program_Facts(const QString &in_user_id, const QS
 
 	if (Load_Sets(session_ids, out_sets) == false)
 		return false;
+
+	return true;
+}
+//----------------------------------------------------------------------------
+// Запись фактов. Поля сессии пишутся тем же набором bind-значений, что и
+// читаются, поэтому описание колонок одно: см Read_Session_Row.
+//----------------------------------------------------------------------------
+bool AWorkout_Repository::Insert_Session(const SWorkout_Session &in_session)
+{
+	QSqlQuery query(Connection());
+
+	Clear_Last_Error();
+
+	if (Check_Open() == false)
+		return false;
+
+	if (in_session.ID.isEmpty())
+		return Set_Last_Error("Сессии нужен идентификатор");
+
+	query.prepare("INSERT INTO workouts(id, user_id, program_id, program_day_id, planned_date, planned_week_index, "
+	              "date, started_at, completed_at, duration_seconds, state, deviation, exercise_count, "
+	              "set_count, tonnage_kg, avg_rpe, program_revision, correction_of_session_id, note, sync_state) "
+	              "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+	Bind_Session(query, in_session);
+
+	if (query.exec())
+		return true;
+
+	return Set_Last_Error(QString("Не удалось сохранить тренировку: %1").arg(query.lastError().text()));
+}
+//----------------------------------------------------------------------------
+bool AWorkout_Repository::Update_Session(const SWorkout_Session &in_session)
+{
+	QSqlQuery query(Connection());
+
+	Clear_Last_Error();
+
+	if (Check_Open() == false)
+		return false;
+
+	if (in_session.ID.isEmpty())
+		return Set_Last_Error("Обновлению сессии нужен идентификатор");
+
+	query.prepare("UPDATE workouts SET program_id = ?, program_day_id = ?, planned_date = ?, planned_week_index = ?, "
+	              "date = ?, started_at = ?, completed_at = ?, duration_seconds = ?, state = ?, deviation = ?, "
+	              "exercise_count = ?, set_count = ?, tonnage_kg = ?, avg_rpe = ?, program_revision = ?, "
+	              "correction_of_session_id = ?, note = ?, sync_state = ? WHERE id = ?");
+	query.addBindValue(Text_Column(in_session.Program_Id));
+	query.addBindValue(Text_Column(in_session.Program_Day_Id));
+	query.addBindValue(Text_Column(in_session.Planned_Date));
+	query.addBindValue(Int_Column(in_session.Planned_Week_Index, in_session.Planned_Week_Index != 0));
+	query.addBindValue(Text_Column(in_session.Date));
+	query.addBindValue(Text_Column(in_session.Started_At));
+	query.addBindValue(Text_Column(in_session.Completed_At));
+	query.addBindValue(in_session.Duration_Seconds);
+	query.addBindValue(To_String(in_session.State));
+	query.addBindValue(in_session.Has_Deviation ? QVariant(To_String(in_session.Deviation)) : QVariant());
+	query.addBindValue(in_session.Exercise_Count);
+	query.addBindValue(in_session.Set_Count);
+	query.addBindValue(in_session.Tonnage_Kg);
+	query.addBindValue(Number_Column(in_session.Avg_Rpe, in_session.Has_Avg_Rpe));
+	query.addBindValue(Int_Column(in_session.Program_Revision, in_session.Program_Revision != 0));
+	query.addBindValue(Text_Column(in_session.Correction_Of_Session_Id));
+	query.addBindValue(Text_Column(in_session.Note));
+	query.addBindValue(To_String(in_session.Sync_State));
+	query.addBindValue(in_session.ID);
+
+	if (query.exec() == false)
+		return Set_Last_Error(QString("Не удалось обновить тренировку: %1").arg(query.lastError().text()));
+
+	if (query.numRowsAffected() != 1)
+		return Set_Last_Error(QString("Тренировка %1 не найдена").arg(in_session.ID));
+
+	return true;
+}
+//----------------------------------------------------------------------------
+// Привязка значений сессии в порядке колонок Insert_Session и Find_Session.
+//----------------------------------------------------------------------------
+void AWorkout_Repository::Bind_Session(QSqlQuery &in_query, const SWorkout_Session &in_session) const
+{
+	in_query.addBindValue(in_session.ID);
+	in_query.addBindValue(in_session.User_Id);
+	in_query.addBindValue(Text_Column(in_session.Program_Id));
+	in_query.addBindValue(Text_Column(in_session.Program_Day_Id));
+	in_query.addBindValue(Text_Column(in_session.Planned_Date));
+	in_query.addBindValue(Int_Column(in_session.Planned_Week_Index, in_session.Planned_Week_Index != 0));
+	in_query.addBindValue(Text_Column(in_session.Date));
+	in_query.addBindValue(Text_Column(in_session.Started_At));
+	in_query.addBindValue(Text_Column(in_session.Completed_At));
+	in_query.addBindValue(in_session.Duration_Seconds);
+	in_query.addBindValue(To_String(in_session.State));
+	in_query.addBindValue(in_session.Has_Deviation ? QVariant(To_String(in_session.Deviation)) : QVariant());
+	in_query.addBindValue(in_session.Exercise_Count);
+	in_query.addBindValue(in_session.Set_Count);
+	in_query.addBindValue(in_session.Tonnage_Kg);
+	in_query.addBindValue(Number_Column(in_session.Avg_Rpe, in_session.Has_Avg_Rpe));
+	in_query.addBindValue(Int_Column(in_session.Program_Revision, in_session.Program_Revision != 0));
+	in_query.addBindValue(Text_Column(in_session.Correction_Of_Session_Id));
+	in_query.addBindValue(Text_Column(in_session.Note));
+	in_query.addBindValue(To_String(in_session.Sync_State));
+}
+//----------------------------------------------------------------------------
+// Upsert подхода по идентификатору: пустой id — новая строка, иначе замена.
+//----------------------------------------------------------------------------
+bool AWorkout_Repository::Save_Set(const SSet_Log &in_set)
+{
+	QSqlQuery query(Connection());
+	QString set_id = in_set.ID;
+
+	Clear_Last_Error();
+
+	if (Check_Open() == false)
+		return false;
+
+	if (set_id.isEmpty())
+		set_id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+
+	query.prepare("INSERT INTO sets(id, session_id, day_exercise_id, exercise_id, set_number, is_warmup, "
+	              "weight_kg, reps, rpe, target_weight_kg, target_reps, done, note) "
+	              "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+	              "ON CONFLICT(id) DO UPDATE SET session_id = excluded.session_id, "
+	              "day_exercise_id = excluded.day_exercise_id, exercise_id = excluded.exercise_id, "
+	              "set_number = excluded.set_number, is_warmup = excluded.is_warmup, weight_kg = excluded.weight_kg, "
+	              "reps = excluded.reps, rpe = excluded.rpe, target_weight_kg = excluded.target_weight_kg, "
+	              "target_reps = excluded.target_reps, done = excluded.done, note = excluded.note");
+	query.addBindValue(set_id);
+	query.addBindValue(in_set.Session_Id);
+	query.addBindValue(Text_Column(in_set.Day_Exercise_Id));
+	query.addBindValue(in_set.Exercise_Id);
+	query.addBindValue(in_set.Set_Number);
+	query.addBindValue(in_set.Is_Warmup ? 1 : 0);
+	query.addBindValue(in_set.Weight_Kg);
+	query.addBindValue(in_set.Reps);
+	query.addBindValue(Number_Column(in_set.Rpe, in_set.Has_Rpe));
+	query.addBindValue(Number_Column(in_set.Target_Weight_Kg, in_set.Has_Target_Weight_Kg));
+	query.addBindValue(Int_Column(in_set.Target_Reps, in_set.Has_Target_Reps));
+	query.addBindValue(in_set.Done ? 1 : 0);
+	query.addBindValue(Text_Column(in_set.Note));
+
+	if (query.exec())
+		return true;
+
+	return Set_Last_Error(QString("Не удалось сохранить подход: %1").arg(query.lastError().text()));
+}
+//----------------------------------------------------------------------------
+bool AWorkout_Repository::Find_Session(const QString &in_session_id, SWorkout_Session &out_session)
+{
+	QSqlQuery query(Connection());
+
+	Clear_Last_Error();
+	out_session = SWorkout_Session();
+
+	if (Check_Open() == false)
+		return false;
+
+	query.prepare(QString("SELECT %1 FROM workouts WHERE id = ?").arg(Session_Columns));
+	query.addBindValue(in_session_id);
+
+	if (query.exec() == false)
+		return Set_Last_Error(QString("Не удалось прочитать тренировку: %1").arg(query.lastError().text()));
+
+	if (query.next() == false)
+		return Set_Last_Error(QString("Тренировка %1 не найдена").arg(in_session_id));
+
+	Read_Session_Row(query, 0, out_session);
+
+	return true;
+}
+//----------------------------------------------------------------------------
+// Черновик дня: незавершённая сессия пользователя на дату. Завершённая
+// сессия того же дня не считается черновиком — её открывать нельзя.
+//----------------------------------------------------------------------------
+bool AWorkout_Repository::Find_Draft(const QString &in_user_id, const QString &in_date, SWorkout_Session &out_session)
+{
+	QSqlQuery query(Connection());
+
+	Clear_Last_Error();
+	out_session = SWorkout_Session();
+
+	if (Check_Open() == false)
+		return false;
+
+	query.prepare(QString("SELECT %1 FROM workouts WHERE user_id = ? AND date = ? AND state = ? "
+	                      "ORDER BY started_at LIMIT 1")
+	                  .arg(Session_Columns));
+	query.addBindValue(in_user_id);
+	query.addBindValue(in_date);
+	query.addBindValue(To_String(EWorkout_State::Draft));
+
+	if (query.exec() == false)
+		return Set_Last_Error(QString("Не удалось найти черновик: %1").arg(query.lastError().text()));
+
+	if (query.next() == false)
+		return Set_Last_Error(QString("Черновика тренировки на %1 нет").arg(in_date));
+
+	Read_Session_Row(query, 0, out_session);
 
 	return true;
 }

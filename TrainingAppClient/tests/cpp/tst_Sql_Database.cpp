@@ -14,6 +14,7 @@ class ASql_Database_Test : public QObject
 private slots:
 	void createsSchemaV2();
 	void migrationIsIdempotent();
+	void seedsBuiltinExerciseCatalog();
 	void migratesV1DatabaseToV2();
 	void enforcesProgramSchemaConstraints();
 	void storesBackendAlignedCache();
@@ -103,6 +104,60 @@ void ASql_Database_Test::migrationIsIdempotent()
 	database.Close();
 	QVERIFY(database.Open(path));
 	QCOMPARE(database.Get_Schema_Version(), 2);
+}
+//----------------------------------------------------------------------------
+// Каталог упражнений: редактор дня пишет предписание с жёсткими
+// идентификаторами (ProgramEditPage/ProgramDayPage: ex_squat, ex_bench, ex_row,
+// ex_deadlift), поэтому строки обязаны существовать сразу после Open(). На
+// пустом каталоге FOREIGN KEY program_day_exercises.exercise_id → exercises.id
+// отвергал вставку, и создание программы падало без сообщения на экране.
+void ASql_Database_Test::seedsBuiltinExerciseCatalog()
+{
+	QTemporaryDir directory;
+	AsSql_Database database;
+	QSqlDatabase inspection;
+	QSqlQuery query;
+	QString path;
+
+	QVERIFY(directory.isValid());
+	path = directory.filePath("cache.sqlite3");
+	QVERIFY(database.Open(path));
+
+	inspection = Open_Inspection_Database(path, "inspect_catalog");
+	QVERIFY(inspection.isOpen());
+	query = QSqlQuery(inspection);
+	QVERIFY(query.exec("PRAGMA foreign_keys = ON"));
+
+	for (const QString &exercise_id : {"ex_squat", "ex_bench", "ex_row", "ex_deadlift"})
+	{
+		QVERIFY2(query.exec(QString("SELECT COUNT(*) FROM exercises WHERE id = '%1'").arg(exercise_id)),
+		         qPrintable(query.lastError().text()));
+		QVERIFY(query.next());
+		QCOMPARE(query.value(0).toInt(), 1);
+	}
+
+	// Пользовательский каталог сид не переписывает: своё упражнение остаётся
+	// помеченным is_custom = 1, а повторная миграция не добавляет дублей.
+	QVERIFY2(query.exec("INSERT INTO exercises(id, title, muscle_group, equipment, is_custom, created_at) "
+	                    "VALUES('ex_custom', 'Своё', 'legs', 'none', 1, '2026-09-29T00:00:00Z')"),
+	         qPrintable(query.lastError().text()));
+	QVERIFY(database.Migrate());
+	QVERIFY(query.exec("SELECT COUNT(*) FROM exercises"));
+	QVERIFY(query.next());
+	QCOMPARE(query.value(0).toInt(), 5);
+	QVERIFY(query.exec("SELECT is_custom FROM exercises WHERE id = 'ex_custom'"));
+	QVERIFY(query.next());
+	QCOMPARE(query.value(0).toInt(), 1);
+
+	// База, созданная до появления каталога, лечится при следующем открытии:
+	// именно этот случай ломал создание программы у уже установленного клиента.
+	QVERIFY(query.exec("DELETE FROM exercises"));
+	database.Close();
+	QVERIFY(database.Open(path));
+	QVERIFY(query.exec("SELECT COUNT(*) FROM exercises"));
+	QVERIFY(query.next());
+	QCOMPARE(query.value(0).toInt(), 4);
+	Close_Inspection_Database(inspection);
 }
 //----------------------------------------------------------------------------
 void ASql_Database_Test::storesBackendAlignedCache()

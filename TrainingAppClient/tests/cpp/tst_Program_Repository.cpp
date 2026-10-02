@@ -14,6 +14,10 @@ class AProgram_Repository_Test : public QObject
 private slots:
 	void insertAndLoadProgram();
 	void activeProgramLookup();
+	void loadProgramsListsEveryStateNewestFirst();
+	void loadProgramsIsEmptyForUnknownUser();
+	void changeProfileUpdatesTitleGoalLevel();
+	void changeProfileRejectsReadOnlyProgram();
 	void changeStateValidatesTransitions();
 	void editsAreRejectedForReadOnlyStates();
 	void replaceStructureBumpsRevisionAndKeepsFacts();
@@ -25,6 +29,7 @@ private:
 	QString Make_Database_Path();
 	void Seed_Exercise(AsSql_Database &in_database, const QString &in_id);
 	SProgram Make_Program(const QString &in_id, EProgram_State in_state);
+	void Stamp_Updated_At(AsSql_Database &in_database, const QString &in_program_id, const QString &in_stamp);
 	void Seed_Structure(AProgram_Repository &in_repository, const QString &in_program_id);
 
 	QTemporaryDir Directory;
@@ -70,6 +75,19 @@ SProgram AProgram_Repository_Test::Make_Program(const QString &in_id, EProgram_S
 	program.Term.Mode = ETerm_Mode::FixedWeeks;
 
 	return program;
+}
+//----------------------------------------------------------------------------
+// Прямая запись updated_at в обход репозитория: штамп ставится самой записью,
+// а для проверки порядка списка нужны заранее заданные, различимые значения.
+void AProgram_Repository_Test::Stamp_Updated_At(AsSql_Database &in_database, const QString &in_program_id,
+                                                const QString &in_stamp)
+{
+	QSqlQuery query(in_database.Sql_Connection());
+
+	query.prepare("UPDATE programs SET updated_at = ? WHERE id = ?");
+	query.addBindValue(in_stamp);
+	query.addBindValue(in_program_id);
+	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
 //----------------------------------------------------------------------------
 void AProgram_Repository_Test::Seed_Structure(AProgram_Repository &in_repository, const QString &in_program_id)
@@ -230,6 +248,109 @@ void AProgram_Repository_Test::activeProgramLookup()
 	QVERIFY(repository.Change_State("p2", EProgram_State::Active) == false);
 
 	QVERIFY(repository.Get_Active_Program_Id("u2", active_id) == false);
+}
+//----------------------------------------------------------------------------
+// Список программ пользователя (каталог, срез S1). Особенность: список у
+// несуществующего пользователя — это пустой список, а не ошибка. Каталог на
+// первом запуске обязан показывать приглашение создать программу, поэтому
+// «нет ни одной программы» — нормальное состояние, в отличие от Load_Program,
+// где отсутствие строки означает промах по идентификатору.
+void AProgram_Repository_Test::loadProgramsListsEveryStateNewestFirst()
+{
+	AsSql_Database database;
+	AProgram_Repository repository(&database);
+	QVector<SProgram> programs;
+	QString path;
+
+	path = Make_Database_Path();
+	QVERIFY(database.Open(path));
+
+	QVERIFY(repository.Insert_Program(Make_Program("p_draft", EProgram_State::Draft)));
+	QVERIFY(repository.Insert_Program(Make_Program("p_active", EProgram_State::Active)));
+	QVERIFY(repository.Insert_Program(Make_Program("p_done", EProgram_State::Completed)));
+
+	// Порядок определяется updated_at: он задаётся репозиторием при записи, и
+	// последняя вставка должна оказаться первой в списке.
+	Stamp_Updated_At(database, "p_draft", "2026-01-01T00:00:00Z");
+	Stamp_Updated_At(database, "p_done", "2026-02-01T00:00:00Z");
+	Stamp_Updated_At(database, "p_active", "2026-03-01T00:00:00Z");
+
+	QVERIFY(repository.Load_Programs("u1", programs));
+	QCOMPARE(programs.size(), 3);
+	QCOMPARE(programs.at(0).ID, QString("p_active"));
+	QCOMPARE(programs.at(1).ID, QString("p_done"));
+	QCOMPARE(programs.at(2).ID, QString("p_draft"));
+
+	// Состояние и название доезжают из своих колонок, а не из заглушки.
+	QCOMPARE(programs.at(0).State, EProgram_State::Active);
+	QCOMPARE(programs.at(0).Title, QString("Сила 12 недель"));
+	QCOMPARE(programs.at(0).Term.Weeks_Total, 12);
+
+	// Программа другого пользователя в список не попадает.
+	SProgram foreign = Make_Program("p_foreign", EProgram_State::Draft);
+	foreign.User_Id = "u2";
+	QVERIFY(repository.Insert_Program(foreign));
+
+	QVERIFY(repository.Load_Programs("u1", programs));
+	QCOMPARE(programs.size(), 3);
+}
+//----------------------------------------------------------------------------
+void AProgram_Repository_Test::loadProgramsIsEmptyForUnknownUser()
+{
+	AsSql_Database database;
+	AProgram_Repository repository(&database);
+	QVector<SProgram> programs;
+	QString path;
+
+	path = Make_Database_Path();
+	QVERIFY(database.Open(path));
+
+	QVERIFY(repository.Insert_Program(Make_Program("p1", EProgram_State::Active)));
+
+	QVERIFY(repository.Load_Programs("u_nobody", programs));
+	QVERIFY(programs.isEmpty());
+	QVERIFY(repository.Get_Last_Error().isEmpty());
+}
+//----------------------------------------------------------------------------
+// Смена паспортных полей программы (название, цель, уровень). Редактор после
+// Load() обязан сохранять их, иначе правка заголовка терялась бы молча.
+void AProgram_Repository_Test::changeProfileUpdatesTitleGoalLevel()
+{
+	AsSql_Database database;
+	AProgram_Repository repository(&database);
+	SProgram loaded;
+	QString path;
+
+	path = Make_Database_Path();
+	QVERIFY(database.Open(path));
+	QVERIFY(repository.Insert_Program(Make_Program("p1", EProgram_State::Active)));
+
+	QVERIFY(repository.Change_Profile("p1", "Сила 16 недель", EProgram_Goal::Muscle, EProgram_Level::Intermediate));
+	QVERIFY(repository.Load_Program("p1", loaded));
+	QCOMPARE(loaded.Title, QString("Сила 16 недель"));
+	QCOMPARE(loaded.Goal, EProgram_Goal::Muscle);
+	QCOMPARE(loaded.Level, EProgram_Level::Intermediate);
+
+	// Правка структуры увеличивает ревизию — иначе статистика не поняла бы,
+	// что программа изменилась.
+	QCOMPARE(loaded.Revision, 2);
+}
+//----------------------------------------------------------------------------
+void AProgram_Repository_Test::changeProfileRejectsReadOnlyProgram()
+{
+	AsSql_Database database;
+	AProgram_Repository repository(&database);
+	SProgram loaded;
+	QString path;
+
+	path = Make_Database_Path();
+	QVERIFY(database.Open(path));
+	QVERIFY(repository.Insert_Program(Make_Program("p1", EProgram_State::Completed)));
+
+	QVERIFY(repository.Change_Profile("p1", "Другое", EProgram_Goal::Strength, EProgram_Level::Beginner) == false);
+	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(repository.Load_Program("p1", loaded));
+	QCOMPARE(loaded.Title, QString("Сила 12 недель"));
 }
 //----------------------------------------------------------------------------
 void AProgram_Repository_Test::changeStateValidatesTransitions()

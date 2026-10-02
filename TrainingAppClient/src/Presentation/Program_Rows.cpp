@@ -1,4 +1,4 @@
-﻿#include "Presentation/Program_Rows.h"
+#include "Presentation/Program_Rows.h"
 
 #include <QDate>
 
@@ -42,7 +42,9 @@ QStringList Goal_Target_Roles()
 //----------------------------------------------------------------------------
 QStringList Rule_Roles()
 {
-	return QStringList{"id",          "category",   "code",        "title",       "metric",      "periodicity",
+	// Имя роли не «id»: QML отвергает свойство с именем id (reserved), и
+	// делегат экрана правил не смог бы объявить required property.
+	return QStringList{"ruleId",      "category",   "code",        "title",       "metric",      "periodicity",
 	                   "targetValue", "targetUnit", "displayText", "checkSource", "enforcement", "todayState"};
 }
 //----------------------------------------------------------------------------
@@ -56,6 +58,14 @@ QStringList Measurement_Roles()
 	return QStringList{"id", "date", "weightKg", "chestCm", "waistCm", "hipCm", "armCm", "thighCm"};
 }
 //----------------------------------------------------------------------------
+QStringList Catalog_Program_Roles()
+{
+	// weeksTotal и updatedAt — единственные числа, которые каталог берёт из
+	// строки programs. Показатели вроде тоннажа или adherence считаются доменом
+	// по фактам и в списке не выводятся: строка каталога обязана оставаться
+	// дешёвой, а не превращаться в N запросов статистики.
+	return QStringList{"id", "title", "goal", "state", "weeksTotal", "startDate", "updatedAt", "canEdit"};
+}
 QStringList Program_Summary_Roles()
 {
 	return QStringList{"id",
@@ -92,7 +102,6 @@ QStringList Week_Aggregate_Roles()
 {
 	return QStringList{"weekIndex", "plannedSessions", "completedSessions", "adherencePercent", "tonnageKg"};
 }
-//----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 // Необязательное число → null. «Нет данных» и «ноль» на экране различаются,
 // поэтому флаг Has_ обязателен: -1 в роли означал бы «минус килограмм».
@@ -276,7 +285,7 @@ QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const Q
 		const SProgram_Rule &rule = in_rules.at(i);
 		QVariantMap row;
 
-		row.insert("id", rule.ID);
+		row.insert("ruleId", rule.ID);
 		row.insert("category", To_String(rule.Category));
 		row.insert("code", rule.Code);
 		row.insert("title", rule.Title);
@@ -342,6 +351,30 @@ QVector<QVariantMap> Build_Measurements(const QVector<SBody_Measurement> &in_mea
 	return rows;
 }
 //----------------------------------------------------------------------------
+QVector<QVariantMap> Build_Catalog_Programs(const QVector<SProgram> &in_programs)
+{
+	QVector<QVariantMap> rows;
+
+	for (int i = 0; i < in_programs.size(); ++i)
+	{
+		const SProgram &program = in_programs.at(i);
+		QVariantMap row;
+
+		row.insert("id", program.ID);
+		row.insert("title", program.Title);
+		row.insert("goal", To_String(program.Goal));
+		row.insert("state", To_String(program.State));
+		row.insert("weeksTotal", program.Term.Weeks_Total);
+		row.insert("startDate", program.Term.Start_Date);
+		row.insert("updatedAt", program.Updated_At);
+		// Завершённую и отменённую программу нельзя править (§3.1), и каталог
+		// обязан сказать это заранее, а не прятать пункт меню.
+		row.insert("canEdit", Program_State_Is_Editable(program.State));
+		rows.append(row);
+	}
+
+	return rows;
+}
 QVector<QVariantMap> Build_Program_Summaries(const QVector<SProgram_Summary> &in_summaries,
                                              const QString &in_best_program_id)
 {

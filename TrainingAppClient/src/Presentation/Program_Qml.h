@@ -1,5 +1,7 @@
-﻿#pragma once
+#pragma once
 
+#include "Presentation/Program_Catalog_VM.h"
+#include "Presentation/Program_Rules_VM.h"
 #include "Presentation/Program_Stats_VM.h"
 #include "Presentation/Program_VM.h"
 
@@ -33,3 +35,25 @@ class AProgram_Stats_Qml : public Avm_Program_Stats
 	QML_UNCREATABLE("Экземпляр создаётся в composition root")
 };
 //----------------------------------------------------------------------------
+// Экспорт Avm_Program_Rules под именем ProgramRules — те же правила, что и
+// для Program и ProgramStats.
+//----------------------------------------------------------------------------
+class AProgram_Rules_Qml : public Avm_Program_Rules
+{
+	Q_OBJECT
+	QML_NAMED_ELEMENT(ProgramRules)
+	QML_UNCREATABLE("Экземпляр создаётся в composition root")
+};
+//----------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------
+// Экспорт Avm_Program_Catalog под именем ProgramCatalog — те же правила, что у
+// остальных ViewModel программы: создаёт экземпляр composition root, а не сам
+// QML-модуль.
+//----------------------------------------------------------------------------
+class AProgram_Catalog_Qml : public Avm_Program_Catalog
+{
+	Q_OBJECT
+	QML_NAMED_ELEMENT(ProgramCatalog)
+	QML_UNCREATABLE("Экземпляр создаётся в composition root")
+};

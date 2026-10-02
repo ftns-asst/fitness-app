@@ -232,7 +232,8 @@ void AsLifetime_Calculator::Count_Sets(const SLifetime_Facts &in_facts, const QS
 // Регулярность: неделя ISO от первой до последней тренировки, счётчик
 // тренировок в каждой и серии недель подряд (§5.3 `regularityHeatmap[]`).
 //----------------------------------------------------------------------------
-void AsLifetime_Calculator::Build_Regularity(const QHash<QString, int> &in_week_counts, SLifetime_Stats &in_out_stats) const
+void AsLifetime_Calculator::Build_Regularity(const QHash<QString, int> &in_week_counts,
+                                             SLifetime_Stats &in_out_stats) const
 {
 	QDate cursor = QDate::fromString(in_out_stats.First_Session_Date, Qt::ISODate);
 	QDate finish = QDate::fromString(in_out_stats.Last_Session_Date, Qt::ISODate);
@@ -280,7 +281,9 @@ void AsLifetime_Calculator::Build_Regularity(const QHash<QString, int> &in_week_
 // Личные рекорды: подход известен, а его дата и программа берутся из сессии
 // рекорда. Соло-тренировка оставляет Program_Id пустым.
 //----------------------------------------------------------------------------
-void AsLifetime_Calculator::Resolve_Records(const SLifetime_Facts &in_facts, const QHash<QString, SExercise_Record> &in_records, const QStringList &in_record_order, SLifetime_Stats &in_out_stats) const
+void AsLifetime_Calculator::Resolve_Records(const SLifetime_Facts &in_facts,
+                                            const QHash<QString, SExercise_Record> &in_records,
+                                            const QStringList &in_record_order, SLifetime_Stats &in_out_stats) const
 {
 	QHash<QString, const SWorkout_Session *> sessions_by_id;
 
@@ -329,7 +332,10 @@ void AsLifetime_Calculator::Collect_Body_Weight(const SLifetime_Facts &in_facts,
 // Сводка каждой программы для экрана сравнения и лучшая программа по
 // выполнению. Метрики берутся из того же расчёта, что и экран программы.
 //----------------------------------------------------------------------------
-void AsLifetime_Calculator::Build_Summaries(const SLifetime_Facts &in_facts, const QVector<SProgress_Facts> &in_programs, AsProgram_Stats_Calculator *in_program_calculator, SLifetime_Stats &in_out_stats) const
+void AsLifetime_Calculator::Build_Summaries(const SLifetime_Facts &in_facts,
+                                            const QVector<SProgress_Facts> &in_programs,
+                                            AsProgram_Stats_Calculator *in_program_calculator,
+                                            SLifetime_Stats &in_out_stats) const
 {
 	double best_adherence = 0;
 	bool has_best_adherence = false;
@@ -369,7 +375,9 @@ void AsLifetime_Calculator::Build_Summaries(const SLifetime_Facts &in_facts, con
 	}
 }
 //----------------------------------------------------------------------------
-void AsLifetime_Calculator::Fill_Summary_Metrics(const SProgress_Facts &in_facts, AsProgram_Stats_Calculator &in_calculator, SProgram_Summary &in_out_summary) const
+void AsLifetime_Calculator::Fill_Summary_Metrics(const SProgress_Facts &in_facts,
+                                                 AsProgram_Stats_Calculator &in_calculator,
+                                                 SProgram_Summary &in_out_summary) const
 {
 	SProgram_Stats stats;
 	double key_lift = 0;

@@ -27,6 +27,9 @@ void AList_Model::Set_Rows(const QVector<QVariantMap> &in_rows)
 	Rows = in_rows;
 
 	endResetModel();
+	// Сигнал после сброса модели: подписчики count обязаны увидеть новое число
+	// строк уже согласованным с данными.
+	emit countChanged();
 }
 //----------------------------------------------------------------------------
 int AList_Model::Row_Count() const

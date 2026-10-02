@@ -35,6 +35,14 @@ void Avm_Program_Stats::Set_Today(const QString &in_date)
 {
 	Today_Text = in_date;
 }
+// — QML-мост (camelCase) —
+// Обёртки отделены от методов предметной области: контракт экрана не должен
+// повторять внутренний стиль имён (§2 CODE_STYLE) и зависеть от него.
+bool Avm_Program_Stats::refresh(const QString &in_program_id, const QString &in_date_from, const QString &in_date_to)
+{
+	return Refresh(in_program_id, in_date_from, in_date_to);
+}
+
 //----------------------------------------------------------------------------
 bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_date_from, const QString &in_date_to)
 {

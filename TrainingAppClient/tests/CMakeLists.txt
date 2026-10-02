@@ -1,4 +1,4 @@
-﻿# qmltestrunner is a separate process and cannot see resources embedded in the
+# qmltestrunner is a separate process and cannot see resources embedded in the
 # application executable. Build a test import directory from the exact
 # production QML files instead of maintaining test copies.
 #
@@ -113,6 +113,10 @@ qt_add_executable(tst_Program_Rows
 target_link_libraries(tst_Program_Rows PRIVATE TrainingAppCore Qt6::Test)
 add_test(NAME program_rows COMMAND tst_Program_Rows)
 set_tests_properties(program_rows PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Program_Rules_VM cpp/tst_Program_Rules_VM.cpp)
+target_link_libraries(tst_Program_Rules_VM PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME program_rules_vm COMMAND tst_Program_Rules_VM)
 
 qt_add_executable(tst_Program_Stats_VM
     cpp/tst_Program_Stats_VM.cpp
@@ -247,6 +251,14 @@ add_library(TrainingAppTestSupport STATIC
 target_include_directories(TrainingAppTestSupport PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(TrainingAppTestSupport PUBLIC Qt6::Core Qt6::Network)
 
+qt_add_executable(tst_Program_Edit_VM cpp/tst_Program_Edit_VM.cpp)
+target_link_libraries(tst_Program_Edit_VM PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME program_edit_vm COMMAND tst_Program_Edit_VM)
+
+qt_add_executable(tst_Workout_Logger cpp/tst_Workout_Logger.cpp)
+target_link_libraries(tst_Workout_Logger PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME workout_logger COMMAND tst_Workout_Logger)
+
 qt_add_executable(tst_Test_Http_Server
     cpp/tst_Test_Http_Server.cpp
 )
@@ -281,6 +293,30 @@ foreach(auth_screen IN ITEMS auth-login auth-signup)
         )
     endforeach()
 endforeach()
+
+# Экраны глобальной программы живут вне вкладок, поэтому до их появления в
+# --screen аудит вёрстки их не видел вовсе. Каждый экран проверяется на всех
+# компоновках проекта, включая тёмную и обрамлённую.
+foreach(program_screen IN ITEMS program-catalog program-overview program-edit program-rules program-stats program-day)
+    foreach(program_viewport IN ITEMS 360 390 480 frame dark)
+        set(program_test_name "ui_smoke_${program_screen}_${program_viewport}")
+        add_test(
+            NAME "${program_test_name}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DAPP_EXECUTABLE=$<TARGET_FILE:appTrainingAppClient>"
+                "-DQT_RUNTIME_DIR=$<TARGET_FILE_DIR:Qt6::Core>"
+                "-DSCREEN=${program_screen}"
+                "-DVIEWPORT=${program_viewport}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/run_ui_smoke.cmake"
+        )
+        set_tests_properties("${program_test_name}" PROPERTIES
+            PASS_REGULAR_EXPRESSION "problems=0"
+            FAIL_REGULAR_EXPRESSION "TEXT-WIDTH|TEXT-HEIGHT|OVERFLOW-X|ZERO-WIDTH|QQmlApplicationEngine failed|ReferenceError|TypeError|is not a type"
+            TIMEOUT 20
+        )
+    endforeach()
+endforeach()
+
 
 if (TARGET Qt6::qmltestrunner)
     set(QML_TEST_RUNNER "$<TARGET_FILE:Qt6::qmltestrunner>")

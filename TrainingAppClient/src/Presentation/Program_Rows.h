@@ -34,6 +34,14 @@ QStringList Goal_Target_Roles();
 QStringList Rule_Roles();
 QStringList Checkin_Roles();
 QStringList Measurement_Roles();
+
+// Роли карточки каталога (срез S1): то, что показывает строка списка
+// программ. Отличаются от ролей сводки (Program_Summary_Roles) тем,
+// что сводка — это посчитанная метрика для сравнения программ, а каталог —
+// это сами строки таблицы programs с группировкой по состоянию.
+QStringList Catalog_Program_Roles();
+// Строки каталога.
+QVector<QVariantMap> Build_Catalog_Programs(const QVector<SProgram> &in_programs);
 QStringList Program_Summary_Roles();
 QStringList Rule_Stat_Roles();
 QStringList Exercise_Strength_Roles();

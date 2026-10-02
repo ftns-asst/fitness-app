@@ -1,4 +1,4 @@
-﻿#include "Presentation/List_Model.h"
+#include "Presentation/List_Model.h"
 #include "Presentation/Program_Rows.h"
 
 #include <QtTest>
@@ -197,7 +197,6 @@ void AProgram_Rows_Test::ruleWithoutTargetHasNullValue()
 
 	QVERIFY(Role_Of(0, "targetValue").isNull() == true);
 }
-//----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 void AProgram_Rows_Test::goalTargetsMapProgress()
 {
