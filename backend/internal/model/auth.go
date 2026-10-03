@@ -135,7 +135,7 @@ type VerificationCode struct {
 }
 
 func (c *VerificationCode) IsExpired() bool {
-	return c.ExpiresAt.Before(time.Now())
+	return c.ExpiresAt.Before(time.Now().Add(time.Second * 30))
 }
 
 func (c *VerificationCode) IsRevoked() bool {

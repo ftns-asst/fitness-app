@@ -423,7 +423,8 @@ func (s *AuthService) ResetPassword(ctx context.Context, newPassword string, res
 
 	err = s.authRepo.SetResetTokenUsedByID(ctx, token.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to mark reset token used by ID: %w", err)
+		log.Printf("failed to set reset token used by ID: %s", err.Error())
+		return nil, model.AuthErrorResetTokenInvalid()
 	}
 
 	hashedPassword, err := util.Hash(newPassword)
@@ -432,6 +433,10 @@ func (s *AuthService) ResetPassword(ctx context.Context, newPassword string, res
 	}
 
 	err = s.userService.UpdateUserPassword(ctx, user.ID, hashedPassword)
+	if errors.Is(err, repository.ErrNoAffectedRows) {
+		log.Printf("failed to update user password: %s", err.Error())
+		return nil, model.AuthErrorResetTokenInvalid()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -441,6 +446,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, newPassword string, res
 		return nil, err
 	}
 
+	// set other tokens used
 	err = s.authRepo.SetUserTokensUsed(ctx, token.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set user refresh tokens used: %w", err)

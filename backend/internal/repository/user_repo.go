@@ -246,9 +246,13 @@ func (r *UserRepo) UpdateUserPassword(ctx context.Context, userID uuid.UUID, new
 		SET pass_hash = $2
 		WHERE u.id = $1;
 	`
-	_, err = conn.Exec(ctx, query, userID, newPasswordHash)
+	res, err := conn.Exec(ctx, query, userID, newPasswordHash)
 	if err != nil {
 		return fmt.Errorf("update failed: %w", err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return ErrNoAffectedRows
 	}
 
 	return nil

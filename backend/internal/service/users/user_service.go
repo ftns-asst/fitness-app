@@ -106,7 +106,7 @@ func (s *UserService) UpdateUserProfile(ctx context.Context, userID uuid.UUID, i
 	return updated, nil
 }
 
-// update user password hash, DO NOT USE WITH RAW PASSWORD OR
+// update user password hash, DO NOT USE WITH RAW PASSWORD
 func (s *UserService) UpdateUserPassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) error {
 	isValid := util.IsValidHash(newPasswordHash)
 	if !isValid {

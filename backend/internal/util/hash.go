@@ -27,7 +27,7 @@ func CompareHash(valueRaw, targetHash string) (bool, error) {
 
 func IsValidHash(hash string) bool {
 	_, _, _, err := argon2id.DecodeHash(hash)
-	return err != nil
+	return err == nil
 }
 
 func HashSHA256(value, secret string) (string, error) {
