@@ -184,12 +184,12 @@ func (_c *MockAuthRepo_CreateToken_Call) RunAndReturn(run func(ctx context.Conte
 	return _c
 }
 
-// CreateVerificationCodeAndSetOtherExpired provides a mock function for the type MockAuthRepo
-func (_mock *MockAuthRepo) CreateVerificationCodeAndSetOtherExpired(ctx context.Context, code *model.VerificationCode) (*model.VerificationCode, error) {
+// CreateVerificationCodeAndRevokeOther provides a mock function for the type MockAuthRepo
+func (_mock *MockAuthRepo) CreateVerificationCodeAndRevokeOther(ctx context.Context, code *model.VerificationCode) (*model.VerificationCode, error) {
 	ret := _mock.Called(ctx, code)
 
 	if len(ret) == 0 {
-		panic("no return value specified for CreateVerificationCodeAndSetOtherExpired")
+		panic("no return value specified for CreateVerificationCodeAndRevokeOther")
 	}
 
 	var r0 *model.VerificationCode
@@ -212,19 +212,19 @@ func (_mock *MockAuthRepo) CreateVerificationCodeAndSetOtherExpired(ctx context.
 	return r0, r1
 }
 
-// MockAuthRepo_CreateVerificationCodeAndSetOtherExpired_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateVerificationCodeAndSetOtherExpired'
-type MockAuthRepo_CreateVerificationCodeAndSetOtherExpired_Call struct {
+// MockAuthRepo_CreateVerificationCodeAndRevokeOther_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateVerificationCodeAndRevokeOther'
+type MockAuthRepo_CreateVerificationCodeAndRevokeOther_Call struct {
 	*mock.Call
 }
 
-// CreateVerificationCodeAndSetOtherExpired is a helper method to define mock.On call
+// CreateVerificationCodeAndRevokeOther is a helper method to define mock.On call
 //   - ctx context.Context
 //   - code *model.VerificationCode
-func (_e *MockAuthRepo_Expecter) CreateVerificationCodeAndSetOtherExpired(ctx any, code any) *MockAuthRepo_CreateVerificationCodeAndSetOtherExpired_Call {
-	return &MockAuthRepo_CreateVerificationCodeAndSetOtherExpired_Call{Call: _e.mock.On("CreateVerificationCodeAndSetOtherExpired", ctx, code)}
+func (_e *MockAuthRepo_Expecter) CreateVerificationCodeAndRevokeOther(ctx any, code any) *MockAuthRepo_CreateVerificationCodeAndRevokeOther_Call {
+	return &MockAuthRepo_CreateVerificationCodeAndRevokeOther_Call{Call: _e.mock.On("CreateVerificationCodeAndRevokeOther", ctx, code)}
 }
 
-func (_c *MockAuthRepo_CreateVerificationCodeAndSetOtherExpired_Call) Run(run func(ctx context.Context, code *model.VerificationCode)) *MockAuthRepo_CreateVerificationCodeAndSetOtherExpired_Call {
+func (_c *MockAuthRepo_CreateVerificationCodeAndRevokeOther_Call) Run(run func(ctx context.Context, code *model.VerificationCode)) *MockAuthRepo_CreateVerificationCodeAndRevokeOther_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -242,22 +242,22 @@ func (_c *MockAuthRepo_CreateVerificationCodeAndSetOtherExpired_Call) Run(run fu
 	return _c
 }
 
-func (_c *MockAuthRepo_CreateVerificationCodeAndSetOtherExpired_Call) Return(verificationCode *model.VerificationCode, err error) *MockAuthRepo_CreateVerificationCodeAndSetOtherExpired_Call {
+func (_c *MockAuthRepo_CreateVerificationCodeAndRevokeOther_Call) Return(verificationCode *model.VerificationCode, err error) *MockAuthRepo_CreateVerificationCodeAndRevokeOther_Call {
 	_c.Call.Return(verificationCode, err)
 	return _c
 }
 
-func (_c *MockAuthRepo_CreateVerificationCodeAndSetOtherExpired_Call) RunAndReturn(run func(ctx context.Context, code *model.VerificationCode) (*model.VerificationCode, error)) *MockAuthRepo_CreateVerificationCodeAndSetOtherExpired_Call {
+func (_c *MockAuthRepo_CreateVerificationCodeAndRevokeOther_Call) RunAndReturn(run func(ctx context.Context, code *model.VerificationCode) (*model.VerificationCode, error)) *MockAuthRepo_CreateVerificationCodeAndRevokeOther_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetCodeNotUsedByUserID provides a mock function for the type MockAuthRepo
-func (_mock *MockAuthRepo) GetCodeNotUsedByUserID(ctx context.Context, userID uuid.UUID) (*model.VerificationCode, error) {
+// GetCodeNotUsedOrRevokedByUserID provides a mock function for the type MockAuthRepo
+func (_mock *MockAuthRepo) GetCodeNotUsedOrRevokedByUserID(ctx context.Context, userID uuid.UUID) (*model.VerificationCode, error) {
 	ret := _mock.Called(ctx, userID)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetCodeNotUsedByUserID")
+		panic("no return value specified for GetCodeNotUsedOrRevokedByUserID")
 	}
 
 	var r0 *model.VerificationCode
@@ -280,19 +280,19 @@ func (_mock *MockAuthRepo) GetCodeNotUsedByUserID(ctx context.Context, userID uu
 	return r0, r1
 }
 
-// MockAuthRepo_GetCodeNotUsedByUserID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetCodeNotUsedByUserID'
-type MockAuthRepo_GetCodeNotUsedByUserID_Call struct {
+// MockAuthRepo_GetCodeNotUsedOrRevokedByUserID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetCodeNotUsedOrRevokedByUserID'
+type MockAuthRepo_GetCodeNotUsedOrRevokedByUserID_Call struct {
 	*mock.Call
 }
 
-// GetCodeNotUsedByUserID is a helper method to define mock.On call
+// GetCodeNotUsedOrRevokedByUserID is a helper method to define mock.On call
 //   - ctx context.Context
 //   - userID uuid.UUID
-func (_e *MockAuthRepo_Expecter) GetCodeNotUsedByUserID(ctx any, userID any) *MockAuthRepo_GetCodeNotUsedByUserID_Call {
-	return &MockAuthRepo_GetCodeNotUsedByUserID_Call{Call: _e.mock.On("GetCodeNotUsedByUserID", ctx, userID)}
+func (_e *MockAuthRepo_Expecter) GetCodeNotUsedOrRevokedByUserID(ctx any, userID any) *MockAuthRepo_GetCodeNotUsedOrRevokedByUserID_Call {
+	return &MockAuthRepo_GetCodeNotUsedOrRevokedByUserID_Call{Call: _e.mock.On("GetCodeNotUsedOrRevokedByUserID", ctx, userID)}
 }
 
-func (_c *MockAuthRepo_GetCodeNotUsedByUserID_Call) Run(run func(ctx context.Context, userID uuid.UUID)) *MockAuthRepo_GetCodeNotUsedByUserID_Call {
+func (_c *MockAuthRepo_GetCodeNotUsedOrRevokedByUserID_Call) Run(run func(ctx context.Context, userID uuid.UUID)) *MockAuthRepo_GetCodeNotUsedOrRevokedByUserID_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -310,12 +310,12 @@ func (_c *MockAuthRepo_GetCodeNotUsedByUserID_Call) Run(run func(ctx context.Con
 	return _c
 }
 
-func (_c *MockAuthRepo_GetCodeNotUsedByUserID_Call) Return(verificationCode *model.VerificationCode, err error) *MockAuthRepo_GetCodeNotUsedByUserID_Call {
+func (_c *MockAuthRepo_GetCodeNotUsedOrRevokedByUserID_Call) Return(verificationCode *model.VerificationCode, err error) *MockAuthRepo_GetCodeNotUsedOrRevokedByUserID_Call {
 	_c.Call.Return(verificationCode, err)
 	return _c
 }
 
-func (_c *MockAuthRepo_GetCodeNotUsedByUserID_Call) RunAndReturn(run func(ctx context.Context, userID uuid.UUID) (*model.VerificationCode, error)) *MockAuthRepo_GetCodeNotUsedByUserID_Call {
+func (_c *MockAuthRepo_GetCodeNotUsedOrRevokedByUserID_Call) RunAndReturn(run func(ctx context.Context, userID uuid.UUID) (*model.VerificationCode, error)) *MockAuthRepo_GetCodeNotUsedOrRevokedByUserID_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -633,6 +633,63 @@ func (_c *MockAuthRepo_SetTokenUsedByID_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
+// SetUserTokensUsed provides a mock function for the type MockAuthRepo
+func (_mock *MockAuthRepo) SetUserTokensUsed(ctx context.Context, id uuid.UUID) error {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetUserTokensUsed")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) error); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAuthRepo_SetUserTokensUsed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetUserTokensUsed'
+type MockAuthRepo_SetUserTokensUsed_Call struct {
+	*mock.Call
+}
+
+// SetUserTokensUsed is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+func (_e *MockAuthRepo_Expecter) SetUserTokensUsed(ctx any, id any) *MockAuthRepo_SetUserTokensUsed_Call {
+	return &MockAuthRepo_SetUserTokensUsed_Call{Call: _e.mock.On("SetUserTokensUsed", ctx, id)}
+}
+
+func (_c *MockAuthRepo_SetUserTokensUsed_Call) Run(run func(ctx context.Context, id uuid.UUID)) *MockAuthRepo_SetUserTokensUsed_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthRepo_SetUserTokensUsed_Call) Return(err error) *MockAuthRepo_SetUserTokensUsed_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAuthRepo_SetUserTokensUsed_Call) RunAndReturn(run func(ctx context.Context, id uuid.UUID) error) *MockAuthRepo_SetUserTokensUsed_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockUserProvider creates a new instance of MockUserProvider. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockUserProvider(t interface {
@@ -941,6 +998,69 @@ func (_c *MockUserProvider_GetUserByID_Call) Return(userWithProfile *model.UserW
 }
 
 func (_c *MockUserProvider_GetUserByID_Call) RunAndReturn(run func(ctx context.Context, id uuid.UUID, withProfile bool) (*model.UserWithProfile, error)) *MockUserProvider_GetUserByID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateUserPassword provides a mock function for the type MockUserProvider
+func (_mock *MockUserProvider) UpdateUserPassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) error {
+	ret := _mock.Called(ctx, userID, newPasswordHash)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateUserPassword")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) error); ok {
+		r0 = returnFunc(ctx, userID, newPasswordHash)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserProvider_UpdateUserPassword_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserPassword'
+type MockUserProvider_UpdateUserPassword_Call struct {
+	*mock.Call
+}
+
+// UpdateUserPassword is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID uuid.UUID
+//   - newPasswordHash string
+func (_e *MockUserProvider_Expecter) UpdateUserPassword(ctx any, userID any, newPasswordHash any) *MockUserProvider_UpdateUserPassword_Call {
+	return &MockUserProvider_UpdateUserPassword_Call{Call: _e.mock.On("UpdateUserPassword", ctx, userID, newPasswordHash)}
+}
+
+func (_c *MockUserProvider_UpdateUserPassword_Call) Run(run func(ctx context.Context, userID uuid.UUID, newPasswordHash string)) *MockUserProvider_UpdateUserPassword_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserProvider_UpdateUserPassword_Call) Return(err error) *MockUserProvider_UpdateUserPassword_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserProvider_UpdateUserPassword_Call) RunAndReturn(run func(ctx context.Context, userID uuid.UUID, newPasswordHash string) error) *MockUserProvider_UpdateUserPassword_Call {
 	_c.Call.Return(run)
 	return _c
 }
