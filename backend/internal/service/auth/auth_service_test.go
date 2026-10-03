@@ -47,7 +47,7 @@ func newTestData(t *testing.T, d *deps, cfg *config.Config, pass *string) *testD
 	}
 
 	if testData.pass == nil {
-		testData.pass = util.Ptr("somePass98")
+		testData.pass = new("somePass98")
 	}
 
 	passwordHash, err := util.Hash(*testData.pass)
@@ -649,7 +649,7 @@ func TestResetPassword(t *testing.T) {
 					}, nil)
 				d.repo.EXPECT().SetResetTokenUsedByID(mock.Anything, targetToken.ID).
 					Return(nil)
-				d.userSvc.EXPECT().UpdateUserPassword(mock.Anything, dt.user.ID, mock.IsType("")).
+				d.userSvc.EXPECT().UpdateUserPasswordHash(mock.Anything, dt.user.ID, mock.IsType("")).
 					RunAndReturn(func(ctx context.Context, userID uuid.UUID, newPasswordHash string) error {
 						ok := util.IsValidHash(newPasswordHash)
 						require.True(t, ok)
@@ -672,7 +672,7 @@ func TestResetPassword(t *testing.T) {
 					}, nil)
 				d.repo.EXPECT().SetResetTokenUsedByID(mock.Anything, targetToken.ID).
 					Return(nil)
-				d.userSvc.EXPECT().UpdateUserPassword(mock.Anything, dt.user.ID, mock.IsType("")).
+				d.userSvc.EXPECT().UpdateUserPasswordHash(mock.Anything, dt.user.ID, mock.IsType("")).
 					RunAndReturn(func(ctx context.Context, userID uuid.UUID, newPasswordHash string) error {
 						ok := util.IsValidHash(newPasswordHash)
 						require.True(t, ok)

@@ -432,7 +432,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, newPassword string, res
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	err = s.userService.UpdateUserPassword(ctx, user.ID, hashedPassword)
+	err = s.userService.UpdateUserPasswordHash(ctx, user.ID, hashedPassword)
 	if errors.Is(err, repository.ErrNoAffectedRows) {
 		log.Printf("failed to update user password: %s", err.Error())
 		return nil, model.AuthErrorResetTokenInvalid()

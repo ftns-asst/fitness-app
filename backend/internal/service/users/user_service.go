@@ -29,8 +29,8 @@ func NewService(cfg *config.Config,
 	}
 }
 
-func (u *UserService) CheckUserWithEmailExists(ctx context.Context, email string) (exists bool, err error) {
-	exists, err = u.userRepo.CheckUserWithEmailExists(ctx, email)
+func (s *UserService) CheckUserWithEmailExists(ctx context.Context, email string) (exists bool, err error) {
+	exists, err = s.userRepo.CheckUserWithEmailExists(ctx, email)
 	if err != nil {
 		return false, fmt.Errorf("failed to check user with email exists: %w", err)
 	}
@@ -107,13 +107,16 @@ func (s *UserService) UpdateUserProfile(ctx context.Context, userID uuid.UUID, i
 }
 
 // update user password hash, DO NOT USE WITH RAW PASSWORD
-func (s *UserService) UpdateUserPassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) error {
+func (s *UserService) UpdateUserPasswordHash(ctx context.Context, userID uuid.UUID, newPasswordHash string) error {
 	isValid := util.IsValidHash(newPasswordHash)
 	if !isValid {
 		return fmt.Errorf("new password hash is invalid")
 	}
 
 	err := s.userRepo.UpdateUserPassword(ctx, userID, newPasswordHash)
+	if errors.Is(err, repository.ErrNoAffectedRows) {
+		return fmt.Errorf("user not found to update password: %w", model.ErrNotFound)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to update user password: %w", err)
 	}

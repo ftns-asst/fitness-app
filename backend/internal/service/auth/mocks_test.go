@@ -1002,12 +1002,12 @@ func (_c *MockUserProvider_GetUserByID_Call) RunAndReturn(run func(ctx context.C
 	return _c
 }
 
-// UpdateUserPassword provides a mock function for the type MockUserProvider
-func (_mock *MockUserProvider) UpdateUserPassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) error {
+// UpdateUserPasswordHash provides a mock function for the type MockUserProvider
+func (_mock *MockUserProvider) UpdateUserPasswordHash(ctx context.Context, userID uuid.UUID, newPasswordHash string) error {
 	ret := _mock.Called(ctx, userID, newPasswordHash)
 
 	if len(ret) == 0 {
-		panic("no return value specified for UpdateUserPassword")
+		panic("no return value specified for UpdateUserPasswordHash")
 	}
 
 	var r0 error
@@ -1019,20 +1019,20 @@ func (_mock *MockUserProvider) UpdateUserPassword(ctx context.Context, userID uu
 	return r0
 }
 
-// MockUserProvider_UpdateUserPassword_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserPassword'
-type MockUserProvider_UpdateUserPassword_Call struct {
+// MockUserProvider_UpdateUserPasswordHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserPasswordHash'
+type MockUserProvider_UpdateUserPasswordHash_Call struct {
 	*mock.Call
 }
 
-// UpdateUserPassword is a helper method to define mock.On call
+// UpdateUserPasswordHash is a helper method to define mock.On call
 //   - ctx context.Context
 //   - userID uuid.UUID
 //   - newPasswordHash string
-func (_e *MockUserProvider_Expecter) UpdateUserPassword(ctx any, userID any, newPasswordHash any) *MockUserProvider_UpdateUserPassword_Call {
-	return &MockUserProvider_UpdateUserPassword_Call{Call: _e.mock.On("UpdateUserPassword", ctx, userID, newPasswordHash)}
+func (_e *MockUserProvider_Expecter) UpdateUserPasswordHash(ctx any, userID any, newPasswordHash any) *MockUserProvider_UpdateUserPasswordHash_Call {
+	return &MockUserProvider_UpdateUserPasswordHash_Call{Call: _e.mock.On("UpdateUserPasswordHash", ctx, userID, newPasswordHash)}
 }
 
-func (_c *MockUserProvider_UpdateUserPassword_Call) Run(run func(ctx context.Context, userID uuid.UUID, newPasswordHash string)) *MockUserProvider_UpdateUserPassword_Call {
+func (_c *MockUserProvider_UpdateUserPasswordHash_Call) Run(run func(ctx context.Context, userID uuid.UUID, newPasswordHash string)) *MockUserProvider_UpdateUserPasswordHash_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1055,12 +1055,12 @@ func (_c *MockUserProvider_UpdateUserPassword_Call) Run(run func(ctx context.Con
 	return _c
 }
 
-func (_c *MockUserProvider_UpdateUserPassword_Call) Return(err error) *MockUserProvider_UpdateUserPassword_Call {
+func (_c *MockUserProvider_UpdateUserPasswordHash_Call) Return(err error) *MockUserProvider_UpdateUserPasswordHash_Call {
 	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockUserProvider_UpdateUserPassword_Call) RunAndReturn(run func(ctx context.Context, userID uuid.UUID, newPasswordHash string) error) *MockUserProvider_UpdateUserPassword_Call {
+func (_c *MockUserProvider_UpdateUserPasswordHash_Call) RunAndReturn(run func(ctx context.Context, userID uuid.UUID, newPasswordHash string) error) *MockUserProvider_UpdateUserPasswordHash_Call {
 	_c.Call.Return(run)
 	return _c
 }
