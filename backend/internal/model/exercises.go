@@ -16,7 +16,7 @@ type (
 		OwnerID      uuid.UUID     `db:"owner_id"`
 		IsPublic     bool          `db:"is_public"`
 		Name         string        `db:"name"`
-		Description  string        `db:"description"`
+		Description  *string       `db:"description"`
 		MuscleGroups []MuscleGroup `db:"muscle_group"`
 		Equipments   []Equipment   `db:"equipment"`
 		CreatedAt    time.Time     `db:"created_at"`
@@ -37,6 +37,14 @@ type (
 		MuscleGroups []MuscleGroup
 		Equipments   []Equipment
 	} // @Name UpdateExerciseRequestBody
+
+	CreateExerciseInput struct {
+		IsPublic     bool
+		Name         string
+		Description  *string
+		MuscleGroups []MuscleGroup
+		Equipments   []Equipment
+	}
 )
 
 const (

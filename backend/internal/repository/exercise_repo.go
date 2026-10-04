@@ -40,10 +40,9 @@ func (r *ExerciseRepo) CreateExercise(ctx context.Context, exercise *model.Exerc
 			name,
 			description,
 			muscle_groups,
-			equipments,
-			created_at
+			equipments
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id
 	`
 
