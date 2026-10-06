@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS exercises (
     equipment TEXT[] NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
-)
+);
 
 CREATE INDEX idx_exercises_muscle_group ON exercises USING GIN (muscle_group);
 CREATE INDEX idx_exercises_equipment ON exercises USING GIN (equipment);

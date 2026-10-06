@@ -5,18 +5,56 @@ definitions:
       email:
         type: string
     required:
-    - email
+      - email
     type: object
   CheckEmailResponse:
     properties:
       free:
         type: boolean
     type: object
+  CreateExerciseRequestBody:
+    properties:
+      description:
+        type: string
+      equipment:
+        items:
+          type: string
+        type: array
+      is_public:
+        type: boolean
+      muscle_groups:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+    type: object
   ErrorResponse:
     properties:
       key:
         type: string
       message:
+        type: string
+    type: object
+  Exercise:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      equipment:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      muscle_groups:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      owner_id:
         type: string
     type: object
   LogInRequestBody:
@@ -28,8 +66,8 @@ definitions:
         minLength: 8
         type: string
     required:
-    - email
-    - password
+      - email
+      - password
     type: object
   LogInResponse:
     properties:
@@ -43,14 +81,14 @@ definitions:
       email:
         type: string
     required:
-    - email
+      - email
     type: object
   RefreshTokensRequestBody:
     properties:
       refresh_token:
         type: string
     required:
-    - refresh_token
+      - refresh_token
     type: object
   RefreshTokensResponse:
     properties:
@@ -66,8 +104,8 @@ definitions:
       reset_token:
         type: string
     required:
-    - new_password
-    - reset_token
+      - new_password
+      - reset_token
     type: object
   ResetPasswordResponse:
     properties:
@@ -87,9 +125,9 @@ definitions:
         minLength: 8
         type: string
     required:
-    - email
-    - name
-    - password
+      - email
+      - name
+      - password
     type: object
   SignUpResponse:
     properties:
@@ -105,6 +143,25 @@ definitions:
       refresh_token:
         type: string
     type: object
+  UpdateExerciseRequestBody:
+    properties:
+      description:
+        type: string
+      equipment:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      is_public:
+        type: boolean
+      muscle_groups:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+    type: object
   UpdateUserProfileRequestBody:
     properties:
       age:
@@ -113,8 +170,8 @@ definitions:
         type: integer
       gender:
         enum:
-        - male
-        - female
+          - male
+          - female
         type: string
       height:
         maximum: 300
@@ -142,8 +199,8 @@ definitions:
         type: integer
       gender:
         enum:
-        - male
-        - female
+          - male
+          - female
         type: string
       height:
         type: integer
@@ -172,8 +229,8 @@ definitions:
       email:
         type: string
     required:
-    - code
-    - email
+      - code
+      - email
     type: object
   VerifyRecoveryCodeResponse:
     properties:
@@ -189,17 +246,17 @@ paths:
   /auth/check-email:
     post:
       consumes:
-      - application/json
+        - application/json
       operationId: checkEmail
       parameters:
-      - description: CheckEmail body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/CheckEmailRequestBody'
+        - description: CheckEmail body
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/CheckEmailRequestBody'
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -219,21 +276,21 @@ paths:
             $ref: '#/definitions/ErrorResponse'
       summary: Check if email is already taken
       tags:
-      - auth
+        - auth
   /auth/login:
     post:
       consumes:
-      - application/json
+        - application/json
       operationId: logIn
       parameters:
-      - description: LogIn body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/LogInRequestBody'
+        - description: LogIn body
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/LogInRequestBody'
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -253,21 +310,21 @@ paths:
             $ref: '#/definitions/ErrorResponse'
       summary: Log in an existing user
       tags:
-      - auth
+        - auth
   /auth/password-recovery:
     post:
       consumes:
-      - application/json
+        - application/json
       operationId: passwordRecovery
       parameters:
-      - description: Request body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/PasswordRecoveryRequestBody'
+        - description: Request body
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/PasswordRecoveryRequestBody'
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -286,21 +343,21 @@ paths:
       summary: Recover password by email, sends verification code to email, no response
         data
       tags:
-      - auth
+        - auth
   /auth/password-recovery/reset:
     post:
       consumes:
-      - application/json
+        - application/json
       operationId: resetPassword
       parameters:
-      - description: Request body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/ResetPasswordRequestBody'
+        - description: Request body
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/ResetPasswordRequestBody'
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -320,21 +377,21 @@ paths:
             $ref: '#/definitions/ErrorResponse'
       summary: Reset password by reset token
       tags:
-      - auth
+        - auth
   /auth/password-recovery/verify:
     post:
       consumes:
-      - application/json
+        - application/json
       operationId: verifyCode
       parameters:
-      - description: Request body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/VerifyRecoveryCodeRequestBody'
+        - description: Request body
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/VerifyRecoveryCodeRequestBody'
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -354,21 +411,21 @@ paths:
             $ref: '#/definitions/ErrorResponse'
       summary: Verify otp code
       tags:
-      - auth
+        - auth
   /auth/refresh:
     post:
       consumes:
-      - application/json
+        - application/json
       operationId: refreshTokens
       parameters:
-      - description: RefreshTokens body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/RefreshTokensRequestBody'
+        - description: RefreshTokens body
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/RefreshTokensRequestBody'
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -388,21 +445,21 @@ paths:
             $ref: '#/definitions/ErrorResponse'
       summary: Refresh authentication tokens
       tags:
-      - auth
+        - auth
   /auth/signup:
     post:
       consumes:
-      - application/json
+        - application/json
       operationId: signUp
       parameters:
-      - description: SignUp body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/SignUpRequestBody'
+        - description: SignUp body
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/SignUpRequestBody'
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -422,25 +479,288 @@ paths:
             $ref: '#/definitions/ErrorResponse'
       summary: Sign up a new user
       tags:
-      - auth
+        - auth
+  /equipments:
+    get:
+      operationId: getEquipments
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+      summary: Get all equipment types
+      tags:
+        - exercises
+  /exercises:
+    get:
+      consumes:
+        - application/json
+      description: 'Authorization is optional: with a token, own exercises are included
+        in the "own" and "all" lists'
+      operationId: listExercises
+      parameters:
+        - description: list type
+          enum:
+            - own
+            - public
+            - basic
+            - all
+          in: query
+          name: type
+          required: true
+          type: string
+        - collectionFormat: multi
+          description: filter by muscle groups
+          in: query
+          items:
+            type: string
+          name: muscle_group
+          type: array
+        - collectionFormat: multi
+          description: filter by equipment
+          in: query
+          items:
+            type: string
+          name: equipment
+          type: array
+        - description: search by name
+          in: query
+          name: search
+          type: string
+        - description: page size
+          in: query
+          maximum: 1000
+          minimum: 1
+          name: limit
+          required: true
+          type: integer
+        - description: page offset
+          in: query
+          maximum: 100000
+          minimum: 0
+          name: offset
+          required: true
+          type: integer
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/Exercise'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: List exercises
+      tags:
+        - exercises
+    post:
+      consumes:
+        - application/json
+      operationId: createExercise
+      parameters:
+        - description: exercise body
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/CreateExerciseRequestBody'
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CreateExerciseRequestBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+        - BearerAuth: []
+      summary: Create exercise
+      tags:
+        - exercises
+  /exercises/{id}:
+    delete:
+      operationId: deleteExercise
+      parameters:
+        - description: exercise id
+          format: uuid
+          in: path
+          name: id
+          required: true
+          type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+        - BearerAuth: []
+      summary: Delete exercise
+      tags:
+        - exercises
+    get:
+      operationId: getExerciseByID
+      parameters:
+        - description: exercise id
+          format: uuid
+          in: path
+          name: id
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Exercise'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+        - BearerAuth: []
+      summary: Get exercise by ID
+      tags:
+        - exercises
+    patch:
+      consumes:
+        - application/json
+      operationId: updateExercise
+      parameters:
+        - description: exercise id
+          format: uuid
+          in: path
+          name: id
+          required: true
+          type: string
+        - description: exercise body, id must match path id
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateExerciseRequestBody'
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Exercise'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+        - BearerAuth: []
+      summary: Update exercise
+      tags:
+        - exercises
+  /muscle-groups:
+    get:
+      operationId: getMuscleGroups
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+      summary: Get all muscle groups
+      tags:
+        - exercises
   /users/{id}:
     get:
       consumes:
-      - application/json
+        - application/json
       operationId: getUserByID
       parameters:
-      - description: user id
-        format: uuid
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: if true - resposne with user profile
-        in: query
-        name: withProfile
-        type: boolean
+        - description: user id
+          format: uuid
+          in: path
+          name: id
+          required: true
+          type: string
+        - description: if true - resposne with user profile
+          in: query
+          name: withProfile
+          type: boolean
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -460,19 +780,19 @@ paths:
             $ref: '#/definitions/ErrorResponse'
       summary: Get user by ID
       tags:
-      - users
+        - users
   /users/me:
     get:
       consumes:
-      - application/json
+        - application/json
       operationId: getMe
       parameters:
-      - description: if true - resposne with user profile
-        in: query
-        name: withProfile
-        type: boolean
+        - description: if true - resposne with user profile
+          in: query
+          name: withProfile
+          type: boolean
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -492,21 +812,21 @@ paths:
             $ref: '#/definitions/ErrorResponse'
       summary: Get user by provided access token
       tags:
-      - users
+        - users
   /users/me/profile:
     patch:
       consumes:
-      - application/json
+        - application/json
       operationId: updateUserProfile
       parameters:
-      - description: request body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/UpdateUserProfileRequestBody'
+        - description: request body
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateUserProfileRequestBody'
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
@@ -526,5 +846,5 @@ paths:
             $ref: '#/definitions/ErrorResponse'
       summary: Update user profile
       tags:
-      - users
+        - users
 swagger: "2.0"

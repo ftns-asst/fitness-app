@@ -15,30 +15,34 @@ type (
 		MuscleGroups []string   `json:"muscle_groups"`
 		Equipment    []string   `json:"equipment"`
 		CreatedAt    time.Time  `json:"created_at"`
-	}
+	} // @Name Exercise
 	ExerciseInfoDTO struct {
 		Name         *string  `json:"name,omitempty"`
 		IsPublic     *bool    `json:"is_public"`
 		Description  *string  `json:"description,omitempty"`
 		MuscleGroups []string `json:"muscle_groups"`
 		Equipment    []string `json:"equipment"`
-	}
+	} // @Name ExerciseInfo
 	CreateExerciseRequestBody struct {
-		ExerciseDTO
-	}
+		Name         string
+		IsPublic     bool     `json:"is_public"`
+		Description  *string  `json:"description,omitempty"`
+		MuscleGroups []string `json:"muscle_groups"`
+		Equipment    []string `json:"equipment"`
+	} // @Name CreateExerciseRequestBody
 	UpdateExerciseRequestBody struct {
 		ID uuid.UUID `json:"id"`
 		ExerciseInfoDTO
-	}
+	} // @Name UpdateExerciseRequestBody
 	ListExerciseQueryParams struct {
 		Type         string   `form:"type" binding:"required,oneof=own public basic all"`
 		MuscleGroups []string `form:"muscle_group"`
 		Equipment    []string `form:"equipment"`
 		Search       *string  `form:"search,omitempty"`
 		PageQueryParams
-	}
+	} // @Name ListExerciseQueryParams
 	PageQueryParams struct {
 		Limit  int `form:"limit" binding:"required,gte=1,lte=1000"`
 		Offset int `form:"offset" binding:"required,gte=1,lte=100000"`
-	}
+	} // @Name PageQueryParams
 )

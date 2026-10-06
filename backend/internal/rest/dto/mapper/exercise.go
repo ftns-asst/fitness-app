@@ -45,6 +45,23 @@ func ConvertExerciseFromDTO(dto *dto.ExerciseDTO) *model.Exercise {
 		CreatedAt: dto.CreatedAt,
 	}
 }
+
+func ConvertExerciseFromCreateDTO(dto *dto.CreateExerciseRequestBody) *model.Exercise {
+	if dto == nil {
+		return nil
+	}
+	return &model.Exercise{
+		Name:        dto.Name,
+		Description: dto.Description,
+		IsPublic:    dto.IsPublic,
+		MuscleGroups: util.Map(dto.MuscleGroups, func(s string) model.MuscleGroup {
+			return model.MuscleGroup(s)
+		}),
+		Equipments: util.Map(dto.Equipment, func(s string) model.Equipment {
+			return model.Equipment(s)
+		}),
+	}
+}
 func ConvertExerciseInputFromDTO(d *dto.ExerciseInfoDTO) *model.ExerciseInput {
 	if d == nil {
 		return nil

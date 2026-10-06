@@ -39,6 +39,7 @@ func OptionalAuthMiddleware(secretKey string) gin.HandlerFunc {
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 		if token == "" {
 			c.Next()
+			return
 		}
 		tokenInfo, err := jwtutil.ParseJWTToken(token, secretKey)
 		if errors.Is(err, jwtutil.ErrTokenExpired) {

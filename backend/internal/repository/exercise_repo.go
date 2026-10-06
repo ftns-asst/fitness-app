@@ -39,8 +39,8 @@ func (r *ExerciseRepo) CreateExercise(ctx context.Context, exercise *model.Exerc
 			is_public,
 			name,
 			description,
-			muscle_groups,
-			equipments
+			muscle_group,
+			equipment
 		)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id
@@ -52,8 +52,7 @@ func (r *ExerciseRepo) CreateExercise(ctx context.Context, exercise *model.Exerc
 		exercise.Name,
 		exercise.Description,
 		exercise.MuscleGroups,
-		exercise.Equipments,
-		exercise.CreatedAt).
+		exercise.Equipments).
 		Scan(&exercise.ID)
 	if err != nil {
 		return nil, fmt.Errorf("insert failed: %w", err)
@@ -70,8 +69,8 @@ func (r *ExerciseRepo) FillExercises(ctx context.Context, exercises []*model.Exe
 			"is_public",
 			"name",
 			"description",
-			"muscle_groups",
-			"equipments",
+			"muscle_group",
+			"equipment",
 			"created_at"},
 		pgx.CopyFromSlice(len(exercises), func(i int) ([]interface{}, error) {
 			ex := exercises[i]
@@ -161,7 +160,7 @@ func (r *ExerciseRepo) GetExercises(ctx context.Context, filters *model.Exercise
 
 	// muscle groups filter
 	if len(filters.MuscleGroups) > 0 {
-		query.WriteString(" AND muscle_groups && $2") // any intersection
+		query.WriteString(" AND muscle_group && $2") // any intersection
 		args = append(args, filters.MuscleGroups)
 	}
 
@@ -201,8 +200,8 @@ func (r *ExerciseRepo) UpdateExercise(ctx context.Context, input *model.UpdateEx
 			is_public = COALESCE($2, is_public),
 			name = COALESCE($3, name),
 			description = COALESCE($4, description),
-			muscle_groups = COALESCE($5, muscle_groups),
-			equipments = COALESCE($6, equipments)
+			muscle_group = COALESCE($5, muscle_group),
+			equipment = COALESCE($6, equipments)
 		WHERE id = $1
 		RETURNING *
 	`

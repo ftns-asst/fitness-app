@@ -16,24 +16,28 @@ import (
 )
 
 type Handlers struct {
-	cfg  *config.Config
-	auth *AuthHandler
-	user *UserHandler
+	cfg      *config.Config
+	auth     *AuthHandler
+	user     *UserHandler
+	exercise *ExerciseHandler
 }
 
 func newHandlers(cfg *config.Config, services *service.Services) *Handlers {
 	return &Handlers{
-		cfg:  cfg,
-		auth: NewAuthHandler(services.Auth(), services.User()),
-		user: NewUserHandler(services.User()),
+		cfg:      cfg,
+		auth:     NewAuthHandler(services.Auth(), services.User()),
+		user:     NewUserHandler(services.User()),
+		exercise: NewExerciseHandler(services.Exercise()),
 	}
 }
 
 func (h *Handlers) RegisterRoutes(r *gin.RouterGroup) {
 	authMid := AuthMiddleware(h.cfg.AccessTokenJWTSecretKey)
+	optionalAuthMid := OptionalAuthMiddleware(h.cfg.AccessTokenJWTSecretKey)
 
 	h.auth.RegisterRoutes(r)
 	h.user.RegisterRoutes(r, authMid)
+	h.exercise.RegisterRoutes(r, authMid, optionalAuthMid)
 }
 
 type ErrorResponse struct {
@@ -62,6 +66,8 @@ func handleError(c *gin.Context, err error) {
 		responseCode = http.StatusUnauthorized
 	case errors.Is(serr.Err, model.ErrBadRequest):
 		responseCode = http.StatusBadRequest
+	case errors.Is(serr.Err, model.ErrForbidden):
+		responseCode = http.StatusForbidden
 	case errors.Is(serr.Err, model.ErrNotFound):
 		responseCode = http.StatusNotFound
 	case errors.Is(serr.Err, model.ErrServiceUnavailable):
