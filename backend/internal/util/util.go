@@ -37,3 +37,12 @@ func Dedup[T any, K comparable](slice []T, keyFunc func(t T) K) []T {
 	}
 	return res
 }
+
+func Map[T any, K any](slice []T, keyFunc func(t T) K) []K {
+	res := make([]K, 0, len(slice))
+	for _, item := range slice {
+		key := keyFunc(item)
+		res = append(res, key)
+	}
+	return res
+}

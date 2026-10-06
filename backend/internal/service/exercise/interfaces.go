@@ -14,4 +14,5 @@ type ExerciseRepo interface {
 	GetExercises(ctx context.Context, filters *model.ExerciseFilters, page *model.PageInfo) ([]*model.Exercise, error)
 	UpdateExercise(ctx context.Context, input *model.UpdateExerciseInput) (*model.Exercise, error)
 	DeleteExercise(ctx context.Context, id uuid.UUID) error
+	IsUserOwnerCheck(ctx context.Context, userID uuid.UUID, exerciseID uuid.UUID) (bool, error)
 }

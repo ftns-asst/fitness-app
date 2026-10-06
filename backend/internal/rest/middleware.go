@@ -32,3 +32,28 @@ func AuthMiddleware(secretKey string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func OptionalAuthMiddleware(secretKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		if token == "" {
+			c.Next()
+		}
+		tokenInfo, err := jwtutil.ParseJWTToken(token, secretKey)
+		if errors.Is(err, jwtutil.ErrTokenExpired) {
+			c.Abort()
+			handleError(c, model.AuthErrorTokenExpired())
+			return
+		}
+		if err != nil {
+			c.Abort()
+			handleError(c, model.AuthErrorInvalidToken())
+			return
+		}
+
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), model.ContextKeyUserID, tokenInfo.UserID))
+
+		c.Next()
+	}
+}

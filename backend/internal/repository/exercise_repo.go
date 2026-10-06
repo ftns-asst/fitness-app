@@ -171,6 +171,11 @@ func (r *ExerciseRepo) GetExercises(ctx context.Context, filters *model.Exercise
 		args = append(args, filters.Equipments)
 	}
 
+	if filters.Search != nil {
+		fmt.Fprint(&query, " AND name ILIKE '%' || "+fmt.Sprintf("$%d", len(args)+1)+" || '%' ESCAPE '\\'")
+		args = append(args, likeEscaper.Replace(*filters.Search))
+	}
+
 	fmt.Fprintf(&query, " LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2)
 	args = append(args, page.Limit, page.Offset)
 
@@ -253,4 +258,24 @@ func (r *ExerciseRepo) DeleteExercise(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+func (r *ExerciseRepo) IsUserOwnerCheck(ctx context.Context, userID uuid.UUID, exerciseID uuid.UUID) (bool, error) {
+	conn := r.db(ctx)
+
+	query := `
+		SELECT EXISTS (
+			SELECT 1 FROM exercises
+	        WHERE id = $1
+	        	AND owner_id = $2
+		)
+	`
+
+	isOwner := false
+	err := conn.QueryRow(ctx, query, exerciseID, userID).Scan(&isOwner)
+	if err != nil {
+		return false, fmt.Errorf("select failed: %w", err)
+	}
+
+	return isOwner, nil
 }

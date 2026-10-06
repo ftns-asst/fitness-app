@@ -13,7 +13,7 @@ type (
 	Equipment   string
 	Exercise    struct {
 		ID           uuid.UUID     `db:"id"`
-		OwnerID      uuid.UUID     `db:"owner_id"`
+		OwnerID      *uuid.UUID    `db:"owner_id"`
 		IsPublic     bool          `db:"is_public"`
 		Name         string        `db:"name"`
 		Description  *string       `db:"description"`
@@ -27,23 +27,20 @@ type (
 		UserID       *uuid.UUID    // for own and user list types
 		MuscleGroups []MuscleGroup // filter by muscle groups
 		Equipments   []Equipment   // filter by available equipments
+		Search       *string
 	}
 
-	UpdateExerciseInput struct {
-		ID           uuid.UUID
+	ExerciseInput struct {
 		IsPublic     *bool
 		Name         *string
 		Description  *string
 		MuscleGroups []MuscleGroup
 		Equipments   []Equipment
-	} // @Name UpdateExerciseRequestBody
+	}
 
-	CreateExerciseInput struct {
-		IsPublic     bool
-		Name         string
-		Description  *string
-		MuscleGroups []MuscleGroup
-		Equipments   []Equipment
+	UpdateExerciseInput struct {
+		ID uuid.UUID
+		ExerciseInput
 	}
 )
 
@@ -181,3 +178,72 @@ var EquipmentList = NewSet(
 	EquipmentElliptical,
 	EquipmentMat,
 )
+
+var createdAt = time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+var TestExercises = []*Exercise{
+	{
+		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e01"),
+		IsPublic:     true,
+		Name:         "Жим штанги лёжа",
+		MuscleGroups: []MuscleGroup{MuscleGroupChest, MuscleGroupTriceps, MuscleGroupFrontDelts},
+		Equipments:   []Equipment{EquipmentBarbell, EquipmentBench},
+		CreatedAt:    createdAt,
+	},
+	{
+		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e02"),
+		IsPublic:     true,
+		Name:         "Приседания со штангой",
+		MuscleGroups: []MuscleGroup{MuscleGroupQuads, MuscleGroupGlutes, MuscleGroupHamstrings},
+		Equipments:   []Equipment{EquipmentBarbell, EquipmentSquatRack},
+		CreatedAt:    createdAt,
+	},
+	{
+		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e03"),
+		IsPublic:     true,
+		Name:         "Становая тяга",
+		MuscleGroups: []MuscleGroup{MuscleGroupLowerBack, MuscleGroupHamstrings, MuscleGroupGlutes, MuscleGroupTraps},
+		Equipments:   []Equipment{EquipmentBarbell},
+		CreatedAt:    createdAt,
+	},
+	{
+		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e04"),
+		IsPublic:     true,
+		Name:         "Подтягивания",
+		MuscleGroups: []MuscleGroup{MuscleGroupLats, MuscleGroupBiceps, MuscleGroupUpperBack},
+		Equipments:   []Equipment{EquipmentPullUpBar},
+		CreatedAt:    createdAt,
+	},
+	{
+		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e05"),
+		IsPublic:     true,
+		Name:         "Жим гантелей сидя",
+		MuscleGroups: []MuscleGroup{MuscleGroupFrontDelts, MuscleGroupSideDelts, MuscleGroupTriceps},
+		Equipments:   []Equipment{EquipmentDumbbell, EquipmentBench},
+		CreatedAt:    createdAt,
+	},
+	{
+		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e06"),
+		IsPublic:     true,
+		Name:         "Отжимания",
+		MuscleGroups: []MuscleGroup{MuscleGroupChest, MuscleGroupTriceps, MuscleGroupFrontDelts},
+		Equipments:   []Equipment{EquipmentBodyweight},
+		CreatedAt:    createdAt,
+	},
+	{
+		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e07"),
+		IsPublic:     true,
+		Name:         "Сгибание рук с гантелями",
+		MuscleGroups: []MuscleGroup{MuscleGroupBiceps, MuscleGroupForearms},
+		Equipments:   []Equipment{EquipmentDumbbell},
+		CreatedAt:    createdAt,
+	},
+	{
+		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e08"),
+		IsPublic:     true,
+		Name:         "Скручивания на ролике",
+		MuscleGroups: []MuscleGroup{MuscleGroupAbs, MuscleGroupOblique},
+		Equipments:   []Equipment{EquipmentAbWheel, EquipmentMat},
+		CreatedAt:    createdAt,
+	},
+}
