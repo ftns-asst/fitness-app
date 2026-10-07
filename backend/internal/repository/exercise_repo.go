@@ -43,7 +43,7 @@ func (r *ExerciseRepo) CreateExercise(ctx context.Context, exercise *model.Exerc
 			equipment
 		)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id
+		RETURNING id, created_at
 	`
 
 	err := conn.QueryRow(ctx, query,
@@ -53,7 +53,7 @@ func (r *ExerciseRepo) CreateExercise(ctx context.Context, exercise *model.Exerc
 		exercise.Description,
 		exercise.MuscleGroups,
 		exercise.Equipments).
-		Scan(&exercise.ID)
+		Scan(&exercise.ID, &exercise.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert failed: %w", err)
 	}
@@ -64,8 +64,24 @@ func (r *ExerciseRepo) CreateExercise(ctx context.Context, exercise *model.Exerc
 func (r *ExerciseRepo) FillExercises(ctx context.Context, exercises []*model.Exercise) error {
 	conn := r.db(ctx)
 
-	count, err := conn.CopyFrom(ctx, pgx.Identifier{"exercises"},
-		[]string{"owner_id",
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed begin transaction: %w", err)
+	}
+	defer model.CheckRollback(ctx, tx)
+
+	conn = tx
+	_, err = conn.Exec(ctx, `
+		CREATE TEMP TABLE tmp_exercises (LIKE exercises INCLUDING DEFAULTS)
+		ON COMMIT DROP`)
+	if err != nil {
+		return err
+	}
+
+	count, err := conn.CopyFrom(ctx, pgx.Identifier{"tmp_exercises"},
+		[]string{
+			"id",
+			"owner_id",
 			"is_public",
 			"name",
 			"description",
@@ -75,6 +91,7 @@ func (r *ExerciseRepo) FillExercises(ctx context.Context, exercises []*model.Exe
 		pgx.CopyFromSlice(len(exercises), func(i int) ([]interface{}, error) {
 			ex := exercises[i]
 			return []interface{}{
+				ex.ID,
 				ex.OwnerID,
 				ex.IsPublic,
 				ex.Name,
@@ -93,6 +110,20 @@ func (r *ExerciseRepo) FillExercises(ctx context.Context, exercises []*model.Exe
 		return fmt.Errorf("copy failed: inserted %d, expected %d", count, len(exercises))
 	}
 
+	_, err = conn.Exec(ctx, `
+        INSERT INTO exercises 
+        SELECT * FROM tmp_exercises
+        ON CONFLICT (id) DO NOTHING
+    `)
+
+	if err != nil {
+		return fmt.Errorf("insert from tmp table failed: %w", err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed commit transaction: %w", err)
+	}
 	return nil
 }
 
@@ -104,14 +135,6 @@ func (r *ExerciseRepo) GetExerciseByID(ctx context.Context, id uuid.UUID) (*mode
 		FROM exercises
 		WHERE id = $1
 	`
-
-	_, err := conn.Query(ctx, query, id)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, fmt.Errorf("query failed: %w", err)
-	}
 
 	rows, err := conn.Query(ctx, query, id)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -160,7 +183,7 @@ func (r *ExerciseRepo) GetExercises(ctx context.Context, filters *model.Exercise
 
 	// muscle groups filter
 	if len(filters.MuscleGroups) > 0 {
-		query.WriteString(" AND muscle_group && $2") // any intersection
+		fmt.Fprintf(&query, " AND muscle_group && $%d", len(args)+1) // any intersection
 		args = append(args, filters.MuscleGroups)
 	}
 
@@ -174,6 +197,8 @@ func (r *ExerciseRepo) GetExercises(ctx context.Context, filters *model.Exercise
 		fmt.Fprint(&query, " AND name ILIKE '%' || "+fmt.Sprintf("$%d", len(args)+1)+" || '%' ESCAPE '\\'")
 		args = append(args, likeEscaper.Replace(*filters.Search))
 	}
+
+	query.WriteString(" ORDER BY name")
 
 	fmt.Fprintf(&query, " LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2)
 	args = append(args, page.Limit, page.Offset)

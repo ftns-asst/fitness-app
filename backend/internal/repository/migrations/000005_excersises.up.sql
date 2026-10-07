@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS exercises (
     owner_id UUID REFERENCES users(id) ON DELETE CASCADE,
     is_public BOOLEAN NOT NULL DEFAULT FALSE,
     name VARCHAR(255) NOT NULL,
-    description TEXT NOT NULL,
+    description TEXT,
     muscle_group TEXT[] NOT NULL DEFAULT '{}',
     equipment TEXT[] NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

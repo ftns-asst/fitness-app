@@ -42,7 +42,7 @@ type (
 		PageQueryParams
 	} // @Name ListExerciseQueryParams
 	PageQueryParams struct {
-		Limit  int `form:"limit" binding:"required,gte=1,lte=1000"`
-		Offset int `form:"offset" binding:"required,gte=1,lte=100000"`
+		Limit  int `form:"limit" binding:"required,gte=0,lte=1000"`
+		Offset int `form:"offset" binding:"required,gte=0,lte=100000"`
 	} // @Name PageQueryParams
 )

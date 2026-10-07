@@ -103,5 +103,8 @@ func ConvertListExerciseQueryParams(p *dto.ListExerciseQueryParams, userID *uuid
 			ListType:     model.ExerciseListType(p.Type),
 			Search:       p.Search,
 		},
-		&model.PageInfo{}
+		&model.PageInfo{
+			Limit:  p.Limit,
+			Offset: p.Offset,
+		}
 }

@@ -6,6 +6,7 @@ import (
 	"ftns-asst/internal/rest/dto"
 	"ftns-asst/internal/rest/dto/mapper"
 	"ftns-asst/internal/util"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -85,7 +86,7 @@ func (h *ExerciseHandler) ListExercises(c *gin.Context) {
 		handleError(c, fmt.Errorf("failed to get query params from request: %w: %w", err, model.ErrBadRequest))
 		return
 	}
-
+	log.Printf("%v", params)
 	filters, page := mapper.ConvertListExerciseQueryParams(&params, &userID)
 	res, err := h.exerciseService.GetExercises(c.Request.Context(),
 		filters, page)
