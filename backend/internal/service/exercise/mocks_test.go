@@ -372,6 +372,78 @@ func (_c *MockExerciseRepo_GetExercises_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
+// IsUserOwnerCheck provides a mock function for the type MockExerciseRepo
+func (_mock *MockExerciseRepo) IsUserOwnerCheck(ctx context.Context, userID uuid.UUID, exerciseID uuid.UUID) (bool, error) {
+	ret := _mock.Called(ctx, userID, exerciseID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsUserOwnerCheck")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID) (bool, error)); ok {
+		return returnFunc(ctx, userID, exerciseID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID) bool); ok {
+		r0 = returnFunc(ctx, userID, exerciseID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID, uuid.UUID) error); ok {
+		r1 = returnFunc(ctx, userID, exerciseID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockExerciseRepo_IsUserOwnerCheck_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsUserOwnerCheck'
+type MockExerciseRepo_IsUserOwnerCheck_Call struct {
+	*mock.Call
+}
+
+// IsUserOwnerCheck is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID uuid.UUID
+//   - exerciseID uuid.UUID
+func (_e *MockExerciseRepo_Expecter) IsUserOwnerCheck(ctx any, userID any, exerciseID any) *MockExerciseRepo_IsUserOwnerCheck_Call {
+	return &MockExerciseRepo_IsUserOwnerCheck_Call{Call: _e.mock.On("IsUserOwnerCheck", ctx, userID, exerciseID)}
+}
+
+func (_c *MockExerciseRepo_IsUserOwnerCheck_Call) Run(run func(ctx context.Context, userID uuid.UUID, exerciseID uuid.UUID)) *MockExerciseRepo_IsUserOwnerCheck_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		var arg2 uuid.UUID
+		if args[2] != nil {
+			arg2 = args[2].(uuid.UUID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockExerciseRepo_IsUserOwnerCheck_Call) Return(b bool, err error) *MockExerciseRepo_IsUserOwnerCheck_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockExerciseRepo_IsUserOwnerCheck_Call) RunAndReturn(run func(ctx context.Context, userID uuid.UUID, exerciseID uuid.UUID) (bool, error)) *MockExerciseRepo_IsUserOwnerCheck_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateExercise provides a mock function for the type MockExerciseRepo
 func (_mock *MockExerciseRepo) UpdateExercise(ctx context.Context, input *model.UpdateExerciseInput) (*model.Exercise, error) {
 	ret := _mock.Called(ctx, input)
