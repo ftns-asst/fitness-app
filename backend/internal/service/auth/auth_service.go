@@ -8,8 +8,8 @@ import (
 	"ftns-asst/internal/config"
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/repository"
-	"ftns-asst/internal/service/users"
 	"ftns-asst/internal/util"
+	"ftns-asst/internal/util/jwtutil"
 	"log"
 	"math/big"
 	"time"
@@ -19,15 +19,15 @@ import (
 
 type AuthService struct {
 	cfg         *config.Config
-	userService *users.UserService
-	authRepo    *repository.AuthRepo
+	userService UserProvider
+	authRepo    AuthRepo
 	mailer      model.Mailer
 	tx          model.Transactor
 }
 
 func NewService(cfg *config.Config,
-	userService *users.UserService,
-	authRepo *repository.AuthRepo,
+	userService UserProvider,
+	authRepo AuthRepo,
 	mailer model.Mailer,
 	transactor model.Transactor,
 ) *AuthService {
@@ -172,8 +172,8 @@ func (s *AuthService) LogIn(ctx context.Context, data *model.LogInInput) (*model
 }
 
 func (s *AuthService) RefreshTokens(ctx context.Context, tokenString string) (*model.Tokens, error) {
-	tokenInfo, err := util.ParseJWTToken(tokenString, s.cfg.RefreshTokenJWTSecretKey)
-	if errors.Is(err, util.ErrTokenExpired) {
+	tokenInfo, err := jwtutil.ParseJWTToken(tokenString, s.cfg.RefreshTokenJWTSecretKey)
+	if errors.Is(err, jwtutil.ErrTokenExpired) {
 		return nil, model.AuthErrorTokenExpired()
 	}
 	if err != nil {
@@ -232,11 +232,11 @@ func (s *AuthService) RefreshTokens(ctx context.Context, tokenString string) (*m
 }
 
 func (s *AuthService) genTokens(userID uuid.UUID) (*model.TokensWithInfo, error) {
-	accessToken, err := util.GenAccessToken(userID, s.cfg.AccessTokenJWTSecretKey)
+	accessToken, err := jwtutil.GenAccessToken(userID, s.cfg.AccessTokenJWTSecretKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to gen access token: %w", err)
 	}
-	refreshToken, err := util.GenRefreshToken(userID, s.cfg.RefreshTokenJWTSecretKey)
+	refreshToken, err := jwtutil.GenRefreshToken(userID, s.cfg.RefreshTokenJWTSecretKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to gen refresh token: %w", err)
 	}

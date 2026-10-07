@@ -10,6 +10,7 @@ var (
 	ErrNotFound           = errors.New("error not found")
 	ErrBadRequest         = errors.New("error bad request")
 	ErrServiceUnavailable = errors.New("error service unavailable")
+	ErrForbidden          = errors.New("error forbidden")
 )
 
 type ServiceError struct {
@@ -20,17 +21,21 @@ type ServiceError struct {
 func (e *ServiceError) Error() string {
 	return e.Err.Error()
 }
+func (e *ServiceError) Unwrap() error {
+	return e.Err
+}
 
 const (
-	DefaultErrorKey               = "undefined_error"
-	AuthErrorIncorrectPasswordKey = "incorrect_password"
-	AuthErrorEmailAlreadyUsedKey  = "email_already_used"
-	AuthErrorInvalidTokenKey      = "invalid_token"
-	AuthErrorTokenExpiredKey      = "token_expired"
-	AuthRecoveryCodeInvalidKey    = "recovery_code_invalid"
-	AuthRecoveryCodeExpiredKey    = "recovery_code_expired"
-	AuthResetTokenInvalidKey      = "reset_token_invalid"
-	AuthResetTokenExpiredKey      = "reset_token_expired"
+	DefaultErrorKey                  = "undefined_error"
+	AuthErrorIncorrectPasswordKey    = "incorrect_password"
+	AuthErrorEmailAlreadyUsedKey     = "email_already_used"
+	AuthErrorInvalidTokenKey         = "invalid_token"
+	AuthErrorTokenExpiredKey         = "token_expired"
+	AuthRecoveryCodeInvalidKey       = "recovery_code_invalid"
+	AuthRecoveryCodeExpiredKey       = "recovery_code_expired"
+	AuthResetTokenInvalidKey         = "reset_token_invalid"
+	AuthResetTokenExpiredKey         = "reset_token_expired"
+	ExercisesFilterUserIDRequiredKey = "user_id_required_for_filter"
 )
 
 func NewError(err error) *ServiceError {
@@ -93,5 +98,12 @@ func AuthErrorResetTokenExpired() *ServiceError {
 	return &ServiceError{
 		Err: fmt.Errorf("expired reset token: %w", ErrBadRequest),
 		Key: AuthResetTokenExpiredKey,
+	}
+}
+
+func ExercisesFilterUserIDRequired() *ServiceError {
+	return &ServiceError{
+		Err: fmt.Errorf("user id is required for filter: %w", ErrBadRequest),
+		Key: ExercisesFilterUserIDRequiredKey,
 	}
 }

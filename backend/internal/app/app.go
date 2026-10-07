@@ -16,6 +16,7 @@ import (
 type App struct {
 	config     *config.Config
 	httpServer *http.Server
+	services   *service.Services
 }
 
 // initialize app components
@@ -34,11 +35,16 @@ func New(ctx context.Context, cfg *config.Config) *App {
 	return &App{
 		config:     cfg,
 		httpServer: httpServer,
+		services:   services,
 	}
 }
 
 // run http server and services
 func (a *App) Run(rootCtx context.Context) error {
+	err := a.services.Exercise().Start(rootCtx)
+	if err != nil {
+		return fmt.Errorf("exercise service start failed: %w", err)
+	}
 	shutdownChan := make(chan error)
 	go func() {
 		<-rootCtx.Done()
@@ -53,7 +59,7 @@ func (a *App) Run(rootCtx context.Context) error {
 	}()
 
 	// http server starting
-	err := a.httpServer.ListenAndServe()
+	err = a.httpServer.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("http listen and server error: %w", err)
 	}

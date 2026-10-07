@@ -38,12 +38,10 @@ func HashSHA256(value, secret string) (string, error) {
 	}
 	sha := hash.Sum(nil)
 
-	// Кодируем результат в hex-строку для удобства передачи
 	return base64.RawStdEncoding.EncodeToString(sha), nil
 }
 
 func CompareSHA256(value, targetHash, secret string) (bool, error) {
-	// Вычисляем правильную подпись для текущего сообщения
 	valueHash, err := HashSHA256(value, secret)
 	if err != nil {
 		return false, err

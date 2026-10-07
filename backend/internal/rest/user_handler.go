@@ -5,7 +5,6 @@ import (
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/rest/dto"
 	"ftns-asst/internal/rest/dto/mapper"
-	"ftns-asst/internal/service/users"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,10 +12,10 @@ import (
 )
 
 type UserHandler struct {
-	userService *users.UserService
+	userService UserService
 }
 
-func NewUserHandler(userService *users.UserService) *UserHandler {
+func NewUserHandler(userService UserService) *UserHandler {
 	return &UserHandler{
 		userService: userService,
 	}

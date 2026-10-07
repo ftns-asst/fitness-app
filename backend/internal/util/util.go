@@ -1,11 +1,7 @@
 package util
 
 import (
-	"context"
 	"crypto/rand"
-	"ftns-asst/internal/model"
-
-	"github.com/google/uuid"
 )
 
 // returns pointer to value
@@ -25,7 +21,28 @@ func RandStr() string {
 	return rand.Text()
 }
 
-func GetUserIDFromCtx(ctx context.Context) (uuid.UUID, bool) {
-	u, ok := ctx.Value(model.ContextKeyUserID).(uuid.UUID)
-	return u, ok
+func Dedup[T any, K comparable](slice []T, keyFunc func(t T) K) []T {
+	if len(slice) == 0 {
+		return slice
+	}
+	passed := make(map[K]struct{}, len(slice))
+	res := make([]T, 0, len(slice))
+	for _, item := range slice {
+		key := keyFunc(item)
+		if _, ok := passed[key]; ok {
+			continue
+		}
+		passed[key] = struct{}{}
+		res = append(res, item)
+	}
+	return res
+}
+
+func Map[T any, K any](slice []T, keyFunc func(t T) K) []K {
+	res := make([]K, 0, len(slice))
+	for _, item := range slice {
+		key := keyFunc(item)
+		res = append(res, key)
+	}
+	return res
 }
