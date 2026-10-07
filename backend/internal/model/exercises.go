@@ -1,7 +1,7 @@
 package model
 
 import (
-	"errors"
+	"fmt"
 	"ftns-asst/internal/util"
 	"time"
 
@@ -54,7 +54,7 @@ const (
 )
 
 var (
-	ErrUserIDRequired = errors.New("user id is required for this list type")
+	ErrUserIDRequired = fmt.Errorf("user id is required for this list type: %w", ErrBadRequest)
 )
 
 func (e *ExerciseFilters) ValidateAndDedup() error {

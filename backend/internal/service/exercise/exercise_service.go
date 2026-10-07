@@ -91,7 +91,7 @@ func (s *ExerciseService) GetExercises(ctx context.Context, filters *model.Exerc
 	err := filters.ValidateAndDedup()
 	if errors.Is(err, model.ErrUserIDRequired) {
 		if filters.ListType == model.ExerciseListTypeOwn {
-			return nil, model.ErrUserIDRequired
+			return nil, model.ExercisesFilterUserIDRequired()
 		}
 		return nil, model.ExercisesFilterUserIDRequired()
 	}

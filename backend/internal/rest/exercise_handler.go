@@ -106,7 +106,7 @@ func (h *ExerciseHandler) ListExercises(c *gin.Context) {
 // @Produce json
 // @Security BearerAuth
 // @Param request body dto.CreateExerciseRequestBody true "exercise body"
-// @Success 200 {object} dto.CreateExerciseRequestBody
+// @Success 200 {object} dto.ExerciseDTO
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
@@ -214,7 +214,7 @@ func (h *ExerciseHandler) UpdateExercise(c *gin.Context) {
 		return
 	}
 	if id != body.ID {
-		handleError(c, fmt.Errorf("different 'id' value from param(%s) and body(%s)", id, body.ID))
+		handleError(c, fmt.Errorf("different 'id' value from param(%s) and body(%s): %w", id, body.ID, model.ErrBadRequest))
 		return
 	}
 

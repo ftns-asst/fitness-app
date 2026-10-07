@@ -24,7 +24,7 @@ type (
 		Equipment    []string `json:"equipment"`
 	} // @Name ExerciseInfo
 	CreateExerciseRequestBody struct {
-		Name         string
+		Name         string   `json:"name"`
 		IsPublic     bool     `json:"is_public"`
 		Description  *string  `json:"description,omitempty"`
 		MuscleGroups []string `json:"muscle_groups"`
@@ -42,7 +42,7 @@ type (
 		PageQueryParams
 	} // @Name ListExerciseQueryParams
 	PageQueryParams struct {
-		Limit  int `form:"limit" binding:"required,gte=0,lte=1000"`
-		Offset int `form:"offset" binding:"required,gte=0,lte=100000"`
+		Limit  *int `form:"limit" binding:"omitempty,min=1,max=100"`
+		Offset *int `form:"offset" binding:"omitempty,min=0,max=100000"`
 	} // @Name PageQueryParams
 )

@@ -175,8 +175,11 @@ func (r *ExerciseRepo) GetExercises(ctx context.Context, filters *model.Exercise
 		query.WriteString(" AND (is_public = TRUE OR owner_id = $1)")
 		args = append(args, filters.UserID)
 	case model.ExerciseListTypePublic:
-		query.WriteString(" AND is_public = TRUE AND owner_id IS NOT NULL AND owner_id != $1")
-		args = append(args, filters.UserID)
+		query.WriteString(" AND is_public = TRUE AND owner_id IS NOT NULL")
+		if filters.UserID != nil { // if user authenticated, do not return own in public list
+			query.WriteString(" AND owner_id != $1")
+			args = append(args, *filters.UserID)
+		}
 	case model.ExerciseListTypeBasic:
 		query.WriteString(" AND owner_id IS NULL AND is_public = TRUE")
 	}
@@ -189,7 +192,7 @@ func (r *ExerciseRepo) GetExercises(ctx context.Context, filters *model.Exercise
 
 	// equipments filter
 	if len(filters.Equipments) > 0 {
-		fmt.Fprintf(&query, " AND equipments <@ $%d", len(args)+1)
+		fmt.Fprintf(&query, " AND equipment <@ $%d", len(args)+1)
 		args = append(args, filters.Equipments)
 	}
 
@@ -226,7 +229,7 @@ func (r *ExerciseRepo) UpdateExercise(ctx context.Context, input *model.UpdateEx
 			name = COALESCE($3, name),
 			description = COALESCE($4, description),
 			muscle_group = COALESCE($5, muscle_group),
-			equipment = COALESCE($6, equipments)
+			equipment = COALESCE($6, equipment)
 		WHERE id = $1
 		RETURNING *
 	`

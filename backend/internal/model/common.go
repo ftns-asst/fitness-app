@@ -42,8 +42,8 @@ func NewSet[T comparable](items ...T) Set[T] {
 }
 
 type PageInfo struct {
-	Limit  int
-	Offset int
+	Limit  *int
+	Offset *int
 }
 
 const (
@@ -53,12 +53,12 @@ const (
 )
 
 func (p *PageInfo) Normalize() *PageInfo {
-	if p.Limit <= 0 || p.Limit > MaxPageLimit {
-		p.Limit = DefaultPageLimit
+	if p.Limit == nil || *p.Limit <= 0 || *p.Limit > MaxPageLimit {
+		*p.Limit = DefaultPageLimit
 	}
 
-	if p.Offset < 0 {
-		p.Offset = DefaultPageOffset
+	if p.Offset == nil || *p.Offset < 0 {
+		*p.Offset = DefaultPageOffset
 	}
 
 	return p
