@@ -17,10 +17,10 @@ PageScaffold {
     // Панель возврата обязательна: экраны программы открыты поверх вкладок, где
     // таб-бара нет.
     BackBar {
-        Layout.fillWidth: true
         onClicked: page.backRequested()
         text: qsTr("Назад")
         visible: true
+        width: parent.width
     }
 
     caption: page.hasData ? qsTr("По завершённым тренировкам") : qsTr("Пока нет данных")
@@ -49,16 +49,34 @@ PageScaffold {
             page.reload();
     }
 
+    // Идентификатор берётся из AppContext: литерал «u1» повторялся в четырёх
+    // экранах, и любое другое значение делало программу невидимой.
+    function currentUserId() {
+        return AppContext !== undefined && AppContext !== null ? AppContext.currentUserId : "u1";
+    }
+
     function reload() {
         if (page.viewModel === undefined || page.viewModel === null)
             return;
 
+        // ProgramVM загружается здесь же: экран открыт напрямую (например, по
+        // --screen), минуя обзор, поэтому активная программа ещё не искалась.
+        // Без этого resolvedProgramId() давал пустую строку и статистика
+        // оставалась пустой при непустой базе.
+        if (page.programViewModel !== undefined && page.programViewModel !== null && page.programId.length === 0)
+            page.programViewModel.reload(page.currentUserId());
+
         page.viewModel.refresh(page.resolvedProgramId());
     }
 
+    // Ширина каждого ряда задаётся явно: колонка контента PageScaffold — это
+    // Column, а в ней `Layout.fillWidth` не действует, и без `width` ряд
+    // схлопывался бы до суммы implicitWidth карточек (то есть заметно уже
+    // области контента). Внутри ряда `Layout.fillWidth` уже работает: там
+    // настоящий layout.
     RowLayout {
-        Layout.fillWidth: true
         spacing: Spacing.listGap
+        width: parent.width
 
         MetricCard {
             Layout.fillWidth: true
@@ -73,8 +91,8 @@ PageScaffold {
         }
     }
     RowLayout {
-        Layout.fillWidth: true
         spacing: Spacing.listGap
+        width: parent.width
 
         MetricCard {
             Layout.fillWidth: true
@@ -88,13 +106,22 @@ PageScaffold {
         }
     }
     RowLayout {
-        Layout.fillWidth: true
         spacing: Spacing.listGap
+        width: parent.width
 
         MetricCard {
             Layout.fillWidth: true
             label: qsTr("Тело, кг")
             valueText: page.bodyWeightText()
+        }
+        // Выполнение по правилам стоит в паре с весом: одинокая карточка на всю
+        // ширину ряда читалась как пустое место. Метрика не серия недель (она
+        // равна нулю, пока неделю не выполнили целиком) и не дубль «Выполнения»:
+        // «Выполнение» считается по расписанию, это — по отметкам правил (§5.1).
+        MetricCard {
+            Layout.fillWidth: true
+            label: qsTr("Правила, %")
+            valueText: page.ruleAdherenceText()
         }
     }
     Label {
@@ -102,12 +129,14 @@ PageScaffold {
         font: Typography.sectionTitle
         text: qsTr("Тоннаж по неделям")
         visible: page.hasData
+        width: parent.width
     }
     LineChartCard {
-        Layout.fillWidth: true
+        captionText: page.chartCaption()
         title: qsTr("Тоннаж, кг")
         values: page.chartValues()
         visible: page.hasData
+        width: parent.width
     }
     Label {
         color: Theme.textSecondary
@@ -120,7 +149,10 @@ PageScaffold {
     }
 
     // Точки графика — простой массив чисел: LineChartCard сам раскладывает их
-    // по осям. Значения берутся из роли weeks недельных срезов.
+    // по осям. Значения берутся из строки недельного среза по имени роли:
+    // числового индекса роли в QML нет (`roleNames` отдаёт имена, а значения
+    // начинаются с Qt::UserRole + 1), поэтому чтение среза по числу возвращало
+    // пустые значения — сетка рисовалась, а линии тоннажа не было.
     function chartValues() {
         const values = [];
         const model = page.hasData ? page.viewModel.weeks : null;
@@ -129,7 +161,10 @@ PageScaffold {
             return values;
 
         for (let i = 0; i < model.rowCount(); ++i) {
-            values.push(model.data(model.index(i, 0), 256));
+            const row = model.get(i);
+
+            if (row !== undefined && row !== null && row.tonnageKg !== undefined)
+                values.push(Number(row.tonnageKg));
         }
 
         return values;
@@ -140,6 +175,36 @@ PageScaffold {
             return "—";
 
         return qsTr("%1 %").arg(Math.round(value));
+    }
+
+    // Процент по правилам без данных остаётся прочерком, а не нулём: ноль
+    // выполненных отметок и их отсутствие — разные состояния (§5.5).
+    function ruleAdherenceText() {
+        const vm = page.viewModel;
+
+        if (vm === undefined || vm === null || vm.hasRuleAdherencePercent === false)
+            return "—";
+
+        return String(Math.round(vm.ruleAdherencePercent));
+    }
+
+    // Подпись под заголовком графика: сколько недель в окне и каков пик тоннажа.
+    // Без неё линия не читается — по ней видно только форму, но не масштаб.
+    function chartCaption() {
+        const model = page.hasData ? page.viewModel.weeks : null;
+
+        if (model === undefined || model === null || model.rowCount() === 0)
+            return "";
+
+        let peak = 0;
+
+        for (let i = 0; i < model.rowCount(); ++i) {
+            const value = Number(model.get(i).tonnageKg);
+
+            peak = Math.max(peak, value);
+        }
+
+        return qsTr("%1 нед. · пик %2 кг").arg(model.rowCount()).arg(Math.round(peak));
     }
 
     function tonnageText() {

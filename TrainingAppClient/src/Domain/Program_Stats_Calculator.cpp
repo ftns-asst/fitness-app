@@ -89,6 +89,7 @@ static bool Lookup_Delta_Latest(const SProgram_Stats &in_stats, EMeasurement_Key
 
 		if (delta.Key != in_key)
 			continue;
+
 		if (delta.Has_Latest_Cm == false)
 			return false;
 
@@ -626,21 +627,19 @@ void AsProgram_Stats_Calculator::Collect_Strength(const SProgress_Facts &in_fact
 				order.append(set.Exercise_Id);
 			}
 
+			SExercise_Strength &strength = strengths[set.Exercise_Id];
+
+			// Рабочий вес — максимум за период; e1RM — максимум оценки.
+			if (strength.Has_Working_Weight_Kg == false || set.Weight_Kg > strength.Working_Weight_Kg)
 			{
-				SExercise_Strength &strength = strengths[set.Exercise_Id];
+				strength.Working_Weight_Kg = set.Weight_Kg;
+				strength.Has_Working_Weight_Kg = true;
+			}
 
-				// Рабочий вес — максимум за период; e1RM — максимум оценки.
-				if (strength.Has_Working_Weight_Kg == false || set.Weight_Kg > strength.Working_Weight_Kg)
-				{
-					strength.Working_Weight_Kg = set.Weight_Kg;
-					strength.Has_Working_Weight_Kg = true;
-				}
-
-				if (strength.Has_E1rm_Kg == false || E1rm(set) > strength.E1rm_Kg)
-				{
-					strength.E1rm_Kg = E1rm(set);
-					strength.Has_E1rm_Kg = true;
-				}
+			if (strength.Has_E1rm_Kg == false || E1rm(set) > strength.E1rm_Kg)
+			{
+				strength.E1rm_Kg = E1rm(set);
+				strength.Has_E1rm_Kg = true;
 			}
 		}
 	}

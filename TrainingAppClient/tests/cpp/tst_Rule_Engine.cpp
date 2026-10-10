@@ -18,8 +18,17 @@ private slots:
 	void overallAdherenceAggregatesRules();
 	void ruleActiveWindow();
 
+	// — Рекомендация в движке —
+	// У рекомендации нет цели, поэтому Evaluate_Value обязан сказать об этом
+	// прямо, а не вернуть «готово» для любого числа. И её отметки не должны
+	// портить adherence: пользователь отмечал совет, а процент выполнения
+	// программы от этого меняться не должен.
+	void adviceRuleHasNoVerdictByValue();
+	void adviceCheckinsDoNotAffectAdherence();
+
 private:
 	SProgram_Rule Make_Rule(const QString &in_id);
+	SProgram_Rule Make_Advice_Rule(const QString &in_id, const QString &in_text);
 	SWorkout_Session Make_Session(const QString &in_id, const QString &in_started_at);
 	SSet_Log Make_Set(const QString &in_session_id, int in_number, double in_rpe, bool in_warmup, bool in_done);
 	SRule_Checkin Make_Checkin(const QString &in_rule_id, const QString &in_date, double in_value, bool in_has_value);
@@ -41,6 +50,22 @@ SProgram_Rule ARule_Engine_Test::Make_Rule(const QString &in_id)
 	rule.Check_Source = ERule_Check_Source::SelfReport;
 	rule.Enforcement = ERule_Enforcement::Soft;
 	rule.Display_Unit = ERule_Display_Unit::Count;
+
+	return rule;
+}
+//----------------------------------------------------------------------------
+// Рекомендация отличается от обычного правила по сути, а не по значению:
+// цели у неё нет, метрика custom, а текст лежит в Note. Заводится отдельно от
+// Make_Rule, чтобы разница читалась, а не собиралась в тесте вручную.
+SProgram_Rule ARule_Engine_Test::Make_Advice_Rule(const QString &in_id, const QString &in_text)
+{
+	SProgram_Rule rule = Make_Rule(in_id);
+
+	rule.Category = ERule_Category::Other;
+	rule.Metric = ERule_Metric::Custom;
+	rule.Target_Unit = ERule_Display_Unit::Units;
+	rule.Display_Unit = ERule_Display_Unit::Units;
+	rule.Note = in_text;
 
 	return rule;
 }
@@ -433,6 +458,75 @@ void ARule_Engine_Test::ruleActiveWindow()
 
 	QVERIFY(engine.Is_Rule_Active(rule, "not-a-date") == false);
 	QVERIFY(engine.Get_Last_Error().isEmpty() == false);
+}
+//----------------------------------------------------------------------------
+// Рекомендация — не измеримое правило. Возвращать для неё «выполнено» на
+// любое число значило бы молча подставить вердикт вместо отказа: вызывающий
+// код решил бы, что цель достигнута, хотя цели нет.
+void ARule_Engine_Test::adviceRuleHasNoVerdictByValue()
+{
+	AsRule_Engine engine;
+	SProgram_Rule advice = Make_Advice_Rule("adv", "Пей воду натощак");
+	ECheckin_State state = ECheckin_State::Failed;
+
+	QVERIFY(engine.Evaluate_Value(advice, 8, state) == false);
+	QVERIFY(engine.Get_Last_Error().isEmpty() == false);
+
+	// С числовой целью то же правило измеримо и вердикт выдаёт — значит отказ
+	// выше вызван отсутствием цели, а не самой категорией.
+	advice.Target_Min = 7;
+	advice.Has_Target_Min = true;
+	QVERIFY(engine.Evaluate_Value(advice, 8, state));
+	QCOMPARE(state, ECheckin_State::Done);
+}
+//----------------------------------------------------------------------------
+// Отметка рекомендации — это «прочитал совет», а не результат измерения.
+// Поэтому она не должна ни попадать в adherence, ни портить процент по
+// остальным правилам: пользователь отметил текст, и цифра выполнения
+// изменилась бы на глазах у человека, который ничего не забыл.
+void ARule_Engine_Test::adviceCheckinsDoNotAffectAdherence()
+{
+	AsRule_Engine engine;
+	SProgram_Rule protein = Make_Rule("r1");
+	SProgram_Rule advice = Make_Advice_Rule("adv", "Ложись спать вовремя");
+	QVector<SProgram_Rule> rules;
+	QVector<SRule_Checkin> checkins;
+	SRule_Stats stats;
+
+	protein.Metric = ERule_Metric::ProteinGrams;
+	protein.Target_Min = 145;
+	protein.Has_Target_Min = true;
+
+	rules.append(protein);
+	rules.append(advice);
+
+	// Отметка рекомендации без значения — обычный случай: что именно
+	// пользователь отметил, измерить нечем.
+	checkins.append(Make_Checkin("r1", "2026-10-01", 150, true));
+	SRule_Checkin advice_mark = Make_Checkin("adv", "2026-10-01", 0, false);
+	advice_mark.State = ECheckin_State::Done;
+	checkins.append(advice_mark);
+
+	QVERIFY(engine.Compute_Overall_Stats(rules, checkins, stats));
+	QCOMPARE(stats.Evaluated_Count, 1);
+	QCOMPARE(stats.Done_Count, 1);
+	QCOMPARE(stats.Adherence_Percent, 100.0);
+
+	// Отметка «не выполнено» у рекомендации тоже не должна превращаться в
+	// провал программы.
+	checkins[1].State = ECheckin_State::Failed;
+	QVERIFY(engine.Compute_Overall_Stats(rules, checkins, stats));
+	QCOMPARE(stats.Failed_Count, 0);
+	QCOMPARE(stats.Adherence_Percent, 100.0);
+
+	// Собственная сводка рекомендации пуста: оценивать нечего.
+	QVERIFY(engine.Compute_Rule_Stats(advice, checkins, stats));
+	QCOMPARE(stats.Evaluated_Count, 0);
+	QVERIFY(stats.Has_Adherence_Percent == false);
+
+	// Прогресс сам по себе не восстанавливается: у рекомендации нет ни цели,
+	// ни чисел, из которых считается среднее.
+	QVERIFY(stats.Has_Average_Value == false);
 }
 
 QTEST_GUILESS_MAIN(ARule_Engine_Test)

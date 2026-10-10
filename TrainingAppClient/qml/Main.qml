@@ -18,6 +18,9 @@ ApplicationWindow {
     readonly property int deviceHeight: 812
     readonly property int deviceWidth: 390
     readonly property bool diagMode: Qt.application.arguments.indexOf("--diag") >= 0
+    // --fps: измерение частоты кадров в лог (этап качества). Нужно, чтобы
+    // проверить отзывчивость на телефоне числами, а не ощущением.
+    readonly property bool frameRateMode: Qt.application.arguments.indexOf("--fps") >= 0
     readonly property bool forceAuthenticated: Qt.application.arguments.indexOf("--authenticated") >= 0 || tabArgIndex >= 0 || screenTab >= 0
     readonly property bool framed: Demo.phoneFrame
     readonly property string initialAuthMode: initialScreen === "auth-signup" ? "signup" : "login"
@@ -34,7 +37,12 @@ ApplicationWindow {
     readonly property int screenTab: ["today", "plans", "exercises", "profile"].indexOf(initialScreen)
     // Экраны глобальной программы живут вне вкладок, поэтому --screen умеет
     // открывать и их: без этого аудит вёрстки их не видел.
-    readonly property string initialProgramScreen: ["program-catalog", "program-overview", "program-edit", "program-rules", "program-stats", "program-day"].indexOf(initialScreen) >= 0 ? initialScreen : ""
+    // Экран авторасчёта КБЖУ (спринт S7) живёт вне вкладок, как и экраны
+    // программы, поэтому --screen открывает и его.
+    // profile-settings — раздел «Параметры» профиля: в нём блок «Оформление».
+    // Без имени в списке экран молча открывался бы как вкладка «Сегодня», и
+    // smoke-проверка проходила бы, ничего не проверив.
+    readonly property string initialProgramScreen: ["program-catalog", "program-overview", "program-edit", "program-rules", "program-rules-picker", "program-stats", "program-day", "macro-calculator", "set-entry", "profile-settings"].indexOf(initialScreen) >= 0 ? initialScreen : ""
 
     // — Режим снимка для дизайн-ревью и CI: --screenshot <путь> —
     readonly property int screenshotArgIndex: Qt.application.arguments.indexOf("--screenshot")
@@ -42,10 +50,36 @@ ApplicationWindow {
     readonly property bool startUnauthenticated: Qt.application.arguments.indexOf("--unauth") >= 0
     readonly property int tabArgIndex: Qt.application.arguments.indexOf("--tab")
 
+    // — Тема: по умолчанию следует системной схеме (Android — системный
+    // «ночной режим», десктоп — настройка ОС), а флаги --dark/--light её
+    // переопределяют: ими пользуются дизайн-ревью и CI-снимки.
+    // Прежде тема читалась только из --dark, поэтому на Android приложение
+    // оставалось светлым даже при включённом системном тёмном режиме.
+    readonly property bool forceDark: Qt.application.arguments.indexOf("--dark") >= 0
+    readonly property bool forceLight: Qt.application.arguments.indexOf("--light") >= 0
+
     function argNumber(name, fallback) {
         const index = Qt.application.arguments.indexOf(name);
 
         return index >= 0 && index + 1 < Qt.application.arguments.length ? Number(Qt.application.arguments[index + 1]) : fallback;
+    }
+    // Единая точка выбора темы: явный флаг важнее системы, система — важнее
+    // дефолта. В режиме --screenshot без --dark всегда светлая схема, чтобы
+    // снимки дизайн-ревью и CI не зависели от темы машины сборки.
+    function resolveDarkMode() {
+        if (forceDark) {
+            return true;
+        }
+
+        if (forceLight) {
+            return false;
+        }
+
+        if (screenshotMode) {
+            return false;
+        }
+
+        return Qt.styleHints.colorScheme === Qt.ColorScheme.Dark;
     }
     function auditPath(item) {
         const names = [];
@@ -62,6 +96,50 @@ ApplicationWindow {
         return names.join(" > ");
     }
 
+    // — Закрытие экранной клавиатуры тапом мимо поля ввода —
+    // Qt Quick не снимает фокус с текстового поля по тапу мимо него, поэтому
+    // на Android клавиатура остаётся открытой после завершения ввода. По тапу
+    // ищется самый верхний элемент под пальцем: если он не берёт фокус по
+    // нажатию (то есть не поле ввода), клавиатура прячется. Тап по соседнему
+    // полю клавиатуру сохраняет — фокус уходит этому полю.
+    function topItemUnderPoint(rootItem, x, y) {
+        let node = rootItem;
+        let guard = 0;
+
+        while (node !== null && node !== undefined && guard < 24) {
+            const child = node.childAt(x, y);
+
+            if (child === null || child === undefined)
+                break;
+
+            const point = child.mapFromItem(node, x, y);
+
+            node = child;
+            x = point.x;
+            y = point.y;
+            ++guard;
+        }
+
+        return node;
+    }
+    // Поле ввода берёт фокус по нажатию: у TextInput и TextEdit свойство
+    // включено, у обычных Item выключено. Проверяется и цепочка родителей:
+    // верхним элементом под пальцем бывает обёртка поля.
+    function takesFocusOnPress(item) {
+        let node = item;
+        let guard = 0;
+
+        while (node !== null && node !== undefined && guard < 24) {
+            if (node.activeFocusOnPress === true)
+                return true;
+
+            node = node.parent;
+            ++guard;
+        }
+
+        return false;
+    }
+
     // Закрывает экран входа и возвращает пользователя на исходную вкладку.
     function closeAuth() {
         activeTab = authOriginTab;
@@ -72,6 +150,27 @@ ApplicationWindow {
     function openAuth(originTab) {
         authOriginTab = originTab;
         authOpen = true;
+    }
+    // — Аудит цветов (--diag): печатает resolved-токены темы и фактический
+    // surfaceColor каждой карточки. Повод — «пропадающая» подсветка hero-карточки
+    // на некоторых Android-сборках: по логу видно, какой цвет реально разрешён
+    // (акцент, тема, альфа в составе #AARRGGBB) и что стоит в каждой карточке,
+    // без скриншотов. Строка surfaceColor с альфой меньше ff — верный признак
+    // транслюцентной заливки.
+    function runColorAudit() {
+        console.warn("diag colors: darkMode=" + Theme.darkMode + " accentIndex=" + Theme.accentIndex + " accent=" + Theme.accent + " accentSurface=" + Theme.accentSurface + " accentTint=" + Theme.accentTint + " surface=" + Theme.surface + " background=" + Theme.background);
+
+        function walkCards(item) {
+            if (item.surfaceColor !== undefined)
+                console.warn("diag colors: " + window.auditPath(item) + " surfaceColor=" + item.surfaceColor);
+
+            const kids = item.children;
+
+            for (let i = 0; i < kids.length; ++i)
+                walkCards(kids[i]);
+        }
+
+        walkCards(deviceScreen);
     }
     function runLayoutAudit() {
         const problems = [];
@@ -124,6 +223,34 @@ ApplicationWindow {
                     problems.push("ZERO-WIDTH " + window.auditPath(child));
                 }
 
+                // Блок уже родителя при непустом содержимом. Это ровно тот
+                // случай, когда AppCard в обычной Column PageScaffold берёт
+                // свой implicitWidth (240) вместо ширины колонки: элемент не
+                // вылезает за границу, поэтому OVERFLOW-X его не видит, а
+                // выглядит обрезанным наполовину.
+                //
+                // Проверяются только дети обычной Column: внутри RowLayout и
+                // ColumnLayout сжатие детей — их штатная работа, и без этого
+                // ограничения проверка дала бы сотни ложных срабатываний.
+                //
+                // Текст с переносом и с многоточием отбрасывается: у него
+                // implicitWidth всегда больше ширины (строка рассчитана без
+                // переноса), и такой элемент по определению «сжат».
+                const host_name = String(host);
+                const plain_column = host_name.indexOf("QQuickColumn") >= 0 && host_name.indexOf("QQuickRowLayout") < 0 && host_name.indexOf("QQuickColumnLayout") < 0;
+
+                const wraps = child.wrapMode !== undefined && child.wrapMode !== 0;
+                const elides = child.elide !== undefined && child.elide !== Text.ElideNone;
+
+                // Layout сам по себе подстраивается под родителя, и его
+                // implicitWidth — это ширина содержимого, а не заданная ширина.
+                // Считать его «схлопнутым» бессмысленно.
+                const is_layout = String(child).indexOf("Layout") >= 0;
+
+                if (plain_column && !is_layout && !wraps && !elides && child.implicitWidth > 0 && child.width > 0 && child.width < child.implicitWidth - 1 && child.height > 0) {
+                    problems.push("SHRUNK-WIDTH " + window.auditPath(child) + " text=\"" + (child.text === undefined ? "" : child.text) + "\" width=" + Math.round(child.width) + " implicit=" + Math.round(child.implicitWidth));
+                }
+
                 walk(child);
             }
         }
@@ -159,7 +286,7 @@ ApplicationWindow {
     Component.onCompleted: {
         MockApi.reset();
         Demo.phoneFrame = Qt.application.arguments.indexOf("--frame") >= 0 || screenshotMode;
-        Theme.darkMode = Qt.application.arguments.indexOf("--dark") >= 0;
+        Theme.darkMode = window.resolveDarkMode();
 
         if (window.authFailArgIndex >= 0 && window.authFailArgIndex + 1 < Qt.application.arguments.length) {
             MockApi.failMode = String(Qt.application.arguments[window.authFailArgIndex + 1]);
@@ -206,6 +333,19 @@ ApplicationWindow {
 
         target: Theme
     }
+
+    // Живая реакция на смену системной темы (Android «Ночной режим», десктоп):
+    // пользователь переключает тему в системе — приложение следует за ней без
+    // перезапуска. Явные --dark/--light отключают слежение: тему выбрали руками.
+    Connections {
+        function onColorSchemeChanged() {
+            if (!window.forceDark && !window.forceLight) {
+                Theme.darkMode = window.resolveDarkMode();
+            }
+        }
+
+        target: Qt.styleHints
+    }
     Timer {
         id: captureTimer
 
@@ -237,9 +377,30 @@ ApplicationWindow {
         interval: 1500
 
         onTriggered: {
+            window.runColorAudit();
             window.runLayoutAudit();
             Qt.quit();
         }
+    }
+
+    // — Частота кадров (--fps, этап качества) —
+    // 120 Гц у Qt Quick не настройка, а следствие vsync дисплея: приложение
+    // рисует по сигналу композитора, и убедиться в этом можно только числами с
+    // реального экрана. Строка в секунду уходит в лог приложения (stderr и
+    // logs/app.log), поэтому отладчик для проверки не нужен.
+    FrameRateMeter {
+        id: frameMeter
+
+        running: window.frameRateMode
+    }
+    Timer {
+        id: frameRateTimer
+
+        interval: 1000
+        repeat: true
+        running: window.frameRateMode
+
+        onTriggered: console.info("fps", frameMeter.framesPerSecond.toFixed(1), "frame-ms", (frameMeter.frameSeconds * 1000).toFixed(2))
     }
 
     // — Зонд шрифтов: измеряем advanceWidth одного и того же текста в четырёх
@@ -345,6 +506,20 @@ ApplicationWindow {
             text: fontProbe.sampleText
         }
     }
+    // — Жесты по «пустой» области вокруг контента листают страницу —
+    //
+    // Контент живёт в центрированной колонке (`Theme.contentMaxWidth`, рамка
+    // телефона в режиме ревью), и вокруг остаётся область окна, которая
+    // странице не принадлежит: нажатие по ней пропадало, и до прокрутки
+    // приходилось тянуться в центр экрана. Ловушка объявлена до `deviceScreen`,
+    // поэтому нажатия самой страницы, кнопок и ползунков до неё не доходят.
+    DragToScroll {
+        id: backgroundScroll
+
+        anchors.fill: parent
+        target: appShell.activeFlickable
+    }
+
     Item {
         id: deviceScreen
 
@@ -408,6 +583,25 @@ ApplicationWindow {
                 }
             }
             z: 100
+        }
+        // — Тап мимо поля ввода закрывает экранную клавиатуру (Android) —
+        // Обработчик объявлен в каркасе экрана: он видит нажатия и вкладок, и
+        // открываемых поверх экранов, включая экран входа.
+        TapHandler {
+            // Захват пассивный (gesturePolicy по умолчанию): кнопки, ползунки
+            // и прокрутка продолжают работать как раньше. Тап, а не press:
+            // прокрутку списка клавиатура закрывать не должна.
+            onTapped: function (eventPoint) {
+                if (Qt.inputMethod.visible === false)
+                    return;
+
+                const top = window.topItemUnderPoint(deviceScreen, eventPoint.position.x, eventPoint.position.y);
+
+                if (top !== null && window.takesFocusOnPress(top))
+                    return;
+
+                Qt.inputMethod.hide();
+            }
         }
         Connections {
             function onSessionExpired() {

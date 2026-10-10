@@ -34,6 +34,18 @@ Button {
     // заданный padding не влиял бы на ширину и кнопка не могла сжаться.
     implicitWidth: Math.max(Theme.touchMin * 2, textLabel.implicitWidth + leftPadding + rightPadding)
 
+    // Отзыв на нажатие (Material/iOS): на тач-платформах лёгкое «продавливание»
+    // кнопки под пальцем с быстрым пружинным возвратом — нажатие видно сразу,
+    // а не через анимацию цвета. На десктопе размер не меняется.
+    scale: Theme.touchPlatform && pressed ? 0.97 : 1.0
+
+    Behavior on scale {
+        NumberAnimation {
+            duration: 90
+            easing.type: Easing.OutCubic
+        }
+    }
+
     background: Rectangle {
         border.color: Theme.border
         border.width: button.variant === AppButton.Secondary ? Theme.borderWidth : 0
@@ -51,7 +63,10 @@ Button {
 
         Behavior on color {
             ColorAnimation {
-                duration: 120
+                // Длительность — токен; плавный easing читается как отклик,
+                // а не как мигание.
+                duration: Theme.pressFeedbackDuration
+                easing.type: Easing.OutCubic
             }
         }
     }

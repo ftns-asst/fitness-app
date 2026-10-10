@@ -63,6 +63,14 @@ Rectangle {
     function passwordErrorKey(password) {
         return auth.passwordErrorKey(password);
     }
+    // Подпись кнопки отправки зависит от режима и от того, идёт ли запрос.
+    function submitButtonText() {
+        if (page.busy) {
+            return page.loginMode ? qsTr("Входим…") : qsTr("Создаём профиль…");
+        }
+
+        return page.loginMode ? qsTr("Войти") : qsTr("Создать аккаунт");
+    }
     function resetMessages() {
         controller.resetMessages();
     }
@@ -158,7 +166,9 @@ Rectangle {
         id: flick
 
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: page.bottomInset
+        // Панель отправки перекрывает низ области прокрутки, поэтому под неё
+        // резервируется высота: иначе последнее поле формы уезжало под кнопку.
+        anchors.bottomMargin: page.bottomInset + submitBar.height
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
@@ -266,12 +276,6 @@ Rectangle {
                     }
                     AppButton {
                         enabled: !page.busy
-                        text: page.authState === "loggingIn" ? qsTr("Входим…") : qsTr("Войти")
-                        width: parent.width
-
-                        onClicked: page.submitLogin()
-                    }
-                    AppButton {
                         text: qsTr("Забыли пароль?")
                         variant: AppButton.Ghost
                         visible: page.recoveryEnabled
@@ -484,13 +488,9 @@ Rectangle {
                         selectedValue: "strength"
                         width: parent.width
                     }
-                    AppButton {
-                        enabled: !page.busy
-                        text: page.authState === "signingUp" || page.authState === "checkingEmail" ? qsTr("Создаём профиль…") : qsTr("Создать аккаунт")
-                        width: parent.width
-
-                        onClicked: page.submitRegistration()
-                    }
+                    // Кнопка отправки формы убрана из карточки: она закреплена внизу экрана
+                    // (см. submitBar), чтобы на длинной форме регистрации её не
+                    // приходилось искать прокруткой.
                 }
                 Rectangle {
                     color: Qt.rgba(Theme.negative.r, Theme.negative.g, Theme.negative.b, 0.10)
@@ -520,6 +520,53 @@ Rectangle {
                 width: parent.width
                 wrapMode: Text.WordWrap
             }
+        }
+    }
+    // Панель отправки формы закреплена внизу: «Войти»/«Создать аккаунт» —
+    // главное действие экрана, а форма регистрации длиннее экрана, и кнопка
+    // в её конце требовала прокрутки до самого низа. Подпись кнопки зависит от
+    // режима, поэтому панель одна на оба случая.
+    Item {
+        id: submitBar
+
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: page.bottomInset
+        anchors.left: parent.left
+        anchors.right: parent.right
+        // Ширина формы ограничена 420 px и центрирована: кнопка повторяет эту
+        // ширину, иначе на широком окне она растягивалась бы на всю панель.
+        height: submitButton.implicitHeight + Spacing.itemGap * 2
+        z: 2
+
+        Rectangle {
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            color: Theme.background
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                color: Theme.borderSubtle
+                height: 1
+            }
+        }
+        AppButton {
+            id: submitButton
+
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Spacing.itemGap
+            anchors.horizontalCenter: parent.horizontalCenter
+            enabled: !page.busy
+            // objectName оставлен прежним: тесты и скриншоты находят кнопку по
+            // нему, и перенос в другую часть экрана не должен ломать их.
+            objectName: "authSubmitButton"
+            text: page.submitButtonText()
+            width: Math.min(parent.width - Spacing.screenPadding * 2, 420)
+
+            onClicked: page.loginMode ? page.submitLogin() : page.submitRegistration()
         }
     }
 }

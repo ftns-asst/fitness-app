@@ -67,14 +67,25 @@ PageScaffold {
     property double targetWeight: 100
 
     readonly property string weekdayName: weekday >= 1 && weekday <= 7 ? fullWeekdayNames[weekday - 1] : ""
-    readonly property int exerciseCount: viewModel !== undefined && viewModel !== null ? viewModel.day_exercises.rowCount() : 0
+    // Счётчик — property `count` модели, а не вызов `rowCount()`: вызов метода
+    // внутри привязки не создаёт зависимости, счётчик замирает на значении
+    // первого вычисления, и добавленное упражнение не показывается без
+    // переоткрытия экрана (тот же класс ошибки, что был в RulesPicker).
+    readonly property int exerciseCount: viewModel !== undefined && viewModel !== null ? viewModel.day_exercises.count : 0
     caption: qsTr("%1 упражнений").arg(page.exerciseCount)
     title: page.weekdayName
 
     signal backRequested
     signal closeRequested
 
-    Component.onCompleted: page.viewModel.selectDay(page.weekday)
+    Component.onCompleted: {
+        // Автосохранение включается и здесь: экран дня можно открыть напрямую
+        // (--screen program-day), минуя редактор программы.
+        if (viewModel !== undefined && viewModel !== null && viewModel.autoSaveDraft !== undefined)
+            viewModel.autoSaveDraft = true;
+
+        viewModel.selectDay(page.weekday);
+    }
 
     BackBar {
         onClicked: page.backRequested()
@@ -119,6 +130,98 @@ PageScaffold {
             }
         }
     }
+    // Блок добавления стоит выше списка: добавление — действие по ходу
+    // настройки, и после каждого добавления список меняется под формой.
+    // Если форма внизу, к ней приходится возвращаться прокруткой.
+    // — Добавление упражнения —
+    AppCard {
+        width: parent.width
+        // В день отдыха упражнения не добавляются: такой день задаётся своим
+        // видом, и форма здесь только сбивала бы с толку.
+        visible: page.kind !== 1
+
+        ColumnLayout {
+            width: parent.width
+            spacing: Spacing.itemGap
+
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textMuted
+                font: Typography.caption
+                text: qsTr("Добавить упражнение")
+            }
+            AppComboBox {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                model: page.exerciseOptions
+                onActivated: page.selectedExerciseId = currentValue
+            }
+            // Подходы и вес — ползунки из WeightRuler/RepsWheel, а не поля с кнопками
+            // «−/+» (docs/mockups-programs/04-day.html): «Подходы» ± меняли на 1 и
+            // требовали 5 нажатий для 9 подходов, а «Вес» ± на 2,5 кг при 100 кг —
+            // это 30 нажатий, чтобы снять плиту. Это тот же контрол, что и в
+            // записи тренировки: два разных ввода веса в приложении и расходятся.
+            WeightRuler {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                from: 1
+                // Четыре подписи, как в макете 04-day.html («1 7 14 20»): на
+                // диапазоне 1–20 пять подписей по целому шагу читаются теснее,
+                // чем четыре.
+                labelCount: 4
+                onEdited: function (newValue) {
+                    page.setsCount = Math.round(newValue);
+                }
+                step: 1
+                title: qsTr("Подходы")
+                to: 20
+                // Единица пустая: тот же контрол показывает и вес, а «4 кг
+                // подходов» читалось бы как опечатка.
+                unit: ""
+                value: page.setsCount
+                valueDecimals: 0
+            }
+            WeightRuler {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                // Диапазон 20–200 кг и шаг 2,5 — как в макете экрана дня: штанга
+                // собирается из дисков по 1,25 кг, поэтому целые значения
+                // недостижимы, а 500 кг в зале не поднимают.
+                from: 20
+                // Подсказка — часть линейки (`.slider-hint` в макете): она
+                // объясняет дробный шаг, без него «2,5» выглядит как опечатка
+                // и пользователь ищет целые веса. Раньше висела отдельной
+                // меткой под линейкой и разъезжалась с ней по отступам.
+                hint: qsTr("Шаг 2,5 кг · как в записи тренировки")
+                onEdited: function (newValue) {
+                    page.targetWeight = newValue;
+                }
+                step: 2.5
+                title: qsTr("Вес")
+                to: 200
+                value: page.targetWeight
+                // В макете вес показан как «100,0»: при шаге 2,5 кг целое «100»
+                // читалось бы как другой вес, а «100,00» перегружает подпись.
+                valueDecimals: 1
+            }
+            AppButton {
+                Layout.fillWidth: true
+                onClicked: page.addExercise()
+                text: qsTr("Добавить в день")
+                variant: AppButton.Primary
+            }
+            // Заготовка выбора готовой тренировки на день: каталога дней в
+            // модели пока нет (планы появятся в фазе B), поэтому кнопка
+            // только обозначает место. Она заведена сейчас, чтобы будущая
+            // функция не ломала вёрстку экрана.
+            AppButton {
+                Layout.fillWidth: true
+                onClicked: page.pickFromTemplates()
+                text: qsTr("Из готовых программ")
+                variant: AppButton.Secondary
+            }
+        }
+    }
     // — Состав дня —
     AppCard {
         width: parent.width
@@ -134,6 +237,9 @@ PageScaffold {
             }
             ColumnLayout {
                 Layout.fillWidth: true
+                // objectName для теста: список обязан появляться сразу после
+                // добавления, а не после переоткрытия экрана.
+                objectName: "dayExerciseList"
                 spacing: Spacing.itemGap
                 visible: page.exerciseCount > 0
 
@@ -197,97 +303,11 @@ PageScaffold {
             }
         }
     }
-    // — Добавление упражнения —
-    AppCard {
-        width: parent.width
-        // В день отдыха упражнения не добавляются: такой день задаётся своим
-        // видом, и форма здесь только сбивала бы с толку.
-        visible: page.kind !== 1
-
-        ColumnLayout {
-            width: parent.width
-            spacing: Spacing.itemGap
-
-            Label {
-                Layout.fillWidth: true
-                color: Theme.textMuted
-                font: Typography.caption
-                text: qsTr("Добавить упражнение")
-            }
-            AppComboBox {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                model: page.exerciseOptions
-                onActivated: page.selectedExerciseId = currentValue
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Spacing.itemGap
-
-                Label {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    color: Theme.textSecondary
-                    font: Typography.caption
-                    text: qsTr("Подходы")
-                    wrapMode: Text.WordWrap
-                }
-                AppNumberField {
-                    from: 1
-                    Layout.preferredWidth: 152
-                    onEdited: newValue => page.setsCount = newValue
-                    step: 1
-                    to: 20
-                    value: page.setsCount
-                }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Spacing.itemGap
-
-                Label {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    color: Theme.textSecondary
-                    font: Typography.caption
-                    text: qsTr("Вес, кг")
-                    wrapMode: Text.WordWrap
-                }
-                AppNumberField {
-                    from: 0
-                    // Шаг 2,5 кг: штанга собирается из дисков по 1,25 кг, поэтому
-                    // целые значения недостижимы. Раньше шаг был целым — только
-                    // потому, что штатный SpinBox дробные шаги терял.
-                    decimals: 1
-                    Layout.preferredWidth: 152
-                    onEdited: newValue => page.targetWeight = newValue
-                    step: 2.5
-                    suffix: qsTr(" кг")
-                    to: 500
-                    value: page.targetWeight
-                }
-            }
-            AppButton {
-                Layout.fillWidth: true
-                onClicked: page.addExercise()
-                text: qsTr("Добавить в день")
-                variant: AppButton.Primary
-            }
-            // Заготовка выбора готовой тренировки на день: каталога дней в
-            // модели пока нет (планы появятся в фазе B), поэтому кнопка
-            // только обозначает место. Она заведена сейчас, чтобы будущая
-            // функция не ломала вёрстку экрана.
-            AppButton {
-                Layout.fillWidth: true
-                onClicked: page.pickFromTemplates()
-                text: qsTr("Из готовых программ")
-                variant: AppButton.Secondary
-            }
-        }
-    }
     // — Действия с днём —
-    RowLayout {
-        width: parent.width
+    // Панель закреплена внизу: «Готово» завершает работу с днём, и искать его
+    // прокруткой вниз длинного списка упражнений незачем. Каркас держит панель
+    // на экране и сам резервирует под неё место в прокрутке.
+    footer: RowLayout {
         spacing: Spacing.itemGap
 
         AppButton {

@@ -70,6 +70,16 @@ Item {
                     }
                 }
                 contentItem: Item {
+                    scale: tabButton.pressed && !tabButton.active ? 0.94 : 1.0
+
+                    // Отзыв на касание вкладки (iOS-стиль): контент чуть
+                    // «продавливается» под пальцем до переключения вкладки.
+                    Behavior on scale {
+                        NumberAnimation {
+                            duration: Theme.pressFeedbackDuration
+                            easing.type: Easing.OutCubic
+                        }
+                    }
                     Column {
                         anchors.centerIn: parent
                         spacing: 3
@@ -95,8 +105,13 @@ Item {
                 }
 
                 onClicked: {
-                    bar.currentIndex = index;
+                    // Сигнал до присвоения currentIndex: обработчик в оболочке
+                    // различает «переход с другой вкладки» и «повторный тап
+                    // по своей» по СТАРОМУ значению индекса, и уже изменённый
+                    // currentIndex превращал каждый переход в повторный тап —
+                    // стек деталей не снимался, и панель не вела никуда.
                     bar.tabSelected(index);
+                    bar.currentIndex = index;
                 }
             }
         }

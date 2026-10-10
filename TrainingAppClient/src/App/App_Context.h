@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <QByteArray>
 
@@ -11,11 +11,14 @@ class AStats_Repository;
 class AWorkout_Repository;
 class AsProgram_Service;
 class AsWorkout_Logger;
+class AsMacro_Calculator;
 class Avm_Program;
 class Avm_Program_Stats;
 class Avm_Program_Rules;
 class Avm_Program_Edit;
 class Avm_Program_Catalog;
+class Avm_Today;
+class Avm_Macro;
 #include <QObject>
 #include <QSettings>
 #include <QString>
@@ -29,6 +32,7 @@ class AsToken_Store;
 class AUsers_Repository;
 class Avm_Auth;
 class Avm_Auth_Bridge;
+class ADemo_Seeder;
 
 //----------------------------------------------------------------------------
 // Корневой контекст приложения. Владеет конфигурацией окружения и единым
@@ -41,6 +45,11 @@ class AsApp_Context : public QObject
 	Q_PROPERTY(QString apiBaseUrl READ apiBaseUrl CONSTANT)
 	Q_PROPERTY(QString apiUrlSource READ apiUrlSource CONSTANT)
 	Q_PROPERTY(bool initialized READ initialized CONSTANT)
+	// Идентификатор текущего пользователя. До появления реальной авторизации
+	// он единственный источник «кто я»: экраны программы брали литерал «u1»
+	// в пяти местах, и любое другое значение — например, посев демо-данных —
+	// делало программу невидимой. Теперь значение одно и задаётся здесь.
+	Q_PROPERTY(QString currentUserId READ currentUserId CONSTANT)
 
 public:
 	explicit AsApp_Context(QObject *in_parent = 0);
@@ -49,6 +58,7 @@ public:
 	bool Initialize(const QStringList &in_arguments, QSettings &in_settings, const QByteArray &in_environment_url);
 	QString apiBaseUrl() const;
 	QString apiUrlSource() const;
+	QString currentUserId() const;
 	bool initialized() const;
 	QString Last_Error() const;
 	AsHttp_Client *HTTP_Client() const;
@@ -74,15 +84,30 @@ public:
 	Avm_Program_Rules *Program_Rules_VM() const;
 	Avm_Program_Edit *Program_Edit_VM() const;
 	Avm_Program_Catalog *Program_Catalog_VM() const;
+	// Главный экран «Сегодня» на данных программы (issue 27).
+	Avm_Today *Today_VM() const;
+	// Авторасчёт КБЖУ (спринт S7, issue 50).
+	Avm_Macro *Macro_VM() const;
 	Avm_Auth_Bridge *Auth_Bridge() const;
 
 	static const QString Default_Api_Base_URL;
 	static const QString Environment_Variable_Name;
 	static const QString Settings_Key;
+	// Флаг запуска, включающий посев демо-данных, и идентификатор
+	// пользователя, которому они принадлежат.
+	static const QString Demo_Flag;
+	static const QString Demo_User_Id;
+	static const QString Current_User_Id;
+	ADemo_Seeder *Demo_Seeder() const;
 
 private:
 	// Создаёт стек модели программы в порядке зависимостей.
 	void Create_Program_Stack();
+
+	// Наполняет базу демо-данными, если передан флаг запуска (--demo-seed).
+	// Отдельным шагом, а не внутри Create_Program_Stack: он единственный
+	// пишущий шаг инициализации, и его должно быть видно при чтении.
+	void Seed_Demo_Data(const QStringList &in_arguments);
 
 	static bool Normalize_Api_Base_URL(const QString &in_value, QString &out_value, QString &out_error);
 	static bool Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found,
@@ -118,6 +143,12 @@ private:
 	Avm_Program_Rules *Program_Rules_VM_Instance = 0;
 	Avm_Program_Edit *Program_Edit_VM_Instance = 0;
 	Avm_Program_Catalog *Program_Catalog_VM_Instance = 0;
+	Avm_Today *Today_VM_Instance = 0;
+	AsMacro_Calculator *Macro_Calculator_Instance = 0;
+	Avm_Macro *Macro_VM_Instance = 0;
+	// Сидер демо-данных. Создаётся только при --demo-seed и живёт до конца
+	// приложения: указатель хранится, чтобы не посеять данные дважды.
+	ADemo_Seeder *Demo_Seeder_Instance = 0;
 	Avm_Auth_Bridge *Auth_Bridge_Instance = 0;
 };
 //----------------------------------------------------------------------------

@@ -27,6 +27,7 @@ private slots:
 	void computedCheckinCannotOverwriteManual();
 	void periodLimitsLoadedCheckins();
 	void adherenceCountsVerdictsOnly();
+	void adherenceComputedAfterRulesLoad();
 	void emitsChangedOnReloadAndSave();
 
 private:
@@ -280,6 +281,42 @@ void AProgram_Rules_VM_Test::adherenceCountsVerdictsOnly()
 	QVERIFY(vm.Save_Checkin("p_adh_r_protein", "done", 150, true, ""));
 	QVERIFY(vm.hasAdherencePercent());
 	QVERIFY(vm.adherencePercent() >= 0.0);
+}
+//----------------------------------------------------------------------------
+// Процент считается после того, как прочитаны правила: движок раскладывает
+// вердикты отметок по целям правил, поэтому расчёт на пустом наборе правил
+// оставляет метрику отсутствующей — экран показывает прочерк при полной базе.
+// Отметка здесь без явного состояния: вердикт выводится из значения (§3.6).
+//----------------------------------------------------------------------------
+void AProgram_Rules_VM_Test::adherenceComputedAfterRulesLoad()
+{
+	Avm_Program_Rules vm(Program_Repository, Rule_Repository);
+	Seed_User("order");
+	vm.Set_Today("2026-10-14");
+
+	SRule_Checkin checkin;
+
+	checkin.Rule_Id = "p_order_r_protein";
+	checkin.Program_Id = "p_order";
+	checkin.Date = "2026-10-14";
+	checkin.Value = 150;
+	checkin.Has_Value = true;
+	checkin.Unit = "g";
+	checkin.State = ECheckin_State::Unknown;
+	checkin.Source = ECheckin_Source::Manual;
+	QVERIFY(Rule_Repository->Save_Checkin(checkin));
+
+	QVERIFY(vm.Reload("u_order"));
+	QCOMPARE(vm.checkinCount(), 1);
+	QVERIFY2(vm.hasAdherencePercent(), "процент посчитан раньше загрузки правил");
+	QCOMPARE(vm.adherencePercent(), 100.0);
+
+	// Смена окна пересчитывает метрику по новому набору отметок: расширение
+	// периода оставляет ту же отметку, и процент считается заново, а не
+	// остаётся значением прежнего окна.
+	vm.Set_Period_Days(30);
+	QCOMPARE(vm.checkinCount(), 1);
+	QVERIFY(vm.hasAdherencePercent());
 }
 //----------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::emitsChangedOnReloadAndSave()

@@ -17,6 +17,7 @@ private slots:
 	void createFromSnapshotCopiesStructureWithNewIdentity();
 	void snapshotCreationRollsBackOnInvalidReference();
 	void stateTransitionsDelegateToRepository();
+	void activateExclusivePausesPreviousProgram();
 	void recommendLinearProgressionAfterSuccessfulSets();
 	void recommendationHonoursDoubleProgressionAndRpe();
 	void recommendationAppliesDeloadAndWeeklyPercent();
@@ -258,6 +259,59 @@ void AProgram_Service_Test::stateTransitionsDelegateToRepository()
 	QVERIFY(Service->Complete(created.ID));
 	QVERIFY(Service->Archive(created.ID));
 	QVERIFY(Service->Activate(created.ID) == false);
+}
+//----------------------------------------------------------------------------
+// §2.3: активная программа у пользователя одна. Включение второй программы
+// переводит прежнюю в паузу той же операцией — иначе вторая активация упиралась
+// бы в частичный уникальный индекс programs_one_active_per_user, и пользователь
+// видел бы ошибку базы вместо результата.
+void AProgram_Service_Test::activateExclusivePausesPreviousProgram()
+{
+	SProgram first;
+	SProgram second;
+	SProgram first_created;
+	SProgram second_created;
+	SProgram loaded;
+	QVector<SGoal_Target> targets;
+	QVector<SProgram_Day> days;
+	QVector<SDay_Exercise> exercises;
+	QVector<SWeek_Slot> week_slots;
+	QString paused_id;
+
+	first.User_Id = "exclusive_user";
+	first.Title = "Первая";
+	first.Source_Kind = EProgram_Source_Kind::Scratch;
+	QVERIFY(Service->Create_From_Scratch(first, targets, days, exercises, week_slots, first_created));
+	QVERIFY(Service->Activate(first_created.ID));
+
+	second.User_Id = "exclusive_user";
+	second.Title = "Вторая";
+	second.Source_Kind = EProgram_Source_Kind::Scratch;
+	QVERIFY(Service->Create_From_Scratch(second, targets, days, exercises, week_slots, second_created));
+
+	QVERIFY(Service->Activate_Exclusive(second_created.ID, paused_id));
+	QCOMPARE(paused_id, first_created.ID);
+
+	QVERIFY(Repository->Load_Program(first_created.ID, loaded));
+	QCOMPARE(loaded.State, EProgram_State::Paused);
+
+	QVERIFY(Repository->Load_Program(second_created.ID, loaded));
+	QCOMPARE(loaded.State, EProgram_State::Active);
+
+	// Повторное включение уже активной программы ничего не меняет: активность
+	// снимать не с кого, и приостановленной программы в ответе нет.
+	QVERIFY(Service->Activate_Exclusive(second_created.ID, paused_id));
+	QVERIFY(paused_id.isEmpty());
+	QVERIFY(Repository->Load_Program(first_created.ID, loaded));
+	QCOMPARE(loaded.State, EProgram_State::Paused);
+
+	// Возобновление прежней программы возвращает её в активные и уводит в паузу
+	// текущую: «одна активная» — правило включения, а не только создания.
+	QVERIFY(Service->Resume(first_created.ID));
+	QVERIFY(Repository->Load_Program(first_created.ID, loaded));
+	QCOMPARE(loaded.State, EProgram_State::Active);
+	QVERIFY(Repository->Load_Program(second_created.ID, loaded));
+	QCOMPARE(loaded.State, EProgram_State::Paused);
 }
 //----------------------------------------------------------------------------
 void AProgram_Service_Test::recommendLinearProgressionAfterSuccessfulSets()

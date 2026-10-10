@@ -1,4 +1,4 @@
-# qmltestrunner is a separate process and cannot see resources embedded in the
+﻿# qmltestrunner is a separate process and cannot see resources embedded in the
 # application executable. Build a test import directory from the exact
 # production QML files instead of maintaining test copies.
 #
@@ -26,17 +26,17 @@ set(SINGLETON_QML_NAMES
     ProfileViewModel
     Spacing
     Theme
-    TodayViewModel
     Typography
 )
 
 file(GLOB_RECURSE PRODUCTION_QML_FILES CONFIGURE_DEPENDS
-    RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/../qml"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../qml/*.qml"
+    RELATIVE "${CMAKE_SOURCE_DIR}/qml"
+    "${CMAKE_SOURCE_DIR}/qml/*.qml"
 )
 
 set(MOCK_IMPORT_QMLDIR "module TrainingAppClient\n")
 set(MOCK_IMPORT_TYPE_NAMES)
+set(PRODUCTION_QML_ABS_FILES)
 
 foreach(qml_file IN LISTS PRODUCTION_QML_FILES)
     get_filename_component(qml_name "${qml_file}" NAME_WE)
@@ -47,8 +47,9 @@ foreach(qml_file IN LISTS PRODUCTION_QML_FILES)
         )
     endif()
     list(APPEND MOCK_IMPORT_TYPE_NAMES "${qml_name}")
+    list(APPEND PRODUCTION_QML_ABS_FILES "${CMAKE_SOURCE_DIR}/qml/${qml_file}")
     configure_file(
-        "${CMAKE_CURRENT_SOURCE_DIR}/../qml/${qml_file}"
+        "${CMAKE_SOURCE_DIR}/qml/${qml_file}"
         "${MOCK_IMPORT_DIR}/${qml_name}.qml"
         COPYONLY
     )
@@ -61,6 +62,14 @@ foreach(qml_file IN LISTS PRODUCTION_QML_FILES)
 endforeach()
 
 file(WRITE "${MOCK_IMPORT_DIR}/qmldir" "${MOCK_IMPORT_QMLDIR}")
+
+# Копии выше делаются на этапе конфигурации, а CONFIGURE_DEPENDS следит только
+# за списком файлов: правка содержимого уже скопированного компонента
+# переконфигурацию не запускала, и QML-тесты прогонялись по устаревшим копиям —
+# зелёный прогон ничего не говорил о текущем `qml/`. Явная зависимость от самих
+# файлов заставляет CMake переконфигурировать проект при любой правке
+# production-QML, и копии обновляются вместе с исходниками.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${PRODUCTION_QML_ABS_FILES})
 
 qt_add_executable(tst_App_Context
     cpp/tst_App_Context.cpp
@@ -89,6 +98,18 @@ qt_add_executable(tst_Program_Service
 target_link_libraries(tst_Program_Service PRIVATE TrainingAppCore Qt6::Test)
 add_test(NAME program_service COMMAND tst_Program_Service)
 set_tests_properties(program_service PROPERTIES
+    TIMEOUT 30
+    ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+)
+
+# Сидер демо-программы. Отдельный набор: он пишет в БД и проверяет, что данные,
+# на которых смотрят экраны, вообще читаются обратно.
+qt_add_executable(tst_Demo_Seeder
+    cpp/tst_Demo_Seeder.cpp
+)
+target_link_libraries(tst_Demo_Seeder PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME demo_seeder COMMAND tst_Demo_Seeder)
+set_tests_properties(demo_seeder PROPERTIES
     TIMEOUT 30
     ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
 )
@@ -125,6 +146,11 @@ target_link_libraries(tst_Program_Stats_VM PRIVATE TrainingAppCore Qt6::Test)
 add_test(NAME program_stats_vm COMMAND tst_Program_Stats_VM)
 set_tests_properties(program_stats_vm PROPERTIES TIMEOUT 30)
 
+qt_add_executable(tst_Today_VM cpp/tst_Today_VM.cpp)
+target_link_libraries(tst_Today_VM PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME today_vm COMMAND tst_Today_VM)
+set_tests_properties(today_vm PROPERTIES TIMEOUT 30)
+
 qt_add_executable(tst_Workout_Repository
     cpp/tst_Workout_Repository.cpp
 )
@@ -152,6 +178,24 @@ qt_add_executable(tst_Progress_Calculator
 target_link_libraries(tst_Progress_Calculator PRIVATE TrainingAppCore Qt6::Test)
 add_test(NAME progress_calculator COMMAND tst_Progress_Calculator)
 set_tests_properties(progress_calculator PROPERTIES TIMEOUT 20)
+
+# Авторасчёт КБЖУ (спринт S7). Отдельный набор, а не проверка внутри
+# tst_Progress_Calculator: формулы КБЖУ не имеют ничего общего с расчётом
+# прогресса, и смешивать их в одном бинарнике означало бы тащить в тест
+# лишние зависимости.
+qt_add_executable(tst_Macro_Calculator
+    cpp/tst_Macro_Calculator.cpp
+)
+target_link_libraries(tst_Macro_Calculator PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME macro_calculator COMMAND tst_Macro_Calculator)
+set_tests_properties(macro_calculator PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Macro_VM
+    cpp/tst_Macro_VM.cpp
+)
+target_link_libraries(tst_Macro_VM PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME macro_vm COMMAND tst_Macro_VM)
+set_tests_properties(macro_vm PROPERTIES TIMEOUT 20)
 
 qt_add_executable(tst_Program_Repository
     cpp/tst_Program_Repository.cpp
@@ -297,7 +341,9 @@ endforeach()
 # Экраны глобальной программы живут вне вкладок, поэтому до их появления в
 # --screen аудит вёрстки их не видел вовсе. Каждый экран проверяется на всех
 # компоновках проекта, включая тёмную и обрамлённую.
-foreach(program_screen IN ITEMS program-catalog program-overview program-edit program-rules program-stats program-day)
+# profile-settings — раздел «Параметры» профиля: в нём блок «Оформление», и без
+# именованного экрана он не попадал бы в аудит вёрстки ни на одной компоновке.
+foreach(program_screen IN ITEMS program-catalog program-overview program-edit program-rules program-rules-picker program-stats program-day macro-calculator set-entry profile-settings)
     foreach(program_viewport IN ITEMS 360 390 480 frame dark)
         set(program_test_name "ui_smoke_${program_screen}_${program_viewport}")
         add_test(

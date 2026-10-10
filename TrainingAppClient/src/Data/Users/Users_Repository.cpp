@@ -145,6 +145,143 @@ bool AUsers_Repository::Save_Local_Profile(const QString &in_user_id, const QStr
 	return true;
 }
 //----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+// Параметры авторасчёта КБЖУ (спринт S7): дата рождения и уровень активности.
+// Запись идёт отдельным upsert, чтобы не трогать уровень и цель: их вызывает
+// редактор программы, и общий upsert затирал бы их пустыми значениями при
+// заполнении только этих двух полей.
+//----------------------------------------------------------------------------
+bool AUsers_Repository::Load_Macro_Params(const QString &in_user_id, QString &out_birth_date,
+                                          QString &out_activity_level)
+{
+	QSqlQuery query(Database_Instance->Sql_Connection());
+
+	out_birth_date.clear();
+	out_activity_level.clear();
+
+	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+		return false;
+
+	query.prepare("SELECT birth_date, activity_level FROM profile_local WHERE user_id = ?");
+	query.addBindValue(in_user_id);
+
+	// Отсутствие строки — не ошибка: параметры просто не заданы, и экран
+	// покажет пустую форму вместо сообщения о сбое.
+	if (query.exec() == false || query.next() == false)
+		return false;
+
+	out_birth_date = query.value(0).toString();
+	out_activity_level = query.value(1).toString();
+
+	return true;
+}
+//----------------------------------------------------------------------------
+bool AUsers_Repository::Save_Macro_Params(const QString &in_user_id, const QString &in_birth_date,
+                                          const QString &in_activity_level)
+{
+	QSqlQuery query(Database_Instance->Sql_Connection());
+
+	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+		return false;
+
+	// Пустые значения сохраняются как есть (NULL в QString): незаполненное
+	// поле должно остаться незаполненным и в следующий раз, а не превращаться в
+	// дату 0000-01-01 или выдуманный уровень активности.
+	query.prepare("INSERT INTO profile_local(user_id, level, goal, workouts_per_week, birth_date, activity_level, "
+	              "updated_at) VALUES(?, '', '', 0, ?, ?, ?) "
+	              "ON CONFLICT(user_id) DO UPDATE SET birth_date = excluded.birth_date, "
+	              "activity_level = excluded.activity_level, updated_at = excluded.updated_at");
+	query.addBindValue(in_user_id);
+	query.addBindValue(in_birth_date);
+	query.addBindValue(in_activity_level);
+	query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+
+	if (query.exec() == false)
+	{
+		qCWarning(USERS_Repository_Log).noquote() << "macro params persist failed" << query.lastError().text();
+
+		return false;
+	}
+
+	return true;
+}
+//----------------------------------------------------------------------------
+// Результат авторасчёта КБЖУ (миграция v6). Строка профиля существует ради
+// уровня и цели, поэтому её наличие ещё не означает, что расчёт делали: признак
+// «считали» — заполненная дата расчёта, и NULL в ней возвращает false, а не
+// нули, которые на экране выглядели бы как честный результат.
+//----------------------------------------------------------------------------
+bool AUsers_Repository::Load_Macro_Result(const QString &in_user_id, AsMacro_Calculator::SResult &out_result,
+                                          QString &out_calculated_at)
+{
+	QSqlQuery query(Database_Instance->Sql_Connection());
+
+	out_result = AsMacro_Calculator::SResult();
+	out_calculated_at.clear();
+
+	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+		return false;
+
+	query.prepare("SELECT macro_calculated_at, macro_bmr_kcal, macro_tdee_kcal, macro_calories_kcal, macro_protein_g, "
+	              "macro_fat_g, macro_carbs_g FROM profile_local WHERE user_id = ?");
+	query.addBindValue(in_user_id);
+
+	if (query.exec() == false || query.next() == false)
+		return false;
+
+	if (query.value(0).isNull() || query.value(3).isNull())
+		return false;
+
+	out_calculated_at = query.value(0).toString();
+	out_result.Bmr_Kcal = query.value(1).toDouble();
+	out_result.Tdee_Kcal = query.value(2).toDouble();
+	out_result.Calories_Kcal = query.value(3).toDouble();
+	out_result.Protein_G = query.value(4).toDouble();
+	out_result.Fat_G = query.value(5).toDouble();
+	out_result.Carbs_G = query.value(6).toDouble();
+
+	return true;
+}
+//----------------------------------------------------------------------------
+bool AUsers_Repository::Save_Macro_Result(const QString &in_user_id, const AsMacro_Calculator::SResult &in_result)
+{
+	QSqlQuery query(Database_Instance->Sql_Connection());
+	const QString now = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+
+	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+		return false;
+
+	// Отдельный upsert, как и у параметров: строка profile_local принадлежит
+	// нескольким потребителям (редактор программы пишет уровень и цель), и
+	// общий upsert затирал бы чужие поля пустыми значениями.
+	query.prepare("INSERT INTO profile_local(user_id, level, goal, workouts_per_week, macro_calculated_at, "
+	              "macro_bmr_kcal, macro_tdee_kcal, macro_calories_kcal, macro_protein_g, macro_fat_g, macro_carbs_g, "
+	              "updated_at) VALUES(?, '', '', 0, ?, ?, ?, ?, ?, ?, ?, ?) "
+	              "ON CONFLICT(user_id) DO UPDATE SET macro_calculated_at = excluded.macro_calculated_at, "
+	              "macro_bmr_kcal = excluded.macro_bmr_kcal, macro_tdee_kcal = excluded.macro_tdee_kcal, "
+	              "macro_calories_kcal = excluded.macro_calories_kcal, macro_protein_g = excluded.macro_protein_g, "
+	              "macro_fat_g = excluded.macro_fat_g, macro_carbs_g = excluded.macro_carbs_g, "
+	              "updated_at = excluded.updated_at");
+	query.addBindValue(in_user_id);
+	query.addBindValue(now);
+	query.addBindValue(in_result.Bmr_Kcal);
+	query.addBindValue(in_result.Tdee_Kcal);
+	query.addBindValue(in_result.Calories_Kcal);
+	query.addBindValue(in_result.Protein_G);
+	query.addBindValue(in_result.Fat_G);
+	query.addBindValue(in_result.Carbs_G);
+	query.addBindValue(now);
+
+	if (query.exec() == false)
+	{
+		qCWarning(USERS_Repository_Log).noquote() << "macro result persist failed" << query.lastError().text();
+
+		return false;
+	}
+
+	return true;
+}
+//----------------------------------------------------------------------------
 bool AUsers_Repository::Clear_Local_Profile(const QString &in_user_id)
 {
 	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)

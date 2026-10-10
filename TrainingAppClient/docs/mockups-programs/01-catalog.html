@@ -1,0 +1,87 @@
+﻿<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 — Каталог программ — макет</title>
+<link rel="stylesheet" href="theme.css">
+<script src="mock.js"></script>
+</head>
+<body>
+<header class="toolbar">
+    <h1>01 — Каталог программ (ProgramCatalogPage)</h1>
+    <span class="spacer"></span>
+    <a href="index.html">← Все макеты</a>
+    <button onclick="toggleTheme()">Тема</button>
+</header>
+<main class="frames">
+
+<section class="frame">
+    <h2>Основное состояние: три группы</h2>
+    <div class="phone"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Мои программы</h1><p class="t-caption">3 в каталоге</p></div>
+
+        <p class="section-title">Активные</p>
+        <div class="stack" style="margin-top:8px">
+            <div class="card catalog-row">
+                <p class="row-title">Сила 8 недель</p>
+                <div class="pill-wrap"><span class="tag">Сила</span><span class="tag">8 нед.</span><span class="tag">Активная</span></div>
+                <div class="actions"><button class="btn secondary fill">Статистика</button><button class="btn secondary fill">Настроить</button></div>
+            </div>
+        </div>
+
+        <p class="section-title">Черновики и пауза</p>
+        <div class="stack" style="margin-top:8px">
+            <div class="card catalog-row">
+                <p class="row-title">Похудение к лету</p>
+                <div class="pill-wrap"><span class="tag">Похудение</span><span class="tag">Без срока</span><span class="tag">Черновик</span></div>
+                <div class="actions"><button class="btn secondary fill">Статистика</button><button class="btn secondary fill">Настроить</button></div>
+            </div>
+            <div class="card catalog-row">
+                <p class="row-title">Выносливость</p>
+                <div class="pill-wrap"><span class="tag">Выносливость</span><span class="tag">6 нед.</span><span class="tag">На паузе</span></div>
+                <div class="actions"><button class="btn secondary fill">Статистика</button><button class="btn secondary fill">Настроить</button></div>
+            </div>
+        </div>
+
+        <p class="section-title">Завершённые</p>
+        <div class="stack" style="margin-top:8px">
+            <div class="card catalog-row">
+                <p class="row-title">Масса 12 недель</p>
+                <div class="pill-wrap"><span class="tag">Масса</span><span class="tag">12 нед.</span><span class="tag">Завершена</span></div>
+                <div class="actions"><button class="btn secondary fill">Статистика</button></div>
+            </div>
+        </div>
+    </div></div>
+</section>
+
+<section class="frame">
+    <h2>Пустой каталог</h2>
+    <div class="phone"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Мои программы</h1><p class="t-caption">Каталог программ</p></div>
+        <div class="card">
+            <p class="row-title">Программ пока нет</p>
+            <p class="body">Создайте программу: выберите срок и цель, настройте каждый день недели и добавьте правила.</p>
+            <button class="btn primary">Создать программу</button>
+        </div>
+    </div></div>
+</section>
+
+<section class="frame">
+    <h2>Ошибка загрузки (errorKey = undefined_error)</h2>
+    <div class="phone"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Мои программы</h1><p class="t-caption">Каталог программ</p></div>
+        <div class="card">
+            <p class="row-title">Не удалось загрузить</p>
+            <p class="body">Повторите попытку позже.</p>
+            <button class="btn primary">Создать программу</button>
+        </div>
+    </div></div>
+</section>
+
+</main>
+</body>
+</html>

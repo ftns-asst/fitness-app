@@ -16,6 +16,15 @@ private slots:
 	void progressionJsonRejectsInvalidInput();
 	void jsonArrayRoundTrip();
 	void enumMaxMarksBoundAndFullRoundTrip();
+
+	// — Категория «Другое» (issue 46) —
+	// Текст должен совпадать со значением CHECK в схеме v3, иначе правило
+	// запишется в БД и не прочитается обратно.
+	void otherCategoryRoundTrip();
+
+	// — Вид правила —
+	void ruleKindFollowsTargetPresence();
+	void adviceTextMustHaveNonSpaceCharacter();
 };
 
 //----------------------------------------------------------------------------
@@ -181,6 +190,94 @@ void AProgram_Model_Test::jsonArrayRoundTrip()
 
 	QVERIFY(Parse_Json_Array(QString("{\"a\":1}"), parsed) == false);
 	QVERIFY(Parse_Json_Array(QString("broken"), parsed) == false);
+}
+//----------------------------------------------------------------------------
+// Категория «Другое» — то, чем пользователь пишет рекомендацию текстом.
+// Значение обязано совпадать со строкой в CHECK-ограничении схемы v3.
+void AProgram_Model_Test::otherCategoryRoundTrip()
+{
+	ERule_Category category = ERule_Category::Other;
+	QString text = To_String(ERule_Category::Other);
+
+	QCOMPARE(text, QString("other"));
+	QVERIFY(From_String(text, category));
+	QCOMPARE(category, ERule_Category::Other);
+
+	// Метрика custom уже была в модели, но не использовалась: с ней
+	// рекомендация проходит полный круг и обратно.
+	QCOMPARE(To_String(ERule_Metric::Custom), QString("custom"));
+	ERule_Metric metric = ERule_Metric::Custom;
+	QVERIFY(From_String(QString("custom"), metric));
+	QCOMPARE(metric, ERule_Metric::Custom);
+
+	// «Other» не должен попадать в предыдущие категории: иначе фильтр в UI
+	// покажет рекомендацию среди питания.
+	QVERIFY(To_String(ERule_Category::Other) != To_String(ERule_Category::Nutrition));
+	QVERIFY(To_String(ERule_Category::Other) != To_String(ERule_Category::Training));
+}
+//----------------------------------------------------------------------------
+// Вид правила выводится из наличия цели, а не из категории: рекомендацией
+// делается именно то правило, у которого нечего измерить. Проверка в БД
+// (CHECK в схеме v3) и проверка в репозитории (Has_Advice_Text) в этом
+// должны совпадать, иначе правило пройдёт одну и упадёт на другой.
+void AProgram_Model_Test::ruleKindFollowsTargetPresence()
+{
+	SProgram_Rule rule;
+
+	rule.Category = ERule_Category::Nutrition;
+	rule.Has_Target_Min = true;
+	QCOMPARE(Get_Rule_Kind(rule), ERule_Kind::Measurable);
+
+	rule.Has_Target_Min = false;
+	rule.Category = ERule_Category::Other;
+	rule.Note = "Пей воду натощак";
+	QCOMPARE(Get_Rule_Kind(rule), ERule_Kind::Advice);
+
+	// Граница «Другое» с числом — это измеримое правило: цель задана, значит
+	// вердикт есть, и в adherence правило участвует.
+	rule.Category = ERule_Category::Other;
+	rule.Target_Min = 8;
+	rule.Has_Target_Min = true;
+	QCOMPARE(Get_Rule_Kind(rule), ERule_Kind::Measurable);
+
+	// max и exact дают измеримость наравне с min.
+	rule.Has_Target_Min = false;
+	rule.Target_Max = 3000;
+	rule.Has_Target_Max = true;
+	QCOMPARE(Get_Rule_Kind(rule), ERule_Kind::Measurable);
+
+	rule.Has_Target_Max = false;
+	rule.Target_Exact = 0.5;
+	rule.Has_Target_Exact = true;
+	QCOMPARE(Get_Rule_Kind(rule), ERule_Kind::Measurable);
+}
+//----------------------------------------------------------------------------
+// Текст рекомендации должен быть содержательным. Строка из пробелов формально
+// не пуста, и без этой проверки «Другое» превратилось бы в способ завести
+// правило вообще без содержания — то самое, ради чего снималась проверка цели.
+void AProgram_Model_Test::adviceTextMustHaveNonSpaceCharacter()
+{
+	SProgram_Rule rule;
+
+	rule.Category = ERule_Category::Other;
+	rule.Note = "Пей воду натощак";
+	QVERIFY(Has_Advice_Text(rule));
+
+	rule.Note = "   ";
+	QVERIFY(Has_Advice_Text(rule) == false);
+
+	rule.Note = "\t\n ";
+	QVERIFY(Has_Advice_Text(rule) == false);
+
+	rule.Note = QString();
+	QVERIFY(Has_Advice_Text(rule) == false);
+
+	// У измеримого правила текста может не быть вовсе — это не рекомендация,
+	// и жаловаться тут не на что.
+	rule.Category = ERule_Category::Nutrition;
+	rule.Has_Target_Min = true;
+	rule.Note = QString();
+	QVERIFY(Has_Advice_Text(rule) == false);
 }
 //----------------------------------------------------------------------------
 void AProgram_Model_Test::enumMaxMarksBoundAndFullRoundTrip()

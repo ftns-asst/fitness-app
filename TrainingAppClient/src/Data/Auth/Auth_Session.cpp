@@ -298,7 +298,8 @@ SHttp_Response AsAuth_Session::Auth_Failure_Response(int in_request_id)
 //----------------------------------------------------------------------------
 QByteArray AsAuth_Session::Authorization_Value(const QString &in_access_token)
 {
-	// Формат "Bearer <token>" — assumed до ответа backend (docs/03-api-contract.md).
+	// Формат "Bearer <token>" подтверждён публикацией документации backend:
+	// docs/03-api-contract.md §2, docs/03-api-backend-published.md.
 	return QByteArray("Bearer ") + in_access_token.toUtf8();
 }
 //----------------------------------------------------------------------------

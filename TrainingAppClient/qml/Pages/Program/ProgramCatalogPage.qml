@@ -40,10 +40,11 @@ PageScaffold {
             page.reload();
     }
 
-    // Идентификатор пользователя: до появления реальной авторизации в UI это
-    // единственный источник «кто я», поэтому он вынесен в одно место.
+    // Идентификатор пользователя берётся из общего источника: раньше он был
+    // литералом «u1» здесь и ещё в трёх экранах, и любое другое значение
+    // (например, посев демо-данных под другим id) делало программу невидимой.
     function currentUserId() {
-        return "u1";
+        return AppContext !== undefined && AppContext !== null ? AppContext.currentUserId : "u1";
     }
 
     function reload() {
@@ -107,16 +108,20 @@ PageScaffold {
         Repeater {
             model: page.hasPrograms ? page.viewModel.active_list : null
             delegate: CatalogProgramRow {
-                // Роли берутся прямо из модели через model.<role>. Объявлять их
-                // как required property нельзя: у CatalogProgramRow уже есть
-                // свои свойства с теми же именами, и Qt молча игнорирует
-                // перекрывающее объявление — карточка осталась бы пустой.
+                // Роли объявляются required property: имена свойств компонента
+                // (programState вместо state) больше не совпадают с ролями
+                // модели, поэтому конфликта нет. Раньше он был, и поля
+                // приходилось заполнять вручную через model.<role>.
+                // Роли берутся через model.<role>, а не объявляются required
+                // property: имена ролей (title, goal, state) совпадают с
+                // одноимёнными свойствами компонента, и объявление required
+                // property перекрыло бы их — карточка осталась бы без полей.
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 programId: model.id
                 title: model.title
                 goal: model.goal
-                state: model.state
+                programState: model.state
                 weeksTotal: model.weeksTotal
                 canEdit: model.canEdit
                 onOpenRequested: programId => page.openRequested(programId)
@@ -137,16 +142,16 @@ PageScaffold {
             model: page.hasPrograms ? page.viewModel.draft_list : null
             delegate: CatalogProgramRow {
 
-                // Роли берутся прямо из модели через model.<role>. Объявлять их
-                // как required property нельзя: у CatalogProgramRow уже есть
-                // свои свойства с теми же именами, и Qt молча игнорирует
-                // перекрывающее объявление — карточка осталась бы пустой.
+                // Роли берутся через model.<role>, а не объявляются required
+                // property: имена ролей (title, goal, state) совпадают с
+                // одноимёнными свойствами компонента, и объявление required
+                // property перекрыло бы их — карточка осталась бы без полей.
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 programId: model.id
                 title: model.title
                 goal: model.goal
-                state: model.state
+                programState: model.state
                 weeksTotal: model.weeksTotal
                 canEdit: model.canEdit
                 onOpenRequested: programId => page.openRequested(programId)
@@ -167,22 +172,32 @@ PageScaffold {
             model: page.hasPrograms ? page.viewModel.finished_list : null
             delegate: CatalogProgramRow {
 
-                // Роли берутся прямо из модели через model.<role>. Объявлять их
-                // как required property нельзя: у CatalogProgramRow уже есть
-                // свои свойства с теми же именами, и Qt молча игнорирует
-                // перекрывающее объявление — карточка осталась бы пустой.
+                // Роли берутся через model.<role>, а не объявляются required
+                // property: имена ролей (title, goal, state) совпадают с
+                // одноимёнными свойствами компонента, и объявление required
+                // property перекрыло бы их — карточка осталась бы без полей.
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 programId: model.id
                 title: model.title
                 goal: model.goal
-                state: model.state
+                programState: model.state
                 weeksTotal: model.weeksTotal
                 canEdit: model.canEdit
                 onOpenRequested: programId => page.openRequested(programId)
                 onEditRequested: programId => page.editRequested(programId)
                 onStatsRequested: programId => page.statsRequested(programId)
             }
+        }
+
+        // Создание доступно и в наполненном каталоге: кнопка жила только в
+        // пустом состоянии, и при наличии хотя бы одной программы новую было
+        // не создать.
+        AppButton {
+            Layout.fillWidth: true
+            onClicked: page.createRequested()
+            text: qsTr("Создать программу")
+            variant: AppButton.Primary
         }
     }
 

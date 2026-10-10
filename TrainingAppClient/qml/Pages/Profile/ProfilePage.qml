@@ -216,6 +216,11 @@ PageScaffold {
         visible: page.sectionIndex === 2
         width: parent.width
 
+        // Оформление — первым блоком параметров: акцент и тема это настройка
+        // пользователя, а не инструмент дизайн-ревью (§4.11, issue 32).
+        AppearanceCard {
+            width: parent.width
+        }
         AppCard {
             paddingHorizontal: Spacing.screenPadding
             paddingVertical: Spacing.itemGap

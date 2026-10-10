@@ -73,6 +73,7 @@ static bool Key_Lift_Delta(const SProgress_Facts &in_facts, double &out_delta)
 	return true;
 }
 //----------------------------------------------------------------------------
+
 // AsLifetime_Calculator
 //----------------------------------------------------------------------------
 AsLifetime_Calculator::AsLifetime_Calculator() : Error_State(&LIFETIME_Calculator_Log())
@@ -308,10 +309,8 @@ void AsLifetime_Calculator::Resolve_Records(const SLifetime_Facts &in_facts,
 	}
 }
 //----------------------------------------------------------------------------
-// Дельта веса тела за всё время: первый и последний известные замеры.
-//----------------------------------------------------------------------------
 void AsLifetime_Calculator::Collect_Body_Weight(const SLifetime_Facts &in_facts, SLifetime_Stats &in_out_stats) const
-{
+{ // Дельта веса тела за всё время: первый и последний известные замеры.
 	SExtremes_Value weight;
 
 	for (int i = 0; i < in_facts.Measurements.size(); ++i)

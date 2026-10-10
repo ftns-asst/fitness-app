@@ -53,7 +53,8 @@ Item {
 
                         Behavior on color {
                             ColorAnimation {
-                                duration: 140
+                                duration: Theme.pressFeedbackDuration
+                                easing.type: Easing.OutCubic
                             }
                         }
                     }

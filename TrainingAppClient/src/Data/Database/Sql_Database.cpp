@@ -128,6 +128,42 @@ bool AsSql_Database::Migrate()
 		return false;
 	}
 
+	if (version < 3 && (Migrate_Schema_V2_To_V3() == false || Write_Schema_Version(3) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	// v4 — килограммы в перечне единиц правил. Идёт после v3: миграция
+	// пересоздаёт program_rules, а на свежей базе таблицы ещё нет.
+	if (version < 4 && (Migrate_Schema_V3_To_V4() == false || Write_Schema_Version(4) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	// v5 — параметры авторасчёта КБЖУ (спринт S7). Идёт последним и только
+	// добавляет столбцы: данные profile_local не трогаются, поэтому откат не
+	// нужен в отличие от пересоздания таблицы в v3.
+	if (version < 5 && (Migrate_Schema_V4_To_V5() == false || Write_Schema_Version(5) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	// v6 — результат авторасчёта КБЖУ. Как и v5, только добавляет столбцы:
+	// параметры и результат живут в одной строке profile_local, и пересоздание
+	// таблицы ради новых чисел затирало бы локальный профиль пользователя.
+	if (version < 6 && (Migrate_Schema_V5_To_V6() == false || Write_Schema_Version(6) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
 	// Каталог упражнений проверяется при каждом открытии, а не только при
 	// создании схемы: базы, созданные до появления каталога, остались бы с
 	// пустой exercises, и создание любой программы молча отвергалось бы FK.
@@ -177,7 +213,16 @@ QString AsSql_Database::Get_Default_Database_Path()
 int AsSql_Database::Get_Current_Schema_Version()
 {
 	// v2 — модель глобальной программы (срез W, docs/02-program-model.md §8).
-	return 2;
+	// v3 — рекомендации текстом (issue 46): категория 'other' и правило без
+	// измеримой цели, если задан текст.
+	// v4 — килограммы в перечне единиц правил: без них метрика «вес тела» была
+	// недоступна в форме своего правила.
+	// v5 — параметры авторасчёта КБЖУ: дата рождения и уровень активности
+	// пользователя (спринт S7, issue 50).
+	// v6 — результат авторасчёта КБЖУ: числа показываются на главной, и без
+	// строки в базе экран расчёта по каждому заходу выглядел бы так, будто
+	// расчёт делают впервые.
+	return 6;
 }
 //----------------------------------------------------------------------------
 bool AsSql_Database::Ensure_Directory(const QString &in_path)
@@ -207,7 +252,251 @@ bool AsSql_Database::Execute_SQL(const QString &in_sql)
 	if (query.exec(in_sql))
 		return true;
 
-	return Set_Last_Error(QString("Ошибка SQLite: %1").arg(query.lastError().text()));
+	// Текст запроса в сообщении: список CREATE идёт десятками строк, и по
+	// одному тексту ошибки непонятно, какой из них оборван.
+	return Set_Last_Error(QString("Ошибка SQLite: %1 [запрос: %2]").arg(query.lastError().text()).arg(in_sql));
+}
+//----------------------------------------------------------------------------
+// DDL program_rules. Живёт в функции, а не в двух местах текста: при смене
+// CHECK таблица пересоздаётся, и копия определения в миграции неизбежно
+// разошлась бы с боевой. Условие в конце — единственное, что отличает v3 от
+// v2: у рекомендации (категория 'other') вместо цели требуется текст.
+// Единица 'kg' добавлена в v4: без неё правило по весу тела не сохранялось.
+//
+// Имя таблицы подставляется не через %1: QString::arg() ищет первое вхождение
+// плейсхолдера, и подстановка в такой SQL с кавычками и процентами легко
+// попадает не туда. Поэтому имя просто конкатенируется.
+bool AsSql_Database::Create_Program_Rules_Table(const QString &in_name)
+{
+	const QString sql =
+	    QString("CREATE TABLE IF NOT EXISTS ") + in_name +
+	    QString(
+	        " (id TEXT PRIMARY KEY NOT NULL, "
+	        "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, "
+	        "category TEXT NOT NULL CHECK (category IN ('nutrition', 'training', 'recovery', 'lifestyle', "
+	        "'technique', 'other')), "
+	        "code TEXT NOT NULL, title TEXT NOT NULL, "
+	        "metric TEXT NOT NULL CHECK (metric IN ('proteinGrams', 'caloriesKcal', 'waterMl', 'sleepHours', "
+	        "'stepCount', 'bodyWeightKg', 'maxRpe', 'restHoursBetweenSessions', 'alcoholUnits', 'custom')), "
+	        "periodicity TEXT NOT NULL CHECK (periodicity IN ('perDay', 'perWeek', 'perWorkout', 'once')), "
+	        "target_min REAL, target_max REAL, target_exact REAL, "
+	        "target_unit TEXT NOT NULL CHECK (target_unit IN ('g', 'gPerKg', 'kg', 'kcal', 'ml', 'hours', 'count', "
+	        "'rpe', 'units')), "
+	        "applies_to TEXT NOT NULL DEFAULT 'allDays' CHECK (applies_to IN ('allDays', 'trainingDays', "
+	        "'restDays', 'customDays')), applies_days TEXT, "
+	        "check_source TEXT NOT NULL CHECK (check_source IN ('selfReport', 'computedFromSets', "
+	        "'computedFromProfile', 'computedFromSessions', 'computedFromLog', 'mixed')), "
+	        "enforcement TEXT NOT NULL DEFAULT 'soft' CHECK (enforcement IN ('soft', 'hard')), "
+	        "active_from TEXT, active_to TEXT, "
+	        "display_unit TEXT NOT NULL CHECK (display_unit IN ('g', 'gPerKg', 'kg', 'kcal', 'ml', 'hours', 'count', "
+	        "'rpe', 'units')), "
+	        "note TEXT, CHECK (target_min IS NOT NULL OR target_max IS NOT NULL OR target_exact IS NOT NULL "
+	        "OR (category = 'other' AND note IS NOT NULL AND TRIM(note) != '')))");
+
+	return Execute_SQL(sql);
+}
+//----------------------------------------------------------------------------
+bool AsSql_Database::Migrate_Schema_V2_To_V3()
+{
+	// Порядок важен: сначала копия под новым именем и перенос данных, и только
+	// потом удаление старой таблицы. Обратный порядок оставил бы базу без
+	// program_rules при сбое на переносе — то есть потеряла бы все правила.
+	const QString backup_name = QString("program_rules_v2_backup");
+
+	if (Execute_SQL(QString("DROP TABLE IF EXISTS %1").arg(backup_name)) == false)
+		return false;
+
+	if (Create_Program_Rules_Table(backup_name) == false)
+		return false;
+
+	// Переносим только осмысленные строки: у v2 не было текстовых правил, но
+	// строка без цели могла остаться от ручной правки базы, и новое
+	// ограничение отвергло бы её при переносе.
+	if (Execute_SQL(
+	        QString("INSERT INTO %1 (id, program_id, category, code, title, metric, periodicity, target_min, "
+	                "target_max, target_exact, target_unit, applies_to, applies_days, check_source, enforcement, "
+	                "active_from, active_to, display_unit, note) "
+	                "SELECT id, program_id, category, code, title, metric, periodicity, target_min, target_max, "
+	                "target_exact, target_unit, applies_to, applies_days, check_source, enforcement, active_from, "
+	                "active_to, display_unit, note FROM program_rules "
+	                "WHERE target_min IS NOT NULL OR target_max IS NOT NULL OR target_exact IS NOT NULL")
+	            .arg(backup_name)) == false)
+		return false;
+
+	if (Execute_SQL("DROP TABLE program_rules") == false)
+		return false;
+
+	if (Create_Program_Rules_Table(QString("program_rules")) == false)
+		return false;
+
+	if (Execute_SQL(
+	        QString("INSERT INTO program_rules (id, program_id, category, code, title, metric, periodicity, "
+	                "target_min, target_max, target_exact, target_unit, applies_to, applies_days, check_source, "
+	                "enforcement, active_from, active_to, display_unit, note) "
+	                "SELECT id, program_id, category, code, title, metric, periodicity, target_min, target_max, "
+	                "target_exact, target_unit, applies_to, applies_days, check_source, enforcement, active_from, "
+	                "active_to, display_unit, note FROM %1")
+	            .arg(backup_name)) == false)
+		return false;
+
+	return Execute_SQL(QString("DROP TABLE %1").arg(backup_name));
+}
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+// v3 → v4: в перечень единиц добавлены килограммы. CHECK не ALTER'ится, поэтому
+// таблица пересоздаётся, а строки переносятся. Приём тот же, что в v2→v3, и
+// та же оговорка: пересоздание без переноса стоило бы пользователю всех
+// правил программы.
+//
+// Переносятся все строки, а не только «осмысленные», как в v2→v3: в v4
+// ограничение по цели не меняется, поэтому отсеивать нечего, а фильтр здесь
+// был бы лишней возможностью потерять строку по недосмотру.
+bool AsSql_Database::Migrate_Schema_V3_To_V4()
+{
+	const QString backup_name = QString("program_rules_v3_backup");
+
+	if (Execute_SQL(QString("DROP TABLE IF EXISTS %1").arg(backup_name)) == false)
+		return false;
+
+	if (Create_Program_Rules_Table(backup_name) == false)
+		return false;
+
+	if (Execute_SQL(
+	        QString("INSERT INTO %1 (id, program_id, category, code, title, metric, periodicity, target_min, "
+	                "target_max, target_exact, target_unit, applies_to, applies_days, check_source, enforcement, "
+	                "active_from, active_to, display_unit, note) "
+	                "SELECT id, program_id, category, code, title, metric, periodicity, target_min, target_max, "
+	                "target_exact, target_unit, applies_to, applies_days, check_source, enforcement, active_from, "
+	                "active_to, display_unit, note FROM program_rules")
+	            .arg(backup_name)) == false)
+		return false;
+
+	if (Execute_SQL("DROP TABLE program_rules") == false)
+		return false;
+
+	if (Create_Program_Rules_Table(QString("program_rules")) == false)
+		return false;
+
+	if (Execute_SQL(
+	        QString("INSERT INTO program_rules (id, program_id, category, code, title, metric, periodicity, "
+	                "target_min, target_max, target_exact, target_unit, applies_to, applies_days, check_source, "
+	                "enforcement, active_from, active_to, display_unit, note) "
+	                "SELECT id, program_id, category, code, title, metric, periodicity, target_min, target_max, "
+	                "target_exact, target_unit, applies_to, applies_days, check_source, enforcement, active_from, "
+	                "active_to, display_unit, note FROM %1")
+	            .arg(backup_name)) == false)
+		return false;
+
+	return Execute_SQL(QString("DROP TABLE %1").arg(backup_name));
+}
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+// Миграция v4 → v5 (спринт S7, issue 50): параметры авторасчёта КБЖУ.
+//
+// Только ADD COLUMN. Пересоздание таблицы (как в v3) здесь было бы лишним
+// риском: накопленный локальный профиль пришлось бы переносить копированием
+// ради двух столбцов, а CHECK новых столбцов старые данные не затрагивает.
+//
+// birth_date хранится датой, а не возрастом: возраст завтра устареет, и счётчик
+// КБЖУ показал бы человека на десять лет моложе, чем он есть. Год рождения,
+// впрочем, тоже перестанет соответствовать — но пересчитывается сам.
+//----------------------------------------------------------------------------
+bool AsSql_Database::Migrate_Schema_V4_To_V5()
+{
+	// Таблица создаётся, если её нет. Формально она есть уже в v1, но миграция
+	// не должна зависеть от этого: база, собранная частично (сбой при создании,
+	// восстановление из частичной копии), должна чиниться, а не падать на ALTER
+	// отсутствующей таблицы.
+	if (Execute_SQL("CREATE TABLE IF NOT EXISTS profile_local (user_id TEXT PRIMARY KEY NOT NULL, level TEXT, "
+	                "goal TEXT, workouts_per_week INTEGER CHECK (workouts_per_week IS NULL OR workouts_per_week "
+	                "BETWEEN 0 AND 14), updated_at TEXT NOT NULL)") == false)
+		return false;
+
+	if (Add_Column_If_Missing("profile_local", "birth_date", "TEXT") == false)
+		return false;
+
+	return Add_Column_If_Missing("profile_local", "activity_level",
+	                             "TEXT CHECK (activity_level IS NULL OR activity_level IN "
+	                             "('sedentary', 'light', 'moderate', 'active', 'athlete'))");
+}
+//----------------------------------------------------------------------------
+// v6 — результат авторасчёта КБЖУ. Даты расчёта достаточно, чтобы отличить
+// свежие числа от прошлогодних: сами числа хранятся рядом с параметрами, потому
+// что главная показывает их без вызова домена — она не должна уметь считать
+// иначе, чем экран расчёта.
+//----------------------------------------------------------------------------
+bool AsSql_Database::Migrate_Schema_V5_To_V6()
+{
+	if (Add_Column_If_Missing("profile_local", "macro_calculated_at", "TEXT") == false)
+		return false;
+
+	if (Add_Column_If_Missing("profile_local", "macro_bmr_kcal", "REAL") == false)
+		return false;
+
+	if (Add_Column_If_Missing("profile_local", "macro_tdee_kcal", "REAL") == false)
+		return false;
+
+	if (Add_Column_If_Missing("profile_local", "macro_calories_kcal", "REAL") == false)
+		return false;
+
+	if (Add_Column_If_Missing("profile_local", "macro_protein_g", "REAL") == false)
+		return false;
+
+	if (Add_Column_If_Missing("profile_local", "macro_fat_g", "REAL") == false)
+		return false;
+
+	return Add_Column_If_Missing("profile_local", "macro_carbs_g", "REAL");
+}
+//----------------------------------------------------------------------------
+// Повторный ALTER падает, поэтому столбец добавляется только при его отсутствии.
+// Проверка идёт по информации схемы, а не по try/catch: исключение SQLite при
+// уже существующем столбце означало бы, что предыдущая попытка миграции
+// прервалась на середине, и повторный запуск обязан завершить её.
+//----------------------------------------------------------------------------
+bool AsSql_Database::Add_Column_If_Missing(const QString &in_table, const QString &in_column,
+                                           const QString &in_definition)
+{
+	QSqlQuery query(*Database_Handle);
+	bool exists = false;
+
+	// PRAGMA table_info не параметризуется, поэтому имя таблицы подставляется
+	// текстом. Это безопасно: оба имени — литералы вызывающего кода, а не
+	// пользовательский ввод (иначе значение извне ушло бы в DDL).
+	query.prepare(QString("PRAGMA table_info(%1)").arg(in_table));
+
+	if (query.exec() == false)
+		return Set_Last_Error(QString("Не удалось прочитать состав %1: %2").arg(in_table, query.lastError().text()));
+
+	while (query.next())
+	{
+		if (query.value(1).toString() != in_column)
+			continue;
+
+		exists = true;
+
+		break;
+	}
+
+	if (exists)
+		return true;
+
+	return Execute_SQL(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(in_table, in_column, in_definition));
+}
+//----------------------------------------------------------------------------
+// rule_checkins ссылается на program_rules через FK, поэтому создаётся после
+// неё и тоже отдельным вызовом: пока program_rules жил в списке statements,
+// порядок создания таблиц был случайным — правка списка ломала схему с
+// «no such table: main.program_rules».
+bool AsSql_Database::Create_Rule_Checkins_Table()
+{
+	return Execute_SQL(
+	    "CREATE TABLE IF NOT EXISTS rule_checkins (id TEXT PRIMARY KEY NOT NULL, "
+	    "rule_id TEXT NOT NULL REFERENCES program_rules(id) ON DELETE CASCADE, "
+	    "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, date TEXT NOT NULL, value REAL, "
+	    "unit TEXT NOT NULL, state TEXT NOT NULL CHECK (state IN ('done', 'failed', 'skipped', 'partial', 'unknown')), "
+	    "source TEXT NOT NULL CHECK (source IN ('manual', 'computed', 'imported')), "
+	    "session_id TEXT REFERENCES workouts(id) ON DELETE SET NULL, meal_log_id TEXT, note TEXT, "
+	    "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE (rule_id, date))");
 }
 //----------------------------------------------------------------------------
 bool AsSql_Database::Create_Schema_V1()
@@ -311,34 +600,6 @@ bool AsSql_Database::Create_Schema_V2()
 	    "is_optional INTEGER NOT NULL DEFAULT 0 CHECK (is_optional IN (0, 1)), note TEXT, CHECK (reps_max >= "
 	    "reps_min))",
 
-	    "CREATE TABLE IF NOT EXISTS program_rules (id TEXT PRIMARY KEY NOT NULL, "
-	    "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, "
-	    "category TEXT NOT NULL CHECK (category IN ('nutrition', 'training', 'recovery', 'lifestyle', 'technique')), "
-	    "code TEXT NOT NULL, title TEXT NOT NULL, "
-	    "metric TEXT NOT NULL CHECK (metric IN ('proteinGrams', 'caloriesKcal', 'waterMl', 'sleepHours', 'stepCount', "
-	    "'bodyWeightKg', 'maxRpe', 'restHoursBetweenSessions', 'alcoholUnits', 'custom')), "
-	    "periodicity TEXT NOT NULL CHECK (periodicity IN ('perDay', 'perWeek', 'perWorkout', 'once')), "
-	    "target_min REAL, target_max REAL, target_exact REAL, "
-	    "target_unit TEXT NOT NULL CHECK (target_unit IN ('g', 'gPerKg', 'kcal', 'ml', 'hours', 'count', 'rpe', "
-	    "'units')), "
-	    "applies_to TEXT NOT NULL DEFAULT 'allDays' CHECK (applies_to IN ('allDays', 'trainingDays', 'restDays', "
-	    "'customDays')), applies_days TEXT, "
-	    "check_source TEXT NOT NULL CHECK (check_source IN ('selfReport', 'computedFromSets', 'computedFromProfile', "
-	    "'computedFromSessions', 'computedFromLog', 'mixed')), "
-	    "enforcement TEXT NOT NULL DEFAULT 'soft' CHECK (enforcement IN ('soft', 'hard')), "
-	    "active_from TEXT, active_to TEXT, "
-	    "display_unit TEXT NOT NULL CHECK (display_unit IN ('g', 'gPerKg', 'kcal', 'ml', 'hours', 'count', 'rpe', "
-	    "'units')), "
-	    "note TEXT, CHECK (target_min IS NOT NULL OR target_max IS NOT NULL OR target_exact IS NOT NULL))",
-
-	    "CREATE TABLE IF NOT EXISTS rule_checkins (id TEXT PRIMARY KEY NOT NULL, "
-	    "rule_id TEXT NOT NULL REFERENCES program_rules(id) ON DELETE CASCADE, "
-	    "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, date TEXT NOT NULL, value REAL, "
-	    "unit TEXT NOT NULL, state TEXT NOT NULL CHECK (state IN ('done', 'failed', 'skipped', 'partial', 'unknown')), "
-	    "source TEXT NOT NULL CHECK (source IN ('manual', 'computed', 'imported')), "
-	    "session_id TEXT REFERENCES workouts(id) ON DELETE SET NULL, meal_log_id TEXT, note TEXT, "
-	    "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE (rule_id, date))",
-
 	    "CREATE TABLE IF NOT EXISTS program_revisions (id TEXT PRIMARY KEY NOT NULL, "
 	    "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, "
 	    "revision INTEGER NOT NULL CHECK (revision >= 1), changed_at TEXT NOT NULL, "
@@ -399,8 +660,6 @@ bool AsSql_Database::Create_Schema_V2()
 	    "CREATE INDEX IF NOT EXISTS program_schedule_program_dow_idx ON program_schedule(program_id, day_of_week)",
 	    "CREATE INDEX IF NOT EXISTS program_day_exercises_day_idx ON program_day_exercises(program_day_id, "
 	    "order_index)",
-	    "CREATE INDEX IF NOT EXISTS program_rules_program_idx ON program_rules(program_id)",
-	    "CREATE INDEX IF NOT EXISTS rule_checkins_rule_date_idx ON rule_checkins(rule_id, date)",
 	    "CREATE INDEX IF NOT EXISTS program_revisions_program_idx ON program_revisions(program_id, revision)",
 	    "CREATE INDEX IF NOT EXISTS workouts_program_date_idx ON workouts(program_id, date)",
 	    "CREATE INDEX IF NOT EXISTS sets_session_idx ON sets(session_id)",
@@ -410,6 +669,31 @@ bool AsSql_Database::Create_Schema_V2()
 	for (int i = 0; i < statements.size(); ++i)
 	{
 		if (Execute_SQL(statements.at(i)) == false)
+			return false;
+	}
+
+	// program_rules и rule_checkins создаются после списка: rule_checkins
+	// ссылается на program_rules через FK, и пока обе жили в statements, порядок
+	// создания зависел от позиции строки в списке. Отдельными вызовами порядок
+	// задан явно, а CHECK program_rules остаётся в единственном экземпляре
+	// (он менялся в v3 — issue 46, текстовые рекомендации).
+	// Индексы на program_rules и rule_checkins создаются вместе с таблицами: пока
+	// они лежали в statements списке, индекс создавался раньше таблицы, и
+	// миграция падала с «no such table: main.program_rules».
+	if (Create_Program_Rules_Table(QString("program_rules")) == false)
+		return false;
+
+	if (Create_Rule_Checkins_Table() == false)
+		return false;
+
+	const QStringList rule_indexes = {
+	    "CREATE INDEX IF NOT EXISTS program_rules_program_idx ON program_rules(program_id)",
+	    "CREATE INDEX IF NOT EXISTS rule_checkins_rule_date_idx ON "
+	    "rule_checkins(rule_id, date)"};
+
+	for (int i = 0; i < rule_indexes.size(); ++i)
+	{
+		if (Execute_SQL(rule_indexes.at(i)) == false)
 			return false;
 	}
 

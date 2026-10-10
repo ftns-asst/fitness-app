@@ -30,7 +30,7 @@ using namespace Program_Model;
 //
 // Регистрация в QML: тип объявляется в qml-модуле приложения
 // (`QML_NAMED_ELEMENT(Program)`), а не здесь — ядро не зависит от QML.
-//------------------------------------------------------------------------------
+//----------------------------------------------------------------------------
 class Avm_Program : public QObject
 {
 	Q_OBJECT
@@ -67,6 +67,7 @@ public:
 	Q_INVOKABLE bool reload(const QString &in_user_id, const QString &in_program_id = QString());
 	Q_INVOKABLE void selectDay(const QString &in_program_day_id);
 
+	// Перечитывает активную программу пользователя. Отсутствие программы —
 	// не сбой чтения, но ошибка для UI: errorKey заполняется, модели пусты.
 	// Пустой in_program_id открывает активную программу — как раньше.
 	bool Reload(const QString &in_user_id, const QString &in_program_id = QString());

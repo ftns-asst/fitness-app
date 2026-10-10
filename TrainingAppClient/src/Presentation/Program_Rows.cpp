@@ -15,6 +15,80 @@ QVariant Null_Variant()
 namespace Program_Rows
 {
 //----------------------------------------------------------------------------
+// Каталог типовых правил (§5.7). Живёт здесь, а не в QML-разметке редактора:
+// пресеты, объявленные в экране, нельзя ни проверить, ни отфильтровать по
+// категории, а экран выбора правил обязан показывать именно этот набор.
+//
+// Порядок строк значим: он и есть порядок «по смыслу» (питание → активность →
+// восстановление → тренировки), и экран не должен его перетасовывать.
+//----------------------------------------------------------------------------
+namespace
+{
+struct SPreset
+{
+	const char *Code;
+	const char *Title;
+	ERule_Category Category;
+	ERule_Metric Metric;
+	ERule_Periodicity Periodicity;
+	ERule_Display_Unit Unit;
+	double Target_Min;
+	double Target_Max;
+	bool Has_Min;
+	bool Has_Max;
+};
+
+const SPreset Rule_Presets[] = {
+    {"protein", "Белок 140 г", ERule_Category::Nutrition, ERule_Metric::ProteinGrams, ERule_Periodicity::PerDay,
+     ERule_Display_Unit::G, 140, -1, true, false},
+    {"water", "Вода 2 л", ERule_Category::Nutrition, ERule_Metric::WaterMl, ERule_Periodicity::PerDay,
+     ERule_Display_Unit::Ml, 2000, -1, true, false},
+    {"steps", "10 000 шагов", ERule_Category::Lifestyle, ERule_Metric::StepCount, ERule_Periodicity::PerDay,
+     ERule_Display_Unit::Count, 10000, -1, true, false},
+    {"sleep", "Сон 8 ч", ERule_Category::Recovery, ERule_Metric::SleepHours, ERule_Periodicity::PerDay,
+     ERule_Display_Unit::Hours, 7, 9, true, true},
+    {"rest", "Отдых 48 ч", ERule_Category::Recovery, ERule_Metric::RestHoursBetweenSessions,
+     ERule_Periodicity::PerWorkout, ERule_Display_Unit::Hours, 48, -1, true, false},
+    {"maxRpe", "RPE не выше 8", ERule_Category::Training, ERule_Metric::MaxRpe, ERule_Periodicity::PerWorkout,
+     ERule_Display_Unit::Rpe, -1, 8, false, true},
+};
+} // namespace
+//----------------------------------------------------------------------------
+// category — строка из To_String (как у строк правил); пустая означает «все».
+// Пресеты не переводятся: enum отдаётся числом (§7 QML-контракт).
+QVector<QVariantMap> Build_Rule_Catalog(const QString &in_category)
+{
+	QVector<QVariantMap> rows;
+	const int total = int(sizeof(Rule_Presets) / sizeof(Rule_Presets[0]));
+
+	for (int i = 0; i < total; ++i)
+	{
+		const SPreset &preset = Rule_Presets[i];
+		const QString category = To_String(preset.Category);
+		QVariantMap row;
+
+		if (in_category.isEmpty() == false && category != in_category)
+			continue;
+
+		row.insert("code", QString::fromLatin1(preset.Code));
+		row.insert("title", QString::fromUtf8(preset.Title));
+		row.insert("category", category);
+		row.insert("metric", int(preset.Metric));
+		row.insert("periodicity", int(preset.Periodicity));
+		row.insert("unit", To_String(preset.Unit));
+		row.insert("targetMin", preset.Has_Min ? QVariant(preset.Target_Min) : Null_Variant());
+		row.insert("targetMax", preset.Has_Max ? QVariant(preset.Target_Max) : Null_Variant());
+		row.insert("hasTargetMin", preset.Has_Min);
+		row.insert("hasTargetMax", preset.Has_Max);
+		// isAdvice у пресета всегда false: типовые правила измеримы. Флаг в
+		// контракте нужен экрану, который показывает и добавленные рекомендации.
+		row.insert("isAdvice", false);
+		rows.append(row);
+	}
+
+	return rows;
+}
+//----------------------------------------------------------------------------
 // Роли списков (§7). Порядок объявления значим: он задаёт значения ролей.
 //----------------------------------------------------------------------------
 QStringList Week_Slot_Roles()
@@ -44,8 +118,105 @@ QStringList Rule_Roles()
 {
 	// Имя роли не «id»: QML отвергает свойство с именем id (reserved), и
 	// делегат экрана правил не смог бы объявить required property.
-	return QStringList{"ruleId",      "category",   "code",        "title",       "metric",      "periodicity",
-	                   "targetValue", "targetUnit", "displayText", "checkSource", "enforcement", "todayState"};
+	// isAdvice обязателен в контракте: по нему экран решает, рисуть ли кнопки
+	// отметки, а решать это по displayText нельзя — он является подписью.
+	return QStringList{"ruleId",      "category",    "code",       "title",       "metric",
+	                   "periodicity", "targetValue", "targetUnit", "displayText", "checkSource",
+	                   "enforcement", "todayState",  "isAdvice"};
+}
+//----------------------------------------------------------------------------
+// Роли строки каталога правил. Совпадают с ключами Build_Rule_Catalog и
+// объявлены здесь, а не внутри функции: порядок ролей задаёт их значения в
+// модели, и он обязан быть стабильным между вызовами.
+// Каталог метрик для формы произвольного правила (§5.7). Метрика задаёт свою
+// единицу и периодичность сама: если бы единицу выбирал пользователь, форма
+// позволяла бы «белок в мл», и такое правило прошло бы всю валидацию, не
+// значив ничего.
+namespace
+{
+struct SMetric
+{
+	const char *Title;
+	ERule_Metric Metric;
+	ERule_Display_Unit Unit;
+	ERule_Periodicity Periodicity;
+	// Куда попадает цель. Для «не выше»/`не ниже`/`ровно» — одна ось; для
+	// диапазона — две. Форма не должна предлагать «ровно» там, где осмыслен
+	// только диапазон.
+	bool Allows_Min;
+	bool Allows_Max;
+	bool Allows_Exact;
+};
+
+const SMetric Rule_Metrics[] = {
+    {"Белок", ERule_Metric::ProteinGrams, ERule_Display_Unit::G, ERule_Periodicity::PerDay, true, true, false},
+    {"Калории", ERule_Metric::CaloriesKcal, ERule_Display_Unit::Kcal, ERule_Periodicity::PerDay, true, true, false},
+    {"Вода", ERule_Metric::WaterMl, ERule_Display_Unit::Ml, ERule_Periodicity::PerDay, true, true, false},
+    {"Сон", ERule_Metric::SleepHours, ERule_Display_Unit::Hours, ERule_Periodicity::PerDay, true, true, true},
+    {"Шаги", ERule_Metric::StepCount, ERule_Display_Unit::Count, ERule_Periodicity::PerDay, true, true, false},
+    // Вес тела: ровно одна точка осмысленна («держать 80 кг»), диапазон — нет.
+    {"Вес тела", ERule_Metric::BodyWeightKg, ERule_Display_Unit::Kg, ERule_Periodicity::PerWeek, false, false, true},
+    {"Нагрузка (RPE)", ERule_Metric::MaxRpe, ERule_Display_Unit::Rpe, ERule_Periodicity::PerWorkout, true, true, false},
+    {"Отдых между тренировками", ERule_Metric::RestHoursBetweenSessions, ERule_Display_Unit::Hours,
+     ERule_Periodicity::PerWorkout, true, true, false},
+    {"Алкоголь", ERule_Metric::AlcoholUnits, ERule_Display_Unit::Units, ERule_Periodicity::PerWeek, true, true, false},
+};
+} // namespace
+//----------------------------------------------------------------------------
+// Custom в каталоге нет намеренно: произвольное измерение — это рекомендация,
+// у неё другой вход (§3.6). Список метрик покрыт тестом
+// metricCatalogCoversEveryRuleMetric, чтобы забытая метрика не исчезла молча.
+QVector<QVariantMap> Build_Metric_Catalog()
+{
+	QVector<QVariantMap> rows;
+	const int total = int(sizeof(Rule_Metrics) / sizeof(Rule_Metrics[0]));
+
+	for (int i = 0; i < total; ++i)
+	{
+		const SMetric &metric = Rule_Metrics[i];
+		QVariantMap row;
+
+		row.insert("title", QString::fromUtf8(metric.Title));
+		row.insert("metric", int(metric.Metric));
+		row.insert("unit", To_String(metric.Unit));
+		row.insert("periodicity", int(metric.Periodicity));
+		row.insert("allowsMin", metric.Allows_Min);
+		row.insert("allowsMax", metric.Allows_Max);
+		row.insert("allowsExact", metric.Allows_Exact);
+		rows.append(row);
+	}
+
+	return rows;
+}
+//----------------------------------------------------------------------------
+// Единица проверяется по той же таблице, что и отдаётся формой. Проверка в UI
+// означала бы две копии правила, и они разошлись бы при добавлении метрики.
+bool Is_Unit_Valid_For_Metric(int in_metric, int in_unit)
+{
+	const int total = int(sizeof(Rule_Metrics) / sizeof(Rule_Metrics[0]));
+
+	// Произвольная метрика: единицу задаёт пользователь, ограничений нет.
+	if (in_metric == int(ERule_Metric::Custom))
+		return in_unit >= 0 && in_unit < int(ERule_Display_Unit::Max);
+
+	for (int i = 0; i < total; ++i)
+	{
+		if (int(Rule_Metrics[i].Metric) == in_metric)
+			return int(Rule_Metrics[i].Unit) == in_unit;
+	}
+
+	return false;
+}
+//----------------------------------------------------------------------------
+QStringList Rule_Catalog_Roles()
+{
+	return QStringList{"code",      "title",        "category",  "metric",       "periodicity", "unit",
+	                   "targetMin", "hasTargetMin", "targetMax", "hasTargetMax", "isAdvice"};
+}
+//----------------------------------------------------------------------------
+QStringList Metric_Catalog_Roles()
+{
+	return QStringList{"title", "metric", "unit", "periodicity", "allowsMin", "allowsMax", "allowsExact"};
 }
 //----------------------------------------------------------------------------
 QStringList Checkin_Roles()
@@ -66,6 +237,7 @@ QStringList Catalog_Program_Roles()
 	// дешёвой, а не превращаться в N запросов статистики.
 	return QStringList{"id", "title", "goal", "state", "weeksTotal", "startDate", "updatedAt", "canEdit"};
 }
+//----------------------------------------------------------------------------
 QStringList Program_Summary_Roles()
 {
 	return QStringList{"id",
@@ -142,10 +314,15 @@ static QVariant Rule_Target_Value(const SProgram_Rule &in_rule)
 //----------------------------------------------------------------------------
 // «≥ 140 г», «≤ 8», «7–9 h»: подпись цели для карточки правила. Перевод
 // единиц в словари — в UI, здесь только форма и диапазон (§7).
+// У рекомендации цели нет, поэтому подписью становится сам совет — иначе в
+// списке рядом с «≥ 140 г» стояла бы пустая строка.
 //----------------------------------------------------------------------------
 static QString Rule_Display_Text(const SProgram_Rule &in_rule)
 {
 	QString value;
+
+	if (Get_Rule_Kind(in_rule) == ERule_Kind::Advice)
+		return in_rule.Note.trimmed();
 
 	if (in_rule.Has_Target_Exact)
 		value = QString::number(in_rule.Target_Exact);
@@ -296,6 +473,9 @@ QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const Q
 		row.insert("displayText", Rule_Display_Text(rule));
 		row.insert("checkSource", To_String(rule.Check_Source));
 		row.insert("enforcement", To_String(rule.Enforcement));
+		// Рекомендация не измерима, поэтому отмечать её нечем: экран прячет
+		// кнопки, а процент выполнения она не меняет (§3.6).
+		row.insert("isAdvice", Get_Rule_Kind(rule) == ERule_Kind::Advice);
 		// Правило без отметки за сегодня — «неизвестно», а не «выполнено»:
 		// отсутствие данных не равно нулю (§3.6).
 		row.insert("todayState", in_today_state.value(rule.ID, To_String(ECheckin_State::Unknown)));
@@ -375,6 +555,7 @@ QVector<QVariantMap> Build_Catalog_Programs(const QVector<SProgram> &in_programs
 
 	return rows;
 }
+//----------------------------------------------------------------------------
 QVector<QVariantMap> Build_Program_Summaries(const QVector<SProgram_Summary> &in_summaries,
                                              const QString &in_best_program_id)
 {
@@ -492,3 +673,4 @@ QVector<QVariantMap> Build_Week_Aggregates(const QVector<SWeek_Aggregate> &in_we
 	return rows;
 }
 } // namespace Program_Rows
+//----------------------------------------------------------------------------

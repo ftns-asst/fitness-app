@@ -200,6 +200,20 @@ bool AsProgram_Service::Activate(const QString &in_program_id)
 	return true;
 }
 //----------------------------------------------------------------------------
+bool AsProgram_Service::Activate_Exclusive(const QString &in_program_id, QString &out_paused_program_id)
+{
+	Clear_Last_Error();
+	out_paused_program_id.clear();
+
+	if (!Repository_Instance)
+		return Set_Last_Error("Репозиторий программы не задан");
+
+	if (Repository_Instance->Activate_Exclusive(in_program_id, out_paused_program_id) == false)
+		return Set_Last_Error(Repository_Instance->Get_Last_Error());
+
+	return true;
+}
+//----------------------------------------------------------------------------
 bool AsProgram_Service::Pause(const QString &in_program_id)
 {
 	Clear_Last_Error();
@@ -215,7 +229,12 @@ bool AsProgram_Service::Pause(const QString &in_program_id)
 //----------------------------------------------------------------------------
 bool AsProgram_Service::Resume(const QString &in_program_id)
 {
-	return Activate(in_program_id);
+	QString paused_program_id;
+
+	// Возобновление — то же включение (§2.3): если активна другая программа,
+	// она уходит в паузу. Через строгий Activate вызов упирался бы в частичный
+	// уникальный индекс programs_one_active_per_user.
+	return Activate_Exclusive(in_program_id, paused_program_id);
 }
 //----------------------------------------------------------------------------
 bool AsProgram_Service::Complete(const QString &in_program_id)

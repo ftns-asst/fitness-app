@@ -76,7 +76,7 @@ Kit: `Desktop Qt 6.11.2 MinGW 64-bit`, каталог `build/Desktop_Qt_6_11_2_M
 | `--auth-fail <operation:key>` | принудительная ошибка auth mock API |
 | `--real-auth` | реальный auth: экран входа работает с задеплоенным backend через `Avm_Auth_Bridge` (контекст-свойство `AuthBackend`); без флага — presentation-mock |
 | `--api-url <url>` | base URL будущего API; выше QSettings/env/default |
-| `--dark` | тёмная тема |
+| `--dark` / `--light` | тёмная / светлая тема; без флага — системная схема |
 | `--accent <0..3>` | цвет акцента |
 | `--width <px>` / `--height <px>` | размер окна |
 | `--screenshot <путь.png>` | снимок контента и выход |
@@ -188,8 +188,7 @@ Portrait-only, label «Фитнес-помощник». Kit: `Qt 6.11.2 for Andr
 
 ```
 qml/Main.qml              окно, рамка, CLI, аудит вёрстки
-qml/AppShell.qml          вкладки, tab bar, Dev, toast
-qml/DevPanel.qml          панель дизайн-ревью
+qml/AppShell.qml          вкладки, tab bar, toast
 qml/Pages/                Auth, Сегодня, Планы, Упражнения, Профиль
 qml/Components/           кнопки, карточки, график, heatmap, tab bar
 qml/Theme/                цвета, типографика Inter, отступы
@@ -213,7 +212,8 @@ docs/                     дизайн, референс, roadmap
 | [`docs/fitness-assistant-frontend-design.md`](docs/fitness-assistant-frontend-design.md) | Навигация, токены, экраны |
 | [`docs/01-architecture.md`](docs/01-architecture.md) | Слои C++, composition root, конфигурация API |
 | [`docs/02-program-model.md`](docs/02-program-model.md) | Программа тренировок: цель, срок, недельный план, правила, статистика |
-| [`docs/03-api-contract.md`](docs/03-api-contract.md) | Реальный контракт auth/users и открытые вопросы |
+| [`docs/03-api-contract.md`](docs/03-api-contract.md) | Реальный контракт auth/users/exercises: источники, метки достоверности, открытые вопросы |
+| [`docs/03-api-backend-published.md`](docs/03-api-backend-published.md) | Опубликованное backend дополнение к документации API (выдержка-источник) |
 | [`docs/reference-ui/README.md`](docs/reference-ui/README.md) | Скриншоты-референс и CLI |
 | [`docs/04-roadmap.md`](docs/04-roadmap.md) | Фазы: mock → C++ → сеть → релиз |
 | [`docs/mock-data-contract.md`](docs/mock-data-contract.md) | Роли моделей, mock API и assumed DTO |

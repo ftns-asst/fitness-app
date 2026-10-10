@@ -38,10 +38,20 @@ class Avm_Program_Edit : public QObject
 
 	Q_PROPERTY(bool canCreate READ canCreate NOTIFY changed)
 	Q_PROPERTY(bool created READ created NOTIFY changed)
+	// Сохранение включает программу (§2.3: активная у пользователя одна),
+	// поэтому прежняя активная уходит в паузу. Признак нужен экрану: об этой
+	// смене состояния надо сказать пользователю, иначе программа «пропадёт»
+	// из активных молча.
+	Q_PROPERTY(bool previousProgramPaused READ Previous_Program_Paused NOTIFY changed)
 	// Черновик существует сразу после reset(), а программа — только после
 	// create(). Экран редактирования обязан показывать семь дней недели и
 	// введённые значения по черновику, иначе до создания программы экран пуст.
 	Q_PROPERTY(bool hasDraft READ Has_Draft NOTIFY changed)
+	// Автосохранение мутаций в БД со статусом Draft. Выключено по умолчанию,
+	// чтобы тесты оставались детерминированными: экраны редактора включают
+	// его при открытии. Отзыв: «добавил упражнение, нажал назад — ничего не
+	// сохранилось»: с включённым автосохранением каждое действие дня уже в БД.
+	Q_PROPERTY(bool autoSaveDraft READ autoSaveEnabled WRITE setAutoSaveEnabled NOTIFY changed)
 	Q_PROPERTY(QString programId READ programId NOTIFY changed)
 	Q_PROPERTY(QString errorKey READ errorKey NOTIFY changed)
 	// Текст ошибки хранилища: ключ говорит «что не так» словами продукта, а
@@ -51,6 +61,12 @@ class Avm_Program_Edit : public QObject
 	Q_PROPERTY(QString title READ title NOTIFY changed)
 	Q_PROPERTY(int weeks READ weeks NOTIFY changed)
 	Q_PROPERTY(QString startDate READ startDate NOTIFY changed)
+	// Производная дата окончания (§3.3): старт + срок − 1 день. Считает домен, а
+	// не экран: та же формула уже участвует в статистике, и вторая её копия в
+	// QML разошлась бы с доменом при первом же изменении правила. Пусто, пока
+	// нет даты старта или срока — тогда окончание не определено, и подсказке
+	// нечего показывать.
+	Q_PROPERTY(QString plannedEndDate READ plannedEndDate NOTIFY changed)
 	Q_PROPERTY(int trainingDays READ trainingDays NOTIFY changed)
 	// Выбранная цель и уровень нужны экрану, чтобы показать уже сделанный
 	// выбор: без них нельзя подсветить активный вариант, и пользователь не
@@ -67,6 +83,12 @@ class Avm_Program_Edit : public QObject
 	// видел бы их как функции и получал пустую модель (§5 QML-контракт).
 	Q_PROPERTY(AList_Model *goal_targets READ goal_targets CONSTANT)
 	Q_PROPERTY(AList_Model *rules READ rules CONSTANT)
+	// — Экран выбора правил (§5.7) —
+	// Каталог пресетов и каталог метрик приходят из Program_Rows: объявленные
+	// в разметке пресеты нельзя было ни отфильтровать, ни сверить с
+	// добавленными правилами, а у метрик ещё и не было бы своих единиц.
+	Q_PROPERTY(AList_Model *catalog READ catalog CONSTANT)
+	Q_PROPERTY(AList_Model *metrics READ metrics CONSTANT)
 	// Упражнения выбранного дня. Экран дня показывает их отдельной страницей,
 	// поэтому модель одна и переключается вместе с selectedWeekday.
 	Q_PROPERTY(AList_Model *day_exercises READ day_exercises CONSTANT)
@@ -79,6 +101,18 @@ public:
 	// как set_Weeks, то есть внутренний стиль утекал бы в контракт экрана
 	// (§2 CODE_STYLE). Каждая обёртка — одна строка вызова.
 	Q_INVOKABLE bool reset(const QString &in_user_id);
+	// Продолжает прерванное создание: если в БД остался черновик (состояние
+	// Draft) — открывает его, иначе даёт чистый редактор. Без него повторное
+	// открытие «Новой программы» стирало бы набранные дни.
+	Q_INVOKABLE bool resumeDraft(const QString &in_user_id);
+	// Удаление брошенного черновика: сохранённая работа стирается из БД,
+	// редактор остаётся открытым с чистой формой. После него список программ
+	// не копит отказ от halfway-созданий.
+	Q_INVOKABLE bool deleteDraft();
+	// Немедленная запись черновика в хранилище. Мутации пишут сами, когда
+	// включён autoSaveDraft; отдельный вызов нужен экрану для явного
+	// «сейчас сохранить» без мутации.
+	Q_INVOKABLE bool saveDraft();
 	// Открывает существующую программу в редакторе (срез S2). Без неё
 	// «Настроить» из каталога открывало бы пустой редактор создания.
 	Q_INVOKABLE bool load(const QString &in_user_id, const QString &in_program_id);
@@ -118,6 +152,22 @@ public:
 	Q_INVOKABLE bool removeRule(int in_index);
 	Q_INVOKABLE bool removeTarget(int in_index);
 
+	// Рекомендация текстом: категория «Другое», цель не требуется. Отдельный
+	// вход, а не флаг у Add_Rule_Detailed, потому что для неё меняется не
+	// значение поля, а сам смысл правила (07-programs-ui-spec.md §5.7).
+	Q_INVOKABLE bool addAdvice(const QString &in_title, const QString &in_text);
+
+	// — Экран выбора правил (§5.7) —
+	// Каталог приходит из Program_Rows: пресеты, объявленные в разметке
+	// редактора, нельзя было ни отфильтровать, ни сверить с добавленными.
+	Q_INVOKABLE bool setCatalogFilter(const QString &in_category);
+	Q_INVOKABLE bool addCatalogPreset(const QString &in_code);
+	// Своё правило: метрика задаёт периодичность, единицу пользователь выбирает
+	// из тех, что осмысленны для этой метрики, а модель сверяет. Цель приходит
+	// одной из форм (min/max/exact), какая допустима — говорит каталог метрик.
+	Q_INVOKABLE bool addCustomRule(const QString &in_title, int in_metric, int in_unit, double in_min, bool in_has_min,
+	                               double in_max, bool in_has_max, double in_exact, bool in_has_exact);
+
 	// Доменные операции объявлены отдельно от QML-обёрток: тесты и будущие
 	// сценарии вызывают предметную область напрямую, и тогда имена методов не
 	// зависят от того, как их видит QML.
@@ -129,6 +179,18 @@ public:
 	                       bool in_has_target_max, int in_unit, int in_applies_to, int in_enforcement);
 	bool Remove_Rule(int in_index);
 	bool Remove_Target(int in_index);
+	// Текстовая рекомендация: правило без цели, но с содержательным текстом.
+	// Именно это снимает требование цели — «Другое» в макете и §3.6.
+	bool Add_Advice_Rule(const QString &in_title, const QString &in_text);
+
+	// Фильтр каталога типовых правил (пустая строка — все категории).
+	bool Set_Catalog_Filter(const QString &in_category);
+	// Добавление пресета по коду. Повторное добавление уже имеющегося кода
+	// отвергается: вторая такая же проверка ничего не меняет.
+	bool Add_Catalog_Preset(const QString &in_code);
+	// Произвольное измеримое правило по метрике из каталога.
+	bool Add_Custom_Rule(const QString &in_title, int in_metric, int in_unit, double in_min, bool in_has_min,
+	                     double in_max, bool in_has_max, double in_exact, bool in_has_exact);
 
 	// Очищает редактор и запоминает владельца программы.
 	bool Reset(const QString &in_user_id);
@@ -169,6 +231,9 @@ public:
 	bool canCreate() const;
 	bool created() const;
 	QString programId() const;
+	// Истина, если последнее сохранение поставило на паузу прежнюю активную
+	// программу пользователя (§2.3). Экран говорит об этом тостом.
+	bool Previous_Program_Paused() const;
 	QString errorKey() const;
 	QString errorDetail() const
 	{
@@ -177,15 +242,23 @@ public:
 	QString title() const;
 	int weeks() const;
 	QString startDate() const;
+	// Дата окончания — производная от даты старта и срока, поэтому отдельного
+	// сеттера у неё нет: экран двигает срок, дата едет за ним.
+	QString plannedEndDate() const;
 	int trainingDays() const;
 	// Геттеры для экрана: значение выбора, а не сам enum (§7 — в QML числа).
 	int Goal_Value() const;
 	int Level_Value() const;
 	int Selected_Weekday() const;
 
+	bool autoSaveEnabled() const;
+	void setAutoSaveEnabled(bool in_enabled);
+
 	AList_Model *program_days() const;
 	AList_Model *goal_targets() const;
 	AList_Model *rules() const;
+	AList_Model *catalog() const;
+	AList_Model *metrics() const;
 	AList_Model *day_exercises() const;
 
 signals:
@@ -201,6 +274,12 @@ private:
 	// Правила набраны в редакторе до создания, поэтому после появления
 	// идентификатора программы им проставляется он.
 	bool Link_Drafts_To_Program();
+	// Запись черновика в БД со статусом Draft (см. Persist_Draft в .cpp).
+	bool Persist_Draft();
+	// Поиск прерванного черновика пользователя и его загрузка в редактор.
+	bool Resume_Draft(const QString &in_user_id);
+	// Стирание сохранённого черновика из БД и очистка формы редактора.
+	bool Delete_Draft();
 	int Count_Day_Exercises(int in_weekday) const;
 	// Цель измеримая, если для неё обязательны цели программы (§4 инвариант 8).
 	static bool Is_Measurable_Goal(EProgram_Goal in_goal);
@@ -218,6 +297,7 @@ private:
 	// потому что добавление и удаление меняют одни и те же списки.
 	void Refresh_Target_Model();
 	void Refresh_Rule_Model();
+	void Refresh_Catalog_Model();
 	void Refresh_Exercise_Model();
 	// Индексы 0-based, как у QML-модели: удаление по строке экрана не должно
 	// отличаться от удаления по строке таблицы.
@@ -237,11 +317,20 @@ private:
 	AList_Model *Program_Days;
 	AList_Model *Goal_Targets;
 	AList_Model *Rules;
+	AList_Model *Catalog;
+	AList_Model *Metrics;
+	// Фильтр каталога: пустая строка — все категории (§5.7).
+	QString Catalog_Category;
 	AList_Model *Day_Exercises;
 
 	// Открытый на экране день (ISO 1–7). Хранится в ViewModel, а не в QML,
 	// потому что модель упражнений принадлежит ему.
 	int Selected_Day = 1;
+
+	// Автосохранение мутаций в БД (черновик). По умолчанию выключено: тесты
+	// проверяют «отказ не пишет в базу» на точных числах, и фоновая запись их
+	// сломала бы. Экраны редактора включают флаг при открытии.
+	bool Auto_Save_Enabled = false;
 
 	SProgram Draft;
 	QVector<SGoal_Target> Draft_Targets;
@@ -249,6 +338,9 @@ private:
 	QVector<SDay_Exercise> Draft_Exercises;
 	QVector<SProgram_Rule> Draft_Rules;
 	QString Created_Program_Id;
+	// Программа, приостановленная последним сохранением (пусто, если
+	// пользователь был без активной программы).
+	QString Paused_Previous_Program_Id;
 	QString Error_Key_Text;
 	QString Error_Detail_Text;
 };

@@ -140,11 +140,15 @@ Enum профиля:
 
 Задеплоенный API: `http://fitness.nought.ru/api/v1`; документация:
 `http://fitness.nought.ru/api/v1/swagger`; JSON-контракт:
-`http://fitness.nought.ru/api/v1/swagger/doc.json`. Схемы wire DTO и заявленные
-HTTP-коды ниже берутся из Swagger. Требование `Authorization: Bearer
-<access_token>` для приватных endpoint и rotation refresh-токенов подтверждено
-бэкендом отдельно: Swagger пока не содержит `securityDefinitions`, security у
-операций и path-параметр `id` для `/users/{id}` — это дефекты спецификации.
+`http://fitness.nought.ru/api/v1/swagger/doc.json`. Плюс опубликованное дополнение
+к документации сервиса (**документация backend**, 08.10.2026) — полный текст в
+`docs/03-api-backend-published.md`, разбор следствий в `docs/03-api-contract.md`.
+Схемы wire DTO и заявленные HTTP-коды ниже берутся из Swagger, а соглашения
+(заголовок, время жизни и одноразовость токенов, семантика `omitempty`, enum
+ключей ошибок) — из этой публикации. `Authorization: Bearer <access_token>` и
+одноразовость refresh-токена подтверждены публикацией; Swagger по-прежнему не
+содержит `securityDefinitions`, security у операций, а также `401` у приватных
+эндпоинтов — это дефекты спецификации, а не поведения.
 
 ### 3.2. Асинхронный QML-интерфейс
 
@@ -225,26 +229,35 @@ userId:   2e8cbeec-3528-45bc-908b-cdf76944d9c3
 При ошибке `ok === false`, `data === null`, а `error` имеет форму:
 
 ```js
-{ key: "incorrect_password", message: "Password is incorrect", httpStatus: 401 }
+{ key: "incorrect_password", message: "Password is incorrect", httpStatus: 400 }
 ```
 
 UI показывает `ApiErrorText.textFor(error.key)`, а не серверный `message`.
 Неизвестный ключ и `undefined_error` дают «Не удалось выполнить операцию» и
 пишутся в лог.
 
-Swagger фиксирует форму ошибки, но не enum значений `key`. Живой API подтвердил
-`invalid_token` для отсутствующего/невалидного access token и невалидного
-refresh token; невалидный email в `check-email` возвращает
-`400/undefined_error`; `undefined_error` также используется для части internal
-errors. Остальные ключи ниже пока являются клиентскими UX-mapping или assumed
-до публикации серверного enum:
+Swagger фиксирует форму ошибки, но не enum значений `key`. Enum опубликован
+08.10.2026 (**документация backend**, разбор — `docs/03-api-contract.md` §5):
+`undefined_error` (общая валидация `400` и любой `500`), `email_already_used`,
+`incorrect_password`, `invalid_token`, `token_expired`, `recovery_code_invalid`,
+`recovery_code_expired`, `reset_token_invalid`, `reset_token_expired`,
+`user_id_required_for_filter`. Живой API подтверждал `invalid_token` для
+отсутствующего/невалидного access token и невалидного refresh token; невалидный
+email в `check-email` возвращает `400/undefined_error`. Ниже — полный набор
+ключей, который понимает клиент (серверный enum — часть из них):
 
-На момент проверки login с гарантированно отсутствующим email возвращал
-`500/undefined_error`. Mock повторяет это как default. Сценарий будущего
-`email_not_found` остаётся доступен через `failMode="login:email_not_found"`,
-но не считается подтверждённым backend-контрактом.
+Что в моке расходится с публикацией (отдельные задачи, здесь фиксируется):
 
-- auth/validation: `email_taken`, `email_not_found`, `incorrect_password`,
+- **login с отсутствующим email:** мок отвечает `500/undefined_error` (поведение
+  старой сборки), публикация — `404/undefined_error`. Сценарий
+  `failMode="login:email_not_found"` остаётся удобным для UI, но backend-ключа
+  `email_not_found` не существует: клиент различает случай по статусу `404`.
+- **занятый email при signup:** мок отдаёт `email_taken`, backend —
+  `email_already_used`. Пока это не исправлено в `MockApi` и `ApiErrorText`,
+  реальный ответ показывает общий текст вместо «Этот email уже используется».
+
+- auth/validation: `email_already_used`, `email_taken` (мок; backend отдаёт
+  `email_already_used`), `email_not_found`, `incorrect_password`,
   `invalid_email`, `invalid_name`, `invalid_password`, `password_too_short`,
   `password_too_long`, `password_missing_letter`, `password_missing_digit`,
   `password_missing_special`, `validation_error`;

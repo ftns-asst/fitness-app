@@ -4,6 +4,7 @@
 #include "Data/Database/Sql_Database.h"
 #include "Data/Network/Api_Error.h"
 #include "Data/Users/Users_Api.h"
+#include "Domain/Macro_Calculator.h"
 
 #include <QHash>
 #include <QObject>
@@ -29,6 +30,21 @@ public:
 	                        int &out_workouts_per_week);
 	bool Save_Local_Profile(const QString &in_user_id, const QString &in_level, const QString &in_goal,
 	                        int in_workouts_per_week, QString &out_status);
+
+	// Параметры авторасчёта КБЖУ (спринт S7, миграция v5): дата рождения и
+	// уровень активности. Отдельными методами, а не полями Load_Local_Profile:
+	// у профиля два разных потребителя с разным временем жизни — уровень и цель
+	// пишет редактор программы, а дату рождения и активность заполняют один раз
+	// при первом расчёте. Смешивать их значило бы затирать одно другим.
+	bool Load_Macro_Params(const QString &in_user_id, QString &out_birth_date, QString &out_activity_level);
+	bool Save_Macro_Params(const QString &in_user_id, const QString &in_birth_date, const QString &in_activity_level);
+	// Результат авторасчёта КБЖУ (миграция v6, спринт S7). Хранится рядом с
+	// параметрами и по той же причине отдельным upsert'ом: главная показывает
+	// числа, не вызывая домен, а расчёт понимает по строке, что его уже делали.
+	// Пустой результат — «не считали», и это не ошибка (как и у параметров).
+	bool Load_Macro_Result(const QString &in_user_id, AsMacro_Calculator::SResult &out_result,
+	                       QString &out_calculated_at);
+	bool Save_Macro_Result(const QString &in_user_id, const AsMacro_Calculator::SResult &in_result);
 	bool Clear_Local_Profile(const QString &in_user_id);
 	int Pending_Outbox_Count() const;
 

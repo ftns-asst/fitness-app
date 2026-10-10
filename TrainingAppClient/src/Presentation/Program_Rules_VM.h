@@ -64,6 +64,8 @@ public:
 	Q_INVOKABLE bool saveCheckin(const QString &in_rule_id, const QString &in_state, double in_value, bool in_has_value,
 	                             const QString &in_note);
 
+	// Перечитывает правила активной программы и её отметки за период.
+	// Активной программы может не быть — это не сбой чтения, но UI обязан
 	// отличать состояние «нет программы» от ошибки (errorKey).
 	bool Reload(const QString &in_user_id);
 

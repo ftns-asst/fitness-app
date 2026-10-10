@@ -78,6 +78,10 @@ AppCard {
 
                 const span = max > min ? max - min : 1;
                 const topPad = 6;
+                // Поля по горизонтали: конечная точка рисуется радиусом 4, и без
+                // полей она пополам обрезалась краем Canvas.
+                const padX = 6;
+                const plotW = w - padX * 2;
                 const plotH = h - topPad * 2;
 
                 // — Accent-полилиния и конечная точка —
@@ -88,7 +92,7 @@ AppCard {
                 ctx.beginPath();
 
                 for (let i = 0; i < card.values.length; ++i) {
-                    const x = w * i / (card.values.length - 1);
+                    const x = padX + plotW * i / (card.values.length - 1);
                     const y = topPad + plotH * (1 - (card.values[i] - min) / span);
 
                     if (i === 0) {
@@ -100,7 +104,7 @@ AppCard {
 
                 ctx.stroke();
 
-                const lastX = w;
+                const lastX = padX + plotW;
                 const lastY = topPad + plotH * (1 - (card.values[card.values.length - 1] - min) / span);
 
                 ctx.fillStyle = Theme.accent;

@@ -25,6 +25,8 @@ private slots:
 	void cachedUserAvailableWithoutNetwork();
 	void localProfileSaveWritesDbAndOutbox();
 	void localProfileLoadReturnsSavedFields();
+	// — Авторасчёт КБЖУ (миграция v6) —
+	void macroResultRoundTripsThroughProfileLocal();
 
 private:
 	static STest_Http_Response JSON_Response(int in_status, const QByteArray &in_body);
@@ -393,6 +395,71 @@ void AUsers_Repository_Test::Close_Inspection_Database(QSqlDatabase &in_database
 }
 //----------------------------------------------------------------------------
 
+//----------------------------------------------------------------------------
+// Результат авторасчёта КБЖУ (миграция v6): числа живут в profile_local, потому
+// что главная показывает их без вызова домена, а экран расчёта по ним понимает,
+// что расчёт уже делали. Записываются они отдельным upsert'ом: строка профиля
+// принадлежит нескольким потребителям, и общий upsert затирал бы чужие поля.
+//----------------------------------------------------------------------------
+void AUsers_Repository_Test::macroResultRoundTripsThroughProfileLocal()
+{
+	QTemporaryDir directory;
+	AsSql_Database database;
+	AsToken_Store store(&database);
+	AsHttp_Client client((QUrl()));
+	AsAuth_Session session(&client, &store);
+	AUsers_Repository repository(&session, &database);
+	QSqlDatabase inspection;
+	QSqlQuery query;
+	AsMacro_Calculator::SResult saved;
+	AsMacro_Calculator::SResult loaded;
+	QString calculated_at;
+	QString path;
+
+	QVERIFY(directory.isValid());
+	path = directory.filePath("macro.sqlite3");
+	QVERIFY(database.Open(path));
+
+	// До расчёта — не ошибка и не нули: «ещё не считали».
+	QVERIFY(repository.Load_Macro_Result("user-1", loaded, calculated_at) == false);
+	QVERIFY(calculated_at.isEmpty());
+
+	saved.Bmr_Kcal = 1700;
+	saved.Tdee_Kcal = 2380;
+	saved.Calories_Kcal = 2023;
+	saved.Protein_G = 132;
+	saved.Fat_G = 56;
+	saved.Carbs_G = 210;
+	QVERIFY(repository.Save_Macro_Result("user-1", saved));
+
+	QVERIFY(repository.Load_Macro_Result("user-1", loaded, calculated_at));
+	QCOMPARE(loaded.Bmr_Kcal, 1700.0);
+	QCOMPARE(loaded.Calories_Kcal, 2023.0);
+	QCOMPARE(loaded.Protein_G, 132.0);
+	QCOMPARE(loaded.Fat_G, 56.0);
+	QCOMPARE(loaded.Carbs_G, 210.0);
+	QVERIFY(calculated_at.isEmpty() == false);
+
+	// Параметры расчёта пишутся своим upsert'ом и не стирают числа.
+	QVERIFY(repository.Save_Macro_Params("user-1", "1994-05-17", "moderate"));
+	QVERIFY(repository.Load_Macro_Result("user-1", loaded, calculated_at));
+	QCOMPARE(loaded.Calories_Kcal, 2023.0);
+
+	// Пересчёт заменяет прежние числа.
+	saved.Calories_Kcal = 1900;
+	QVERIFY(repository.Save_Macro_Result("user-1", saved));
+	QVERIFY(repository.Load_Macro_Result("user-1", loaded, calculated_at));
+	QCOMPARE(loaded.Calories_Kcal, 1900.0);
+
+	inspection = Open_Inspection_Database(path, "inspect_macro");
+	query = QSqlQuery(inspection);
+	QVERIFY(query.exec("SELECT activity_level, macro_calories_kcal FROM profile_local WHERE user_id = 'user-1'"));
+	QVERIFY(query.next());
+	QCOMPARE(query.value(0).toString(), QString("moderate"));
+	QCOMPARE(query.value(1).toDouble(), 1900.0);
+	Close_Inspection_Database(inspection);
+}
+//----------------------------------------------------------------------------
 QTEST_MAIN(AUsers_Repository_Test)
 
 #include "tst_Users_Repository.moc"

@@ -766,7 +766,12 @@ bool AProgram_Repository::Insert_Program_Full(const SProgram &in_program, const 
 	query.addBindValue(To_String(EProgram_State::Draft));
 	query.addBindValue(1);
 	query.addBindValue(Text_Column(in_program.Term.Start_Date));
-	query.addBindValue(QVariant());
+	// Фактический старт пишется, только если он задан явно: у черновика его
+	// быть не должно, а ретроспективный посев (демо-данные, перенос с другого
+	// устройства) обязан сохранить собственную дату. Change_State заполняет
+	// поле лишь когда оно пусто, поэтому переданное значение переживает
+	// активацию, а незаданное остаётся однозначным «не фиксировано».
+	query.addBindValue(Text_Column(in_program.Actual_Start_Date));
 	query.addBindValue(in_program.Term.Weeks_Total);
 	query.addBindValue(in_program.Term.Extended_Weeks);
 	query.addBindValue(To_String(in_program.Term.Mode));
@@ -1613,6 +1618,193 @@ bool AProgram_Repository::Change_State(const QString &in_program_id, EProgram_St
 
 	if (Connection().commit() == false)
 		return Set_Last_Error("Не удалось зафиксировать состояние");
+
+	return true;
+}
+//----------------------------------------------------------------------------
+// Включение программы при инварианте «одна активная на пользователя» (§2.3).
+// Прежняя активная программа переводится в паузу — без этого вторая активация
+// упирается в частичный уникальный индекс programs_one_active_per_user, и
+// пользователь вместо результата видел ошибку базы («Не удалось изменить
+// состояние: UNIQUE constraint failed: programs.user_id»).
+//
+// Оба перехода идут одной транзакцией: отказ на середине оставил бы
+// пользователя без активной программы, а восстановление прежней отдельным
+// вызовом разошлось бы с ней при следующем сбое.
+//
+// Повторная активация уже активной программы — не ошибка и ничего не меняет:
+// экран может сохранять программу второй раз подряд.
+bool AProgram_Repository::Activate_Exclusive(const QString &in_program_id, QString &out_paused_program_id)
+{
+	SProgram program;
+	SProgram previous;
+	QSqlQuery query(Connection());
+	QString active_program_id;
+	QString actual_start_date;
+
+	Clear_Last_Error();
+	out_paused_program_id.clear();
+
+	if (Check_Open() == false)
+		return false;
+
+	if (Load_Program(in_program_id, program) == false)
+		return false;
+
+	if (program.State == EProgram_State::Active)
+		return true;
+
+	// Разрешённые переходы — §3.1.
+	if (program.State != EProgram_State::Draft && program.State != EProgram_State::Paused)
+	{
+		return Set_Last_Error(QString("Переход состояния %1 → %2 не разрешён (§3.1)")
+		                          .arg(To_String(program.State))
+		                          .arg(To_String(EProgram_State::Active)));
+	}
+
+	// Активная программа читается запросом, а не Get_Active_Program_Id: тот
+	// считает отсутствие активной программы ошибкой, а для включения это
+	// нормальный случай — включать нечего снимать.
+	query.prepare("SELECT id FROM programs WHERE user_id = ? AND state = 'active' ORDER BY created_at LIMIT 1");
+	query.addBindValue(program.User_Id);
+
+	if (query.exec() == false)
+		return Set_Last_Error(QString("Не удалось найти активную программу: %1").arg(query.lastError().text()));
+
+	active_program_id = query.next() ? query.value(0).toString() : QString();
+
+	if (active_program_id == in_program_id)
+		return true;
+
+	if (active_program_id.isEmpty() == false && Load_Program(active_program_id, previous) == false)
+		return false;
+
+	if (Connection().transaction() == false)
+		return Set_Last_Error("Не удалось начать транзакцию");
+
+	if (active_program_id.isEmpty() == false)
+	{
+		// Оптимистичная блокировка, как в Change_State: пауза применяется
+		// только к прочитанной ревизии прежней программы.
+		query.prepare(
+		    "UPDATE programs SET state = ?, revision = revision + 1, updated_at = ? WHERE id = ? AND revision = ?");
+		query.addBindValue(To_String(EProgram_State::Paused));
+		query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+		query.addBindValue(active_program_id);
+		query.addBindValue(previous.Revision);
+
+		if (query.exec() == false)
+		{
+			Connection().rollback();
+
+			return Set_Last_Error(
+			    QString("Не удалось приостановить прежнюю программу: %1").arg(query.lastError().text()));
+		}
+
+		if (query.numRowsAffected() != 1)
+		{
+			Connection().rollback();
+
+			return Set_Last_Error("Ревизия прежней программы изменилась параллельно, включение отклонено");
+		}
+
+		if (Write_Revision_Row(active_program_id, previous.Revision + 1, ERevision_Reason::State,
+		                       QString("Пауза: включена программа «%1»").arg(program.Title), QString()) == false)
+		{
+			Connection().rollback();
+
+			return false;
+		}
+	}
+
+	// Активация фиксирует фактическую дату старта, если она ещё не
+	// проставлена (как в Change_State).
+	actual_start_date = program.Actual_Start_Date;
+
+	if (actual_start_date.isEmpty())
+		actual_start_date = QDate::currentDate().toString("yyyy-MM-dd");
+
+	query.prepare("UPDATE programs SET state = ?, revision = revision + 1, actual_start_date = ?, updated_at = ? "
+	              "WHERE id = ? AND revision = ?");
+	query.addBindValue(To_String(EProgram_State::Active));
+	query.addBindValue(Text_Column(actual_start_date));
+	query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+	query.addBindValue(in_program_id);
+	query.addBindValue(program.Revision);
+
+	if (query.exec() == false)
+	{
+		Connection().rollback();
+
+		return Set_Last_Error(QString("Не удалось изменить состояние: %1").arg(query.lastError().text()));
+	}
+
+	if (query.numRowsAffected() != 1)
+	{
+		Connection().rollback();
+
+		return Set_Last_Error("Ревизия программы изменилась параллельно, смена состояния отклонена");
+	}
+
+	if (Write_Revision_Row(
+	        in_program_id, program.Revision + 1, ERevision_Reason::State,
+	        QString("Состояние: %1 → %2").arg(To_String(program.State)).arg(To_String(EProgram_State::Active)),
+	        QString()) == false)
+	{
+		Connection().rollback();
+
+		return false;
+	}
+
+	if (Connection().commit() == false)
+		return Set_Last_Error("Не удалось зафиксировать состояние");
+
+	out_paused_program_id = active_program_id;
+
+	return true;
+}
+//----------------------------------------------------------------------------
+// Удаление черновика (§3.1). Брошенное создание не должно копиться в каталоге
+// вечно: «Удалить черновик» в редакторе стирает его вместе с днями,
+// упражнениями, целями, расписанием, правилами и журналом ревизий — все
+// дочерние таблицы снимает каскад FK, и одного DELETE достаточно.
+//
+// Состояние проверяется явно, а не условием в WHERE: отказ для не-черновика —
+// ошибка вызывающего, и без проверки он выглядел бы как тихое «0 строк».
+// Активную программу пользователь из редактора не удаляет: её состояния
+// меняются только переходами §3.1 (Change_State/Activate_Exclusive).
+bool AProgram_Repository::Delete_Draft(const QString &in_program_id)
+{
+	SProgram program;
+	QSqlQuery query(Connection());
+
+	Clear_Last_Error();
+
+	if (Check_Open() == false)
+		return false;
+
+	if (Load_Program(in_program_id, program) == false)
+		return false;
+
+	if (program.State != EProgram_State::Draft)
+		return Set_Last_Error(
+		    QString("Удалить можно только черновик, состояние программы — %1 (§3.1)").arg(To_String(program.State)));
+
+	if (Connection().transaction() == false)
+		return Set_Last_Error("Не удалось начать транзакцию");
+
+	query.prepare("DELETE FROM programs WHERE id = ?");
+	query.addBindValue(in_program_id);
+
+	if (query.exec() == false)
+	{
+		Connection().rollback();
+
+		return Set_Last_Error(QString("Не удалось удалить черновик: %1").arg(query.lastError().text()));
+	}
+
+	if (Connection().commit() == false)
+		return Set_Last_Error("Не удалось зафиксировать удаление черновика");
 
 	return true;
 }

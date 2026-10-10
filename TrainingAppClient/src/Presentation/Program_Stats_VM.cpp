@@ -1,4 +1,4 @@
-﻿#include "Presentation/Program_Stats_VM.h"
+#include "Presentation/Program_Stats_VM.h"
 
 #include "Data/Program/Measurement_Repository.h"
 #include "Data/Program/Program_Repository.h"
@@ -73,7 +73,36 @@ bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_
 		return false;
 	}
 
-	if (Workout_Repository_Instance->Load_Program_Facts(facts.Program.User_Id, in_program_id, in_date_from, in_date_to,
+	// Границы окна. Экран зовёт refresh без дат, и тогда запрос уходит с пустыми
+	// границами: Load_Sessions это терпит (пусто — вся история), а
+	// Load_Range и Load_Program_Checkins_Range — нет, они читают строго
+	// заданный диапазон и молча возвращают пусто. Из-за этого метрика
+	// «Тело, кг» и процент по отметкам оставались прочерками при полной базе.
+	//
+	// Поэтому пустые границы заменяются окном самой программы: от её старта
+	// до сегодняшнего дня. Это ровно то окно, по которому считает калькулятор
+	// (§5.5), поэтому отметки и замеры за пределами программы не попадут.
+	QString date_from = in_date_from;
+	QString date_to = in_date_to;
+
+	if (date_from.isEmpty() || date_to.isEmpty())
+	{
+		const QString program_start =
+		    facts.Program.Actual_Start_Date.isEmpty() ? facts.Program.Term.Start_Date : facts.Program.Actual_Start_Date;
+		const QDate today = QDate::fromString(facts.Today, Qt::ISODate);
+		const QDate start = QDate::fromString(program_start, Qt::ISODate);
+
+		if (start.isValid() && today.isValid())
+		{
+			if (date_from.isEmpty())
+				date_from = start.toString("yyyy-MM-dd");
+
+			if (date_to.isEmpty())
+				date_to = today.toString("yyyy-MM-dd");
+		}
+	}
+
+	if (Workout_Repository_Instance->Load_Program_Facts(facts.Program.User_Id, in_program_id, date_from, date_to,
 	                                                    facts.Sessions, facts.Sets) == false)
 	{
 		Set_Error();
@@ -84,13 +113,12 @@ bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_
 	if (Rule_Repository_Instance != 0)
 	{
 		Rule_Repository_Instance->Load_Rules(in_program_id, facts.Rules);
-		Rule_Repository_Instance->Load_Program_Checkins_Range(in_program_id, in_date_from, in_date_to, checkins);
+		Rule_Repository_Instance->Load_Program_Checkins_Range(in_program_id, date_from, date_to, checkins);
 		facts.Checkins = checkins;
 	}
 
 	if (Measurement_Repository_Instance != 0)
-		Measurement_Repository_Instance->Load_Range(facts.Program.User_Id, in_date_from, in_date_to,
-		                                            facts.Measurements);
+		Measurement_Repository_Instance->Load_Range(facts.Program.User_Id, date_from, date_to, facts.Measurements);
 
 	if (Calculator.Compute_Program_Stats(facts, Stats) == false)
 	{

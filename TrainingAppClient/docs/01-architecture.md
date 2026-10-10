@@ -86,8 +86,12 @@ AppContext.initialized
 Default соответствует подтверждённому backend URL
 `http://fitness.nought.ru/api/v1`. Документация доступна по адресу
 `http://fitness.nought.ru/api/v1/swagger`, Swagger JSON — по
-`http://fitness.nought.ru/api/v1/swagger/doc.json`. Отдельные staging/prod URL
-и перевод на HTTPS остаются **запрошено у backend/DevOps**.
+`http://fitness.nought.ru/api/v1/swagger/doc.json`; опубликованное дополнение к
+документации сервиса разобрано в `docs/03-api-contract.md` (полный текст —
+`docs/03-api-backend-published.md`). Тот же сервис отвечает и по адресу из
+публикации, `http://94.228.166.134:8181/api/v1` (observed 08.10.2026: `doc.json`
+обоих адресов совпадает), поэтому default остаётся доменным. Отдельные
+staging/prod URL и перевод на HTTPS остаются **запрошено у backend/DevOps**.
 
 ## 5. Владение и жизненный цикл
 

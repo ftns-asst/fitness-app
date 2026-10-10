@@ -23,6 +23,7 @@ private slots:
 	void resetProducesEmptyEditor();
 	void canCreateRequiresUserDateAndTrainingDay();
 	void rejectsInvalidStartDate();
+	void plannedEndDateFollowsTerm();
 	void createsDraftProgramWithSevenDays();
 	void createCanActivateImmediately();
 	void createWithoutExerciseFailsAndWritesNothing();
@@ -33,19 +34,55 @@ private slots:
 	void removeDayExerciseReindexesOrder();
 	void copyDayReplacesTargetDay();
 	void addRuleDetailedKeepsCategoryAndPeriodicity();
+	void addAdviceNeedsNoTarget();
+
+	// — Рекомендация в редакторе —
+	void addAdviceRulePersistsWithoutTarget();
+	void addAdviceRejectsEmptyText();
+
+	// — Каталог правил (§5.7) —
+	// Экран выбора показывает каталог, а не захардкоженный в разметке набор:
+	// добавление пресета идёт по его коду, а «уже добавлено» считается по коду.
+	void catalogListsPresetsForCategory();
+	void addCatalogPresetAddsRule();
+	void catalogMarksAlreadyAddedPresets();
+
+	// — Своё правило —
+	// Метрика задаёт единицу и периодичность, пользователь — название и
+	// сколько. Единица, взятая не из метрики, отвергается: «белок в мл» прошло
+	// бы всю валидацию и не значило бы ничего.
+	void customRuleTakesUnitFromMetric();
+	void customRuleRejectsUnitForeignToMetric();
+	void customRuleNeedsTargetAndTitle();
+	void customRuleRejectsExactWhereRangeIsMeaningful();
 	void removeRuleAndRemoveTargetClearDraftLists();
 	void addDayExerciseRefreshesDayExerciseModel();
 	void removeRejectsOutOfRangeIndex();
 	void loadFillsEditorFromExistingProgram();
 	void loadRefusesReadOnlyProgram();
 	void createAfterLoadUpdatesSameProgramInsteadOfCreatingSecond();
+	// — Повторное «Создать» на том же экране —
+	// Кнопка остаётся нажимаемой до закрытия экрана, и второе нажатие приходит
+	// в ту же ViewModel с тем же черновиком: сохранение обязано пройти и не
+	// завести вторую программу.
+	void repeatedCreateUpdatesSameProgramInsteadOfDuplicating();
+	// — Активная программа у пользователя одна (§2.3) —
+	void createReplacesActiveProgramInsteadOfFailing();
 	void saveFailureNotifiesScreen();
+	// — Черновик в БД: автосохранение и продолжение прерванного создания —
+	void draftAutosavePersistsDayExercises();
+	void resumeDraftContinuesSavedDraftAndDoesNotDuplicate();
+	void resumeDraftWithoutSavedDraftStartsFresh();
+	void deleteDraftRemovesStoredDraftAndResetsEditor();
 
 private:
 	void Seed_Exercise();
 	Avm_Program_Edit *Make_Editor();
 	bool Fill_Minimal_Program(Avm_Program_Edit *in_editor);
 	int Count_Programs() const;
+	int Count_Targets(const QString &in_program_id) const;
+	// Состояние программы в базе: проверка, что прежняя активная ушла в паузу.
+	QString Program_State(const QString &in_program_id) const;
 
 	// Значение роли по имени: индекс роли — деталь реализации модели, и тест не
 	// должен зависеть от её внутреннего порядка. Роли начинаются с
@@ -59,6 +96,19 @@ private:
 		}
 
 		return QVariant();
+	}
+
+	// Строка модели целиком: сверка пресета с созданным из него правилом идёт по
+	// всем полям сразу, и собирать их по одному здесь было бы второй копией
+	// контракта ролей.
+	static QVariantMap Role_Map(const AList_Model *in_model, int in_row)
+	{
+		QVariantMap row;
+
+		for (int role = Qt::UserRole + 1; role < Qt::UserRole + 1 + in_model->Role_Count(); ++role)
+			row.insert(in_model->Role_Name(role), in_model->Data(in_row, role));
+
+		return row;
 	}
 
 	QTemporaryDir Directory;
@@ -92,6 +142,33 @@ Avm_Program_Edit *AProgram_Edit_VM_Test::Make_Editor()
 	AsProgram_Service *service = new AsProgram_Service(Program_Repository, this);
 
 	return new Avm_Program_Edit(Program_Repository, Rule_Repository, service, this);
+}
+//----------------------------------------------------------------------------
+// Дата окончания — производная от даты старта и срока (§3.3), и её считает
+// домен. Подсказка под ползунком срока показывает именно эту строку: своя
+// формула в QML разошлась бы с доменом, а слагаемые («старт + срок − 1 день»)
+// достаточно неочевидны, чтобы проверять их тестом, а не глазами.
+void AProgram_Edit_VM_Test::plannedEndDateFollowsTerm()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+
+	QVERIFY(editor->reset("u1"));
+
+	// Ни даты старта, ни срока — окончание не определено, и показывать нечего.
+	QCOMPARE(editor->plannedEndDate(), QString());
+
+	editor->setStartDate("2026-09-28");
+	// Одна дата старта окончания не даёт: без срока считать не от чего.
+	QCOMPARE(editor->plannedEndDate(), QString());
+
+	editor->setWeeks(12);
+	// 2026-09-28 + 12 × 7 − 1 день = 2026-12-20.
+	QCOMPARE(editor->plannedEndDate(), QString("2026-12-20"));
+
+	// Срок — величина, за которой дата едет: ярлык «8 недель» на экране обязан
+	// сдвинуть и окончание, а не только число под подписью.
+	editor->setWeeks(8);
+	QCOMPARE(editor->plannedEndDate(), QString("2026-11-22"));
 }
 //----------------------------------------------------------------------------
 // Загрузка существующей программы в редактор (срез S2). Без неё «Настроить»
@@ -211,6 +288,90 @@ void AProgram_Edit_VM_Test::createAfterLoadUpdatesSameProgramInsteadOfCreatingSe
 	QCOMPARE(verify->day_exercises()->Row_Count(), 1);
 }
 //----------------------------------------------------------------------------
+// Повторное «Создать» после успешного создания обязано править ту же программу,
+// а не заводить вторую. После успеха черновик оставался без идентификатора:
+// вторая ветка создания вставляла те же цели ещё раз и упиралась в UNIQUE
+// goal_targets.id — экран показывал «Не удалось сохранить цель», а программа
+// без измеримых целей дублировалась бы целиком.
+void AProgram_Edit_VM_Test::repeatedCreateUpdatesSameProgramInsteadOfDuplicating()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+
+	// Пользователь только этого теста: активная программа на пользователя
+	// одна (§2.3), а общий u_edit из Fill_Minimal_Program занят проверками
+	// активации, и первый же Create(true) упал бы на индексе, а не на повторе
+	// сохранения — то есть тест проверял бы не то.
+	QVERIFY(editor->Reset("u_repeat"));
+	editor->Set_Title("Сила 12 недель");
+	editor->Set_Start_Date("2026-09-28");
+	editor->Set_Weeks(12);
+	QVERIFY(editor->Set_Day_Kind(1, (int)EDay_Kind::Workout));
+	QVERIFY(editor->Add_Day_Exercise(1, "ex_squat", 4, 5, 8, 100, true));
+	QVERIFY(editor->Set_Target((int)EGoal_Metric::BodyWeightKg, 80, true, 75, (int)EGoal_Direction::Decrease));
+
+	QVERIFY(editor->Create(true));
+
+	const QString program_id = editor->programId();
+	const int programs_after_first = Count_Programs();
+
+	QVERIFY(program_id.isEmpty() == false);
+	QCOMPARE(Count_Targets(program_id), 1);
+
+	// Второе нажатие кнопки на том же экране: сохранение обязано пройти без
+	// ошибки и без второй программы.
+	QVERIFY(editor->Create(true));
+	QCOMPARE(editor->errorKey(), QString(""));
+	QCOMPARE(editor->programId(), program_id);
+	QCOMPARE(Count_Programs(), programs_after_first);
+	QCOMPARE(Count_Targets(program_id), 1);
+}
+//----------------------------------------------------------------------------
+// Создание второй программы при уже активной — обычный путь пользователя:
+// активная программа есть, он собирает новую. Сохранение обязано пройти, а
+// прежняя — уйти в паузу (§2.3: активная программа у пользователя одна).
+// Раньше экран показывал «Не удалось изменить состояние: UNIQUE constraint
+// failed: programs.user_id» — то есть ошибку базы вместо результата.
+void AProgram_Edit_VM_Test::createReplacesActiveProgramInsteadOfFailing()
+{
+	Avm_Program_Edit *first = Make_Editor();
+
+	QVERIFY(first->Reset("u_switch"));
+	first->Set_Title("Первая программа");
+	first->Set_Start_Date("2026-10-05");
+	first->Set_Weeks(8);
+	QVERIFY(first->Set_Day_Kind(1, (int)EDay_Kind::Workout));
+	QVERIFY(first->Add_Day_Exercise(1, "ex_squat", 4, 5, 8, 100, true));
+	// Измеримая цель требует целевого значения: без него Create(true) откажет
+	// по goal_required, и тест проверял бы не переключение активной программы.
+	QVERIFY(first->Set_Target((int)EGoal_Metric::BodyWeightKg, 82, true, 78, (int)EGoal_Direction::Decrease));
+	QVERIFY(first->Create(true));
+
+	const QString first_id = first->programId();
+
+	QCOMPARE(Program_State(first_id), QString("active"));
+
+	Avm_Program_Edit *second = Make_Editor();
+
+	QVERIFY(second->Reset("u_switch"));
+	second->Set_Title("Вторая программа");
+	second->Set_Start_Date("2026-10-19");
+	second->Set_Weeks(12);
+	QVERIFY(second->Set_Day_Kind(2, (int)EDay_Kind::Workout));
+	QVERIFY(second->Add_Day_Exercise(2, "ex_squat", 3, 8, 12, 60, true));
+	QVERIFY(second->Set_Target((int)EGoal_Metric::BodyWeightKg, 80, true, 76, (int)EGoal_Direction::Decrease));
+
+	QVERIFY(second->Create(true));
+
+	const QString second_id = second->programId();
+
+	QVERIFY(second_id != first_id);
+	// Признак для экрана: прежняя активная ушла в паузу — об этом сообщает
+	// тост, иначе смена активной программы прошла бы молча.
+	QVERIFY(second->Previous_Program_Paused());
+	QCOMPARE(Program_State(second_id), QString("active"));
+	QCOMPARE(Program_State(first_id), QString("paused"));
+}
+//----------------------------------------------------------------------------
 // Добавленное упражнение обязано появляться в списке дня сразу. Раньше
 // добавление обновляло только модель дней, поэтому экран показывал «в этом дне
 // пока нет упражнений» после успешного добавления.
@@ -248,6 +409,33 @@ int AProgram_Edit_VM_Test::Count_Programs() const
 	return query.value(0).toInt();
 }
 //----------------------------------------------------------------------------
+// Цели считаются по программе: конфликт идентификаторов целей виден именно
+// здесь, а не в общем числе строк.
+int AProgram_Edit_VM_Test::Count_Targets(const QString &in_program_id) const
+{
+	QSqlQuery query(Database.Sql_Connection());
+
+	query.prepare("SELECT COUNT(*) FROM goal_targets WHERE program_id = ?");
+	query.addBindValue(in_program_id);
+	if (query.exec() == false || query.next() == false)
+		return -1;
+
+	return query.value(0).toInt();
+}
+//----------------------------------------------------------------------------
+// Состояние программы в базе: «прежняя ушла в паузу» проверяется по факту
+// записи, а не по ответу ViewModel.
+QString AProgram_Edit_VM_Test::Program_State(const QString &in_program_id) const
+{
+	QSqlQuery query(Database.Sql_Connection());
+
+	query.prepare("SELECT state FROM programs WHERE id = ?");
+	query.addBindValue(in_program_id);
+	if (query.exec() == false || query.next() == false)
+		return QString();
+
+	return query.value(0).toString();
+}
 // Хелперы возвращают bool: assert-конструкции QtTest возвращают void и не
 // годятся для проверки результата внутри функции-хелпера.
 bool AProgram_Edit_VM_Test::Fill_Minimal_Program(Avm_Program_Edit *in_editor)
@@ -480,6 +668,261 @@ void AProgram_Edit_VM_Test::addRuleDetailedKeepsCategoryAndPeriodicity()
 	QCOMPARE(rules.first().Enforcement, ERule_Enforcement::Hard);
 }
 //----------------------------------------------------------------------------
+// Рекомендация отвечает на вопрос «что делать», а не «сколько», поэтому цель
+// ей не требуется. Раньше Add_Rule_Detailed отвергал любое правило без цели,
+// и пользователь не мог записать в программу то, что модель и БД уже
+// принимали: путь из интерфейса в базу обрывался на форме.
+void AProgram_Edit_VM_Test::addAdviceNeedsNoTarget()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+
+	QVERIFY(Fill_Minimal_Program(editor));
+
+	// Измеримое правило без цели по-прежнему мусор и отвергается.
+	QVERIFY(editor->Add_Rule_Detailed("water", "Вода", (int)ERule_Category::Nutrition, (int)ERule_Metric::WaterMl,
+	                                  (int)ERule_Periodicity::PerDay, 0, false, 0, false, (int)ERule_Display_Unit::Ml,
+	                                  (int)ERule_Applies_To::AllDays, (int)ERule_Enforcement::Soft) == false);
+	QCOMPARE(editor->errorKey(), QString("rule_target_required"));
+
+	// Рекомендация с текстом проходит без цели.
+	QVERIFY(editor->Add_Advice_Rule("Пей воду натощак", "Пей воду натощак"));
+	QCOMPARE(editor->rules()->Row_Count(), 1);
+
+	// «Другое» с числом остаётся измеримым: цель задана, значит вердикт есть.
+	QVERIFY(editor->Add_Rule_Detailed(
+	    "weight", "Вес", (int)ERule_Category::Other, (int)ERule_Metric::Custom, (int)ERule_Periodicity::PerWeek, 80,
+	    true, 0, false, (int)ERule_Display_Unit::Count, (int)ERule_Applies_To::AllDays, (int)ERule_Enforcement::Soft));
+	QCOMPARE(editor->rules()->Row_Count(), 2);
+}
+//----------------------------------------------------------------------------
+void AProgram_Edit_VM_Test::addAdviceRulePersistsWithoutTarget()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+	QVector<SProgram_Rule> rules;
+
+	QVERIFY(Fill_Minimal_Program(editor));
+	QVERIFY(editor->Add_Advice_Rule("Ложись спать вовремя", "Отбой до 23:00, без экрана"));
+	QVERIFY(editor->Create(false));
+
+	QVERIFY(Rule_Repository->Load_Rules(editor->programId(), rules));
+	QCOMPARE(rules.size(), 1);
+	QCOMPARE(rules.first().Category, ERule_Category::Other);
+	QCOMPARE(rules.first().Code, QString("custom"));
+	QCOMPARE(rules.first().Title, QString("Ложись спать вовремя"));
+	QCOMPARE(rules.first().Metric, ERule_Metric::Custom);
+
+	// Текст пережил путь до БД: если бы он потерялся, в программе осталось бы
+	// правило без содержания, а CHECK бы его не пропустил.
+	QCOMPARE(rules.first().Note, QString("Отбой до 23:00, без экрана"));
+	QCOMPARE(Get_Rule_Kind(rules.first()), ERule_Kind::Advice);
+
+	// Единицы у рекомендации осмысленные: без них она выглядела бы как
+	// «граммы белка» в общем списке.
+	QCOMPARE(rules.first().Display_Unit, ERule_Display_Unit::Units);
+	QVERIFY(rules.first().Has_Target_Min == false);
+	QVERIFY(rules.first().Has_Target_Max == false);
+	QVERIFY(rules.first().Has_Target_Exact == false);
+}
+//----------------------------------------------------------------------------
+// Текст из пробелов не является содержанием. Без этой проверки «Другое» стало
+// бы способом завести правило, в котором нечего прочитать, — то есть тем
+// самым, ради чего требование цели и снималось.
+void AProgram_Edit_VM_Test::addAdviceRejectsEmptyText()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+
+	QVERIFY(Fill_Minimal_Program(editor));
+
+	// Текст из пробелов при нормальном заголовке — именно случай снятия цели.
+	QVERIFY(editor->Add_Advice_Rule("Совет", "   ") == false);
+	QCOMPARE(editor->errorKey(), QString("rule_advice_text_required"));
+	QCOMPARE(editor->rules()->Row_Count(), 0);
+
+	// Ошибки разные, потому что подсказки в UI разные: «введите текст» против
+	// «введите название». Сведение их к одной строке заставило бы экран
+	// подсвечивать не то поле.
+	QVERIFY(editor->Add_Advice_Rule("   ", "Отбой до 23:00") == false);
+	QCOMPARE(editor->errorKey(), QString("rule_title_required"));
+	QCOMPARE(editor->rules()->Row_Count(), 0);
+
+	QVERIFY(editor->Add_Advice_Rule(QString(), QString()) == false);
+	QCOMPARE(editor->rules()->Row_Count(), 0);
+}
+//----------------------------------------------------------------------------
+// Каталог отдаётся моделью, а не разметкой: пресеты объявленные в QML нечем
+// ни отфильтровать, ни сверить с уже добавленными правилами.
+void AProgram_Edit_VM_Test::catalogListsPresetsForCategory()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+
+	QVERIFY(Fill_Minimal_Program(editor));
+
+	QVERIFY(editor->Set_Catalog_Filter(QString()));
+	QVERIFY(editor->catalog()->Row_Count() >= 5);
+
+	// Фильтр по питанию: остаются только питательные пресеты.
+	QVERIFY(editor->Set_Catalog_Filter(QString("nutrition")));
+	QVERIFY(editor->catalog()->Row_Count() > 0);
+	QVERIFY(editor->catalog()->Row_Count() < 6);
+
+	for (int row = 0; row < editor->catalog()->Row_Count(); ++row)
+		QCOMPARE(Role_Value(editor->catalog(), row, QString("category")).toString(), QString("nutrition"));
+}
+//----------------------------------------------------------------------------
+void AProgram_Edit_VM_Test::addCatalogPresetAddsRule()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+	AList_Model *catalog = 0;
+
+	QVERIFY(Fill_Minimal_Program(editor));
+	QVERIFY(editor->Set_Catalog_Filter(QString()));
+	catalog = editor->catalog();
+	QVERIFY(catalog->Row_Count() > 0);
+
+	const QString code = Role_Value(catalog, 0, QString("code")).toString();
+
+	QVERIFY(editor->Add_Catalog_Preset(code));
+	QCOMPARE(editor->rules()->Row_Count(), 1);
+	QVERIFY(editor->Create(false));
+
+	QVector<SProgram_Rule> rules;
+
+	QVERIFY(Rule_Repository->Load_Rules(editor->programId(), rules));
+	QCOMPARE(rules.size(), 1);
+
+	// Правило создалось с полями пресета, а не с Nutrition/граммами по
+	// умолчанию: иначе «Сон 8 ч» сохранился бы как «8 граммов белка».
+	const QVariantMap preset = Role_Map(editor->catalog(), 0);
+	SProgram_Rule rule = rules.first();
+
+	QCOMPARE(rule.Code, code);
+	QCOMPARE(rule.Title, preset.value("title").toString());
+	QCOMPARE(To_String(rule.Category), preset.value("category").toString());
+	QCOMPARE(int(rule.Metric), preset.value("metric").toInt());
+	QCOMPARE(int(rule.Periodicity), preset.value("periodicity").toInt());
+	QCOMPARE(rule.Has_Target_Min, preset.value("hasTargetMin").toBool());
+	QCOMPARE(rule.Has_Target_Max, preset.value("hasTargetMax").toBool());
+	if (preset.value("hasTargetMin").toBool())
+		QCOMPARE(rule.Target_Min, preset.value("targetMin").toDouble());
+}
+//----------------------------------------------------------------------------
+// «Уже добавлено» считается по коду пресета: без отметки пользователь добавил
+// бы «Сон 8 ч» второй раз и получил две одинаковые проверки в программе.
+void AProgram_Edit_VM_Test::catalogMarksAlreadyAddedPresets()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+	AList_Model *catalog = 0;
+	QString code = QString();
+
+	QVERIFY(Fill_Minimal_Program(editor));
+	QVERIFY(editor->Set_Catalog_Filter(QString()));
+	catalog = editor->catalog();
+	code = Role_Value(catalog, 0, QString("code")).toString();
+
+	QVERIFY(Role_Value(catalog, 0, QString("isAdded")).toBool() == false);
+
+	QVERIFY(editor->Add_Catalog_Preset(code));
+	QVERIFY(Role_Value(catalog, 0, QString("isAdded")).toBool());
+
+	// Повторное добавление того же пресета отвергается: в программе уже есть
+	// такое правило, и второе ничего бы не изменило.
+	QVERIFY(editor->Add_Catalog_Preset(code) == false);
+	QCOMPARE(editor->rules()->Row_Count(), 1);
+}
+//----------------------------------------------------------------------------
+// Единица и периодичность приходят из метрики, а не от пользователя: форма
+// «своё правило» не должна требовать знать, что сон — в часах, а белок — в
+// граммах.
+void AProgram_Edit_VM_Test::customRuleTakesUnitFromMetric()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+	QVector<SProgram_Rule> rules;
+
+	QVERIFY(Fill_Minimal_Program(editor));
+
+	QVERIFY(editor->Add_Custom_Rule("Пей достаточно", int(ERule_Metric::WaterMl), int(ERule_Display_Unit::Ml), 2500,
+	                                true, 0, false, 0, false));
+	QVERIFY(editor->Create(false));
+	QVERIFY(Rule_Repository->Load_Rules(editor->programId(), rules));
+	QCOMPARE(rules.size(), 1);
+
+	QCOMPARE(rules.first().Metric, ERule_Metric::WaterMl);
+	QCOMPARE(rules.first().Display_Unit, ERule_Display_Unit::Ml);
+	QCOMPARE(rules.first().Target_Unit, ERule_Display_Unit::Ml);
+	// Периодичность метрики, а не «как получится»: вода считается каждый день.
+	QCOMPARE(rules.first().Periodicity, ERule_Periodicity::PerDay);
+	QCOMPARE(rules.first().Title, QString("Пей достаточно"));
+	QVERIFY(rules.first().Has_Target_Min);
+	QCOMPARE(rules.first().Target_Min, 2500.0);
+}
+//----------------------------------------------------------------------------
+void AProgram_Edit_VM_Test::customRuleRejectsUnitForeignToMetric()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+
+	QVERIFY(Fill_Minimal_Program(editor));
+
+	// Миллитры белку не подходят: без такой сверки модель приняла бы правило,
+	// которое нельзя осмысленно отметить.
+	QVERIFY(editor->Add_Custom_Rule("Белок", int(ERule_Metric::ProteinGrams), int(ERule_Display_Unit::Ml), 140, true, 0,
+	                                false, 0, false) == false);
+	QCOMPARE(editor->errorKey(), QString("rule_unit_mismatch"));
+	QCOMPARE(editor->rules()->Row_Count(), 0);
+
+	// Несуществующий enum отвергается так же, а не молча проходит.
+	QVERIFY(editor->Add_Custom_Rule("Белок", int(ERule_Metric::ProteinGrams), int(ERule_Display_Unit::Max), 140, true,
+	                                0, false, 0, false) == false);
+	QCOMPARE(editor->rules()->Row_Count(), 0);
+
+	// Метрика вне каталога: в форме её выбрать нельзя, значит и создать нельзя.
+	QVERIFY(editor->Add_Custom_Rule("Вес", int(ERule_Metric::Max), int(ERule_Display_Unit::G), 75, true, 0, false, 0,
+	                                false) == false);
+	QCOMPARE(editor->rules()->Row_Count(), 0);
+
+	// Произвольная метрика — это рекомендация, а не измеримое правило: в форме
+	// своего правила её выбрать нельзя.
+	QVERIFY(editor->Add_Custom_Rule("Своё", int(ERule_Metric::Custom), int(ERule_Display_Unit::Units), 1, true, 0,
+	                                false, 0, false) == false);
+	QCOMPARE(editor->rules()->Row_Count(), 0);
+}
+//----------------------------------------------------------------------------
+void AProgram_Edit_VM_Test::customRuleNeedsTargetAndTitle()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+
+	QVERIFY(Fill_Minimal_Program(editor));
+
+	// Без цели правило бессмысленно — это отказ уровня модели, а не UI.
+	QVERIFY(editor->Add_Custom_Rule("Вода", int(ERule_Metric::WaterMl), int(ERule_Display_Unit::Ml), 0, false, 0, false,
+	                                0, false) == false);
+	QCOMPARE(editor->errorKey(), QString("rule_target_required"));
+
+	QVERIFY(editor->Add_Custom_Rule("   ", int(ERule_Metric::WaterMl), int(ERule_Display_Unit::Ml), 2500, true, 0,
+	                                false, 0, false) == false);
+	QCOMPARE(editor->errorKey(), QString("rule_title_required"));
+
+	QCOMPARE(editor->rules()->Row_Count(), 0);
+}
+//----------------------------------------------------------------------------
+// «Ровно 7 часов сна» осмысленно, «ровно 8 RPE» — нет: у нагрузки важна
+// граница сверху. Форма не должна предлагать точную цель там, где она не
+// имеет смысла, и модель не должна такое сохранять.
+void AProgram_Edit_VM_Test::customRuleRejectsExactWhereRangeIsMeaningful()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+
+	QVERIFY(Fill_Minimal_Program(editor));
+
+	QVERIFY(editor->Add_Custom_Rule("Нагрузка", int(ERule_Metric::MaxRpe), int(ERule_Display_Unit::Rpe), 0, false, 0,
+	                                false, 8, true) == false);
+	QCOMPARE(editor->errorKey(), QString("rule_target_kind_invalid"));
+
+	// У сна точная цель осмысленна, и максимум тоже.
+	QVERIFY(editor->Add_Custom_Rule("Сон", int(ERule_Metric::SleepHours), int(ERule_Display_Unit::Hours), 0, false, 0,
+	                                false, 7, true));
+	QCOMPARE(editor->rules()->Row_Count(), 1);
+}
+//----------------------------------------------------------------------------
 // Удаление обязательно: без него опечатку в правиле или цели не исправить.
 void AProgram_Edit_VM_Test::removeRuleAndRemoveTargetClearDraftLists()
 {
@@ -542,6 +985,108 @@ void AProgram_Edit_VM_Test::saveFailureNotifiesScreen()
 	QCOMPARE(editor.errorKey(), QString("save_failed"));
 	QVERIFY2(editor.errorDetail().isEmpty() == false, "save_failed обязан нести деталь отказа");
 	QVERIFY2(spy.count() > 0, "без changed() QML не перечитает errorKey/errorDetail");
+}
+//----------------------------------------------------------------------------
+// — Черновик в БД (отзыв: «добавил упражнение, нажал назад — ничего не
+// сохранилось») —
+// С включённым автосохранением каждое действие дня пишется в хранилище сразу:
+// состояние Draft, полная структура дней и упражнений. Первая запись вставляет
+// строку, следующие обновляют её же — копий программа не плодит.
+void AProgram_Edit_VM_Test::draftAutosavePersistsDayExercises()
+{
+	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), this);
+
+	editor.setAutoSaveEnabled(true);
+	QVERIFY(editor.Reset("u_draft_auto"));
+
+	const int programs_before = Count_Programs();
+
+	QVERIFY(editor.Set_Day_Kind(1, (int)EDay_Kind::Workout));
+	QVERIFY(editor.Add_Day_Exercise(1, "ex_squat", 4, 5, 8, 100, true));
+
+	// Первая запись создала строку программы в состоянии draft.
+	QCOMPARE(Count_Programs(), programs_before + 1);
+	QCOMPARE(Program_State(editor.programId()), QString("draft"));
+
+	// Последующие действия обновляют ту же строку: копий в каталоге нет.
+	QVERIFY(editor.Set_Day_Kind(2, (int)EDay_Kind::Workout));
+	QCOMPARE(Count_Programs(), programs_before + 1);
+	QCOMPARE(Program_State(editor.programId()), QString("draft"));
+}
+//----------------------------------------------------------------------------
+// Повторное открытие редактора продолжает сохранённый черновик: упражнения
+// дня на месте, и редактор правит ту же строку БД, а не создаёт вторую.
+void AProgram_Edit_VM_Test::resumeDraftContinuesSavedDraftAndDoesNotDuplicate()
+{
+	Avm_Program_Edit first(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), this);
+
+	first.setAutoSaveEnabled(true);
+	QVERIFY(first.Reset("u_draft_resume"));
+
+	const int programs_before = Count_Programs();
+
+	QVERIFY(first.Set_Day_Kind(1, (int)EDay_Kind::Workout));
+	QVERIFY(first.Add_Day_Exercise(1, "ex_squat", 4, 5, 8, 100, true));
+
+	// «Перезапуск приложения»: новый редактор, та же БД.
+	Avm_Program_Edit reopened(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this),
+	                          this);
+
+	QVERIFY(reopened.resumeDraft("u_draft_resume"));
+	QCOMPARE(reopened.program_days()->Row_Count(), 7);
+	QCOMPARE(reopened.day_exercises()->Row_Count(), 1);
+
+	// Правка продолженного черновика идёт в ту же строку: копий нет.
+	reopened.setAutoSaveEnabled(true);
+	QVERIFY(reopened.Add_Day_Exercise(1, "ex_bench", 3, 8, 12, 60, true));
+	QCOMPARE(Count_Programs(), programs_before + 1);
+}
+//----------------------------------------------------------------------------
+// Черновика нет (или хранилище недоступно) — resumeDraft даёт обычный пустой
+// редактор и ничего не пишет в БД: «Новая программа» без прошлого.
+void AProgram_Edit_VM_Test::resumeDraftWithoutSavedDraftStartsFresh()
+{
+	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), this);
+
+	const int programs_before = Count_Programs();
+
+	QVERIFY(editor.resumeDraft("u_without_drafts"));
+	QCOMPARE(editor.program_days()->Row_Count(), 7);
+	QCOMPARE(editor.day_exercises()->Row_Count(), 0);
+	QCOMPARE(Count_Programs(), programs_before);
+}
+//----------------------------------------------------------------------------
+// «Удалить черновик»: брошенное создание стирается из БД целиком, а редактор
+// остаётся открытым с чистой формой — начинать заново без выхода с экрана.
+// Повторное удаление без сохранённого черновика — не отказ, а очистка.
+void AProgram_Edit_VM_Test::deleteDraftRemovesStoredDraftAndResetsEditor()
+{
+	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), this);
+
+	editor.setAutoSaveEnabled(true);
+	QVERIFY(editor.Reset("u_draft_delete"));
+
+	const int programs_before = Count_Programs();
+
+	QVERIFY(editor.Set_Day_Kind(1, (int)EDay_Kind::Workout));
+	QVERIFY(editor.Add_Day_Exercise(1, "ex_squat", 4, 5, 8, 100, true));
+
+	// Черновик реально в БД: строка со статусом draft.
+	QCOMPARE(Count_Programs(), programs_before + 1);
+	QCOMPARE(Program_State(editor.programId()), QString("draft"));
+
+	QVERIFY(editor.deleteDraft());
+
+	// БД чиста, редактор — как после reset(): тот же пользователь, пустые
+	// списки, новый черновик ещё не записан.
+	QCOMPARE(Count_Programs(), programs_before);
+	QVERIFY(editor.programId().isEmpty());
+	QCOMPARE(editor.program_days()->Row_Count(), 7);
+	QCOMPARE(editor.day_exercises()->Row_Count(), 0);
+
+	// Удалять больше нечего: второй вызов очищает форму и не падает.
+	QVERIFY(editor.deleteDraft());
+	QCOMPARE(Count_Programs(), programs_before);
 }
 //----------------------------------------------------------------------------
 

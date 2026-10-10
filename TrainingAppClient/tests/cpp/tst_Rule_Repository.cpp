@@ -22,10 +22,21 @@ private slots:
 
 	void checkinRangesUseProgramAndRule();
 
+	// — Рекомендация: текстовое правило без измеримой цели —
+	// Слой репозитория повторяет правило схемы, но с внятным сообщением:
+	// отказ без причины в UI выглядит как «FOREIGN KEY constraint failed».
+	void replaceRulesAcceptsAdviceWithoutTarget();
+	void replaceRulesRejectsAdviceWithoutText();
+	void loadRulesKeepsAdviceText();
+
 private:
 	QString Make_Database_Path();
 	SProgram Make_Program(const QString &in_id, EProgram_State in_state);
 	SProgram_Rule Make_Rule(const QString &in_id, const QString &in_code);
+	// Рекомендация: то, что ради неё и снимается требование цели. Заводится
+	// отдельно от Make_Rule, потому что отличается по сути, а не по значению:
+	// у него нет цели, метрика custom, а текст лежит в Note.
+	SProgram_Rule Make_Advice_Rule(const QString &in_id, const QString &in_text);
 	void Seed_Program(AProgram_Repository &in_repository, const QString &in_id, EProgram_State in_state);
 	SRule_Checkin Make_Checkin(const QString &in_rule_id, const QString &in_date, double in_value,
 	                           ECheckin_Source in_source);
@@ -87,6 +98,27 @@ SProgram_Rule ARule_Repository_Test::Make_Rule(const QString &in_id, const QStri
 	rule.Enforcement = ERule_Enforcement::Soft;
 	rule.Display_Unit = ERule_Display_Unit::G;
 	rule.Note = "1,8 г на кг веса";
+
+	return rule;
+}
+//----------------------------------------------------------------------------
+SProgram_Rule ARule_Repository_Test::Make_Advice_Rule(const QString &in_id, const QString &in_text)
+{
+	SProgram_Rule rule;
+
+	rule.ID = in_id;
+	rule.Program_Id = "p1";
+	rule.Category = ERule_Category::Other;
+	rule.Code = "custom";
+	rule.Title = in_text;
+	rule.Metric = ERule_Metric::Custom;
+	rule.Periodicity = ERule_Periodicity::PerDay;
+	rule.Target_Unit = ERule_Display_Unit::Units;
+	rule.Applies_To = ERule_Applies_To::AllDays;
+	rule.Check_Source = ERule_Check_Source::SelfReport;
+	rule.Enforcement = ERule_Enforcement::Soft;
+	rule.Display_Unit = ERule_Display_Unit::Units;
+	rule.Note = in_text;
 
 	return rule;
 }
@@ -345,6 +377,86 @@ void ARule_Repository_Test::replaceRulesRollsBackOnInvalidSet()
 	QVERIFY(query.exec("SELECT COUNT(*) FROM program_revisions WHERE program_id = 'p1'"));
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toInt(), 2);
+}
+//----------------------------------------------------------------------------
+// Целое требование снимается с рекомендации: она отвечает не «сколько», а
+// «что делать», и измеримой цели у неё нет по природе.
+void ARule_Repository_Test::replaceRulesAcceptsAdviceWithoutTarget()
+{
+	AsSql_Database database;
+	AProgram_Repository program_repository(&database);
+	ARule_Repository repository(&database);
+	QVector<SProgram_Rule> rules;
+
+	QVERIFY(database.Open(Make_Database_Path()));
+	Seed_Program(program_repository, "p1", EProgram_State::Draft);
+
+	rules.append(Make_Advice_Rule("r1", "Спать не меньше 7 часов"));
+	QVERIFY2(repository.Replace_Rules("p1", rules), qPrintable(repository.Get_Last_Error()));
+	QVERIFY(repository.Get_Last_Error().isEmpty());
+
+	// Смешанный набор: измеримое и рекомендация вместе — так пользователь и
+	// задаёт программу.
+	rules.clear();
+	rules.append(Make_Rule("r2", "protein"));
+	rules.append(Make_Advice_Rule("r3", "Пей воду натощак"));
+	QVERIFY2(repository.Replace_Rules("p1", rules), qPrintable(repository.Get_Last_Error()));
+}
+//----------------------------------------------------------------------------
+// Снятие требования не должно превращать «Другое» в мусор: пустой текст —
+// не рекомендация.
+void ARule_Repository_Test::replaceRulesRejectsAdviceWithoutText()
+{
+	AsSql_Database database;
+	AProgram_Repository program_repository(&database);
+	ARule_Repository repository(&database);
+	QVector<SProgram_Rule> rules;
+	SProgram_Rule rule;
+
+	QVERIFY(database.Open(Make_Database_Path()));
+	Seed_Program(program_repository, "p1", EProgram_State::Draft);
+
+	rule = Make_Advice_Rule("r1", "Совет");
+	rule.Note = QString();
+	rules.append(rule);
+	QVERIFY(repository.Replace_Rules("p1", rules) == false);
+	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+
+	// Измеримое правило без цели по-прежнему отвергается: «Другое» — это
+	// про текст, а не послабление для всех.
+	rules.clear();
+	rule = Make_Rule("r2", "protein");
+	rule.Has_Target_Min = false;
+	rules.append(rule);
+	QVERIFY(repository.Replace_Rules("p1", rules) == false);
+}
+//----------------------------------------------------------------------------
+// Текст рекомендации обязан пережить цикл сохранения: иначе пользователь
+// вернётся к записанному совету и не найдёт его.
+void ARule_Repository_Test::loadRulesKeepsAdviceText()
+{
+	AsSql_Database database;
+	AProgram_Repository program_repository(&database);
+	ARule_Repository repository(&database);
+	QVector<SProgram_Rule> rules;
+	QVector<SProgram_Rule> loaded;
+
+	QVERIFY(database.Open(Make_Database_Path()));
+	Seed_Program(program_repository, "p1", EProgram_State::Draft);
+
+	rules.append(Make_Advice_Rule("r1", "Пей воду натощак каждое утро"));
+	rules.append(Make_Rule("r2", "protein"));
+	QVERIFY2(repository.Replace_Rules("p1", rules), qPrintable(repository.Get_Last_Error()));
+
+	QVERIFY(repository.Load_Rules("p1", loaded));
+	QCOMPARE(loaded.size(), 2);
+
+	// Метрика и категория у рекомендации свои — иначе фильтр по категориям
+	// в UI не сможет её показать.
+	QCOMPARE(loaded.at(0).Category, ERule_Category::Other);
+	QCOMPARE(loaded.at(0).Metric, ERule_Metric::Custom);
+	QCOMPARE(loaded.at(0).Note, QString("Пей воду натощак каждое утро"));
+	QVERIFY(loaded.at(0).Has_Target_Min == false);
 }
 //----------------------------------------------------------------------------
 void ARule_Repository_Test::checkinUpsertAndManualWins()

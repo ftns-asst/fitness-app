@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+﻿cmake_minimum_required(VERSION 3.16)
 
 project(TrainingAppClient VERSION 0.1 LANGUAGES CXX)
 
@@ -36,12 +36,18 @@ add_library(TrainingAppCore STATIC
     src/Presentation/Program_Edit_VM.cpp
     src/Presentation/Program_Rules_VM.h
     src/Presentation/Program_Rules_VM.cpp
+    src/Presentation/Today_VM.h
+    src/Presentation/Today_VM.cpp
+    src/Presentation/Macro_VM.h
+    src/Presentation/Macro_VM.cpp
     src/Presentation/Program_Catalog_VM.h
     src/Presentation/Program_Catalog_VM.cpp
     src/App/App_Context.h
     src/App/App_Context.cpp
     src/App/App_Logger.h
     src/App/App_Logger.cpp
+    src/App/Android_Frame_Rate.h
+    src/App/Android_Frame_Rate.cpp
     src/Domain/Error_State.h
     src/Domain/Error_State.cpp
     src/Domain/Program_Model.h
@@ -56,11 +62,13 @@ add_library(TrainingAppCore STATIC
     src/Domain/Progress_Calculator.h
     src/Domain/Progress_Support.h
     src/Domain/Lifetime_Calculator.h
+    src/Domain/Macro_Calculator.h
     src/Domain/Stats_Encoder.h
     src/Domain/Program_Stats_Calculator.h
     src/Domain/Progress_Calculator.cpp
     src/Domain/Progress_Support.cpp
     src/Domain/Lifetime_Calculator.cpp
+    src/Domain/Macro_Calculator.cpp
     src/Domain/Stats_Encoder.cpp
     src/Domain/Program_Stats_Calculator.cpp
     src/Data/Program/Program_Repository_Base.h
@@ -75,6 +83,12 @@ add_library(TrainingAppCore STATIC
     src/Data/Program/Measurement_Repository.cpp
     src/Data/Program/Stats_Repository.h
     src/Data/Program/Stats_Repository.cpp
+
+    # Демо-данные (ADemo_Seeder). Пишет программу с упражнениями, правилами и
+    # завершёнными тренировками, чтобы «обычные» состояния экранов были
+    # достижимы. Вызывается только по явному флагу запуска.
+    src/Demo/Demo_Seeder.h
+    src/Demo/Demo_Seeder.cpp
     src/Data/Auth/Auth_Api.h
     src/Data/Auth/Auth_Api.cpp
     src/Data/Auth/Auth_Repository.h
@@ -133,7 +147,6 @@ set_source_files_properties(
     qml/Presentation/ExercisesViewModel.qml
     qml/Presentation/PlansViewModel.qml
     qml/Presentation/ProfileViewModel.qml
-    qml/Presentation/TodayViewModel.qml
     qml/Components/BackRouter.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
@@ -151,17 +164,20 @@ qt_add_qml_module(appTrainingAppClient
         qml/Pages/Program/ProgramEditPage.qml
         qml/Pages/Program/ProgramDayPage.qml
         qml/Pages/Program/ProgramRulesPage.qml
+qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Pages/Program/ProgramStatsPage.qml
+        qml/Pages/Macro/MacroCalculatorPage.qml
+        qml/Pages/Program/SetEntryPage.qml
         qml/Components/CheckinStatePill.qml
         qml/Components/BackBar.qml
         qml/Components/DateField.qml
+        qml/Components/DragToScroll.qml
         qml/Components/AppComboBox.qml
     qml/Components/AppNumberField.qml
     qml/Components/CatalogProgramRow.qml
-    qml/Components/DayMapCell.qml
+    qml/Components/DayTile.qml
         qml/Main.qml
         qml/AppShell.qml
-        qml/DevPanel.qml
 
         # Design tokens (singletons)
         qml/Theme/Theme.qml
@@ -182,13 +198,14 @@ qt_add_qml_module(appTrainingAppClient
         qml/Presentation/ExercisesViewModel.qml
         qml/Presentation/PlansViewModel.qml
         qml/Presentation/ProfileViewModel.qml
-        qml/Presentation/TodayViewModel.qml
 
         # UI components
         qml/Components/AppButton.qml
         qml/Components/AppCard.qml
         qml/Components/AppIcon.qml
         qml/Components/AppTextField.qml
+        qml/Components/AppTextArea.qml
+        qml/Components/AppearanceCard.qml
         qml/Components/BackHandler.qml
         qml/Components/BackRouter.qml
         qml/Components/BottomTabBar.qml
@@ -199,12 +216,19 @@ qt_add_qml_module(appTrainingAppClient
         qml/Components/HeroCard.qml
         qml/Components/LineChartCard.qml
         qml/Components/MetricCard.qml
+        qml/Components/MetricTile.qml
+        qml/Components/NutritionPlanCard.qml
+        qml/Components/FrameRateMeter.qml
         qml/Components/PageScaffold.qml
         qml/Components/RatingBadge.qml
         qml/Components/RecordRow.qml
         qml/Components/RegularityHeatmap.qml
+        qml/Components/RulePresetTile.qml
         qml/Components/SegmentedControl.qml
         qml/Components/TagPill.qml
+        qml/Components/WeekLegend.qml
+        qml/Components/WeightRuler.qml
+        qml/Components/RepsWheel.qml
 
         # Screens
         qml/Pages/Auth/AuthPage.qml

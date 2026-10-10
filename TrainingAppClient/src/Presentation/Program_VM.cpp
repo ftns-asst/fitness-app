@@ -23,19 +23,20 @@ Avm_Program::Avm_Program(AProgram_Repository *in_program_repository, ARule_Repos
 	Goal_Targets->Set_Roles(Program_Rows::Goal_Target_Roles());
 	Rules->Set_Roles(Program_Rows::Rule_Roles());
 }
+//----------------------------------------------------------------------------
 // — QML-мост (camelCase) —
 // Обёртки отделены от методов предметной области: контракт экрана не должен
 // повторять внутренний стиль имён (§2 CODE_STYLE) и зависеть от него.
+//----------------------------------------------------------------------------
 bool Avm_Program::reload(const QString &in_user_id, const QString &in_program_id)
 {
 	return Reload(in_user_id, in_program_id);
 }
-
+//----------------------------------------------------------------------------
 void Avm_Program::selectDay(const QString &in_program_day_id)
 {
 	Select_Day(in_program_day_id);
 }
-
 //----------------------------------------------------------------------------
 bool Avm_Program::Reload(const QString &in_user_id, const QString &in_program_id)
 {

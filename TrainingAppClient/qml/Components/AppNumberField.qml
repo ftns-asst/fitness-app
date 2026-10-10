@@ -94,7 +94,6 @@ Column {
                 Layout.alignment: Qt.AlignVCenter
                 Layout.preferredHeight: Theme.buttonPrimary
                 Layout.preferredWidth: Theme.buttonPrimary
-                text: modelData.text
 
                 background: Rectangle {
                     id: stepBackground
@@ -110,7 +109,8 @@ Column {
 
                     Behavior on color {
                         ColorAnimation {
-                            duration: 100
+                            duration: Theme.pressFeedbackDuration
+                            easing.type: Easing.OutCubic
                         }
                     }
                 }
@@ -118,7 +118,10 @@ Column {
                     color: Theme.textSecondary
                     font: Typography.bodyStrong
                     horizontalAlignment: Text.AlignHCenter
-                    text: parent.text
+                    // Знак берётся из modelData, а не из parent.text: у Button
+                    // внутри contentItem parent — это сам Button, и его text
+                    // здесь не разрешается (qmllint: Member "text" not found).
+                    text: stepButton.modelData.text
                     verticalAlignment: Text.AlignVCenter
                 }
                 // Значение зажимается в границы здесь: за её пределами цель или

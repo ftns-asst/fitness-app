@@ -24,6 +24,7 @@ private slots:
 	void replaceScheduleValidatesSlots();
 	void goalAndTermEditsJournal();
 	void loadFullAssemblesTree();
+	void deleteDraftRemovesOnlyDrafts();
 
 private:
 	QString Make_Database_Path();
@@ -719,6 +720,49 @@ void AProgram_Repository_Test::loadFullAssemblesTree()
 	QVERIFY(repository.Load_Day_Exercises("d2", exercises));
 	QCOMPARE(exercises.size(), 1);
 	QCOMPARE(exercises.at(0).Exercise_Id, QString("ex2"));
+}
+//----------------------------------------------------------------------------
+// Удаление черновика: брошенное создание стирается целиком — дни, предписания
+// и расписание снимает каскад FK, сирот в таблицах не остаётся. Программа в
+// «живом» состоянии удалению не поддаётся: отказ с ошибкой, а не тихие
+// «0 строк».
+void AProgram_Repository_Test::deleteDraftRemovesOnlyDrafts()
+{
+	AsSql_Database database;
+	AProgram_Repository repository(&database);
+	QVector<SProgram> programs;
+	QVector<SProgram_Day> days;
+	QString path;
+
+	path = Make_Database_Path();
+	QVERIFY(database.Open(path));
+
+	Seed_Exercise(database, "ex1");
+	Seed_Exercise(database, "ex2");
+
+	QVERIFY(repository.Insert_Program(Make_Program("p_draft", EProgram_State::Draft)));
+	Seed_Structure(repository, "p_draft");
+	QVERIFY(repository.Insert_Program(Make_Program("p_active", EProgram_State::Active)));
+
+	// Активная программа редактором не удаляется: её состояния меняются
+	// переходами §3.1 (Change_State/Activate_Exclusive), и Delete_Draft
+	// обязан отказаться с ошибкой.
+	QVERIFY(repository.Delete_Draft("p_active") == false);
+	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+
+	// Промах по идентификатору — тоже отказ, а не молчаливый успех.
+	QVERIFY(repository.Delete_Draft("p_missing") == false);
+
+	QVERIFY(repository.Delete_Draft("p_draft"));
+
+	// В каталоге осталась только активная программа.
+	QVERIFY(repository.Load_Programs("u1", programs));
+	QCOMPARE(programs.size(), 1);
+	QCOMPARE(programs.at(0).ID, QString("p_active"));
+
+	// Дни ушли вместе с программой (каскад FK).
+	QVERIFY(repository.Load_Days("p_draft", days));
+	QCOMPARE(days.size(), 0);
 }
 //----------------------------------------------------------------------------
 

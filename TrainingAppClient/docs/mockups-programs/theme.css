@@ -1,0 +1,865 @@
+/* Макеты модуля «Программы» — токены и компоненты.
+   Источник значений: docs/07-programs-ui-spec.md §3, qml/Theme/*. */
+
+:root {
+    --accent: #505DD5;
+    --accent-fg: #FFFFFF;
+    --accent-pressed: #424CB0;
+    --accent-soft: rgba(80, 93, 213, 0.30);
+    --accent-tint: rgba(80, 93, 213, 0.12);
+    /* Текст поверх мягкой/тонированной заливки: в dark базовый --accent
+       слишком тёмный, поэтому акцент для надписей светлее. */
+    --accent-on-soft: #4A57C8;
+    /* Акцент как текст на обычном фоне (ссылки, ghost-кнопки). */
+    --accent-text: #4A57C8;
+    --background: #F8F9FB;
+    --surface: #FFFFFF;
+    --surface-muted: #F5F5F5;
+    --border: #E5E7EB;
+    --border-subtle: #EEF0F4;
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    --positive: #16A34A;
+    --negative: #DC2626;
+    --positive-tint: rgba(22, 163, 74, 0.14);
+    --negative: #DC2626;
+    --warning: #F59E0B;
+    --warning-tint: rgba(245, 158, 11, 0.16);
+    --shadow: 0 4px 12px rgba(11, 16, 32, 0.12);
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 18px;
+    --stage: #E9ECF2;
+}
+
+[data-theme="dark"] {
+    --accent-tint: rgba(80, 93, 213, 0.20);
+    --positive-tint: rgba(22, 163, 74, 0.30);
+    --warning-tint: rgba(245, 158, 11, 0.22);
+    --accent-on-soft: #9AA4FF;
+    --accent-text: #8E97FF;
+    --background: #0F1115;
+    --surface: #171A21;
+    --surface-muted: #1E222B;
+    --border: #262B36;
+    --border-subtle: #2A2F3A;
+    --text-primary: #F3F4F6;
+    --text-secondary: #9CA3AF;
+    --text-muted: #6B7280;
+    --positive: #4ADE80;
+    --negative: #F87171;
+    --warning: #FBBF24;
+    --shadow: none;
+    --stage: #0A0C10;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+    background: var(--stage);
+    color: var(--text-primary);
+    font-family: Inter, "Segoe UI", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+}
+a { color: var(--accent-text); }
+
+/* — Мета-панель макета (не часть приложения) — */
+.toolbar {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 20px;
+}
+.toolbar h1 { font-size: 17px; margin: 0; }
+.toolbar .spacer { flex: 1; }
+.toolbar button, .toolbar a {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    cursor: pointer;
+    font: 500 13px/1 Inter, sans-serif;
+    padding: 10px 14px;
+    text-decoration: none;
+}
+.frames {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    justify-content: center;
+    padding: 8px 20px 48px;
+}
+.frame { display: flex; flex-direction: column; max-width: 100%; }
+.frame .phone { flex: 1; }
+.frame > h2 {
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 8px;
+    text-align: center;
+}
+
+/* — Телефон 390 px (база дизайна) —
+   Высота не фиксирована: экран обзора длиннее 844 px, и жёсткий height
+   обрезал нижние блоки — на ревью их просто не было видно. Нижняя граница
+   остаётся эталонной (min-height), а растягивание до общей высоты колонки
+   делает .frames, поэтому фреймы в ряду сравнимы. */
+.phone {
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    box-shadow: 0 18px 40px rgba(11, 16, 32, 0.18);
+    min-height: 844px;
+    overflow: hidden;
+    position: relative;
+    width: 390px;
+}
+.screen {
+    height: 100%;
+    overflow-y: auto;
+    padding: 24px 16px 32px;
+}
+.screen > * + * { margin-top: 24px; }   /* sectionGap */
+/* .section-title объявляет margin: 0, поэтому отступ перед ним нужно
+   поднять отдельно — иначе заголовок слипается с предыдущей карточкой. */
+.screen > * + .section-title { margin-top: 24px; }
+.screen .section-title + * { margin-top: 8px; }
+
+/* — Типографика — */
+.t-title { color: var(--text-primary); font-size: 22px; font-weight: 700; margin: 0; }
+.t-caption { color: var(--text-secondary); font-size: 12px; margin: 4px 0 0; }
+.section-title { color: var(--text-muted); font-size: 17px; font-weight: 600; margin: 0; }
+.muted-caption { color: var(--text-muted); font-size: 12px; margin: 0; }
+.body { color: var(--text-secondary); font-size: 15px; margin: 0; }
+.body-strong { color: var(--text-primary); font-size: 15px; font-weight: 600; margin: 0; }
+.caption { color: var(--text-secondary); font-size: 12px; margin: 0; }
+.metric { color: var(--text-primary); font-size: 28px; font-weight: 700; margin: 0; }
+.text-center { text-align: center; }
+.c-accent { color: var(--accent-text); }
+.c-negative { color: var(--negative); }
+.c-warning { color: var(--warning); }
+.c-muted { color: var(--text-muted); }
+
+/* Счётчик в заголовке секции («Цели 2»): число рядом со словом читается
+   быстрее, чем «2 цели» под ним, и не добавляет отдельной строки. */
+.section-count { color: var(--text-muted); font-size: 12px; font-weight: 500; }
+
+/* — Ползунок (Slider) —
+   Форма взята из референса записи тренировки (docs/reference-ui, снимок
+   2090): крупное значение с единицей справа, тонкая линейка, деления двух
+   длин по краям шкалы, вертикальный акцентный маркер и подпись-подсказка.
+   Отличие от референса — сам ввод: вместо колёс используется range, поэтому
+   значение доступно и точно перетаскиванием, и с клавиатуры, и через
+   tap-to-position. На 390 dp ±-кнопки на «Вес» промахвались на 2,5 кг,
+   а ползунок даёт непрерывный ход. */
+.slider { --fill: 33%; }
+.slider-control { position: relative; }
+/* input идёт первым внутри .slider-control — селектор «input + track»
+   даёт фокус-обводку без лишнего класса-обёртки. */
+.slider-head { align-items: baseline; display: flex; gap: 10px; justify-content: space-between; }
+.slider-label { color: var(--text-secondary); font-size: 12px; font-weight: 500; }
+.slider-value { color: var(--text-primary); font-size: 28px; font-weight: 700; line-height: 1.05; white-space: nowrap; }
+/* Единица из §10 («нед.», «кг») живёт в значении, но не спорит с числом. */
+.slider-value i { color: var(--text-muted); font-size: 12px; font-style: normal; font-weight: 500; margin-left: 5px; }
+/* Поля 12px по бокам равны половине невидимого thumb (24 px) у input, из-за
+   чего полззунок input и нарисованная линейка совпадают по краям. */
+.slider-track { background: var(--surface-muted); border-radius: 999px; box-shadow: inset 0 0 0 1px var(--border); height: 6px; margin: 16px 12px 0; position: relative; }
+.slider-fill { background: var(--accent-text); border-radius: 999px; bottom: 0; left: 0; position: absolute; top: 0; width: var(--fill); }
+/* Маркер — вертикальная черта, как в референсе, а не круг: на тонкой
+   линейке круг превращается в пятно и съедает деления. */
+.slider-thumb { background: var(--accent); border-radius: 2px; height: 22px; margin-left: -2px; position: absolute; top: -8px; width: 4px; }
+.slider-input { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; height: 44px; margin: 0; position: absolute; top: -19px; width: 100%; }
+.slider-input::-webkit-slider-thumb { -webkit-appearance: none; height: 44px; width: 24px; }
+.slider-input::-moz-range-thumb { background: transparent; border: 0; height: 44px; width: 24px; }
+.slider-input:focus-visible + .slider-track, .slider-input:focus + .slider-track { box-shadow: inset 0 0 0 2px var(--accent); }
+/* Деления: крупные на границах диапазона, мелкие — внутри. Числа под ними
+   подсказывают масштаб, поэтому шкалу не нужно угадывать перетаскиванием. */
+.slider-scale { align-items: center; color: var(--text-muted); display: flex; font-size: 11px; justify-content: space-between; margin: 8px 12px 0; }
+.slider-scale span { position: relative; }
+.slider-scale span::before { background: var(--border); content: ""; height: 8px; left: 50%; position: absolute; top: -11px; width: 1px; }
+.slider-scale span:first-child::before, .slider-scale span:last-child::before { background: var(--text-muted); height: 12px; top: -15px; }
+.slider-hint { color: var(--text-muted); font-size: 12px; margin: 10px 0 0; }
+
+/* — Режим «как на устройстве» —
+   По умолчанию .phone растёт по содержимому, чтобы на ревью был виден весь
+   экран целиком. Редактору это не годится: там нужно проверить, что главное
+   помещается в 844 px и что CTA не уезжает за экран. .phone.device жёстко
+   844 px, .screen прокручивается внутри, липкая панель действий прижата к
+   низу — ровно как в QML. */
+/* flex-basis 0 из `.frame .phone { flex: 1 }` иначе растягивает телефон
+   по самому высокому фрейму в ряду и жёсткая высота 844 не работает. */
+.phone.device { display: flex; flex: 0 0 auto; flex-direction: column; height: 844px; }
+.phone.device .screen { flex: 1; min-height: 0; }
+
+/* — Липкая панель действий (action bar) —
+   Главный экран редактора — длинная форма, а CTA в конце ленты означает,
+   что кнопку «Создать» не видно до конца прокрутки, а состояние готовности
+   проверяется отдельно в шапке. Панель решает обе задачи разом: прогресс
+   готовности и кнопка всегда находятся в поле зрения, внизу экрана. */
+/* Панель лежит вне .screen, прямым потомком .phone: sticky внутри
+   скролл-контейнера не срабатывает, когда элемент и так последний —
+   ему не от чего «отлипать». В flex-колонке .phone.device панель просто
+   стоит под скроллом и всегда в поле зрения. */
+/* — Форма своего правила (rule form) —
+   Поля взяты из SProgram_Rule (модель 02, 3.6): category, metric, title,
+   target (min/max/exact + unit), periodicity, appliesTo. Форма не выдумывает
+   полей — все, что здесь есть, есть в контракте, и все, что контракт помечает
+   как обязательное, здесь спрашивается.
+
+   Свое правило заводится не как текстовая заметка, а как измеримая
+   директива: без порога и единицы отметку негде поставить, поэтому цель и
+   единица обязательны — это же требуют ошибки rule_title_required и
+   rule_target_required (спека 07, 7). */
+
+.ruleform { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: 18px; }
+.ruleform > * + * { margin-top: 18px; }
+/* Две кнопки в ряд не вмещают «Добавить правило» в одну строку, и подпись
+   переносилась на две, ломая высоту кнопки. Метки короче, кегль — тот же. */
+.ruleform .btn { font-size: 14px; padding-left: 8px; padding-right: 8px; white-space: nowrap; }
+
+/* Группы полей. Подписи — это три вопроса модели: что измеряем, сколько,
+   как часто. Вопрос в подписи читается быстрее, чем безликое «Значение». */
+.fieldset { border: 0; margin: 0; min-width: 0; padding: 0; }
+.fieldset > legend { color: var(--text-muted); display: block; float: left; font-size: 11px; font-weight: 700; letter-spacing: .05em; margin-bottom: 8px; padding: 0; text-transform: uppercase; width: 100%; }
+/* legend во float перестаёт участвовать в потоке — возвращаем поток
+   обратно через clear на первом элементе группы, иначе подпись наезжает
+   на поля (баг рендера fieldset в Chromium). */
+.fieldset > *:first-of-type { clear: both; }
+.fieldset > * + * { margin-top: 10px; }
+
+/* Условие цели: «не ниже / не выше / ровно» + значение + единица в один ряд.
+   Слагаемые не могут разъехаться: ради этого условия и берутся вместе. */
+.cond { display: flex; flex-direction: column; gap: 8px; }
+.cond > .seg { margin-top: 0; }
+/* Сегменты здесь из двух-трёх слов; без запрета переноса «на тренировку»
+   разрывался по строкам и поднимал кнопку. */
+.cond > .seg button, .fieldset .seg button { white-space: nowrap; }
+.cond-row { display: flex; gap: 8px; }
+.cond-row > .input { flex: 1; min-width: 0; }
+.cond-row > .combo { flex: 0 0 128px; }
+.cond > .combo { flex: 0 0 104px; }
+/* Пять категорий в два ряда: на 360 dp один ряд не помещается, а три ряда
+   съедали бы высоту формы. */
+/* Пять категорий в два ряда: на 360 dp один ряд не помещается, а три ряда
+   съедали бы высоту формы. Сетка из шести колонок даёт ряд 3 + 2 без
+   растянутой последней кнопки на всю ширину. */
+/* Категории: шесть вариантов в два ряда по три. Порядок не алфавитный —
+   «Другое» стоит первым, потому что это осознанный выбор «свой случай»,
+   и его не должно быть видно только после прокрутки пяти типовых. */
+.fieldset .chips { display: grid; gap: 6px; grid-template-columns: repeat(3, 1fr); }
+/* Шесть названий не влезают в три колонки в 13 px («Восстановление»
+   обрезалось), поэтому в форме шрифт чипа на ступень меньше. */
+.fieldset .chip { font-size: 12px; min-width: 0; overflow: hidden; padding-left: 4px; padding-right: 4px; text-overflow: ellipsis; }
+   до сохранения — ровно тем текстом, который он сам и увидит. */
+.rule-preview { background: var(--accent-tint); border-radius: var(--radius-md); padding: 14px; }
+.rule-preview .label { color: var(--text-muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.rule-preview .value { color: var(--text-primary); font-size: 15px; font-weight: 600; margin-top: 4px; }
+.rule-preview .meta { align-items: center; color: var(--text-secondary); display: flex; font-size: 12px; gap: 6px; margin-top: 8px; }
+/* Пустое состояние подсказывает формат, а не выглядит как ошибка. */
+.rule-preview.empty { background: var(--surface-muted); }
+.rule-preview.empty .value { color: var(--text-muted); font-weight: 500; }
+
+/* — Плитки метрик (metric tiles) —
+   Метрика — самый непонятный выбор в форме («custom» не читается как
+   метрика). Плитки подписаны по-русски и показывают единицу, поэтому
+   выбор делается по смыслу, а не по переводу внутреннего enum. */
+.metric-grid { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); }
+.metric-tile {
+    background: var(--surface-muted);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    font: 500 13px/1.2 Inter, sans-serif;
+    gap: 3px;
+    min-height: 56px;
+    padding: 10px 8px;
+    text-align: center;
+}
+.metric-tile .unit { color: var(--text-muted); font-size: 11px; font-weight: 500; }
+.metric-tile.on { background: var(--accent-text); border-color: var(--accent-text); color: var(--accent-fg); font-weight: 700; }
+.metric-tile.on .unit { color: var(--accent-fg); opacity: .8; }
+
+/* — Правило текстом («Другое») —
+   Типовые метрики описывают то, что можно посчитать, поэтому список плиток
+   закрыт. Своё правило часто про то, что не считается вовсе: «не пить алкоголь
+   за 2 дня до соревнования», «не пропускать разминку». Такое живёт в тексте,
+   и текст здесь — главное поле, а не необязательное уточнение к порогу. */
+.textarea {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font: 400 15px/1.45 Inter, sans-serif;
+    min-height: 96px;
+    padding: 12px;
+    resize: none;
+    width: 100%;
+}
+.textarea::placeholder { color: var(--text-muted); }
+.textarea:focus { border-color: var(--accent-text); }
+.textarea.error { border-color: var(--negative); }
+/* Счётчик символов: длинная рекомендация перестаёт быть рекомендацией и
+   становится стеной текста, которую не прочитают. */
+.text-count { color: var(--text-muted); font-size: 11px; margin-top: 6px; text-align: right; }
+.text-count.near { color: var(--negative); }
+/* Подсказка о том, что цель необязательна именно здесь: показанный рядом,
+   а не спрятанный в справку, иначе его решат, что забыли. */
+.opt-hint {
+    background: var(--accent-tint);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 10px 12px;
+}
+/* Метка — блоком над текстом: в строку рядом она переносилась на две строки
+   и тянула за собой весь абзац. */
+.opt-hint b { color: var(--text-primary); display: block; font-weight: 600; margin-bottom: 2px; }
+/* Заголовок «необязательно» не тонет среди подписей обязательных полей:
+   у него своя метка с точкой, а не серый хвост в скобках. */
+.field-label .opt {
+    background: var(--surface-muted);
+    border-radius: 20px;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    margin-left: 6px;
+    padding: 2px 7px;
+    text-transform: uppercase;
+    vertical-align: 1px;
+}.actionbar {
+    background: var(--background);
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px 20px;
+}
+.phone:not(.device) .actionbar { border-top: 0; margin-top: 24px; }
+/* Полоса готовности: 3 сегмента по числу обязательных пунктов из
+   missingHint() (старт, срок, тренировочный день). */
+.actionbar .ready-bar { margin-top: 0; }
+.actionbar .btn { width: 100%; }
+/* — Полоса недели (week strip) —
+   Одна панель с семью колонками, а не семь карточек. Разница не в габаритах,
+   а в структуре: раньше у каждого дня была своя рамка, и глаз собирал из семи
+   отдельных объектов один ряд — отсюда ощущение набросанной сетки. Здесь рамка
+   одна общая, дни разделены тонкими вертикальными линиями, а вид дня кодирует
+   заливка всей колонки: залитая — рабочая, пустая — отдых.
+   Высота колонки прежняя (~74 px): это уплотнение было осознанным, семь полных
+   карточек занимали треть экрана. */
+.week-strip {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(7, 1fr);
+}
+/* Тот же компонент дня, что в обзоре (`.day-dot`): свой радиус, своя рамка,
+   зазор 6 px. Разница только в высоте — здесь в плитке ещё число упражнений,
+   поэтому колонка выше и ниже текст контрастнее. Прежние 82 px и radius-md
+   делали ряд из семи вытянутых столбиков: он читался как таблица, а не как
+   карта дня, и не совпадал с обзором, где тот же день выглядит иначе. */
+.daydot {
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    justify-content: center;
+    min-height: 64px;
+    padding: 8px 2px;
+    text-align: center;
+    text-decoration: none;
+    transition: background-color .15s ease;
+}
+.daydot:hover { background: var(--surface-muted); }
+.daydot:focus-visible { outline: 2px solid var(--accent-text); outline-offset: -2px; }
+
+/* Вид дня — заливкой колонки, а не полоской-чертой внутри: цветовое пятно
+   читается на расстоянии, короткая черта внутри карточки — нет. Тренировка —
+   акцент, кардио — positive, мобилити — warning, отдых — пустая колонка. */
+.daydot .wd { color: var(--text-secondary); font-size: 11px; font-weight: 600; }
+.daydot.k-work { background: var(--accent-tint); border-color: transparent; }
+.daydot.k-work .wd { color: var(--accent-text); }
+.daydot.k-cardio { background: var(--positive-tint); border-color: transparent; }
+.daydot.k-cardio .wd { color: var(--positive); }
+.daydot.k-mob .wd { color: var(--warning); }
+.daydot.rest .wd { color: var(--text-muted); font-weight: 500; }
+
+/* Число упражнений — главное в колонке: день и вид дня помогают ориентироваться,
+   а наполнение дня («3 упражнения») — то, ради чего полосу и открывают. Поэтому
+   оно контрастнее, а у дня отдыха заменено тире, чтобы ряд из семи цифр не
+   выглядел списком одинаковых значений. Размер 15 px, а не прежние 17: в
+   плитке высотой 64 px крупная цифра не помещалась по высоте и колонки
+   растягивались до 82 px, ломая ритм с обзором. */
+.daydot .cnt { color: var(--text-primary); font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.1; }
+.daydot.rest .cnt { color: var(--text-muted); font-size: 14px; font-weight: 500; }
+/* Незаполненный день: рамка-предупреждение заменена на само заполнение —
+   жёлтая колонка видна так же чётко, как рабочая, и не выглядит «ещё одной». */
+.daydot.need { background: var(--warning-tint); border-color: transparent; }
+.daydot.need .wd { color: var(--warning); }
+.daydot.need .bar { background: var(--warning); }
+.daydot.need .cnt { color: var(--warning); font-weight: 700; }
+
+/* — Сворачиваемый блок (disclosure) —
+   Форма «Добавить цель» занимала ~230 px и висела на экране постоянно,
+   хотя заполняют её один раз. Свёрнутая — это одна строка 44 px. */
+.collapse { border: 1px dashed var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.collapse > summary {
+    align-items: center;
+    color: var(--accent-text);
+    cursor: pointer;
+    display: flex;
+    font: 600 15px/1 Inter, sans-serif;
+    gap: 8px;
+    list-style: none;
+    min-height: 48px;
+    padding: 0 16px;
+}
+.collapse > summary::-webkit-details-marker { display: none; }
+.collapse > summary::after { content: "▾"; font-size: 12px; margin-left: auto; transition: transform .18s ease; }
+.collapse[open] > summary::after { transform: rotate(180deg); }
+.collapse > summary::before { content: "+"; font-size: 18px; font-weight: 400; }
+.collapse[open] > summary::before { content: "−"; }
+.collapse-body { border-top: 1px dashed var(--border); padding: 16px; }
+.collapse-body > * + * { margin-top: 14px; }
+
+/* — Строка-переход (nav row) —
+   Раздел, который сам по себе является точкой входа на другой экран.
+   Показывает сводку прямо на строке: «2 · Питание, Восстановление» —
+   чтобы понять, есть ли там что поправить, не открывая экран. */
+.navrow { align-items: center; display: flex; gap: 12px; }
+.navrow .text { flex: 1; min-width: 0; }
+.navrow .chev { color: var(--text-muted); font-size: 20px; }
+.navrow .count {
+    align-items: center;
+    background: var(--accent-text);
+    border-radius: 999px;
+    color: var(--accent-fg);
+    display: flex;
+    flex: 0 0 auto;
+    font-size: 13px;
+    font-weight: 700;
+    height: 28px;
+    justify-content: center;
+    min-width: 28px;
+    padding: 0 9px;
+}
+.navrow .count.zero { background: var(--surface-muted); color: var(--text-muted); }
+
+/* — Карточка (AppCard) — */
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 18px;
+}
+.card > * + * { margin-top: 8px; }       /* itemGap */
+.card.muted { background: var(--surface-muted); }
+.card.subtle { border-color: var(--border-subtle); }
+.card.tint { background: var(--accent-tint); border-color: transparent; box-shadow: none; }
+.card.flat { box-shadow: none; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.row { align-items: center; display: flex; gap: 8px; }
+.row > .grow { flex: 1; min-width: 0; }
+.grid2 { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+
+/* — Кнопки (AppButton) — */
+.btn {
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: inline-flex;
+    font: 600 15px/1 Inter, sans-serif;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 88px;
+    padding: 0 16px;
+    text-align: center;
+}
+.btn.primary {
+    background: var(--accent);
+    border-radius: var(--radius-lg);
+    color: var(--accent-fg);
+    min-height: 56px;
+    width: 100%;
+}
+.btn.primary:active { background: var(--accent-pressed); }
+.btn.secondary { background: var(--surface); border-color: var(--border); color: var(--text-primary); min-height: 44px; }
+.btn.secondary:active { background: var(--surface-muted); }
+.btn.ghost { background: transparent; color: var(--accent-text); min-height: 44px; }
+.btn.compact { font: 500 12px/1 Inter, sans-serif; min-height: 36px; min-width: 0; padding: 0 12px; }
+.btn.selected { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+/* Выбранный ответ «Не выполнено» — тот же negative, что у pill и кружка:
+   два соседних выбранных состояния в одном акценте не различить. */
+.btn.selected.negative { background: var(--negative); border-color: var(--negative); color: #FFFFFF; }
+.btn.fill { flex: 1; min-width: 0; }
+.btn.disabled { opacity: 0.55; }
+.btn.back { justify-content: flex-start; min-width: 0; width: auto; }
+
+/* — BackBar — */
+.backbar { display: flex; }
+.backbar .btn { min-height: 44px; }
+
+/* — Поля — */
+.field-label { color: var(--text-secondary); font-size: 12px; font-weight: 500; margin-bottom: 6px; }
+.input, .combo {
+    align-items: center;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    display: flex;
+    font: 15px/1 Inter, sans-serif;
+    height: 56px;
+    justify-content: space-between;
+    padding: 0 18px;
+    width: 100%;
+}
+.input.placeholder { color: var(--text-muted); }
+.input.focus, .combo.focus { border: 2px solid var(--accent); padding: 0 17px; }
+.input.error { border: 2px solid var(--negative); padding: 0 17px; }
+.combo .chevron { color: var(--text-muted); }
+.field-hint { color: var(--text-muted); font-size: 12px; margin-top: 6px; }
+/* Подсказка об ошибке должна быть красной. Без этого правила её перебивает
+   .field-hint: у него специфичность выше, чем у утилиты .c-negative, объявленной
+   раньше в файле. */
+.field-hint.c-negative { color: var(--negative); font-weight: 500; }
+
+/* — Пилюли — */
+.tag, .pill {
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    font-size: 12px;
+    justify-content: center;
+    line-height: 1;
+    padding: 5px 10px;
+    white-space: nowrap;
+}
+.tag { background: var(--surface-muted); color: var(--text-secondary); }
+.pill { background: var(--surface-muted); color: var(--text-secondary); font-weight: 500; }
+.pill.done { background: var(--accent-soft); color: var(--accent-on-soft); }
+.pill.failed { color: var(--negative); }
+.pill-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* — MetricCard — */
+.metric-card { background: var(--surface-muted); border: 0; box-shadow: none; padding: 14px; }
+.metric-card .label { color: var(--text-secondary); font-size: 12px; margin: 0; }
+.metric-card .value { color: var(--text-primary); font-size: 28px; font-weight: 700; margin: 2px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.metric-card .delta { color: var(--text-muted); font-size: 12px; font-weight: 500; margin: 2px 0 0; }
+.metric-card.highlight { background: var(--accent-tint); }
+.metric-card.highlight .label { color: var(--accent-on-soft); }
+.metric-row { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+
+/* — Баннер ошибки (AppCard + negative text) — */
+.banner {
+    background: var(--surface);
+    border: 1px solid var(--negative);
+    border-radius: var(--radius-lg);
+    box-shadow: none;
+    color: var(--negative);
+    font-size: 15px;
+    padding: 18px;
+}
+.hint { color: var(--negative); font-size: 12px; }
+
+/* — Карта недели: семь плиток (Overview) —
+   Раньше дни были кружками, и ряд читался как «календарь стикеров»: семь
+   одинаковых кругов, в которых текст «Пн» меньше самой формы. Круг — форма
+   не по назначению: двое-трое букв в круге теряют место, а обзор — не
+   heatmap, ему нужен компактный и предсказуемый ритм.
+   Теперь это семь отдельных скруглённых плиток того же семейства, что и
+   полоса расписания в редакторе: те же радиусы, та же заливка по виду дня,
+   тот же ряд в одну линию. Между плитками зазор, а не общая рамка с линиями
+   внутри: слипшийся блок читается как одна таблица без членства, и границы
+   между днями не принадлежат ни одному из них. Один визуальный язык на «что
+   за день» во всём модуле, но с воздухом между днями. */
+.week-dots {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(7, 1fr);
+    margin-top: 12px;
+}
+/* У каждого дня своя рамка и свой радиус: общий блок с внутренними линиями
+   читался как одна таблица, и границы между днями не относились ни к одному
+   из них. Отдельные плитки дают каждой ячейке законченную форму. */
+.day-dot {
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    display: flex;
+    font: 600 12px/1 Inter, sans-serif;
+    height: 46px;
+    justify-content: center;
+    position: relative;
+    transition: background 120ms ease, color 120ms ease;
+}
+
+/* Вид дня заливкой плитки: тренировка — акцент, кардио/мобилити — мягкий
+   акцент, отдых — пусто. Как и в редакторе, цвет несёт смысл сам по себе. */
+.day-dot.on { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.day-dot.soft { background: var(--accent-tint); color: var(--accent-on-soft); }
+/* Сегодня — не кольцо вокруг кружка, а тонкая черта снизу: она читается как
+   «отметка времени» и не конкурирует с заливкой вида дня, а кольцо —
+   конкурировало и в активном дне превращалось в бублик. */
+.day-dot.today::after {
+    background: var(--accent-text);
+    border-radius: 999px;
+    bottom: 4px;
+    content: "";
+    height: 3px;
+    left: 50%;
+    position: absolute;
+    transform: translateX(-50%);
+    width: 14px;
+}
+.day-dot.on.today::after { background: #FFFFFF; }
+.day-dot.soft.today::after { background: var(--accent-on-soft); }
+.day-dot.rest-today::after { background: var(--text-muted); }
+
+/* Легенда под рядом. Раньше — кружки, повторявшие форму дня; теперь это
+   маленькие квадратные образцы, как в цветовых шкалах: цвет здесь нужен
+   ради соответствия заливке плитки, а не ради круглой формы. Подпись рядом
+   обязательна — без неё закрашенная плитка ничего не значит. */
+.week-legend { align-items: center; display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; }
+.legend-key { align-items: center; color: var(--text-muted); display: inline-flex; font-size: 12px; gap: 6px; }
+.legend-key i { border-radius: 4px; display: inline-block; flex: 0 0 auto; height: 12px; width: 12px; }
+.legend-key i.on { background: var(--accent); }
+.legend-key i.soft { background: var(--accent-soft); }
+.legend-key i.off { background: var(--surface-muted); box-shadow: inset 0 0 0 1px var(--border); }
+.legend-key i.today { background: var(--accent-text); height: 3px; width: 14px; }
+
+/* — Столбчатая диаграмма по неделям (Overview) —
+   Заменяет список дней недели: неделя — это агрегат (выполнение), а не
+   один день, поэтому она показывается столбиком, а не строкой. Будущие
+   недели остаются пустыми с подписью — иначе график обещает данные,
+   которых ещё нет. */
+.bars { align-items: flex-end; display: flex; gap: 8px; height: 118px; margin-top: 12px; }
+.bar-col { display: flex; flex: 1; height: 100%; justify-content: flex-end; min-width: 0; position: relative; }
+/* Текущая неделя — accent-text, прошлые — тот же токен с прозрачностью 0.55.
+   В тёмной теме --accent заметно темнее фона карточки, поэтому «текущая»
+   на нём терялась среди прошлых недель. */
+.bar-col i { background: var(--accent-text); border-radius: 6px 6px 0 0; display: block; opacity: 0.55; width: 100%; }
+/* Ось и подпись не в потоке колонки: иначе процент высоты столбца
+   считался бы от высоты вместе с подписью, и 100 % перекрывали число. */
+.bar-col::after { background: var(--border); bottom: 20px; content: ""; height: 1px; left: 0; position: absolute; right: 0; }
+.bar-col.now i { opacity: 1; }
+.bar-col.future i { background: transparent; }
+.bar-col span { background: var(--surface); bottom: 0; color: var(--text-muted); font-size: 11px; left: 0; line-height: 18px; position: absolute; right: 0; text-align: center; }
+.bar-col.now span { color: var(--text-primary); font-weight: 600; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; }
+/* Легенда столбцов: квадраты, а не кружки — форма повторяет форму
+   столбца. «Пройденная» — приглушённый accent-text, «текущая» — accent. */
+.legend-key i.past, .legend-key i.now { border-radius: 3px; height: 10px; width: 10px; }
+.legend-key i.past { background: var(--accent-text); opacity: 0.55; }
+.legend-key i.now { opacity: 1; }
+.legend-key i.future { background: var(--surface-muted); border: 1px solid var(--border); border-radius: 3px; height: 10px; width: 10px; }
+
+/* — Правила по категориям (Overview): шапка категории с кружками-отметками
+   и строками правил. Категория — это ERule_Category из модели
+   (nutrition/training/recovery/lifestyle/technique). */
+.rule-group { padding: 14px 16px; }
+.rule-group-head { align-items: center; display: flex; gap: 10px; }
+.rule-group-head .row-title { font-size: 15px; }
+.rule-group-head .count { color: var(--text-secondary); font-size: 12px; font-weight: 500; }
+.rule-dots { display: flex; gap: 4px; margin-left: auto; }
+.rule-dots i { border-radius: 50%; display: inline-block; height: 8px; width: 8px; }
+.rule-dots i.done { background: var(--accent); }
+.rule-dots i.failed { background: var(--negative); }
+.rule-dots i.unknown { background: var(--surface-muted); box-shadow: inset 0 0 0 1px var(--border); }
+.rule-item { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 0; }
+.rule-item + .rule-item { border-top: 1px solid var(--border-subtle); }
+.rule-item .dot { border-radius: 50%; flex: 0 0 10px; height: 10px; width: 10px; }
+/* Отметки вручную (ручные правила) занимают всю ширину строки: на 360 dp
+   пара кнопок не помещается рядом с текстом правила. */
+.rule-actions { display: flex; gap: 8px; padding-top: 2px; width: 100%; }
+.rule-actions .btn { flex: 1; }
+.rule-locked { color: var(--text-muted); font-size: 12px; padding-top: 2px; width: 100%; }
+.rule-item .dot.done { background: var(--accent); }
+.rule-item .dot.failed { background: var(--negative); }
+.rule-item .dot.partial { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.rule-item .dot.unknown { background: var(--surface-muted); box-shadow: inset 0 0 0 1px var(--border); }
+.rule-item .text { flex: 1; min-width: 0; }
+.rule-item .text .body-strong { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Подпись правила переносится, а не обрезается: «Расчётное правило: считается
+   по фактам тренировок» — это объяснение, а не второстепенная метка, и на 360 dp
+   оно не помещается в одну строку. */
+.rule-item .text .sub { color: var(--text-muted); font-size: 12px; margin: 2px 0 0; }
+
+/* — Чек-лист готовности (03-edit) —
+   То же, что missingHint() в QML, но по пунктам: строка прозы отвечает на
+   вопрос «почему не создаётся», а чек-лист — на вопрос «что осталось».
+   Три обязательных пункта выведены из текста подсказки, новых полей нет.
+   Пункты снимают галочку только после действия, поэтому «плохо»
+   подставляется в позицию, а не мигает при открытии экрана. */
+.ready-bar { display: flex; gap: 6px; margin-top: 10px; }
+.ready-bar i { background: var(--surface-muted); border-radius: 999px; box-shadow: inset 0 0 0 1px var(--border); display: block; flex: 1; height: 6px; }
+.ready-bar i.on { background: var(--accent-text); box-shadow: none; }
+.ready-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.ready-item { align-items: center; color: var(--text-secondary); display: flex; font-size: 14px; gap: 10px; }
+.ready-item.done { color: var(--text-primary); }
+/* Галочка рисуется двумя гранями рамки: символ ✓ зависит от шрифта
+   и в тёмной теме выглядит тоньше, чем заливка. content обязателен:
+   без него псевдоэлемент не генерирует бокс и галочка не видна вовсе.
+   Грани рисуются только у отмеченного пункта — иначе у пустой рамки
+   они дают белый штрих поперёк заливки. */
+.check {
+    border: 2px solid var(--border);
+    border-radius: 7px;
+    flex: 0 0 20px;
+    height: 20px;
+    position: relative;
+    width: 20px;
+}
+.check.on { background: var(--accent); border-color: var(--accent); }
+.check.on::after {
+    border: solid var(--accent-fg);
+    border-width: 0 2px 2px 0;
+    content: "";
+    height: 9px;
+    left: 6px;
+    position: absolute;
+    top: 2px;
+    transform: rotate(45deg);
+    width: 5px;
+}
+
+/* — Сводка над картой недели (03-edit): тренировки и незаполненные дни
+   одной строкой, иначе «не заполнен» приходится вылавливать глазами
+   в семи карточках. */
+.week-summary { align-items: center; color: var(--text-secondary); display: flex; flex-wrap: wrap; font-size: 13px; gap: 6px 10px; margin-top: 0; }
+.week-summary b { color: var(--text-primary); font-weight: 600; }
+.week-summary .warn { color: var(--warning); font-weight: 600; }
+/* — Сегментированный переключатель (segmented) —
+   Для противоположных вариантов («Снизить / Повысить», «Тренировка /
+   Отдых»): активный сегмент залит акцентом, выбор виден сразу, а не по
+   тонкой рамке, которая теряется на светлом фоне. */
+.seg { background: var(--surface-muted); border-radius: var(--radius-md); display: flex; gap: 4px; margin-top: 10px; padding: 4px; }
+.seg button { background: transparent; border: 0; border-radius: 10px; color: var(--text-secondary); cursor: pointer; flex: 1; font-family: inherit; font-size: 14px; min-height: 36px; }
+.seg button.on { background: var(--accent-text); color: var(--accent-fg); font-weight: 600; }
+/* Четыре вида дня в один ряд не помещаются на 360 dp — 2×2 с теми же
+   визуальными правилами активного сегмента. */
+.seg-4 { flex-wrap: wrap; }
+.seg-4 button { flex: 1 1 calc(50% - 4px); }
+
+/* — Быстрые ярлыки (chips) —
+   Вторичный ввод рядом с ползунком: подсказывают частые значения и
+   экономят перетаскивание, но не ограничивают диапазон шкалы. Не
+   `selected`-состояния, а radio-поведение: активный ярлык залит
+   акцентом, остальные — нейтральные пилюли. */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.chip { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; color: var(--text-secondary); cursor: pointer; font-family: inherit; font-size: 13px; min-height: 32px; padding: 0 14px; }
+.chip.on { background: var(--accent-text); border-color: var(--accent-text); color: var(--accent-fg); }
+.chip.ghost { border-style: dashed; color: var(--text-muted); }
+
+.derived { color: var(--text-muted); font-size: 12px; margin-top: 10px; }
+
+/* — Строка списка цели/правила (03-edit): маркер + текст + удаление.
+   Маркер направления и категория дублируют текст строки визуально, но
+   дают сканирование списка глазами без чтения каждой строки целиком. */
+.list-row { align-items: center; display: flex; gap: 10px; }
+.list-row .grow { min-width: 0; }
+.list-row .text { flex: 1; min-width: 0; }
+.list-row .text .body-strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dir { align-items: center; border-radius: 8px; display: flex; flex: 0 0 24px; font-size: 13px; font-weight: 700; height: 24px; justify-content: center; }
+.dir.down { background: var(--accent-tint); color: var(--accent-on-soft); }
+.dir.up { background: var(--surface-muted); color: var(--text-secondary); }
+/* Категория правила: цветной кружок + подпись. Подпись обязательна —
+   один цвет для трёх категорий читается только по памяти. */
+.cat { align-items: center; color: var(--text-secondary); display: inline-flex; font-size: 12px; gap: 6px; }
+.cat i { border-radius: 50%; display: inline-block; flex: 0 0 8px; height: 8px; width: 8px; }
+.cat.nutrition i { background: var(--accent); }
+.cat.recovery i { background: var(--warning); }
+.cat.activity i { background: var(--positive); }
+.cat.training i { background: var(--negative); }
+.cat.other i { background: var(--text-muted); }
+
+/* — Пресет правила (03-edit): кнопка с указанием категории; уже
+   добавленный — приглушён с галочкой, повторное нажатие бессмысленно. */
+.preset {
+    align-items: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-height: 44px;
+    padding: 7px 12px;
+    text-align: left;
+}
+.preset .name { color: var(--text-primary); font: 600 13px/1.2 Inter, sans-serif; }
+.preset .meta { align-items: center; color: var(--text-muted); display: flex; font-size: 11px; gap: 5px; }
+.preset.added { background: var(--surface-muted); border-style: dashed; cursor: default; }
+.preset.added .name { color: var(--text-secondary); }
+.preset.added .meta { color: var(--text-muted); }
+.preset-grid { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+
+/* — Ошибка сохранения (03-edit): заголовок говорит, что произошло,
+   детали технические и уходят в мелкий шрифт вторым уровнем. */
+.error-title { align-items: center; color: var(--negative); display: flex; font-weight: 600; gap: 8px; }
+.error-title::before { border: solid var(--negative); border-radius: 50%; border-width: 2px 2px 0 0; content: ""; height: 8px; transform: rotate(-45deg); width: 8px; }
+.banner .error-detail { color: var(--text-muted); font-size: 12px; margin-top: 6px; }
+
+/* — Каталожная строка — */
+.catalog-row .actions { display: flex; gap: 8px; margin-top: 8px; }
+
+/* — График — */
+.chart { background: transparent; border: 0; box-shadow: none; padding: 18px; }
+.chart svg { display: block; height: 130px; width: 100%; }
+
+/* — Календарь (DateField раскрыт) — */
+.cal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; }
+.cal-head { align-items: center; display: flex; font-size: 15px; font-weight: 600; gap: 8px; justify-content: space-between; }
+.cal-grid { display: grid; gap: 4px; grid-template-columns: repeat(7, 1fr); margin-top: 8px; text-align: center; }
+.cal-grid .dow { color: var(--text-muted); font-size: 12px; }
+.cal-grid .d { align-items: center; border-radius: var(--radius-sm); color: var(--text-primary); display: flex; height: 36px; justify-content: center; }
+.cal-grid .d.on { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.cal-grid .d.dim { color: var(--text-muted); }
+
+/* — Прочее — */
+.legend { color: var(--text-secondary); font-size: 13px; line-height: 1.7; padding: 0 20px 32px; }
+.legend code { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; }
+.legend a { font-weight: 600; }
+
+/* sectionTitle как в QML (17/600, textPrimary) для заголовков карточек */
+.row-title { color: var(--text-primary); font-size: 17px; font-weight: 600; margin: 0; }
+
+/* Превью в index.html обёрнуто в ссылку: без сброса наследования ссылки
+   подчёркивались заголовки, а текст карточек красился в цвет акцента. */
+.frame > a { color: inherit; text-decoration: none; }
+
+/* — Узкие экраны: 430/360 px —
+   Телефон 390 px — база дизайна, но макет открывают и на более узком экране.
+   Блоки стоят в конце файла, чтобы перекрывать базовые значения по каскаду. */
+@media (max-width: 430px) {
+    .frames { gap: 20px; padding: 8px 12px 32px; }
+    .phone { border-radius: 0; min-height: 0; width: 100%; }
+    .toolbar { padding: 12px 12px 16px; }
+}
+@media (max-width: 360px) {
+    /* Плитки недели и бейджи уменьшаются: иначе семь дней не помещаются
+       в карточку и ряд выходит за её границы. Размер задаётся высотой и
+       шрифтом — ширину колонки решает grid. */
+    .day-dot { font-size: 11px; height: 36px; }
+    .week-dots { gap: 4px; }
+    .week-legend { gap: 6px 10px; }
+    .badge { flex: 0 0 30px; height: 30px; width: 30px; }
+    /* Название правила переносится целиком: обрезка делает его нечитаемым. */
+    .rule-item .text .body-strong { white-space: normal; }
+}

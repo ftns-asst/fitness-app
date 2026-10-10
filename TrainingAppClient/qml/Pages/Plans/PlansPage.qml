@@ -19,10 +19,15 @@ PageScaffold {
 
     // — Вход в СВОЮ глобальную программу (экраны 41–44). Пользователь не ищет
     // её среди шаблонов, а открывает сам, поэтому вход стоит первым.
+    //
+    // surfaceColor — непрозрачный Theme.accentSurface, а не транслюцентная
+    // accentTint: на некоторых Android-сборках заливка с альфой теряла альфу
+    // при композитинге, и тонированные карточки выглядели неокрашенными.
+    // Смешанный непрозрачный цвет рендерится одинаково везде (см. HeroCard).
     AppCard {
         borderColor: "transparent"
         spacing: 0
-        surfaceColor: Theme.accentTint
+        surfaceColor: Theme.accentSurface
         width: parent.width
 
         RowLayout {
@@ -57,10 +62,11 @@ PageScaffold {
     }
 
     // — Promo-карточка подбора: короткий опрос — этап D3 —
+    // surfaceColor — непрозрачный Theme.accentSurface (см. комментарий выше).
     AppCard {
         borderColor: "transparent"
         spacing: 0
-        surfaceColor: Theme.accentTint
+        surfaceColor: Theme.accentSurface
         width: parent.width
 
         RowLayout {

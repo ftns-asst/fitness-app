@@ -63,6 +63,16 @@ QVariant AList_Model::Data(int in_row, int in_role) const
 	return Rows.at(in_row).value(name);
 }
 //----------------------------------------------------------------------------
+// Вне диапазона возвращается пустая карта, а не пустые значения по именам: QML
+// отличил бы «поле есть и пустое» от «строки нет» только по ключам.
+QVariantMap AList_Model::get(int in_row) const
+{
+	if (in_row < 0 || in_row >= Rows.size())
+		return QVariantMap();
+
+	return Rows.at(in_row);
+}
+//----------------------------------------------------------------------------
 int AList_Model::rowCount(const QModelIndex &in_parent) const
 {
 	return in_parent.isValid() ? 0 : Rows.size();

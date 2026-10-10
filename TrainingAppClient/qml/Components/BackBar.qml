@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import TrainingAppClient
 
 // Панель возврата для экранов вне вкладок (срез W11). Детали программы

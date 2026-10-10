@@ -1,4 +1,4 @@
-#include "Domain/Progress_Calculator.h"
+﻿#include "Domain/Progress_Calculator.h"
 
 //----------------------------------------------------------------------------
 // AsProgress_Calculator — фасад. Здесь нет расчётов: каждый публичный метод

@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 — Редактор программы — макет</title>
+<link rel="stylesheet" href="theme.css">
+<script src="mock.js"></script>
+</head>
+<body>
+<header class="toolbar">
+    <h1>03 — Редактор программы (ProgramEditPage)</h1>
+    <span class="spacer"></span>
+    <a href="index.html">← Все макеты</a>
+    <button onclick="toggleTheme()">Тема</button>
+</header>
+<main class="frames">
+
+<section class="frame">
+    <h2>Создание: всё заполнено, 3 из 3</h2>
+    <div class="phone device"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Новая программа</h1><p class="t-caption">8 недель · старт 3 ноября · 4 тренировки</p></div>
+
+        <!-- Готовность убрана из ленты: те же три пункта, что перечислены
+             в missingHint(), теперь постоянно видны в липкой панели внизу.
+             Держать их и в шапке, и внизу было дублированием. -->
+        <div class="card">
+            <div><div class="field-label">Название программы</div><div class="input">Сила 8 недель</div></div>
+            <div>
+                <div class="field-label">Дата старта</div>
+                <div class="input"><span>3 ноября 2026</span><button class="btn secondary compact">Выбрать</button></div>
+            </div>
+            <!-- Срок — ползунок, а не набор кнопок 4/8/12/16.
+                 Диапазон 1…52 покрывает и короткие перестройки, и годовые
+                 циклы; фиксированные кнопки оставляли 5, 6, 7 недель
+                 недостижимыми без выбора соседнего и последующей правки.
+                 Крупное значение + единица + дата окончания снимают
+                 необходимость считать недели в уме. -->
+            <div class="slider">
+                <div class="slider-head">
+                    <span class="slider-label">Срок программы</span>
+                    <span class="slider-value"><span class="slider-num">8</span><i class="slider-unit">недель</i></span>
+                </div>
+                <div class="slider-control">
+                    <input class="slider-input" type="range" min="1" max="52" step="1" value="8"
+                           aria-label="Срок программы, недель"
+                           data-start="2026-11-03" data-prefix="3 ноября 2026"
+                           data-mirror=".weeks-num">
+                    <div class="slider-track"><i class="slider-fill"></i><i class="slider-thumb" style="left: 13.5%"></i></div>
+                </div>
+                <div class="slider-scale"><span>1</span><span>14</span><span>27</span><span>40</span><span>52</span></div>
+                <p class="slider-hint">3 ноября 2026 — 28 декабря 2026</p>
+            </div>
+            <!-- Частые длительности остаются быстрыми ярлыками под ползунком:
+                 они ускоряют ввод, но не ограничивают диапазон. -->
+            <div class="chips">
+                <button class="chip">4</button>
+                <button class="chip on">8</button>
+                <button class="chip">12</button>
+                <button class="chip">16</button>
+                <button class="chip ghost">Своё</button>
+            </div>
+        </div>
+
+        <!-- 3. Неделя -->
+        <p class="section-title">Расписание недели</p>
+        <!-- Семь карточек занимали ~520 px. Полоса отдаёт ту же информацию
+             за ~96 px: день, вид дня, число упражнений. Подпись под полосой
+             читает расписание словами — это то, что пользователь ищет,
+             а не то, что он собирает глазами из сетки. -->
+        <div class="week-strip">
+            <a class="daydot k-work" href="04-day.html"><span class="wd">Пн</span><span class="cnt">3</span></a>
+            <a class="daydot rest" href="04-day.html"><span class="wd">Вт</span><span class="cnt">—</span></a>
+            <a class="daydot k-work need" href="04-day.html"><span class="wd">Ср</span><span class="cnt">!</span></a>
+            <a class="daydot rest" href="04-day.html"><span class="wd">Чт</span><span class="cnt">—</span></a>
+            <a class="daydot k-work" href="04-day.html"><span class="wd">Пт</span><span class="cnt">4</span></a>
+            <a class="daydot k-cardio" href="04-day.html"><span class="wd">Сб</span><span class="cnt">1</span></a>
+            <a class="daydot rest" href="04-day.html"><span class="wd">Вс</span><span class="cnt">—</span></a>
+        </div>
+        <div class="week-summary"><span><b>Пн, Пт</b> — тренировки · <b>Сб</b> — кардио</span><span class="warn">Ср не заполнен</span></div>
+
+        <!-- 4. Цели -->
+        <p class="section-title">Цели <span class="section-count">2</span></p>
+        <div class="stack">
+            <div class="card subtle list-row">
+                <span class="dir down">↓</span>
+                <div class="text"><p class="body-strong">Вес тела — 82 кг</p></div>
+                <button class="btn secondary compact">Убрать</button>
+            </div>
+            <div class="card subtle list-row">
+                <span class="dir up">↑</span>
+                <div class="text"><p class="body-strong">Жим лёжа — 100 кг</p></div>
+                <button class="btn secondary compact">Убрать</button>
+            </div>
+        </div>
+
+        <!-- Форма цели свёрнута: наполнение — три контрола и ползунок
+             (~230 px), а пользуются ей один раз за настройку программы. -->
+        <details class="collapse">
+            <summary>Добавить цель</summary>
+            <div class="collapse-body">
+                <div class="combo"><span>Вес тела</span><span class="chevron">▾</span></div>
+                <!-- Направление цели — сегментированный выбор, а не две равноправные
+                     кнопки: «Снизить» и «Повысить» противоположны, поэтому вторая
+                     визуально проигрывает первой. -->
+                <div class="seg" role="radiogroup" aria-label="Направление цели">
+                    <button class="on" role="radio" aria-checked="true">↓ Снизить</button>
+                    <button role="radio" aria-checked="false">↑ Повысить</button>
+                </div>
+                <!-- Целевое значение — ползунок: ±-кнопки меняли значение на 0,1 кг,
+                     то есть на десять нажатий на 1 кг, и не давали ощущения масштаба.
+                     Ползунок показывает, где цель стоит относительно текущего веса. -->
+                <div class="slider">
+                    <div class="slider-head">
+                        <span class="slider-label">Целевое значение</span>
+                        <span class="slider-value"><span class="slider-num">82,0</span><i>кг</i></span>
+                    </div>
+                    <div class="slider-control">
+                        <input class="slider-input" type="range" min="50" max="130" step="0.5" value="82" data-decimals="1" aria-label="Целевой вес, кг">
+                        <div class="slider-track"><i class="slider-fill"></i><i class="slider-thumb" style="left: 64%"></i></div>
+                    </div>
+                    <div class="slider-scale"><span>50</span><span>70</span><span>90</span><span>110</span><span>130</span></div>
+                    <p class="slider-hint">Текущий вес 96 кг · цель на 14 кг ниже</p>
+                </div>
+                <button class="btn primary">Добавить</button>
+            </div>
+        </details>
+
+        <!-- 5. Правила — вынесены на отдельный экран. Правил обычно два-три,
+             и каждый — отдельное действие с выбором из каталога; держать
+             и список, и подбор пресетов, и четыре карточки типовых правил
+             в ленте значило держать два разных жанра UI на одном экране.
+             Строка показывает сводку, чтобы было видно, есть ли что править. -->
+        <p class="section-title">Правила</p>
+        <a class="card navrow" href="08-program-rules.html">
+            <div class="text">
+                <p class="body-strong">Правила программы</p>
+                <p class="caption">Питание, Восстановление · действуют весь срок</p>
+            </div>
+            <span class="count">2</span>
+            <span class="chev">›</span>
+        </a>
+        <!-- 6. Липкая панель: готовность и CTA всегда в поле зрения.
+             Три сегмента ready-bar — те же пункты, что перечисляет
+             missingHint(): старт, срок, тренировочный день. -->
+        </div>
+        <div class="actionbar">
+            <div class="ready-bar"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+            <button class="btn primary">Создать программу</button>
+        </div>
+    </div></div>
+</section>
+
+    <h2>Черновик пустой: подсказка CTA</h2>
+    <div class="phone device"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Новая программа</h1><p class="t-caption">Черновик · 0 тренировочных дней</p></div>
+
+        <!-- Готовность живёт в липкой панели: пустая форма — нормальное
+             начало, поэтому подсказки в панели спокойные, без красного.
+             Ошибкой состояние делается только после попытки сохранить. -->
+        <div class="card">
+            <div><div class="field-label">Название программы</div><div class="input placeholder">Например, Сила 8 недель</div></div>
+            <div>
+                <div class="field-label">Дата старта</div>
+                <div class="input placeholder"><span>дата не выбрана</span><button class="btn secondary compact">Выбрать</button></div>
+            </div>
+            <!-- Пустой черновик: срок задан, старт ещё нет — поэтому линейка
+                 и подписи на месте, а дата окончания ждёт даты старта. -->
+            <div class="slider">
+                <div class="slider-head">
+                    <span class="slider-label">Срок программы</span>
+                    <span class="slider-value"><span class="slider-num">8</span><i class="slider-unit">недель</i></span>
+                </div>
+                <div class="slider-control">
+                    <input class="slider-input" type="range" min="1" max="52" step="1" value="8" aria-label="Срок программы, недель">
+                    <div class="slider-track"><i class="slider-fill"></i><i class="slider-thumb" style="left: 13.5%"></i></div>
+                </div>
+                <div class="slider-scale"><span>1</span><span>14</span><span>27</span><span>40</span><span>52</span></div>
+                <p class="slider-hint">Дата окончания появится после выбора даты старта</p>
+            </div>
+            <div class="chips">
+                <button class="chip">4</button>
+                <button class="chip on">8</button>
+                <button class="chip">12</button>
+                <button class="chip">16</button>
+                <button class="chip ghost">Своё</button>
+            </div>
+        </div>
+
+        <!-- Семь дней всегда: reset() заполняет неделю, пустой недели нет -->
+        <p class="section-title">Расписание недели</p>
+        <div class="week-strip">
+            <a class="daydot k-work need" href="04-day.html"><span class="wd">Пн</span><span class="cnt">!</span></a>
+            <a class="daydot rest" href="04-day.html"><span class="wd">Вт</span><span class="cnt">—</span></a>
+            <a class="daydot k-work need" href="04-day.html"><span class="wd">Ср</span><span class="cnt">!</span></a>
+            <a class="daydot rest" href="04-day.html"><span class="wd">Чт</span><span class="cnt">—</span></a>
+            <a class="daydot k-work need" href="04-day.html"><span class="wd">Пт</span><span class="cnt">!</span></a>
+            <a class="daydot rest" href="04-day.html"><span class="wd">Сб</span><span class="cnt">—</span></a>
+            <a class="daydot rest" href="04-day.html"><span class="wd">Вс</span><span class="cnt">—</span></a>
+        </div>
+        <div class="week-summary"><span class="warn">0 тренировочных дней</span><span>3 дня не заполнены</span></div>
+
+        <p class="section-title">Цели <span class="section-count">0</span></p>
+        <div class="card muted body text-center">Цели пока не заданы</div>
+        <details class="collapse">
+            <summary>Добавить цель</summary>
+            <div class="collapse-body">
+                <div class="combo"><span>Вес тела, кг</span><span class="chevron">▾</span></div>
+                <button class="btn primary">Добавить</button>
+            </div>
+        </details>
+
+        <p class="section-title">Правила</p>
+        <a class="card navrow" href="08-program-rules.html">
+            <div class="text">
+                <p class="body-strong">Правила программы</p>
+                <p class="caption">Не выбраны · действуют весь срок программы</p>
+            </div>
+            <span class="count zero">0</span>
+            <span class="chev">›</span>
+        </a>
+
+        </div>
+
+        <div class="actionbar">
+            <div class="ready-bar"><i></i><i></i><i></i></div>
+            <p class="caption">Укажите дату старта, срок и хотя бы один тренировочный день</p>
+            <button class="btn primary">Создать программу</button>
+        </div>
+    </div></div>
+</section>
+
+    <div class="phone device"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Новая программа</h1><p class="t-caption">8 недель · старт 3 ноября · 4 тренировки</p></div>
+
+        <!-- Баннер ошибки: сначала человекочитаемое, техдетали — мелким.
+             errorText() для save_failed склеивает деталь через двоеточие,
+             здесь она отделена от заголовка вторым уровнем. -->
+        <div class="banner">
+            <p class="error-title">Не удалось сохранить программу</p>
+            <p class="error-detail">FOREIGN KEY constraint failed</p>
+        </div>
+
+        <div class="card">
+            <div><div class="field-label">Название программы</div><div class="input">Сила 8 недель</div></div>
+            <div>
+                <div class="field-label">Дата старта</div>
+                <div class="input"><span>3 ноября 2026</span><button class="btn secondary compact">Выбрать</button></div>
+            </div>
+            <div class="slider">
+                <div class="slider-head">
+                    <span class="slider-label">Срок программы</span>
+                    <span class="slider-value"><span class="slider-num">8</span><i class="slider-unit">недель</i></span>
+                </div>
+                <div class="slider-control">
+                    <input class="slider-input" type="range" min="1" max="52" step="1" value="8"
+                           aria-label="Срок программы, недель"
+                           data-start="2026-11-03" data-prefix="3 ноября 2026">
+                    <div class="slider-track"><i class="slider-fill"></i><i class="slider-thumb" style="left: 13.5%"></i></div>
+                </div>
+                <div class="slider-scale"><span>1</span><span>14</span><span>27</span><span>40</span><span>52</span></div>
+                <p class="slider-hint">3 ноября 2026 — 28 декабря 2026</p>
+            </div>
+            <div class="chips">
+                <button class="chip">4</button>
+                <button class="chip on">8</button>
+                <button class="chip">12</button>
+                <button class="chip">16</button>
+                <button class="chip ghost">Своё</button>
+            </div>
+        </div>
+
+        <p class="section-title">Расписание недели</p>
+        <div class="week-strip">
+            <a class="daydot k-work" href="04-day.html"><span class="wd">Пн</span><span class="cnt">3</span></a>
+            <a class="daydot rest" href="04-day.html"><span class="wd">Вт</span><span class="cnt">—</span></a>
+            <a class="daydot k-work need" href="04-day.html"><span class="wd">Ср</span><span class="cnt">!</span></a>
+            <a class="daydot rest" href="04-day.html"><span class="wd">Чт</span><span class="cnt">—</span></a>
+            <a class="daydot k-work" href="04-day.html"><span class="wd">Пт</span><span class="cnt">4</span></a>
+            <a class="daydot k-cardio" href="04-day.html"><span class="wd">Сб</span><span class="cnt">1</span></a>
+            <a class="daydot rest" href="04-day.html"><span class="wd">Вс</span><span class="cnt">—</span></a>
+        </div>
+        <div class="week-summary"><span><b>Пн, Пт</b> — тренировки · <b>Сб</b> — кардио</span><span class="warn">Ср не заполнен</span></div>
+
+        <p class="section-title">Цели <span class="section-count">1</span></p>
+        <div class="stack">
+            <div class="card subtle list-row">
+                <span class="dir down">↓</span>
+                <div class="text"><p class="body-strong">Вес тела — 82 кг</p></div>
+                <button class="btn secondary compact">Убрать</button>
+            </div>
+        </div>
+        <details class="collapse">
+            <summary>Добавить цель</summary>
+            <div class="collapse-body">
+                <div class="combo"><span>Вес тела, кг</span><span class="chevron">▾</span></div>
+                <div class="seg" role="radiogroup" aria-label="Направление цели">
+                    <button class="on" role="radio" aria-checked="true">↓ Снизить</button>
+                    <button role="radio" aria-checked="false">↑ Повысить</button>
+                </div>
+                <div class="slider">
+                    <div class="slider-head">
+                        <span class="slider-label">Целевое значение</span>
+                        <span class="slider-value"><span class="slider-num">82,0</span><i>кг</i></span>
+                    </div>
+                    <div class="slider-control">
+                        <input class="slider-input" type="range" min="50" max="130" step="0.5" value="82" data-decimals="1" aria-label="Целевой вес, кг">
+                        <div class="slider-track"><i class="slider-fill"></i><i class="slider-thumb" style="left: 64%"></i></div>
+                    </div>
+                    <div class="slider-scale"><span>50</span><span>70</span><span>90</span><span>110</span><span>130</span></div>
+                    <p class="slider-hint">Текущий вес 96 кг · цель на 14 кг ниже</p>
+                </div>
+                <button class="btn primary">Добавить</button>
+            </div>
+        </details>
+
+        <p class="section-title">Правила</p>
+        <a class="card navrow" href="08-program-rules.html">
+            <div class="text">
+                <p class="body-strong">Правила программы</p>
+                <p class="caption">Не выбраны · действуют весь срок программы</p>
+            </div>
+            <span class="count zero">0</span>
+            <span class="chev">›</span>
+        </a>
+
+        <!-- Повтор после ошибки: форма на месте, заполненное не сброшено.
+             Панель липкая, поэтому кнопка «Создать» остаётся под рукой
+             без прокрутки назад к началу формы. -->
+        </div>
+        <div class="actionbar">
+            <div class="ready-bar"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+            <button class="btn primary">Создать программу</button>
+        </div>
+    </div></div>
+</section>

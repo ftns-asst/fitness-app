@@ -30,7 +30,7 @@ class AStats_Repository;
 // чтение для отображения.
 //
 // Владение: списки — дети ViewModel (родитель-потомок QObject).
-//------------------------------------------------------------------------------
+//----------------------------------------------------------------------------
 class Avm_Program_Stats : public QObject
 {
 	Q_OBJECT
@@ -71,12 +71,9 @@ public:
 	                  AStats_Repository *in_stats_repository, QObject *in_parent = 0);
 
 	// Пересчёт статистики программы по её фактам и запись в кэш. Период по
-	// QML-мост: имена в нижнем регистре первой буквы, чтобы разметка не зависела
-	// от внутреннего стиля имён C++ (§2 CODE_STYLE). Подробности — в .cpp.
+	// умолчанию — вся программа (пустые границы даты).
 	Q_INVOKABLE bool refresh(const QString &in_program_id, const QString &in_date_from = QString(),
 	                         const QString &in_date_to = QString());
-
-	// умолчанию — вся программа (пустые границы даты).
 	bool Refresh(const QString &in_program_id, const QString &in_date_from = QString(),
 	             const QString &in_date_to = QString());
 

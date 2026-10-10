@@ -10,7 +10,11 @@ Item {
     property color borderColor: Theme.border
     default property alias content: contentColumn.data
     property real cornerRadius: Theme.radiusLg
-    property bool elevated: !Theme.darkMode
+    // Тень живёт только на десктопе: MultiEffect рендерит карточку в текстуру
+    // и прогоняет blur-шейдер на каждом кадре — на телефоне это десятки
+    // FBO-проходов на страницу, и прокрутка рассыпается на рывки. Тач-карточку
+    // держит рамка (§3.5 допускает вид без тени).
+    property bool elevated: !Theme.darkMode && !Theme.touchPlatform
     property int paddingHorizontal: Spacing.cardPadding
     property int paddingVertical: Spacing.cardPadding
     property int spacing: Spacing.itemGap

@@ -16,12 +16,17 @@ AppCard {
 
     signal startClicked
 
-    borderColor: "transparent"
+    // Оформление героя — непрозрачные смешанные цвета (Theme.accentSurface*),
+    // а не транслюцентная accentTint: на некоторых сборках под Android заливка
+    // с альфой теряла альфу при композитинге, и карточка выходила неокрашенной
+    // (подсветка «пропадала»). Смешанный непрозрачный цвет от рендера не
+    // зависит и на всех сборках выглядит одинаково.
+    borderColor: Theme.accentSurfaceLine
     implicitWidth: 320
     paddingHorizontal: Spacing.screenPadding
     paddingVertical: Spacing.screenPadding
     spacing: Spacing.listGap
-    surfaceColor: Theme.accentTint
+    surfaceColor: Theme.accentSurface
 
     RowLayout {
         spacing: Spacing.itemGap

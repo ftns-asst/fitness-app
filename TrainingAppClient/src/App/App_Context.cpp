@@ -1,4 +1,4 @@
-#include "App/App_Context.h"
+﻿#include "App/App_Context.h"
 
 #include "Data/Auth/Auth_Repository.h"
 #include "Data/Auth/Auth_Session.h"
@@ -11,15 +11,19 @@
 #include "Data/Program/Stats_Repository.h"
 #include "Data/Program/Workout_Repository.h"
 #include "Data/Users/Users_Repository.h"
+#include "Demo/Demo_Seeder.h"
+#include "Domain/Macro_Calculator.h"
 #include "Domain/Program_Service.h"
 #include "Domain/Workout_Logger.h"
 #include "Presentation/Auth_Qml_Bridge.h"
 #include "Presentation/Auth_VM.h"
+#include "Presentation/Macro_VM.h"
 #include "Presentation/Program_Catalog_VM.h"
 #include "Presentation/Program_Edit_VM.h"
 #include "Presentation/Program_Rules_VM.h"
 #include "Presentation/Program_Stats_VM.h"
 #include "Presentation/Program_VM.h"
+#include "Presentation/Today_VM.h"
 #include <QByteArray>
 #include <QLoggingCategory>
 #include <QSettings>
@@ -34,6 +38,18 @@ Q_LOGGING_CATEGORY(APP_Context_Log, "trainingapp.app")
 const QString AsApp_Context::Default_Api_Base_URL = "http://fitness.nought.ru/api/v1";
 const QString AsApp_Context::Environment_Variable_Name = "TRAINING_APP_API_URL";
 const QString AsApp_Context::Settings_Key = "network/apiUrl";
+
+// Посев демо-данных включается только этим флагом. Пользователь демо не
+// связан с реальной учётной записью: демонстрационные программы не должны
+// появляться в каталоге после входа под настоящим аккаунтом.
+const QString AsApp_Context::Demo_Flag = "--demo-seed";
+const QString AsApp_Context::Demo_User_Id = "u1";
+
+// Идентификатор текущего пользователя. Значение «u1» — то, которое экраны
+// программы использовали раньше как литерал; оно остаётся, чтобы демо-данные
+// и данные реального входа относились к одному пользователю. С появлением
+// авторизации значение начнёт приходить из токена.
+const QString AsApp_Context::Current_User_Id = "u1";
 //----------------------------------------------------------------------------
 AsApp_Context::AsApp_Context(QObject *in_parent) : QObject(in_parent), Error_State(&APP_Context_Log())
 {
@@ -202,6 +218,13 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 
 	Create_Program_Stack();
 
+	// Демо-данные наполняются только по явному флагу запуска. Без него база
+	// остаётся пустой, а с ним — демонстрационной: посев создаёт одну
+	// программу с неделей, упражнениями, правилами и завершёнными
+	// тренировками, чтобы «обычные» состояния экранов были достижимы, а не
+	// только пустые.
+	Seed_Demo_Data(in_arguments);
+
 	Initialized = true;
 
 	qCInfo(APP_Context_Log).noquote() << "initialized: api url" << Api_Base_URL << "source" << Api_URL_Source;
@@ -216,6 +239,38 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 // сервисов, сервисы — раньше ViewModel, потому что каждый следующий получает
 // предыдущий конструктором. Владение — QObject-родитель (this), поэтому
 // разрушается стек автоматически.
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+// Демо-данные. Создаются только при --demo-seed: сидер пишет в базу, и его
+// вызов без флага наполнил бы демонстрационный мусором базу пользователя.
+//
+// Владелец создаётся здесь же и живёт до конца приложения: он не хранит
+// состояния, но должен пережить Initialize, иначе указатель осиротеет.
+//----------------------------------------------------------------------------
+void AsApp_Context::Seed_Demo_Data(const QStringList &in_arguments)
+{
+	const QString demo_user_id = Demo_User_Id;
+
+	if (in_arguments.indexOf(Demo_Flag) < 0)
+		return;
+
+	if (Demo_Seeder_Instance == 0)
+	{
+		Demo_Seeder_Instance = new ADemo_Seeder(this);
+
+		if (Demo_Seeder_Instance->Seed(Program_Repository_Instance, Rule_Repository_Instance, demo_user_id,
+		                               Workout_Repository_Instance, Measurement_Repository_Instance) == false)
+		{
+			// Посев не ломает запуск: без демо-данных приложение работает,
+			// просто экраны покажут пустые состояния.
+			qCWarning(APP_Context_Log).noquote() << "demo seed failed:" << Demo_Seeder_Instance->Get_Last_Error();
+		}
+		else
+		{
+			qCInfo(APP_Context_Log).noquote() << "demo seed: program" << Demo_Seeder_Instance->Program_Id();
+		}
+	}
+}
 //----------------------------------------------------------------------------
 void AsApp_Context::Create_Program_Stack()
 {
@@ -236,6 +291,16 @@ void AsApp_Context::Create_Program_Stack()
 	Program_Edit_VM_Instance =
 	    new Avm_Program_Edit(Program_Repository_Instance, Rule_Repository_Instance, Program_Service_Instance, this);
 	Program_Catalog_VM_Instance = new Avm_Program_Catalog(Program_Repository_Instance, this);
+	// Главный экран «Сегодня» (issue 27) читает тот же стек репозиториев: день
+	// из расписания, упражжения дня, правила и завершённую тренировку.
+	Today_VM_Instance =
+	    new Avm_Today(Program_Repository_Instance, Rule_Repository_Instance, Workout_Repository_Instance,
+	                  Measurement_Repository_Instance, Stats_Repository_Instance, Users_Repository_Instance, this);
+	// Авторасчёт КБЖУ (спринт S7): считает по формулам домена, вес берёт из
+	// замеров, а дату рождения и активность хранит в profile_local (схема v5).
+	Macro_Calculator_Instance = new AsMacro_Calculator;
+	Macro_VM_Instance =
+	    new Avm_Macro(Macro_Calculator_Instance, Measurement_Repository_Instance, Users_Repository_Instance, this);
 }
 //----------------------------------------------------------------------------
 QString AsApp_Context::apiBaseUrl() const
@@ -434,6 +499,26 @@ Avm_Program *AsApp_Context::Program_VM() const
 Avm_Program_Catalog *AsApp_Context::Program_Catalog_VM() const
 {
 	return Program_Catalog_VM_Instance;
+}
+//------------------------------------------------------------------------------
+Avm_Macro *AsApp_Context::Macro_VM() const
+{
+	return Macro_VM_Instance;
+}
+//------------------------------------------------------------------------------
+Avm_Today *AsApp_Context::Today_VM() const
+{
+	return Today_VM_Instance;
+}
+//----------------------------------------------------------------------------
+QString AsApp_Context::currentUserId() const
+{
+	return Current_User_Id;
+}
+//----------------------------------------------------------------------------
+ADemo_Seeder *AsApp_Context::Demo_Seeder() const
+{
+	return Demo_Seeder_Instance;
 }
 //----------------------------------------------------------------------------
 Avm_Program_Stats *AsApp_Context::Program_Stats_VM() const

@@ -1,12 +1,15 @@
+﻿#include "App/Android_Frame_Rate.h"
 #include "App/App_Context.h"
 
 #include "App/App_Logger.h"
 #include "Presentation/Auth_Qml_Bridge.h"
+#include "Presentation/Macro_VM.h"
 #include "Presentation/Program_Catalog_VM.h"
 #include "Presentation/Program_Edit_VM.h"
 #include "Presentation/Program_Rules_VM.h"
 #include "Presentation/Program_Stats_VM.h"
 #include "Presentation/Program_VM.h"
+#include "Presentation/Today_VM.h"
 
 #include <QCoreApplication>
 #include <QFontDatabase>
@@ -77,6 +80,15 @@ int main(int argc, char *argv[])
 
 	arguments = QCoreApplication::arguments();
 	real_auth = arguments.indexOf("--real-auth") >= 0;
+
+	// Высокая частота кадров (Android): максимальный режим дисплея запрашивается
+	// до загрузки QML и до создания окна — режим применяется при показе
+	// поверхности, и запрос после первого кадра уже опоздал бы. Раньше просьба
+	// была за флагом --high-refresh, но 60 Гц на 90/120-герцевом телефоне — это
+	// дёрганый скролл и анимации, из-за которых приложение и оставляют.
+	// На других ОС вызов no-op.
+	AsAndroid_Frame_Rate::Request_Highest();
+
 	qInfo("app started: qt=%s real_auth=%d", qVersion(), real_auth ? 1 : 0);
 
 	context_initialized = app_context.Initialize(arguments);
@@ -127,6 +139,12 @@ int main(int argc, char *argv[])
 	engine.rootContext()->setContextProperty("ProgramStatsVM", static_cast<QObject *>(app_context.Program_Stats_VM()));
 	engine.rootContext()->setContextProperty("ProgramRulesVM", static_cast<QObject *>(app_context.Program_Rules_VM()));
 	engine.rootContext()->setContextProperty("ProgramEditVM", static_cast<QObject *>(app_context.Program_Edit_VM()));
+	// Главный экран «Сегодня» на данных (issue 27): C++-слой готов, разметка
+	// TodayPage переводится на него отдельным шагом.
+	engine.rootContext()->setContextProperty("TodayVM", static_cast<QObject *>(app_context.Today_VM()));
+	// Экран «Рассчитать» КБЖУ (спринт S7): модель считает по формулам домена и
+	// хранит дату рождения и активность в profile_local (схема v5).
+	engine.rootContext()->setContextProperty("MacroVM", static_cast<QObject *>(app_context.Macro_VM()));
 
 	engine.loadFromModule("TrainingAppClient", "Main");
 

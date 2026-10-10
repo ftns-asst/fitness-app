@@ -29,6 +29,8 @@ private:
 	void Seed_Program();
 	void Seed_Session(const QString &in_id, const QString &in_date);
 	void Seed_Set(const QString &in_id, const QString &in_session_id, double in_weight, int in_reps, double in_rpe);
+	// Значение роли по её имени: тест не должен знать числовых значений ролей.
+	QVariant Row_By_Role(const AList_Model *in_model, int in_row, const QString &in_role) const;
 
 	QTemporaryDir Directory;
 	AsSql_Database Database;
@@ -50,6 +52,21 @@ void AProgram_Stats_VM_Test::initTestCase()
 	Stats_Repository = new AStats_Repository(&Database, this);
 	Seed_Exercise();
 	Seed_Program();
+}
+//----------------------------------------------------------------------------
+QVariant AProgram_Stats_VM_Test::Row_By_Role(const AList_Model *in_model, int in_row, const QString &in_role) const
+{
+	// Значения ролей Qt начинаются с Qt::UserRole + 1, поэтому перебираются
+	// ключи хеша, а не числа подряд.
+	const QHash<int, QByteArray> role_names = in_model->roleNames();
+
+	for (int role = Qt::UserRole + 1; role <= Qt::UserRole + role_names.size(); ++role)
+	{
+		if (role_names.value(role) == in_role)
+			return in_model->Data(in_row, role);
+	}
+
+	return QVariant();
 }
 //----------------------------------------------------------------------------
 void AProgram_Stats_VM_Test::Seed_Exercise()
@@ -168,6 +185,13 @@ void AProgram_Stats_VM_Test::aggregatesFactsIntoKpi()
 	QCOMPARE(vm.durationMinutes(), 60.0);
 	QCOMPARE(vm.dataRangeFrom(), QString("2026-09-28"));
 	QVERIFY(vm.errorKey().isEmpty());
+
+	// График тоннажа строится по недельным срезам, и точки берутся из роли
+	// `tonnageKg`: без неё карточка графика остаётся пустой, хотя KPI посчитан.
+	// Недели окна: тоннаж первой — из тренировки, вторая пустая.
+	QCOMPARE(vm.weeks()->Row_Count(), 2);
+	QCOMPARE(Row_By_Role(vm.weeks(), 0, "tonnageKg").toDouble(), 500.0);
+	QCOMPARE(Row_By_Role(vm.weeks(), 1, "tonnageKg").toDouble(), 0.0);
 }
 //----------------------------------------------------------------------------
 void AProgram_Stats_VM_Test::writesCacheOnRefresh()

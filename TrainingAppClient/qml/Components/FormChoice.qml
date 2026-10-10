@@ -38,9 +38,14 @@ Column {
                 width: Math.max(92, optionLabel.implicitWidth + Spacing.screenPadding * 2)
 
                 background: Rectangle {
+                    // Активный выбор — непрозрачный Theme.accentSurface, а не
+                    // транслюцентная accentTint: Pill лежит на surface, и
+                    // смешанный цвет даёт тот же тон без ставки на альфу,
+                    // которая на некоторых Android-сборках терялась при
+                    // композитинге (см. HeroCard).
                     border.color: optionButton.active ? Theme.accent : Theme.border
                     border.width: optionButton.active ? 2 : Theme.borderWidth
-                    color: optionButton.active ? Theme.accentTint : Theme.surfaceMuted
+                    color: optionButton.active ? Theme.accentSurface : Theme.surfaceMuted
                     radius: Theme.radiusMd
                 }
                 contentItem: Label {

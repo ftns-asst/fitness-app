@@ -155,6 +155,10 @@ bool ARule_Repository::Load_Rules(const QString &in_program_id, QVector<SProgram
 	return true;
 }
 //----------------------------------------------------------------------------
+// Has_Advice_Text живёт в домене (Program_Model): та же проверка нужна и
+// движку правил, и здесь, а две реализации «непустого текста» разошлись бы
+// — одна приняла бы строку из пробелов, другая нет.
+//----------------------------------------------------------------------------
 bool ARule_Repository::Validate_Rules(const QVector<SProgram_Rule> &in_rules) const
 {
 	for (int i = 0; i < in_rules.size(); ++i)
@@ -168,8 +172,13 @@ bool ARule_Repository::Validate_Rules(const QVector<SProgram_Rule> &in_rules) co
 			return false;
 
 		// §3.6: правило отвечает на вопрос «сколько» — цель обязательна
-		// (CHECK в схеме дублирует это на уровне БД).
-		if (rule.Has_Target_Min == false && rule.Has_Target_Max == false && rule.Has_Target_Exact == false)
+		// (CHECK в схеме дублирует это на уровне БД). Исключение одно:
+		// рекомендация (категория «Другое») отвечает на вопрос «что делать»,
+		// поэтому вместо цели у неё текст, и он обязателен — иначе «Другое»
+		// стало бы способом завести правило вообще без содержания.
+		const bool has_target = rule.Has_Target_Min || rule.Has_Target_Max || rule.Has_Target_Exact;
+
+		if (has_target == false && Get_Rule_Kind(rule) != ERule_Kind::Advice)
 			return false;
 	}
 
@@ -255,7 +264,8 @@ bool ARule_Repository::Replace_Rules(const QString &in_program_id, const QVector
 		    QString("Программа %1 в состоянии %2: правка правил запрещена").arg(in_program_id).arg(To_String(state)));
 
 	if (Validate_Rules(in_rules) == false)
-		return Set_Last_Error("Каждое правило требует id, заголовок и хотя бы одно целевое значение");
+		return Set_Last_Error(
+		    "Каждое правило требует id, заголовок и цель; для рекомендации («Другое») вместо цели — текст");
 
 	if (Connection().transaction() == false)
 		return Set_Last_Error("Не удалось начать транзакцию");

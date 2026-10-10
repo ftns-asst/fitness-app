@@ -107,12 +107,48 @@ Item {
         contentItem: ColumnLayout {
             spacing: Spacing.itemGap
 
+            // Навигация по календарю: верхняя строка — год, нижняя — месяц.
+            // Двойные стрелки появились потому, что календарь открывается на
+            // текущей дате, а программу планируют на год вперёд: без шага по
+            // году до нужного месяца приходилось щёлкать по двенадцать раз, и
+            // выбор даты превращался в десятки нажатий.
+            //
+            // Год и месяц разведены по строкам, а не стоят в одной: в строке на
+            // четыре стрелки и подпись стрелкам доставалось по 36 px, а подпись
+            // «Октябрь 2026» обрезалась.
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Spacing.itemGap
 
                 AppButton {
                     Layout.preferredWidth: Theme.touchMin
+                    objectName: "datePrevYearButton"
+                    onClicked: field.shiftYear(-1)
+                    text: qsTr("‹‹")
+                    variant: AppButton.Secondary
+                }
+                Label {
+                    Layout.fillWidth: true
+                    color: Theme.textPrimary
+                    font: Typography.bodyStrong
+                    horizontalAlignment: Text.AlignHCenter
+                    text: String(field.shownYear)
+                }
+                AppButton {
+                    Layout.preferredWidth: Theme.touchMin
+                    objectName: "dateNextYearButton"
+                    onClicked: field.shiftYear(1)
+                    text: qsTr("››")
+                    variant: AppButton.Secondary
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Spacing.itemGap
+
+                AppButton {
+                    Layout.preferredWidth: Theme.touchMin
+                    objectName: "datePrevMonthButton"
                     onClicked: field.shiftMonth(-1)
                     text: qsTr("‹")
                     variant: AppButton.Secondary
@@ -122,10 +158,11 @@ Item {
                     color: Theme.textPrimary
                     font: Typography.bodyStrong
                     horizontalAlignment: Text.AlignHCenter
-                    text: Qt.locale().standaloneMonthName(field.shownMonth) + " " + field.shownYear
+                    text: Qt.locale().standaloneMonthName(field.shownMonth)
                 }
                 AppButton {
                     Layout.preferredWidth: Theme.touchMin
+                    objectName: "dateNextMonthButton"
                     onClicked: field.shiftMonth(1)
                     text: qsTr("›")
                     variant: AppButton.Secondary
@@ -194,6 +231,17 @@ Item {
 
     function shiftMonth(delta) {
         const shifted = new Date(shownYear, shownMonth + delta, 1);
+
+        shownYear = shifted.getFullYear();
+        shownMonth = shifted.getMonth();
+    }
+
+    // Шаг по году: месяц сохраняется, поэтому «плюс год» из октября даёт
+    // октябрь следующего года, а не «то же число» через двенадцать месяцев.
+    // День берётся первым: 29 февраля в невисокосном году сдвинуло бы месяц
+    // вперёд, и календарь показывал бы март вместо февраля.
+    function shiftYear(delta) {
+        const shifted = new Date(shownYear + delta, shownMonth, 1);
 
         shownYear = shifted.getFullYear();
         shownMonth = shifted.getMonth();

@@ -12,7 +12,12 @@ AppCard {
     property string programId: ""
     property string title: ""
     property string goal: ""
-    property string state: ""
+    // Состояние программы названо programState, а не state: `state` уже есть у
+    // QQuickItem (состояния и переходы), и перекрытие ломало бы их молча.
+    // Имя отличается и от роли модели `state`, поэтому роль в делегате можно
+    // объявить required property — раньше это было невозможно и требовало
+    // ручного заполнения всех полей в ProgramCatalogPage.
+    property string programState: ""
     property int weeksTotal: 0
     property string startDate: ""
     property bool canEdit: true
@@ -97,6 +102,6 @@ AppCard {
             archived: qsTr("В архиве")
         };
 
-        return states[row.state] !== undefined ? states[row.state] : "";
+        return states[row.programState] !== undefined ? states[row.programState] : "";
     }
 }

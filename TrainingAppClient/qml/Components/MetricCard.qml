@@ -28,7 +28,10 @@ AppCard {
     paddingHorizontal: Spacing.cardPadding - 4
     paddingVertical: Spacing.cardPadding - 4
     spacing: 2
-    surfaceColor: card.highlight ? Theme.accentTint : Theme.surfaceMuted
+    // Непрозрачный смешанный акцент вместо транслюцентного tint: highlight-плитка
+    // на некоторых сборках Android теряла подсветку вместе с альфой заливки
+    // (см. Theme.accentSurface).
+    surfaceColor: card.highlight ? Theme.accentSurface : Theme.surfaceMuted
 
     Label {
         color: card.highlight ? Theme.accent : Theme.textSecondary

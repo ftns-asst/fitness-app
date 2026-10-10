@@ -44,10 +44,11 @@ PageScaffold {
             page.reload();
     }
 
-    // Идентификатор пользователя: до появления реальной авторизации в UI это
-    // единственный источник «кто я», поэтому он вынесен в одно место.
+    // Идентификатор пользователя берётся из общего источника Session, а не из
+    // литерала: раньше значение «u1» повторялось в пяти местах QML, и любое
+    // другое значение (например, посев демо-данных) делало программу невидимой.
     function currentUserId() {
-        return "u1";
+        return AppContext !== undefined && AppContext !== null ? AppContext.currentUserId : "u1";
     }
 
     function reload() {
@@ -132,63 +133,37 @@ PageScaffold {
         text: qsTr("Расписание недели")
         visible: page.hasProgram
     }
-    ColumnLayout {
-        // Ширина задаётся родителем: список лежит в обычной Column
-        // PageScaffold, где Layout.fillWidth не действует.
+    Row {
+        // Ширина задаётся родителем: ряд лежит в обычной Column PageScaffold,
+        // где Layout.fillWidth не действует.
         id: slotList
 
         width: parent.width
-        spacing: Spacing.listGap
+        spacing: Spacing.itemGap
         visible: page.hasProgram
 
         Repeater {
             model: page.hasProgram ? page.viewModel.week_slots : []
 
-            delegate: AppCard {
-                id: slotCard
-
-                required property string dayTitle
-                required property int dayOfWeek
-                required property string kind
-                required property string programDayId
-                required property int rotationIndex
-
-                Layout.fillWidth: true
-                readonly property bool isRest: kind === "rest"
-                // Слот ротации не привязан к конкретному дню недели.
-                readonly property int weekday: dayOfWeek > 0 ? dayOfWeek : rotationIndex
-
-                RowLayout {
-                    width: parent.width
-                    spacing: Spacing.itemGap
-
-                    Rectangle {
-                        Layout.preferredHeight: 34
-                        Layout.preferredWidth: 34
-                        color: slotCard.isRest ? Theme.surfaceMuted : Theme.accentSoft
-                        radius: Theme.radiusSm
-
-                        Label {
-                            anchors.centerIn: parent
-                            color: slotCard.isRest ? Theme.textSecondary : Theme.accent
-                            font: Typography.captionStrong
-                            text: slotCard.weekday > 0 ? page.weekdayNames[slotCard.weekday - 1] : ""
-                        }
-                    }
-                    Label {
-                        // Заголовок дня длиннее карточки, поэтому минимальную
-                        // ширину снимаем — иначе он держал неявную ширину текста
-                        // и выталкивал ряд за край карточки.
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 0
-                        color: Theme.textPrimary
-                        font: Typography.bodyStrong
-                        text: slotCard.dayTitle.length > 0 ? slotCard.dayTitle : (slotCard.isRest ? qsTr("Отдых") : qsTr("Тренировка"))
-                        wrapMode: Text.WordWrap
-                    }
-                }
+            delegate: DayTile {
+                // Роли берутся через model.имя: обязательные свойства для
+                // AList_Model не срабатывают, делегат не создаётся.
+                height: heightCompact
+                isActive: model.isToday
+                isToday: model.isToday
+                tileKind: model.kind
+                weekdayName: model.dayOfWeek > 0 ? page.weekdayNames[model.dayOfWeek - 1] : ""
+                // Ширина — от ширины страницы: ширина самого ряда на момент
+                // создания делегата ещё не посчитана.
+                width: widthFor(page.width)
             }
         }
+    }
+    // Легенда под рядом: без неё плитки читаются как пёстрая полоса —
+    // чем отличаются тонированные дни и какой отмечен «сегодня» (макет 02).
+    WeekLegend {
+        width: parent.width
+        visible: page.hasProgram
     }
     // — Переходы к остальным экранам программы —
     ColumnLayout {

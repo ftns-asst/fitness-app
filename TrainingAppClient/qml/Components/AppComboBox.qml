@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import TrainingAppClient
 
 // Выпадающий список в стиле приложения. Штатный ComboBox рисуется текущим
@@ -24,7 +23,8 @@ ComboBox {
 
         Behavior on border.color {
             ColorAnimation {
-                duration: 120
+                duration: Theme.pressFeedbackDuration
+                easing.type: Easing.OutCubic
             }
         }
     }

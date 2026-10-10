@@ -59,8 +59,10 @@ Column {
             radius: Theme.radiusMd
 
             Behavior on border.color {
+                // Рамка — главный отклик на касание поля; переход плавный.
                 ColorAnimation {
-                    duration: 120
+                    duration: Theme.pressFeedbackDuration
+                    easing.type: Easing.OutCubic
                 }
             }
         }

@@ -7,15 +7,51 @@ import TrainingAppClient
 //
 // Цвет несёт смысл, а не украшает: успех — акцентом, провал — красным,
 // «нет данных» — приглушённым, потому что «неизвестно» это не «плохо» (§5.5).
+//
+// Свойство называется checkinState, а не state: `state` уже есть у QQuickItem
+// (состояния и переходы), и перекрытие молча ломало бы механизм состояний —
+// компонент перестал бы переключать их, и qmllint справедливо ругается.
 Rectangle {
     id: chip
 
-    property string state: "unknown"
+    property string checkinState: "unknown"
 
-    readonly property bool isDone: state === "done"
-    readonly property bool isFailed: state === "failed"
+    readonly property bool isDone: chip.checkinState === "done"
+    readonly property bool isFailed: chip.checkinState === "failed"
 
-    color: chip.isDone ? Theme.accentSoft : (chip.isFailed ? Theme.surfaceMuted : Theme.surfaceMuted)
+    // Подпись и цвет — таблицей по состоянию. Раньше это была цепочка if/return
+    // плюс тернарник, у которого обе ветви совпадали: оттенок провала терялся,
+    // а добавление состояния требовало правки в четырёх местах сразу.
+    readonly property var palettesByState: ({
+            done: {
+                background: Theme.accentSoft,
+                foreground: Theme.accent,
+                label: qsTr("Выполнено")
+            },
+            failed: {
+                background: Theme.surfaceMuted,
+                foreground: Theme.negative,
+                label: qsTr("Не выполнено")
+            },
+            partial: {
+                background: Theme.surfaceMuted,
+                foreground: Theme.textSecondary,
+                label: qsTr("Частично")
+            },
+            skipped: {
+                background: Theme.surfaceMuted,
+                foreground: Theme.textSecondary,
+                label: qsTr("Пропущено")
+            },
+            unknown: {
+                background: Theme.surfaceMuted,
+                foreground: Theme.textSecondary,
+                label: qsTr("Нет отметки")
+            }
+        })
+    readonly property var colors: chip.palettesByState[chip.checkinState] !== undefined ? chip.palettesByState[chip.checkinState] : chip.palettesByState.unknown
+
+    color: chip.colors.background
     implicitHeight: 24
     implicitWidth: chipLabel.implicitWidth + Spacing.listGap * 2
     radius: Theme.radiusSm
@@ -24,24 +60,13 @@ Rectangle {
         id: chipLabel
 
         anchors.centerIn: parent
-        color: chip.isDone ? Theme.accent : (chip.isFailed ? Theme.negative : Theme.textSecondary)
+        color: chip.colors.foreground
         font: Typography.captionStrong
-        text: chip.label
+        text: chip.colors.label
     }
 
-    function label() {
-        if (chip.state === "done")
-            return qsTr("Выполнено");
-
-        if (chip.state === "failed")
-            return qsTr("Не выполнено");
-
-        if (chip.state === "partial")
-            return qsTr("Частично");
-
-        if (chip.state === "skipped")
-            return qsTr("Пропущено");
-
-        return qsTr("Нет отметки");
+    // Подпись состояния наружу: тест проверяет таблицу, не залезая в Label.
+    function labelText() {
+        return chip.colors.label;
     }
 }

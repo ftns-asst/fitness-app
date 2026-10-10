@@ -17,6 +17,7 @@ static bool Is_Supported_Period(int in_days)
 	return in_days == 7 || in_days == 30 || in_days == 90;
 }
 //----------------------------------------------------------------------------
+
 // Avm_Program_Rules
 //----------------------------------------------------------------------------
 Avm_Program_Rules::Avm_Program_Rules(AProgram_Repository *in_program_repository, ARule_Repository *in_rule_repository,
@@ -27,6 +28,7 @@ Avm_Program_Rules::Avm_Program_Rules(AProgram_Repository *in_program_repository,
 	Rules->Set_Roles(Program_Rows::Rule_Roles());
 	Checkins->Set_Roles(Program_Rows::Checkin_Roles());
 }
+//----------------------------------------------------------------------------
 // — QML-мост (camelCase) —
 // Обёртки отделены от методов предметной области: контракт экрана не должен
 // повторять внутренний стиль имён (§2 CODE_STYLE) и зависеть от него.
@@ -34,18 +36,17 @@ bool Avm_Program_Rules::reload(const QString &in_user_id)
 {
 	return Reload(in_user_id);
 }
-
+//----------------------------------------------------------------------------
 bool Avm_Program_Rules::setPeriodDays(int in_days)
 {
 	return Set_Period_Days(in_days);
 }
-
+//----------------------------------------------------------------------------
 bool Avm_Program_Rules::saveCheckin(const QString &in_rule_id, const QString &in_state, double in_value,
                                     bool in_has_value, const QString &in_note)
 {
 	return Save_Checkin(in_rule_id, in_state, in_value, in_has_value, in_note);
 }
-
 //----------------------------------------------------------------------------
 bool Avm_Program_Rules::Reload(const QString &in_user_id)
 {
@@ -59,6 +60,13 @@ bool Avm_Program_Rules::Reload(const QString &in_user_id)
 		return false;
 	}
 
+	// Окно пересчитывается перед чтением отметок. Раньше оно заполнялось только
+	// из Set_Period_Days и Set_Today, поэтому первый reload — а он и есть
+	// обычное состояние экрана — читал отметки с пустыми границами и получал
+	// пустую выборку: процент показывался прочерком, а подпись «Отметок за это
+	// окно нет» появлялась при полной базе.
+	Apply_Period();
+
 	// Отметки читаются раньше правил: роль todayState строится из них, иначе
 	// состояние за сегодня всегда оставалось бы «неизвестно».
 	if (Load_Checkins() == false || Load_Rules() == false)
@@ -68,6 +76,12 @@ bool Avm_Program_Rules::Reload(const QString &in_user_id)
 
 		return false;
 	}
+
+	// Процент считается только здесь, после обеих загрузок: движок правил
+	// выводит вердикты по целям, поэтому на пустом наборе правил метрика
+	// отсутствует. Расчёт внутри Load_Checkins давал прочерк при полной базе —
+	// правила на тот момент ещё не были прочитаны.
+	Recalculate_Adherence();
 
 	emit changed();
 
@@ -96,7 +110,12 @@ bool Avm_Program_Rules::Set_Period_Days(int in_days)
 	Apply_Period();
 
 	if (Program_Id_Text.isEmpty() == false)
+	{
 		Load_Checkins();
+		// Окно сменилось, значит сменился и набор отметок, по которому считается
+		// процент: без пересчёта метрика осталась бы от прежнего периода.
+		Recalculate_Adherence();
+	}
 
 	emit changed();
 
@@ -147,9 +166,11 @@ bool Avm_Program_Rules::Save_Checkin(const QString &in_rule_id, const QString &i
 		return false;
 	}
 
-	// Порядок тот же, что в Reload: сначала отметки, затем правила.
+	// Порядок тот же, что в Reload: сначала отметки, затем правила, а метрика —
+	// после обоих наборов, иначе новая отметка не попадёт в процент.
 	Load_Checkins();
 	Load_Rules();
+	Recalculate_Adherence();
 	emit changed();
 
 	return true;
@@ -189,7 +210,6 @@ bool Avm_Program_Rules::Load_Checkins()
 		return false;
 
 	Checkins->Set_Rows(Program_Rows::Build_Checkins(Loaded_Checkins));
-	Recalculate_Adherence();
 
 	return true;
 }

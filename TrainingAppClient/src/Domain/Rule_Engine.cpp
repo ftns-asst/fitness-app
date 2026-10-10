@@ -1,4 +1,4 @@
-﻿#include "Domain/Rule_Engine.h"
+#include "Domain/Rule_Engine.h"
 
 #include <QDate>
 #include <QDateTime>
@@ -24,6 +24,7 @@ static bool Is_Iso_Date(const QString &in_text)
 	return date.isValid() && date.toString("yyyy-MM-dd") == in_text;
 }
 
+// AsRule_Engine
 //----------------------------------------------------------------------------
 AsRule_Engine::AsRule_Engine() : Error_State(&RULE_Engine_Log())
 {
@@ -80,6 +81,12 @@ bool AsRule_Engine::Evaluate_Value(const SProgram_Rule &in_rule, double in_value
 
 	if (std::isfinite(in_value) == false)
 		return Set_Last_Error("Значение отметки должно быть конечным числом");
+
+	// Рекомендация отвечает на вопрос «что делать», а не «сколько»: вердикт
+	// по числу для неё выдуман, и молча вернуть «выполнено» значило бы
+	// сообщить вызывающему, что цель достигнута, хотя цели нет.
+	if (Get_Rule_Kind(in_rule) == ERule_Kind::Advice)
+		return Set_Last_Error(QString("Рекомендация %1 не измерима: оценивать её не по чему").arg(in_rule.ID));
 
 	if (in_rule.Has_Target_Min && in_rule.Has_Target_Max && in_rule.Target_Min > in_rule.Target_Max)
 		return Set_Last_Error(QString("Минимум цели правила %1 превышает максимум").arg(in_rule.ID));
@@ -214,6 +221,13 @@ bool AsRule_Engine::Compute_Rule_Stats(const SProgram_Rule &in_rule, const QVect
 
 	if (in_rule.ID.isEmpty())
 		return Set_Last_Error("Сводка правил требует правило с id");
+
+	// Отметка рекомендации — это «прочитал совет», а не результат измерения.
+	// Считать её исполнением или неисполнением нельзя: иначе процент
+	// выполнения менялся бы от того, что человек отметил текст, и менялся бы
+	// вследствие поступка, который ничего не измеряет.
+	if (Get_Rule_Kind(in_rule) == ERule_Kind::Advice)
+		return true;
 
 	for (int i = 0; i < in_checkins.size(); ++i)
 	{

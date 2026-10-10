@@ -18,7 +18,9 @@ class QJsonObject;
 // запросы ждут в очереди и повторяются по одному разу с новой парой токенов.
 // HTTP-подтверждённая неудача refresh очищает токены, завершает сессию и
 // сигналит sessionExpired; transport-сбой сессию сохраняет (docs/03, §6).
-// Формат "Bearer <token>" — assumed, точный формат запрошен у backend.
+// Формат "Bearer <token>", одноразовость refresh_token и ключи 401
+// (invalid_token/token_expired) подтверждены публикацией документации backend:
+// docs/03-api-contract.md §2, docs/03-api-backend-published.md.
 //----------------------------------------------------------------------------
 class AsAuth_Session : public QObject
 {

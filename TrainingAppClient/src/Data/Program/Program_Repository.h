@@ -85,6 +85,18 @@ public:
 	// заполняет actual_start_date, если она пуста. Инкремент ревизии — с
 	// оптимистичной проверкой (как во всех правках).
 	bool Change_State(const QString &in_program_id, EProgram_State in_new_state) override;
+	// Включение программы при инварианте «одна активная на пользователя»
+	// (§2.3): прежняя активная переводится в паузу той же транзакцией, её
+	// идентификатор возвращается наружу. Повторная активация активной
+	// программы — не ошибка и ничего не меняет.
+	bool Activate_Exclusive(const QString &in_program_id, QString &out_paused_program_id) override;
+
+	// Удаление черновика (§3.1): брошенное создание не копится в каталоге
+	// вечно. Удалять разрешено только Draft: активную программу пользователь
+	// из редактора не удаляет — её состояния меняются переходами §3.1.
+	// Дочерние строки (цели, дни, предписания, расписание, правила, журнал
+	// ревизий) снимает каскад FK (`02-program-model.md` §3.2).
+	bool Delete_Draft(const QString &in_program_id);
 
 private:
 	bool Check_Editable(const QString &in_program_id, SProgram &out_program);

@@ -23,6 +23,9 @@ public:
 	                                 const QVector<SProgram_Day> &in_days, const QVector<SDay_Exercise> &in_exercises,
 	                                 const QVector<SWeek_Slot> &in_slots) = 0;
 	virtual bool Change_State(const QString &in_program_id, EProgram_State in_new_state) = 0;
+	// Включение программы с соблюдением §2.3 («активная у пользователя одна»):
+	// прежняя активная переводится в паузу, её идентификатор отдаётся наружу.
+	virtual bool Activate_Exclusive(const QString &in_program_id, QString &out_paused_program_id) = 0;
 	virtual QString Get_Last_Error() const = 0;
 };
 
@@ -53,7 +56,14 @@ public:
 	                          SProgram &out_program);
 
 	bool Activate(const QString &in_program_id);
+	// Включение программы по §2.3: прежняя активная программа пользователя
+	// уходит в паузу. Идентификатор приостановленной отдаётся наружу — экран
+	// сообщает об этом пользователю, молчаливая смена чужого состояния
+	// выглядела бы как потеря программы.
+	bool Activate_Exclusive(const QString &in_program_id, QString &out_paused_program_id);
 	bool Pause(const QString &in_program_id);
+	// Возобновление — включение по тем же правилам, что Activate_Exclusive:
+	// активной может быть одна программа (§2.3).
 	bool Resume(const QString &in_program_id);
 	bool Complete(const QString &in_program_id);
 	bool Cancel(const QString &in_program_id);

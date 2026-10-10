@@ -25,14 +25,16 @@ static const char *const Rule_Check_Source_Texts[] = {"selfReport",           "c
 static const char *const Slot_Kind_Texts[] = {"workout", "rest", "optional", "cardio", "mobility"};
 static const char *const Day_Kind_Texts[] = {"workout", "rest", "cardio", "mobility"};
 static const char *const Goal_Target_State_Texts[] = {"active", "achieved", "dropped"};
-static const char *const Rule_Category_Texts[] = {"nutrition", "training", "recovery", "lifestyle", "technique"};
+static const char *const Rule_Category_Texts[] = {"nutrition", "training",  "recovery",
+                                                  "lifestyle", "technique", "other"};
 static const char *const Revision_Reason_Texts[] = {"goal",  "term",         "schedule", "days",
                                                     "rules", "exercisePlan", "state"};
 static const char *const Workout_State_Texts[] = {"draft", "completed", "cancelled"};
 static const char *const Deviation_Texts[] = {"asPlanned", "partial", "substituted", "extraDay", "movedDay"};
 static const char *const Checkin_Source_Texts[] = {"manual", "computed", "imported"};
 static const char *const Checkin_State_Texts[] = {"done", "failed", "skipped", "partial", "unknown"};
-static const char *const Rule_Display_Unit_Texts[] = {"g", "gPerKg", "kcal", "ml", "hours", "count", "rpe", "units"};
+static const char *const Rule_Display_Unit_Texts[] = {"g",     "gPerKg", "kg",  "kcal", "ml",
+                                                      "hours", "count",  "rpe", "units"};
 static const char *const Rule_Enforcement_Texts[] = {"soft", "hard"};
 static const char *const Rule_Applies_To_Texts[] = {"allDays", "trainingDays", "restDays", "customDays"};
 static const char *const Rule_Periodicity_Texts[] = {"perDay", "perWeek", "perWorkout", "once"};
@@ -60,6 +62,35 @@ QString STerm::Compute_End_Date() const
 		return QString();
 
 	return start_date.addDays(Weeks_Total * 7 - 1).toString("yyyy-MM-dd");
+}
+//----------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------
+// SProgram_Rule: вид правила
+//----------------------------------------------------------------------------
+// Вид выводится из наличия цели, а не из категории: категория «Другое» с
+// числом остаётся измеримым правилом, иначе оно выпало бы из adherence
+// вместе со своей целью. Категория при этом тоже должна быть «Другое» —
+// иначе получилось бы правило без содержания вовсе.
+ERule_Kind Get_Rule_Kind(const SProgram_Rule &in_rule)
+{
+	const bool has_target = in_rule.Has_Target_Min || in_rule.Has_Target_Max || in_rule.Has_Target_Exact;
+
+	if (has_target)
+		return ERule_Kind::Measurable;
+
+	return Has_Advice_Text(in_rule) ? ERule_Kind::Advice : ERule_Kind::Measurable;
+}
+//----------------------------------------------------------------------------
+// Текст рекомендации содержателен, только если в нём есть непробельный
+// символ: строка из пробелов прошла бы проверку «не пусто» и превратила
+// снятие требования цели в способ завести пустое правило.
+bool Has_Advice_Text(const SProgram_Rule &in_rule)
+{
+	if (in_rule.Category != ERule_Category::Other)
+		return false;
+
+	return in_rule.Note.trimmed().isEmpty() == false;
 }
 //----------------------------------------------------------------------------
 
