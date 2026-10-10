@@ -5,7 +5,8 @@
 > работающей вертикалью, а не «половиной слоя».
 > Связанные документы: `04-roadmap.md` (issues, gates, статус),
 > `02-program-model.md` (модель), `05-recommendations-catalog-today.md`
-> (требования и решения), `CODE_STYLE.md` (стиль C++).
+> (требования и решения), `CODE_STYLE.md` (стиль C++). План следующей фичи —
+> упражнения — см. `08-exercises-sprint-plan.md` (спринты U1–U6).
 > Спринты S1–S8 соответствуют issues 47, 48, 45, 46, 49, 51, 50, 52
 > предложения `05-recommendations-catalog-today.md` §5 и разделу §11.5.
 
