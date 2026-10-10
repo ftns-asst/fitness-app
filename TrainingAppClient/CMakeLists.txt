@@ -99,6 +99,8 @@ add_library(TrainingAppCore STATIC
     src/Data/Auth/Token_Store.cpp
     src/Data/Database/Sql_Database.h
     src/Data/Database/Sql_Database.cpp
+    src/Data/Exercises/Exercises_Api.h
+    src/Data/Exercises/Exercises_Api.cpp
     src/Data/Network/Api_Error.h
     src/Data/Network/Api_Error.cpp
     src/Data/Network/Http_Client.h

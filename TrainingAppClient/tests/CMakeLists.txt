@@ -260,6 +260,16 @@ target_link_libraries(tst_Avm_Auth PRIVATE TrainingAppCore TrainingAppTestSuppor
 add_test(NAME auth_vm COMMAND tst_Avm_Auth)
 set_tests_properties(auth_vm PROPERTIES TIMEOUT 30)
 
+qt_add_executable(tst_Exercises_Api
+    cpp/tst_Exercises_Api.cpp
+)
+target_link_libraries(tst_Exercises_Api PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME exercises_api COMMAND tst_Exercises_Api)
+set_tests_properties(exercises_api PROPERTIES
+    TIMEOUT 30
+    ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+)
+
 qt_add_executable(tst_Users_Api
     cpp/tst_Users_Api.cpp
 )
