@@ -20,19 +20,23 @@ Item {
     property int initialTab: 0
 
     // — Память вкладок (отзыв: «вернулся на вкладку — а там корень») —
-    // Последний открытый экран каждой вкладки: запись вида
-    // {name: "program-edit", id: …} / {name: "program-day", weekday, kind}.
-    // Возвращение на вкладку восстанавливает экран, возврат к корню (кнопка
-    // «Назад», повторный тап по своей вкладке) снимает запись.
-    property var tabScreens: ({})
+    // Полная история переходов каждой вкладки: массив записей
+    // {name: "program-edit", id: …} / {name: "program-day", weekday, kind}
+    // в порядке открытия. Возвращение на вкладку восстанавливает ВСЮ цепочку
+    // (назад из восстановленного экрана не ведёт в корень), «назад» снимает
+    // верхний экран, повторный тап по своей вкладке сбрасывает к корню.
+    property var tabHistory: ({})
     // Отложенная навигация: push во время перехода отбрасывается guard'ом
     // pushPage, поэтому восстановление экрана после pop живёт в очереди и
     // разбирается в onBusyChanged стека.
-    property var pendingRestoreEntry: null
+    property var pendingRestoreChain: null
     property var pendingComponentEntry: null
     // Глубина стека деталей: тесты навигации смотрят сюда, потому что идентификатор
     // StackView из оболочки наружу недоступен.
     readonly property int pushedDepth: pages.depth
+    // Верхний экран стека: тестам нужно отличать «обзор» от «редактора» при
+    // одинаковой глубине. undefined у корня (вкладки).
+    readonly property var topItem: pages.depth > 1 ? pages.currentItem : null
     // Идёт переход (пуш/поп с анимацией): в это время команды навигации
     // отбрасываются, и тестам нужно дождаться тишины перед следующим шагом.
     readonly property bool stackBusy: pages.busy
@@ -81,7 +85,7 @@ Item {
             return;
 
         const sameTab = tabBar.currentIndex === index;
-        const restore = sameTab === false && shell.tabScreens[index] !== undefined ? shell.tabScreens[index] : null;
+        const chain = sameTab === false && shell.tabHistory[index] !== undefined ? shell.tabHistory[index] : [];
 
         if (pages.depth > 1)
             pages.pop(null);
@@ -96,57 +100,97 @@ Item {
         }
 
         tabBar.currentIndex = index;
-        shell.pendingRestoreEntry = restore;
+        shell.pendingRestoreChain = chain.slice();
         shell.flushPendingNavigation();
     }
 
-    // Память «последний экран вкладки». Записывается в момент открытия
-    // (см. open*-функции), читается при возвращении на вкладку.
+    // Запись экрана в историю вкладки — точка, через которую проходят все
+    // open*-функции. История растёт с каждым push; повторная запись того же
+    // экрана (тот же name/id/weekday/kind) не дублируется, чтобы повторный
+    // вызов open* поверх живого экрана не удваивал цепочку.
     function noteTabScreen(entry) {
-        shell.tabScreens[tabBar.currentIndex] = entry;
+        const history = shell.tabHistory[tabBar.currentIndex] || [];
+
+        if (history.length > 0 && shell.sameEntry(history[history.length - 1], entry))
+            return;
+
+        history.push(entry);
+        shell.tabHistory[tabBar.currentIndex] = history;
+    }
+
+    // Замена верха истории: сохранение программы заменяет редактор обзором
+    // в стеке (pages.replace), и история обязана отражать то же самое —
+    // иначе возврат на вкладку восстановил бы закрытую форму создания.
+    function replaceTopScreen(entry) {
+        const history = shell.tabHistory[tabBar.currentIndex] || [];
+
+        if (history.length > 0)
+            history[history.length - 1] = entry;
+        else
+            history.push(entry);
+
+        shell.tabHistory[tabBar.currentIndex] = history;
     }
 
     function forgetTabScreen(index) {
-        delete shell.tabScreens[index];
+        shell.tabHistory[index] = [];
     }
 
-    // Восстановление последнего экрана вкладки по записи памяти. Идентификатор
-    // программы и день хранятся в записи: у редактора и обзора они задают
-    // программу, у дня — открытый день недели.
-    function restoreScreen(entry) {
-        const openers = {
-            "macro-calculator": function () {
-                shell.openMacroCalculator();
-            },
-            "program-catalog": function () {
-                shell.openProgramCatalog();
-            },
-            "program-day": function () {
-                shell.openProgramDay(entry.weekday, entry.kind);
-            },
-            "program-edit": function () {
-                shell.openProgramEditor(entry.id);
-            },
-            "program-overview": function () {
-                shell.openProgramOverview(entry.id);
-            },
-            "program-rules": function () {
-                shell.openProgramRules();
-            },
-            "program-rules-picker": function () {
-                shell.openProgramRulesPicker();
-            },
-            "program-stats": function () {
-                shell.openProgramStats(entry.id);
-            },
-            "set-entry": function () {
-                shell.openSetEntry();
-            }
-        };
-        const opener = openers[entry.name];
+    // Сравнение записей: одинаковый экран (имя и параметры) не попадает
+    // в историю дважды.
+    function sameEntry(a, b) {
+        return (a.name === b.name) && ((a.id || "") === (b.id || "")) && ((a.weekday || 0) === (b.weekday || 0)) && ((a.kind || 0) === (b.kind || 0));
+    }
 
-        if (opener !== undefined)
-            opener();
+    // Компонент экрана по имени записи. Только для восстановления цепочки:
+    // живые переходы идут через open*-функции с их сайд-эффектами.
+    function componentFor(name) {
+        const map = {
+            "macro-calculator": macroCalculatorComponent,
+            "program-catalog": programCatalogComponent,
+            "program-day": programDayComponent,
+            "program-edit": programEditorComponent,
+            "program-overview": programOverviewComponent,
+            "program-rules": programRulesComponent,
+            "program-rules-picker": programRulesPickerComponent,
+            "program-stats": programStatsComponent,
+            "set-entry": setEntryComponent
+        };
+
+        return map[name] !== undefined ? map[name] : null;
+    }
+
+    // Восстановление всей цепочки экранов вкладки одним push'ем: страницы
+    // сами загружают свои данные при создании (Component.onCompleted), поэтому
+    // перед созданием достаточно выставить общие параметры — идентификатор
+    // программы и открытый день. Разные программы в одной цепочке не
+    // поддерживаются: реальный поток всегда смотрит одну программу.
+    function restoreChain(entries) {
+        const components = [];
+        let dayEntry = null;
+
+        for (var i = 0; i < entries.length; ++i) {
+            const entry = entries[i];
+
+            if (entry.id !== undefined && entry.id !== null && entry.id !== "")
+                shell.programId = entry.id;
+
+            if (entry.name === "program-day")
+                dayEntry = entry;
+
+            const component = shell.componentFor(entry.name);
+
+            if (component !== null)
+                components.push(component);
+        }
+
+        if (dayEntry !== null) {
+            shell.programDayWeekday = dayEntry.weekday;
+            shell.programDayKind = dayEntry.kind;
+        }
+
+        if (components.length > 0)
+            pages.push(components);
     }
 
     // Разбор отложенной навигации, когда стек снова свободен: push во время
@@ -156,11 +200,11 @@ Item {
         if (pages.busy)
             return;
 
-        if (shell.pendingRestoreEntry !== null) {
-            const entry = shell.pendingRestoreEntry;
+        if (shell.pendingRestoreChain !== null) {
+            const chain = shell.pendingRestoreChain;
 
-            shell.pendingRestoreEntry = null;
-            shell.restoreScreen(entry);
+            shell.pendingRestoreChain = null;
+            shell.restoreChain(chain);
 
             return;
         }
@@ -335,6 +379,10 @@ Item {
     function openAfterPop(component, entry) {
         if (pages.depth > 1) {
             pages.pop(null);
+            // Поток вкладки закрыт (инструмент открыли с корня): прежняя
+            // цепочка экранов больше не лежит в стеке, и хранить её нельзя —
+            // возврат на вкладку восстановил бы несуществующий стек.
+            shell.forgetTabScreen(tabBar.currentIndex);
             shell.pendingComponentEntry = {
                 component: component,
                 entry: entry
@@ -382,7 +430,7 @@ Item {
         // закрытую форму создания. Память вкладки тоже обновляется: последним
         // открытым экраном теперь обзор, а не редактор.
         shell.programId = programId;
-        shell.noteTabScreen({
+        shell.replaceTopScreen({
             name: "program-overview",
             id: programId
         });
@@ -478,9 +526,17 @@ Item {
         if (pages.busy === false && pages.depth > 1) {
             pages.pop();
 
-            // Возврат к корню вкладки закрывает поток экранов: запись
-            // «последнего экрана» больше не отражает то, что пользователь
-            // оставил открытым, поэтому снимается вместе с потоком.
+            // Снятый экран уходит из истории вкладки: «назад» по цепочке
+            // обязан идти синхронно со стеком, иначе восстановление вернуло
+            // бы уже закрытый экран.
+            const history = shell.tabHistory[tabBar.currentIndex] || [];
+
+            if (history.length > 0)
+                history.pop();
+
+            shell.tabHistory[tabBar.currentIndex] = history;
+
+            // Возврат к корню закрывает поток целиком.
             if (pages.depth === 1)
                 shell.forgetTabScreen(tabBar.currentIndex);
         }

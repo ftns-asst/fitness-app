@@ -35,6 +35,11 @@ Rectangle {
     // жест перед самым важным действием.
     readonly property real footerHeight: footer.visible ? footer.implicitHeight : 0
 
+    // — Физика флика —
+    //
+    // Токены Theme, без масштабирований: скорости Flickable уже логические
+    // пиксели, и умножение на плотность экрана увеличивало путь выбега во
+    // столько же раз (см. Theme §Физика прокрутки и tst_scroll_physics.qml).
     // — Эластичный overscroll (Android-стиль) —
     //
     // На touch-платформах границы позволяют дотянуть контент за край с плавным
@@ -147,6 +152,17 @@ Rectangle {
         clip: true
         contentHeight: bodyColumn.implicitHeight
         contentWidth: width
+        // Страница скроллится только по вертикали: диагональный жест не
+        // стартует случайный горизонтальный флик (горизонтальные ряды —
+        // FilterChips, RepsWheel — живут в своих фликаблах).
+        flickableDirection: Flickable.VerticalFlick
+        flickDeceleration: Theme.flickDeceleration
+        maximumFlickVelocity: Theme.flickMaxVelocity
+        // Целочисленные позиции контента: при дробных координатах GPU на
+        // каждом кадре скролла сэмплирует текст и карточки по нецелым
+        // позициям — на мобильном GPU это просаживает кадр (120 → ~86 fps).
+        // Ступенчатость на 120 Гц не видна, а кадр дешевле.
+        pixelAligned: true
         topMargin: Spacing.safeGap
 
         // Десктоп: привычный скроллбар. Touch: только транзиентный индикатор

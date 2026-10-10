@@ -125,6 +125,77 @@ TestCase {
         compare(shell.pushedDepth, 1);
     }
 
+    // «Назад» проходит по всей цепочке переходов вкладки, а не ведёт сразу
+    // в корень: день → редактор → каталог → корень.
+    function test_backWalksThroughChain() {
+        shell.showTab(1);
+        shell.openProgramCatalog();
+        tryCompare(shell, "stackBusy", false);
+        shell.openProgramEditor();
+        tryCompare(shell, "stackBusy", false);
+        shell.openProgramDay(2, 0);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 4);
+
+        shell.goBack();
+        tryCompare(shell, "stackBusy", false);
+        tryCompare(shell, "pushedDepth", 3);
+        verify(shell.topItem instanceof ProgramEditPage, "назад из дня должен открыть редактор");
+
+        shell.goBack();
+        tryCompare(shell, "stackBusy", false);
+        tryCompare(shell, "pushedDepth", 2);
+        verify(shell.topItem instanceof ProgramCatalogPage, "назад из редактора должен открыть каталог");
+
+        shell.goBack();
+        tryCompare(shell, "stackBusy", false);
+        tryCompare(shell, "pushedDepth", 1);
+    }
+
+    // Возврат на вкладку восстанавливает ВСЮ цепочку переходов, а не только
+    // последний экран (отзыв: «вернулся — а перед редактором потерялся
+    // каталог»: назад из восстановленного экрана не должен вести в корень).
+    function test_switchingTabRestoresWholeChain() {
+        shell.showTab(1);
+        shell.openProgramCatalog();
+        tryCompare(shell, "stackBusy", false);
+        shell.openProgramEditor();
+        tryCompare(shell, "stackBusy", false);
+        shell.openProgramDay(2, 0);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 4);
+
+        shell.showTab(0);
+        tryCompare(shell, "stackBusy", false);
+        tryCompare(shell, "pushedDepth", 1);
+
+        shell.showTab(1);
+        tryCompare(shell, "stackBusy", false);
+        tryCompare(shell, "pushedDepth", 4);
+        compare(shell.currentTab, 1);
+        verify(shell.topItem instanceof ProgramDayPage, "верх цепочки — день, который открыли последним");
+    }
+
+    // Сохранение программы заменяет редактор обзором в стеке И в истории:
+    // иначе возврат на вкладку восстанавливал бы уже закрытую форму создания.
+    function test_saveReplacesEditorWithOverviewInHistory() {
+        shell.showTab(1);
+        shell.openProgramEditor();
+        tryCompare(shell, "stackBusy", false);
+
+        shell.finishProgramSave("test-p1", false, false);
+        tryCompare(shell, "stackBusy", false);
+        tryCompare(shell, "pushedDepth", 2);
+        verify(shell.topItem instanceof ProgramOverviewPage, "после создания программа показывается обзором");
+
+        shell.showTab(0);
+        tryCompare(shell, "stackBusy", false);
+        shell.showTab(1);
+        tryCompare(shell, "stackBusy", false);
+        tryCompare(shell, "pushedDepth", 2);
+        verify(shell.topItem instanceof ProgramOverviewPage, "восстанавливается обзор, а не закрытая форма создания");
+    }
+
     Component {
         id: shellWindowComponent
 

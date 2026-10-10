@@ -391,7 +391,7 @@ ApplicationWindow {
     FrameRateMeter {
         id: frameMeter
 
-        running: window.frameRateMode
+        running: window.frameRateMode || Theme.fpsCounter
     }
     Timer {
         id: frameRateTimer
@@ -401,6 +401,14 @@ ApplicationWindow {
         running: window.frameRateMode
 
         onTriggered: console.info("fps", frameMeter.framesPerSecond.toFixed(1), "frame-ms", (frameMeter.frameSeconds * 1000).toFixed(2))
+    }
+    // Плашка счётчика поверх экрана: включается настройкой в «Профиль →
+    // Параметры» (Theme.fpsCounter), клик сквозь неё не проходит в страницу
+    // и не нужен — плашка диагностическая. Стоит над всем контентом.
+    FpsOverlay {
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: Spacing.safeGap + 40
     }
 
     // — Зонд шрифтов: измеряем advanceWidth одного и того же текста в четырёх
