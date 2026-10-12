@@ -4,6 +4,7 @@
 #include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
+#include "Data/Exercises/Exercises_Repository.h"
 #include "Data/Network/Http_Client.h"
 #include "Data/Program/Measurement_Repository.h"
 #include "Data/Program/Program_Repository.h"
@@ -17,6 +18,8 @@
 #include "Domain/Workout_Logger.h"
 #include "Presentation/Auth_Qml_Bridge.h"
 #include "Presentation/Auth_VM.h"
+#include "Presentation/Exercises_Editor_VM.h"
+#include "Presentation/Exercises_VM.h"
 #include "Presentation/Macro_VM.h"
 #include "Presentation/Program_Catalog_VM.h"
 #include "Presentation/Program_Edit_VM.h"
@@ -215,6 +218,15 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	// QML-мост реального auth (issue 8, подключение UI через --real-auth).
 	Auth_Bridge_Instance =
 	    new Avm_Auth_Bridge(Auth_Repository_Instance, Users_Repository_Instance, Auth_Session_Instance, this);
+
+	// Каталог упражнений (спринт U4, issue 30): репозиторий поверх общих
+	// HTTP-клиента, сессии и SQLite; страница «Упражнения» получает ViewModel
+	// контекстным свойством ExercisesVM.
+	Exercises_Repository_Instance =
+	    new AExercises_Repository(HTTP_Client_Instance, Auth_Session_Instance, SQL_Database_Instance, this);
+	Exercises_VM_Instance = new Avm_Exercises(Exercises_Repository_Instance, 50, this);
+	// Редактор своего упражнения (спринт U5): та же база зависимостей.
+	Exercises_Editor_VM_Instance = new Avm_Exercises_Editor(Exercises_Repository_Instance, this);
 
 	Create_Program_Stack();
 
@@ -504,6 +516,16 @@ Avm_Program_Catalog *AsApp_Context::Program_Catalog_VM() const
 Avm_Macro *AsApp_Context::Macro_VM() const
 {
 	return Macro_VM_Instance;
+}
+//----------------------------------------------------------------------------
+Avm_Exercises *AsApp_Context::Exercises_VM() const
+{
+	return Exercises_VM_Instance;
+}
+//----------------------------------------------------------------------------
+Avm_Exercises_Editor *AsApp_Context::Exercises_Editor_VM() const
+{
+	return Exercises_Editor_VM_Instance;
 }
 //------------------------------------------------------------------------------
 Avm_Today *AsApp_Context::Today_VM() const

@@ -15,7 +15,9 @@ Item {
     property var auth: AuthViewModel
     property real bottomInset: 0
     readonly property int currentTab: tabBar.currentIndex
-    property var exercisesViewModel: ExercisesViewModel
+    // Каталог упражнений — контекстное свойство ExercisesVM (Avm_Exercises,
+    // спринт U4). typeof: в qmltestrunner контекст-свойств нет.
+    property var exercisesViewModel: typeof ExercisesVM !== "undefined" ? ExercisesVM : null
     property string initialProgramScreen: ""
     property int initialTab: 0
 
@@ -229,6 +231,13 @@ Item {
 
         pages.push(component);
     }
+    // Редактор своего упражнения (спринт U5): закрытие после сохранения
+    // перезагружает каталог — новая строка обязана появиться без ручного
+    // обновления.
+    function closeExerciseEditor() {
+        pages.pop();
+        shell.exercisesViewModel.reload();
+    }
 
     Component.onCompleted: {
         if (shell.initialProgramScreen.length > 0) {
@@ -285,7 +294,8 @@ Item {
             ExercisesPage {
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
                 topInset: shell.topInset
-                viewModel: shell.exercisesViewModel
+
+                onCreateOwnRequested: shell.pushPage(exerciseEditorComponent)
             }
             ProfilePage {
                 auth: shell.auth
@@ -449,6 +459,12 @@ Item {
             "macro-calculator": openMacroCalculator,
             "profile-settings": openProfileSettings,
             "set-entry": openSetEntry,
+            "exercise-edit": function () {
+                if (typeof ExercisesEditorVM !== "undefined" && ExercisesEditorVM !== null)
+                    ExercisesEditorVM.reset();
+
+                shell.pushPage(exerciseEditorComponent);
+            },
             "program-catalog": openProgramCatalog,
             "program-overview": openProgramOverview,
             "program-edit": openProgramEditor,
@@ -542,6 +558,17 @@ Item {
         }
     }
 
+    Component {
+        id: exerciseEditorComponent
+
+        ExercisesEditorPage {
+            bottomInset: shell.pageBottomInset
+            topInset: shell.topInset
+
+            onBackRequested: shell.closeExerciseEditor()
+            onFinished: shell.closeExerciseEditor()
+        }
+    }
     Component {
         id: programCatalogComponent
 

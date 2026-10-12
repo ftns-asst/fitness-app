@@ -86,6 +86,128 @@ int AExercises_Api::Get_List(const QString &in_type, const QStringList &in_muscl
 	return Send_Optional(request, Kind_List);
 }
 //----------------------------------------------------------------------------
+// Тело POST/PATCH: name, is_public, description (omitempty — пустой не
+// отправляем), muscle_groups, equipment; PATCH добавляет id (обязан совпадать
+// с путём, docs/03, §3.9).
+//----------------------------------------------------------------------------
+QJsonObject Exercises_Mutation_Body(const QString &in_id, const QString &in_name, bool in_is_public,
+                                    const QString &in_description, const QStringList &in_muscle_groups,
+                                    const QStringList &in_equipments)
+{
+	QJsonObject body;
+	QJsonArray groups;
+	QJsonArray equipments;
+
+	body.insert("name", in_name);
+	body.insert("is_public", in_is_public);
+
+	for (int i = 0; i < in_muscle_groups.size(); ++i)
+		groups.append(in_muscle_groups.at(i));
+
+	for (int i = 0; i < in_equipments.size(); ++i)
+		equipments.append(in_equipments.at(i));
+
+	body.insert("muscle_groups", groups);
+	body.insert("equipment", equipments);
+
+	if (in_description.isEmpty() == false)
+		body.insert("description", in_description);
+
+	if (in_id.isEmpty() == false)
+		body.insert("id", in_id);
+
+	return body;
+}
+//----------------------------------------------------------------------------
+int AExercises_Api::Create_Exercise(const QString &in_name, bool in_is_public, const QString &in_description,
+                                    const QStringList &in_muscle_groups, const QStringList &in_equipments)
+{
+	SHttp_Request request;
+
+	Last_Error_Text.clear();
+
+	// Имя — единственное содержательно обязательное поле: сервер в Swagger
+	// не помечает required, но пустое имя не имеет смысла (docs/03, §3.9).
+	if (in_name.trimmed().isEmpty())
+	{
+		Last_Error_Text = "Название упражнения не может быть пустым";
+		return 0;
+	}
+
+	request.Method = "POST";
+	request.Path = "exercises";
+	request.Body = QJsonDocument(Exercises_Mutation_Body(QString(), in_name.trimmed(), in_is_public, in_description,
+	                                                     in_muscle_groups, in_equipments))
+	                   .toJson(QJsonDocument::Compact);
+
+	return Send_Authed_Mutation(request, Kind_Create);
+}
+//----------------------------------------------------------------------------
+int AExercises_Api::Update_Exercise(const QString &in_id, const QString &in_name, bool in_is_public,
+                                    const QString &in_description, const QStringList &in_muscle_groups,
+                                    const QStringList &in_equipments)
+{
+	SHttp_Request request;
+
+	Last_Error_Text.clear();
+
+	if (in_id.trimmed().isEmpty() || in_name.trimmed().isEmpty())
+	{
+		Last_Error_Text = "Название упражнения не может быть пустым";
+		return 0;
+	}
+
+	request.Method = "PATCH";
+	request.Path = QString("exercises/%1").arg(in_id.trimmed());
+	request.Body = QJsonDocument(Exercises_Mutation_Body(in_id.trimmed(), in_name.trimmed(), in_is_public,
+	                                                     in_description, in_muscle_groups, in_equipments))
+	                   .toJson(QJsonDocument::Compact);
+
+	return Send_Authed_Mutation(request, Kind_Update);
+}
+//----------------------------------------------------------------------------
+int AExercises_Api::Delete_Exercise(const QString &in_id)
+{
+	SHttp_Request request;
+
+	Last_Error_Text.clear();
+
+	if (in_id.trimmed().isEmpty())
+	{
+		Last_Error_Text = "Не указано упражнение для удаления";
+		return 0;
+	}
+
+	request.Method = "DELETE";
+	request.Path = QString("exercises/%1").arg(in_id.trimmed());
+
+	return Send_Authed_Mutation(request, Kind_Delete);
+}
+//----------------------------------------------------------------------------
+int AExercises_Api::Send_Authed_Mutation(const SHttp_Request &in_request, int in_kind)
+{
+	SPending_Call pending;
+	int inner_id;
+
+	if (Session_Instance == 0 || Session_Instance->Has_Session() == false)
+	{
+		Last_Error_Text = "Нет активной сессии: требуется вход";
+		return 0;
+	}
+
+	inner_id = Session_Instance->Send_Authed(in_request);
+
+	if (inner_id == 0)
+		return 0;
+
+	pending.Kind = in_kind;
+	pending.Source = Source_Session;
+	Pending_Calls.insert(Next_Request_Id, pending);
+	qCInfo(EXERCISES_Api_Log).noquote() << "mutation started" << Next_Request_Id << "kind" << in_kind;
+
+	return Next_Request_Id++;
+}
+//----------------------------------------------------------------------------
 int AExercises_Api::Get_Muscle_Groups()
 {
 	SHttp_Request request;
@@ -179,6 +301,30 @@ void AExercises_Api::Finish_Call(int in_request_id, const SHttp_Response &in_res
 		emit equipmentsFinished(in_request_id, equipments, error);
 		break;
 	}
+	case Kind_Create:
+	{
+		SExercises_Item item;
+
+		Parse_Single(in_response, item, error);
+		qCInfo(EXERCISES_Api_Log).noquote() << "create finished" << in_request_id << "id" << item.ID;
+		emit createFinished(in_request_id, item, error);
+		break;
+	}
+	case Kind_Update:
+	{
+		SExercises_Item item;
+
+		Parse_Single(in_response, item, error);
+		qCInfo(EXERCISES_Api_Log).noquote() << "update finished" << in_request_id << "id" << item.ID;
+		emit updateFinished(in_request_id, item, error);
+		break;
+	}
+	case Kind_Delete:
+	{
+		qCInfo(EXERCISES_Api_Log).noquote() << "delete finished" << in_request_id;
+		emit deleteFinished(in_request_id, in_response.Error);
+		break;
+	}
 	default:
 	{
 		QVector<SExercises_Item> items;
@@ -188,6 +334,65 @@ void AExercises_Api::Finish_Call(int in_request_id, const SHttp_Response &in_res
 		emit listFinished(in_request_id, items, error);
 		break;
 	}
+	}
+}
+//----------------------------------------------------------------------------
+bool AExercises_Api::Parse_Item(const QJsonObject &in_row, SExercises_Item &out_item)
+{
+	QJsonArray groups;
+	QJsonArray equipment;
+	int g;
+	int e;
+
+	out_item = SExercises_Item();
+
+	out_item.ID = in_row.value("id").toString();
+	out_item.Name = in_row.value("name").toString();
+
+	// omitempty-поля отсутствуют в JSON целиком: toString() вернул бы
+	// null-QString, а bind null упёрся бы в NOT NULL DEFAULT '' кэша —
+	// DEFAULT работает только для опущенной колонки, не для NULL.
+	out_item.Description =
+	    in_row.value("description").isString() ? in_row.value("description").toString() : QString("");
+	out_item.Owner_ID = in_row.value("owner_id").isString() ? in_row.value("owner_id").toString() : QString("");
+	out_item.Has_Owner = out_item.Owner_ID.isEmpty() == false;
+	out_item.Created_At = in_row.value("created_at").isString() ? in_row.value("created_at").toString() : QString("");
+
+	groups = in_row.value("muscle_groups").toArray();
+
+	for (g = 0; g < groups.size(); ++g)
+		out_item.Muscle_Groups.append(groups.at(g).toString());
+
+	equipment = in_row.value("equipment").toArray();
+
+	for (e = 0; e < equipment.size(); ++e)
+		out_item.Equipment.append(equipment.at(e).toString());
+
+	// Обязательные поля успешного ответа (docs/03, §3.9).
+	return out_item.ID.isEmpty() == false && out_item.Name.isEmpty() == false;
+}
+//----------------------------------------------------------------------------
+// Один Exercise (ответ POST/PATCH; схема ответа POST в Swagger декларирует
+// тело запроса — дефект спецификации, docs/03, §3.9). Не объект или без
+// обязательных полей — undefined_error.
+//----------------------------------------------------------------------------
+void AExercises_Api::Parse_Single(const SHttp_Response &in_response, SExercises_Item &out_item, AApi_Error &out_error)
+{
+	out_item = SExercises_Item();
+	out_error = AApi_Error();
+
+	if (in_response.Success == false)
+	{
+		out_error = in_response.Error;
+		return;
+	}
+
+	if (in_response.JSON_Valid == false || in_response.JSON.isObject() == false ||
+	    Parse_Item(in_response.JSON.object(), out_item) == false)
+	{
+		out_item = SExercises_Item();
+		out_error = AApi_Error("undefined_error", "Incomplete exercise response", in_response.HTTP_Status_Code,
+		                       in_response.Network_Error_Code);
 	}
 }
 //----------------------------------------------------------------------------
@@ -222,10 +427,13 @@ void AExercises_Api::Parse_List(const SHttp_Response &in_response, QVector<SExer
 
 		item.ID = row.value("id").toString();
 		item.Name = row.value("name").toString();
-		item.Description = row.value("description").toString();
-		item.Owner_ID = row.value("owner_id").toString();
+		// omitempty-поля отсутствуют в JSON целиком: toString() вернул бы
+		// null-QString, а bind null упёрся в NOT NULL DEFAULT '' кэша —
+		// DEFAULT работает только для опущенной колонки, не для NULL.
+		item.Description = row.value("description").isString() ? row.value("description").toString() : QString("");
+		item.Owner_ID = row.value("owner_id").isString() ? row.value("owner_id").toString() : QString("");
 		item.Has_Owner = item.Owner_ID.isEmpty() == false;
-		item.Created_At = row.value("created_at").toString();
+		item.Created_At = row.value("created_at").isString() ? row.value("created_at").toString() : QString("");
 
 		QJsonArray groups = row.value("muscle_groups").toArray();
 

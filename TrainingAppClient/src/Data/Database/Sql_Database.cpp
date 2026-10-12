@@ -164,6 +164,26 @@ bool AsSql_Database::Migrate()
 		return false;
 	}
 
+	// v7 — кэш каталога упражнений и справочников (спринт U2, issue 30).
+	// Новые таблицы без пересоздания существующих: кэш сервера независим от
+	// локального каталога exercises программы (v2), переписывать ничего нельзя.
+	if (version < 7 && (Migrate_Schema_V6_To_V7() == false || Write_Schema_Version(7) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	// v8 — метрики макронутриентов в перечне единиц правил: углеводы и жиры
+	// (спринт «КБЖУ в правилах»). CHECK не ALTER'ится, поэтому таблица
+	// program_rules пересоздаётся с переносом строк (приём v2 to v3 / v3 to v4).
+	if (version < 8 && (Migrate_Schema_V7_To_V8() == false || Write_Schema_Version(8) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
 	// Каталог упражнений проверяется при каждом открытии, а не только при
 	// создании схемы: базы, созданные до появления каталога, остались бы с
 	// пустой exercises, и создание любой программы молча отвергалось бы FK.
@@ -222,7 +242,14 @@ int AsSql_Database::Get_Current_Schema_Version()
 	// v6 — результат авторасчёта КБЖУ: числа показываются на главной, и без
 	// строки в базе экран расчёта по каждому заходу выглядел бы так, будто
 	// расчёт делают впервые.
-	return 6;
+	// v7 — кэш каталога упражнений и справочников (спринт U2, issue 30):
+	// серверный список с офлайн-фолбэком, изоморфно ответу GET /exercises
+	// (docs/03, §3.9). Локальный каталог exercises программы (v2) не трогается:
+	// это разные сущности — кэш сервера живёт отдельно от FK-каталога дней.
+	// v8 — метрики макронутриентов в перечне единиц правил: углеводы и жиры
+	// (спринт «КБЖУ в правилах»). Без них норма макросов из расчёта КБЖУ не
+	// закрепилась бы в программе. CHECK пересоздаётся (v7 to v8) с переносом строк.
+	return 8;
 }
 //----------------------------------------------------------------------------
 bool AsSql_Database::Ensure_Directory(const QString &in_path)
@@ -276,7 +303,7 @@ bool AsSql_Database::Create_Program_Rules_Table(const QString &in_name)
 	        "category TEXT NOT NULL CHECK (category IN ('nutrition', 'training', 'recovery', 'lifestyle', "
 	        "'technique', 'other')), "
 	        "code TEXT NOT NULL, title TEXT NOT NULL, "
-	        "metric TEXT NOT NULL CHECK (metric IN ('proteinGrams', 'caloriesKcal', 'waterMl', 'sleepHours', "
+	        "metric TEXT NOT NULL CHECK (metric IN ('proteinGrams', 'carbGrams', 'fatGrams', 'caloriesKcal', 'waterMl', 'sleepHours',"
 	        "'stepCount', 'bodyWeightKg', 'maxRpe', 'restHoursBetweenSessions', 'alcoholUnits', 'custom')), "
 	        "periodicity TEXT NOT NULL CHECK (periodicity IN ('perDay', 'perWeek', 'perWorkout', 'once')), "
 	        "target_min REAL, target_max REAL, target_exact REAL, "
@@ -446,6 +473,80 @@ bool AsSql_Database::Migrate_Schema_V5_To_V6()
 		return false;
 
 	return Add_Column_If_Missing("profile_local", "macro_carbs_g", "REAL");
+}
+//----------------------------------------------------------------------------
+// v7 — кэш каталога упражнений и справочников (спринт U2, issue 30). Таблицы
+// новые, данные не переносятся: кэш наполняется при первом живом запросе.
+// exercises_cache изоморфен ответу GET /exercises (docs/03, §3.9); списки
+// значений хранятся текстом через запятую — значения справочников латиница
+// без запятых, и этот вид устойчив к будущим новым значениям без ALTER.
+//----------------------------------------------------------------------------
+bool AsSql_Database::Migrate_Schema_V6_To_V7()
+{
+	QSqlQuery query(*Database_Handle);
+
+	if (query.exec("CREATE TABLE IF NOT EXISTS exercises_cache (id TEXT PRIMARY KEY NOT NULL, "
+	               "name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', "
+	               "owner_id TEXT NOT NULL DEFAULT '', is_own INTEGER NOT NULL DEFAULT 0 "
+	               "CHECK (is_own IN (0, 1)), muscle_groups TEXT NOT NULL DEFAULT '', "
+	               "equipment TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL)") == false)
+		return Set_Last_Error(QString("Не удалось создать exercises_cache: %1").arg(query.lastError().text()));
+
+	// Порядок справочника — как у сервера (фильтры-чипы повторяют его):
+	// сортировка по алфавиту при чтении перемешала бы значения.
+	if (query.exec("CREATE TABLE IF NOT EXISTS muscle_groups_ref "
+	               "(name TEXT PRIMARY KEY NOT NULL, position INTEGER NOT NULL)") == false ||
+	    query.exec("CREATE TABLE IF NOT EXISTS equipments_ref "
+	               "(name TEXT PRIMARY KEY NOT NULL, position INTEGER NOT NULL)") == false)
+		return Set_Last_Error(QString("Не удалось создать справочники упражнений: %1").arg(query.lastError().text()));
+
+	return true;
+}
+//----------------------------------------------------------------------------
+// Миграция v7 → v8 (спринт «КБЖУ в правилах»): метрики углеводов и жиров.
+//
+// CHECK не ALTER'ится, поэтому таблица program_rules пересоздаётся с переносом
+// строк — тот же приём, что в v2→v3 и v3→v4. Перенос всех строк без фильтра:
+// ограничение здесь не меняется (цель по-прежнему обязательна), добавляются
+// лишь новые допустимые значения metric, поэтому отбрасывать нечего.
+//----------------------------------------------------------------------------
+bool AsSql_Database::Migrate_Schema_V7_To_V8()
+{
+	const QString backup_name = QString("program_rules_v7_backup");
+
+	if (Execute_SQL(QString("DROP TABLE IF EXISTS %1").arg(backup_name)) == false)
+		return false;
+
+	if (Create_Program_Rules_Table(backup_name) == false)
+		return false;
+
+	if (Execute_SQL(
+	        QString("INSERT INTO %1 (id, program_id, category, code, title, metric, periodicity, target_min, "
+	                "target_max, target_exact, target_unit, applies_to, applies_days, check_source, enforcement, "
+	                "active_from, active_to, display_unit, note) "
+	                "SELECT id, program_id, category, code, title, metric, periodicity, target_min, target_max, "
+	                "target_exact, target_unit, applies_to, applies_days, check_source, enforcement, active_from, "
+	                "active_to, display_unit, note FROM program_rules")
+	            .arg(backup_name)) == false)
+		return false;
+
+	if (Execute_SQL("DROP TABLE program_rules") == false)
+		return false;
+
+	if (Create_Program_Rules_Table(QString("program_rules")) == false)
+		return false;
+
+	if (Execute_SQL(
+	        QString("INSERT INTO program_rules (id, program_id, category, code, title, metric, periodicity, "
+	                "target_min, target_max, target_exact, target_unit, applies_to, applies_days, check_source, "
+	                "enforcement, active_from, active_to, display_unit, note) "
+	                "SELECT id, program_id, category, code, title, metric, periodicity, target_min, target_max, "
+	                "target_exact, target_unit, applies_to, applies_days, check_source, enforcement, active_from, "
+	                "active_to, display_unit, note FROM %1")
+	            .arg(backup_name)) == false)
+		return false;
+
+	return Execute_SQL(QString("DROP TABLE %1").arg(backup_name));
 }
 //----------------------------------------------------------------------------
 // Повторный ALTER падает, поэтому столбец добавляется только при его отсутствии.

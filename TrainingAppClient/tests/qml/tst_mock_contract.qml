@@ -47,17 +47,8 @@ TestCase {
         verifyUniqueIds(MockCatalog.workoutHistory, "workoutHistory");
         verifyUniqueIds(MockCatalog.profileEditFields, "profileEditFields");
     }
-    function test_exercisesViewModelFiltersCatalog() {
-        const groups = ExercisesViewModel.muscleGroups;
-        const byQuery = ExercisesViewModel.filteredExercises("присед", "");
-        const byGroup = ExercisesViewModel.filteredExercises("", groups[0]);
-
-        verify(groups.length > 0);
-        compare(byQuery.length, 1);
-        verify(byGroup.length > 0);
-        for (let i = 0; i < byGroup.length; ++i)
-            compare(byGroup[i].muscleGroup, groups[0]);
-    }
+    // Тест mock-фильтрации каталога упражнений удалён вместе с mock-VM:
+    // спринт U4 заменил её серверным поиском (tst_Exercises_VM, cpp).
     function test_plansViewModelSortsWithoutMutatingSource() {
         const sourceFirstId = MockCatalog.plans[0].id;
         const byRating = PlansViewModel.sortedPlans(0);

@@ -101,6 +101,8 @@ add_library(TrainingAppCore STATIC
     src/Data/Database/Sql_Database.cpp
     src/Data/Exercises/Exercises_Api.h
     src/Data/Exercises/Exercises_Api.cpp
+    src/Data/Exercises/Exercises_Repository.h
+    src/Data/Exercises/Exercises_Repository.cpp
     src/Data/Network/Api_Error.h
     src/Data/Network/Api_Error.cpp
     src/Data/Network/Http_Client.h
@@ -111,6 +113,10 @@ add_library(TrainingAppCore STATIC
     src/Data/Users/Users_Repository.cpp
     src/Presentation/Auth_VM.h
     src/Presentation/Auth_VM.cpp
+    src/Presentation/Exercises_VM.h
+    src/Presentation/Exercises_VM.cpp
+    src/Presentation/Exercises_Editor_VM.h
+    src/Presentation/Exercises_Editor_VM.cpp
     src/Presentation/Auth_Qml_Bridge.h
     src/Presentation/Auth_Qml_Bridge.cpp
 )
@@ -146,7 +152,7 @@ set_source_files_properties(
     qml/Mock/MockSession.qml
     qml/Mock/MockTokenStore.qml
     qml/Presentation/AuthViewModel.qml
-    qml/Presentation/ExercisesViewModel.qml
+    qml/Presentation/ExerciseTexts.qml
     qml/Presentation/PlansViewModel.qml
     qml/Presentation/ProfileViewModel.qml
     qml/Components/BackRouter.qml
@@ -197,7 +203,6 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         # Stable presentation contracts (mock-backed until phase V)
         qml/Presentation/AuthFormController.qml
         qml/Presentation/AuthViewModel.qml
-        qml/Presentation/ExercisesViewModel.qml
         qml/Presentation/PlansViewModel.qml
         qml/Presentation/ProfileViewModel.qml
 
@@ -238,6 +243,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Pages/Today/TodayPage.qml
         qml/Pages/Plans/PlansPage.qml
         qml/Pages/Exercises/ExercisesPage.qml
+    qml/Pages/Exercises/ExercisesEditorPage.qml
         qml/Pages/Profile/ProfilePage.qml
 )
 

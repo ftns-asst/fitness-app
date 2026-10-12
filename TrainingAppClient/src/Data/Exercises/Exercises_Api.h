@@ -55,7 +55,10 @@ public:
 	{
 		Kind_List = 0,
 		Kind_Muscle_Groups,
-		Kind_Equipments
+		Kind_Equipments,
+		Kind_Create,
+		Kind_Update,
+		Kind_Delete
 	};
 
 	AExercises_Api(AsHttp_Client *in_http_client, AsAuth_Session *in_session, QObject *in_parent = 0);
@@ -64,12 +67,25 @@ public:
 	             const QString &in_search, int in_limit, int in_offset);
 	int Get_Muscle_Groups();
 	int Get_Equipments();
+	// CRUD своего упражнения (спринт U5, docs/03, §3.9). Возвращают 0 при
+	// невалидных локальных данных — запрос не отправляется. POST/PATCH/DELETE
+	// неидемпотентны — retry выключен. Ответ `POST` Swagger декларирует телом
+	// запроса (дефект спецификации) — фактически это Exercise, парсится как он;
+	// `DELETE` отвечает 200 без тела.
+	int Create_Exercise(const QString &in_name, bool in_is_public, const QString &in_description,
+	                    const QStringList &in_muscle_groups, const QStringList &in_equipments);
+	int Update_Exercise(const QString &in_id, const QString &in_name, bool in_is_public, const QString &in_description,
+	                    const QStringList &in_muscle_groups, const QStringList &in_equipments);
+	int Delete_Exercise(const QString &in_id);
 	QString Last_Error() const;
 
 signals:
 	void listFinished(int requestId, const QVector<SExercises_Item> &items, const AApi_Error &error);
 	void muscleGroupsFinished(int requestId, const QStringList &groups, const AApi_Error &error);
 	void equipmentsFinished(int requestId, const QStringList &equipments, const AApi_Error &error);
+	void createFinished(int requestId, const SExercises_Item &item, const AApi_Error &error);
+	void updateFinished(int requestId, const SExercises_Item &item, const AApi_Error &error);
+	void deleteFinished(int requestId, const AApi_Error &error);
 
 private slots:
 	void on_Client_Finished(int in_request_id, const SHttp_Response &in_response);
@@ -83,8 +99,12 @@ private:
 	};
 
 	int Send_Optional(const SHttp_Request &in_request, int in_kind);
+	// Мутации приватны и требуют активную сессию: без неё запрос не уходит.
+	int Send_Authed_Mutation(const SHttp_Request &in_request, int in_kind);
 	void Finish_Call(int in_request_id, const SHttp_Response &in_response);
 	static bool Valid_Type(const QString &in_type);
+	static bool Parse_Item(const QJsonObject &in_row, SExercises_Item &out_item);
+	static void Parse_Single(const SHttp_Response &in_response, SExercises_Item &out_item, AApi_Error &out_error);
 	static QString List_Path(const QString &in_type, const QStringList &in_muscle_groups,
 	                         const QStringList &in_equipments, const QString &in_search, int in_limit, int in_offset);
 	static void Parse_List(const SHttp_Response &in_response, QVector<SExercises_Item> &out_items,

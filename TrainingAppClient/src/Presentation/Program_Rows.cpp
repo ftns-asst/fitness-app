@@ -150,6 +150,10 @@ struct SMetric
 
 const SMetric Rule_Metrics[] = {
     {"Белок", ERule_Metric::ProteinGrams, ERule_Display_Unit::G, ERule_Periodicity::PerDay, true, true, false},
+    // Углеводы и жиры из расчёта КБЖУ: норма задаётся диапазоном «не ниже N г»
+    // (спринт «КБЖУ в правилах»), поэтому allowsMin/allowsMax, как у белка.
+    {"Углеводы", ERule_Metric::CarbGrams, ERule_Display_Unit::G, ERule_Periodicity::PerDay, true, true, false},
+    {"Жиры", ERule_Metric::FatGrams, ERule_Display_Unit::G, ERule_Periodicity::PerDay, true, true, false},
     {"Калории", ERule_Metric::CaloriesKcal, ERule_Display_Unit::Kcal, ERule_Periodicity::PerDay, true, true, false},
     {"Вода", ERule_Metric::WaterMl, ERule_Display_Unit::Ml, ERule_Periodicity::PerDay, true, true, false},
     {"Сон", ERule_Metric::SleepHours, ERule_Display_Unit::Hours, ERule_Periodicity::PerDay, true, true, true},

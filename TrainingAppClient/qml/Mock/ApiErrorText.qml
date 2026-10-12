@@ -35,6 +35,12 @@ QtObject {
     readonly property string fallbackText: qsTr("Не удалось выполнить операцию")
 
     function textFor(key) {
+        // Пустой ключ — «ошибки нет»: тихий ранний возврат, а не warning на
+        // каждом вычислении биндинга.
+        if (key === undefined || key === null || key === "") {
+            return "";
+        }
+
         const text = errorTexts[key];
 
         if (key === "undefined_error") {

@@ -42,7 +42,7 @@ ApplicationWindow {
     // profile-settings — раздел «Параметры» профиля: в нём блок «Оформление».
     // Без имени в списке экран молча открывался бы как вкладка «Сегодня», и
     // smoke-проверка проходила бы, ничего не проверив.
-    readonly property string initialProgramScreen: ["program-catalog", "program-overview", "program-edit", "program-rules", "program-rules-picker", "program-stats", "program-day", "macro-calculator", "set-entry", "profile-settings"].indexOf(initialScreen) >= 0 ? initialScreen : ""
+    readonly property string initialProgramScreen: ["program-catalog", "program-overview", "program-edit", "program-rules", "program-rules-picker", "program-stats", "program-day", "macro-calculator", "set-entry", "profile-settings", "exercise-edit"].indexOf(initialScreen) >= 0 ? initialScreen : ""
 
     // — Режим снимка для дизайн-ревью и CI: --screenshot <путь> —
     readonly property int screenshotArgIndex: Qt.application.arguments.indexOf("--screenshot")

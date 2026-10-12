@@ -20,8 +20,10 @@ PageScaffold {
     // Имена дней недели в ISO-порядке 1…7 (§3.4).
     readonly property var fullWeekdayNames: [qsTr("Понедельник"), qsTr("Вторник"), qsTr("Среда"), qsTr("Четверг"), qsTr("Пятница"), qsTr("Суббота"), qsTr("Воскресенье")]
 
-    // Каталог упражнений пока минимальный: без него день нельзя наполнить.
-    readonly property var exerciseOptions: [
+    // Каталог упражнений: серверные названия из ExercisesVM (спринт U4, кэш
+    // зеркалится в локальный exercises — FK дня программы удовлетворён).
+    // Без VM (qmltestrunner) — минимальный локальный набор.
+    readonly property var fallbackExerciseOptions: [
         {
             id: "ex_squat",
             title: qsTr("Присед")
@@ -39,6 +41,7 @@ PageScaffold {
             title: qsTr("Становая")
         }
     ]
+    readonly property var exerciseOptions: page.loadExerciseOptions()
     // Четыре вида дня, а не два: модель различает кардио и мобилити, и прятать
     // их значит запрещать пользователю обычный вид недели.
     readonly property var kindOptions: [
@@ -83,6 +86,10 @@ PageScaffold {
         // (--screen program-day), минуя редактор программы.
         if (viewModel !== undefined && viewModel !== null && viewModel.autoSaveDraft !== undefined)
             viewModel.autoSaveDraft = true;
+
+        // Каталог упражнений для спиннера: без сети отдаёт кэш (см. U2).
+        if (typeof ExercisesVM !== "undefined" && ExercisesVM !== null && ExercisesVM.exercise_list.count === 0)
+            ExercisesVM.reload();
 
         viewModel.selectDay(page.weekday);
     }
@@ -337,6 +344,21 @@ PageScaffold {
             viewModel.setDayKind(weekday, value);
     }
 
+    function loadExerciseOptions() {
+        // Серверный каталог: роли AList_Model (title/id), плюс свежая загрузка
+        // при показе — ниже в Component.onCompleted.
+        if (typeof ExercisesVM !== "undefined" && ExercisesVM !== null && ExercisesVM.exercise_list.count > 0) {
+            const rows = [];
+            const list = ExercisesVM.exercise_list;
+
+            for (let i = 0; i < list.count; ++i)
+                rows.push(list.get(i));
+
+            return rows;
+        }
+
+        return page.fallbackExerciseOptions;
+    }
     function addExercise() {
         if (viewModel === undefined || viewModel === null)
             return;

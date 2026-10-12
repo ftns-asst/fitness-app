@@ -2,7 +2,10 @@
 #include "App/App_Context.h"
 
 #include "App/App_Logger.h"
+#include "Data/Exercises/Exercises_Repository.h"
 #include "Presentation/Auth_Qml_Bridge.h"
+#include "Presentation/Exercises_Editor_VM.h"
+#include "Presentation/Exercises_VM.h"
 #include "Presentation/Macro_VM.h"
 #include "Presentation/Program_Catalog_VM.h"
 #include "Presentation/Program_Edit_VM.h"
@@ -145,6 +148,11 @@ int main(int argc, char *argv[])
 	// Экран «Рассчитать» КБЖУ (спринт S7): модель считает по формулам домена и
 	// хранит дату рождения и активность в profile_local (схема v5).
 	engine.rootContext()->setContextProperty("MacroVM", static_cast<QObject *>(app_context.Macro_VM()));
+	// Каталог упражнений на живом API (спринт U4, issue 30).
+	engine.rootContext()->setContextProperty("ExercisesVM", static_cast<QObject *>(app_context.Exercises_VM()));
+	// Форма своего упражнения (спринт U5): создание, правка, удаление.
+	engine.rootContext()->setContextProperty("ExercisesEditorVM",
+	                                         static_cast<QObject *>(app_context.Exercises_Editor_VM()));
 
 	engine.loadFromModule("TrainingAppClient", "Main");
 

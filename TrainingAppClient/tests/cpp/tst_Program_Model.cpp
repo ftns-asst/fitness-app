@@ -48,6 +48,11 @@ void AProgram_Model_Test::enumRoundTrip()
 	QCOMPARE(To_String(EProgression_Type::DoubleProgression), QString("doubleProgression"));
 	QCOMPARE(To_String(ERule_Category::Technique), QString("technique"));
 	QCOMPARE(To_String(ERule_Metric::RestHoursBetweenSessions), QString("restHoursBetweenSessions"));
+	// Метрики макронутриентов (спринт «КБЖУ в правилах»): правила «белок/углеводы/
+	// жиры ≥ N г» создаются из расчёта КБЖУ, и без них в программе нечем закрепить
+	// нормы макросов. Значения совпадают с CHECK schema v8.
+	QCOMPARE(To_String(ERule_Metric::CarbGrams), QString("carbGrams"));
+	QCOMPARE(To_String(ERule_Metric::FatGrams), QString("fatGrams"));
 	QCOMPARE(To_String(ERule_Periodicity::PerWorkout), QString("perWorkout"));
 	QCOMPARE(To_String(ERule_Applies_To::CustomDays), QString("customDays"));
 	QCOMPARE(To_String(ERule_Check_Source::ComputedFromLog), QString("computedFromLog"));
@@ -70,6 +75,15 @@ void AProgram_Model_Test::enumRoundTrip()
 	ECheckin_Source source = ECheckin_Source::Manual;
 	QVERIFY(From_String(QString("computed"), source));
 	QCOMPARE(source, ECheckin_Source::Computed);
+
+	// Метрики макронутриентов читаются обратно из строк (правила из расчёта КБЖУ
+	// парсятся из кэша/БД теми же строками, что пишет To_String).
+	ERule_Metric carb = ERule_Metric::ProteinGrams;
+	ERule_Metric fat = ERule_Metric::ProteinGrams;
+	QVERIFY(From_String(QString("carbGrams"), carb));
+	QCOMPARE(carb, ERule_Metric::CarbGrams);
+	QVERIFY(From_String(QString("fatGrams"), fat));
+	QCOMPARE(fat, ERule_Metric::FatGrams);
 
 	EGoal_Target_State target_state = EGoal_Target_State::Active;
 	QVERIFY(From_String(QString("dropped"), target_state));

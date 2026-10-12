@@ -1,6 +1,11 @@
+#include "Data/Auth/Auth_Session.h"
+#include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
+#include "Data/Network/Http_Client.h"
 #include "Data/Program/Program_Repository.h"
 #include "Data/Program/Rule_Repository.h"
+#include "Data/Users/Users_Repository.h"
+#include "Domain/Macro_Calculator.h"
 #include "Presentation/Program_Rules_VM.h"
 
 #include <QSignalSpy>
@@ -29,6 +34,15 @@ private slots:
 	void adherenceCountsVerdictsOnly();
 	void adherenceComputedAfterRulesLoad();
 	void emitsChangedOnReloadAndSave();
+	// — Генерация правил из расчёта КБЖУ (спринт «КБЖУ в правилах») —
+	// Кнопка на экране правил создаёт/обновляет 4 правила питания (белок,
+	// углеводы, жиры, калории) в активной программе по сохранённому расчёту.
+	// Проверяется главное: правила появляются с целевыми значениями расчёта,
+	// повторное нажатие обновляет их, а не дублирует, а без расчёта кнопка
+	// отказывает понятной ошибкой, не создавая пустых правил.
+	void generateRulesFromMacroCreatesNutritionRules();
+	void generateRulesFromMacroUpdatesInsteadOfDuplicating();
+	void generateRulesFromMacroRequiresCalculatedMacro();
 
 private:
 	void Seed_Program(const QString &in_user_id, const QString &in_program_id);
@@ -37,6 +51,11 @@ private:
 	void Seed_User(const QString &in_tag);
 	SProgram_Rule Make_Rule(const QString &in_program_id, const QString &in_id, const QString &in_code,
 	                        ERule_Check_Source in_source);
+	// Сохранённый результат расчёта КБЖУ для генерации правил: генерация читает
+	// его из profile_local, а не из аргумента, чтобы числа правил совпадали с
+	// тем, что человек видел на экране расчёта.
+	void Seed_Macro_Result(const QString &in_user_id, double in_protein, double in_fat, double in_carbs,
+	                      double in_calories);
 	// Строка списка по имени роли: тест не должен знать числовых значений ролей.
 	QVariant Row_By_Role(const AList_Model *in_model, int in_row, const QString &in_role) const;
 
@@ -44,6 +63,10 @@ private:
 	AsSql_Database Database;
 	AProgram_Repository *Program_Repository = 0;
 	ARule_Repository *Rule_Repository = 0;
+	AUsers_Repository *Users_Repository = 0;
+	AsHttp_Client HTTP_Client = AsHttp_Client(QUrl());
+	AsToken_Store Token_Store = AsToken_Store(&Database);
+	AsAuth_Session Auth_Session = AsAuth_Session(&HTTP_Client, &Token_Store);
 };
 //----------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::initTestCase()
@@ -52,6 +75,23 @@ void AProgram_Rules_VM_Test::initTestCase()
 	QVERIFY(Database.Open(Directory.filePath("program_rules_vm.sqlite3")));
 	Program_Repository = new AProgram_Repository(&Database, this);
 	Rule_Repository = new ARule_Repository(&Database, this);
+	// Репозиторий пользователя нужен генерации правил: она читает сохранённый
+	// расчёт КБЖУ из profile_local. Сессия и HTTP-клиент — заглушки: генерация
+	// не ходит в сеть, только в локальную базу.
+	Users_Repository = new AUsers_Repository(&Auth_Session, &Database, this);
+}
+//----------------------------------------------------------------------------
+void AProgram_Rules_VM_Test::Seed_Macro_Result(const QString &in_user_id, double in_protein, double in_fat,
+                                               double in_carbs, double in_calories)
+{
+	AsMacro_Calculator::SResult result;
+
+	result.Protein_G = in_protein;
+	result.Fat_G = in_fat;
+	result.Carbs_G = in_carbs;
+	result.Calories_Kcal = in_calories;
+
+	QVERIFY(Users_Repository->Save_Macro_Result(in_user_id, result));
 }
 //----------------------------------------------------------------------------
 QVariant AProgram_Rules_VM_Test::Row_By_Role(const AList_Model *in_model, int in_row, const QString &in_role) const
@@ -331,6 +371,68 @@ void AProgram_Rules_VM_Test::emitsChangedOnReloadAndSave()
 
 	QVERIFY(vm.Save_Checkin("p_signal_r_protein", "done", 150, true, ""));
 	QCOMPARE(spy.count(), 2);
+}
+//----------------------------------------------------------------------------
+// Генерация создаёт четыре правила питания с целевыми значениями расчёта:
+// белок/углеводы/жиры — «не ниже N г», калории — «ровно C ккал». Именно это
+// закрепляет норму макросов в программе, чтобы её можно было отмечать.
+//----------------------------------------------------------------------------
+void AProgram_Rules_VM_Test::generateRulesFromMacroCreatesNutritionRules()
+{
+	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
+	Seed_User("gen");
+	Seed_Macro_Result("u_gen", 150, 70, 250, 2400);
+	vm.Set_Today("2026-10-13");
+
+	QVERIFY(vm.Reload("u_gen"));
+	const int before = vm.rules()->Row_Count();
+
+	QVERIFY(vm.Generate_Rules_From_Macro("u_gen"));
+
+	// Прежние правила (белок + шаги) остаются, к ним добавляются четыре макро.
+	QCOMPARE(vm.rules()->Row_Count(), before + 4);
+
+	// Повторная генерация по тому же расчёту не должна ничего менять в наборе.
+	QVERIFY(vm.Generate_Rules_From_Macro("u_gen"));
+	QCOMPARE(vm.rules()->Row_Count(), before + 4);
+}
+//----------------------------------------------------------------------------
+// Повторное нажатие обновляет целевые значения макро-правил по новому расчёту,
+// а не копит дубликаты: иначе экран правил засорялся бы одинаковыми строками, а
+// adherence считал бы по двум противоречащим нормам белка.
+//----------------------------------------------------------------------------
+void AProgram_Rules_VM_Test::generateRulesFromMacroUpdatesInsteadOfDuplicating()
+{
+	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
+	Seed_User("upd");
+	Seed_Macro_Result("u_upd", 150, 70, 250, 2400);
+	vm.Set_Today("2026-10-13");
+
+	QVERIFY(vm.Reload("u_upd"));
+	QVERIFY(vm.Generate_Rules_From_Macro("u_upd"));
+	const int after_first = vm.rules()->Row_Count();
+
+	// Пересчёт с другими числами — цель правил обязана поехать, а не удвоиться.
+	Seed_Macro_Result("u_upd", 170, 80, 200, 2200);
+	QVERIFY(vm.Generate_Rules_From_Macro("u_upd"));
+	QCOMPARE(vm.rules()->Row_Count(), after_first);
+}
+//----------------------------------------------------------------------------
+// Без сохранённого расчёта кнопка отказывает понятной ошибкой и не создаёт
+// пустых правил: «углеводы ≥ 0 г» в программе бессмысленны и только запутали бы.
+//----------------------------------------------------------------------------
+void AProgram_Rules_VM_Test::generateRulesFromMacroRequiresCalculatedMacro()
+{
+	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
+	Seed_User("nocalc");
+	vm.Set_Today("2026-10-13");
+
+	QVERIFY(vm.Reload("u_nocalc"));
+	const int before = vm.rules()->Row_Count();
+
+	QVERIFY(vm.Generate_Rules_From_Macro("u_nocalc") == false);
+	QVERIFY(vm.errorKey().isEmpty() == false);
+	QCOMPARE(vm.rules()->Row_Count(), before);
 }
 //----------------------------------------------------------------------------
 
