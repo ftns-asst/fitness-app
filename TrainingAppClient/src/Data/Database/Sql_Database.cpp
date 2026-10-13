@@ -1,0 +1,786 @@
+#include "Data/Database/Sql_Database.h"
+
+#include <QDir>
+#include <QFileInfo>
+#include <QLoggingCategory>
+#include <QSqlError>
+#include <QSqlQuery>
+#include <QStandardPaths>
+#include <QStringList>
+#include <QUuid>
+
+Q_LOGGING_CATEGORY(SQL_Log, "trainingapp.sqlite")
+
+// Столько строк показывает каталог упражнений после сида. Константа нужна
+// проверке «каталог уже полон, писать нечего» — она читается до записи.
+static const int Builtin_Exercise_Count = 4;
+
+//----------------------------------------------------------------------------
+AsSql_Database::AsSql_Database(QObject *in_parent) : QObject(in_parent)
+{
+	Connection_Name_Text = QString("training_app_%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
+}
+//----------------------------------------------------------------------------
+AsSql_Database::~AsSql_Database()
+{
+	Close();
+}
+//----------------------------------------------------------------------------
+bool AsSql_Database::Open(const QString &in_path)
+{
+	QString path;
+	QSqlDatabase database;
+
+	Close();
+	Last_Error_Text.clear();
+	Current_Version = 0;
+	path = in_path.trimmed().isEmpty() ? Get_Default_Database_Path() : in_path;
+
+	if (path != ":memory:" && Ensure_Directory(path) == false)
+		return false;
+
+	database = QSqlDatabase::addDatabase("QSQLITE", Connection_Name_Text);
+	database.setDatabaseName(path);
+	Database_Handle = new QSqlDatabase(database);
+	Database_File_Path = path;
+
+	if (Database_Handle->open() == false)
+	{
+		Set_Last_Error(QString("Не удалось открыть SQLite: %1").arg(Database_Handle->lastError().text()));
+		Close();
+		return false;
+	}
+
+	// Несколько desktop smoke-процессов могут одновременно открывать
+	// общий application cache. Даём SQLite дождаться короткой миграционной
+	// блокировки.
+	if (Execute_SQL("PRAGMA busy_timeout = 5000") == false || Execute_SQL("PRAGMA foreign_keys = ON") == false ||
+	    Migrate() == false)
+	{
+		Close();
+		return false;
+	}
+
+	qCInfo(SQL_Log).noquote() << "opened" << Database_File_Path << "schema" << Current_Version;
+
+	return true;
+}
+//----------------------------------------------------------------------------
+void AsSql_Database::Close()
+{
+	QString connection_name;
+
+	connection_name = Connection_Name_Text;
+
+	if (Database_Handle != 0)
+	{
+		Database_Handle->close();
+		delete Database_Handle;
+		Database_Handle = 0;
+	}
+
+	if (QSqlDatabase::contains(connection_name))
+		QSqlDatabase::removeDatabase(connection_name);
+
+	Database_File_Path.clear();
+	Current_Version = 0;
+}
+//----------------------------------------------------------------------------
+bool AsSql_Database::Migrate()
+{
+	int version;
+
+	if (Is_Open() == false)
+		return Set_Last_Error("SQLite не открыта");
+
+	if (Database_Handle->transaction() == false)
+		return Set_Last_Error(QString("Не удалось начать миграцию: %1").arg(Database_Handle->lastError().text()));
+
+	if (Execute_SQL("CREATE TABLE IF NOT EXISTS schema_version ("
+	                "id INTEGER PRIMARY KEY CHECK (id = 1), "
+	                "version INTEGER NOT NULL CHECK (version >= 0))") == false ||
+	    Read_Schema_Version(version) == false)
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	if (version > Get_Current_Schema_Version())
+	{
+		Database_Handle->rollback();
+
+		return Set_Last_Error(
+		    QString("Версия SQLite %1 новее поддерживаемой %2").arg(version).arg(Get_Current_Schema_Version()));
+	}
+
+	if (version < 1 && (Create_Schema_V1() == false || Write_Schema_Version(1) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	if (version < 2 && (Create_Schema_V2() == false || Write_Schema_Version(2) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	if (version < 3 && (Migrate_Schema_V2_To_V3() == false || Write_Schema_Version(3) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	// v4 — килограммы в перечне единиц правил. Идёт после v3: миграция
+	// пересоздаёт program_rules, а на свежей базе таблицы ещё нет.
+	if (version < 4 && (Migrate_Schema_V3_To_V4() == false || Write_Schema_Version(4) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	// v5 — параметры авторасчёта КБЖУ (спринт S7). Идёт последним и только
+	// добавляет столбцы: данные profile_local не трогаются, поэтому откат не
+	// нужен в отличие от пересоздания таблицы в v3.
+	if (version < 5 && (Migrate_Schema_V4_To_V5() == false || Write_Schema_Version(5) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	// v6 — результат авторасчёта КБЖУ. Как и v5, только добавляет столбцы:
+	// параметры и результат живут в одной строке profile_local, и пересоздание
+	// таблицы ради новых чисел затирало бы локальный профиль пользователя.
+	if (version < 6 && (Migrate_Schema_V5_To_V6() == false || Write_Schema_Version(6) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	// Каталог упражнений проверяется при каждом открытии, а не только при
+	// создании схемы: базы, созданные до появления каталога, остались бы с
+	// пустой exercises, и создание любой программы молча отвергалось бы FK.
+	// Пока каталог полон, проверка читает и не пишет: миграция не занимает
+	// блокировку записи у соседних процессов.
+	if (Seed_Builtin_Exercises() == false)
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	if (Database_Handle->commit() == false)
+		return Set_Last_Error(QString("Не удалось завершить миграцию: %1").arg(Database_Handle->lastError().text()));
+
+	Current_Version = Get_Current_Schema_Version();
+	Last_Error_Text.clear();
+
+	return true;
+}
+//----------------------------------------------------------------------------
+bool AsSql_Database::Is_Open() const
+{
+	return Database_Handle != 0 && Database_Handle->isOpen();
+}
+//----------------------------------------------------------------------------
+QString AsSql_Database::Get_Database_Path() const
+{
+	return Database_File_Path;
+}
+//----------------------------------------------------------------------------
+int AsSql_Database::Get_Schema_Version() const
+{
+	return Current_Version;
+}
+//----------------------------------------------------------------------------
+QString AsSql_Database::Get_Last_Error() const
+{
+	return Last_Error_Text;
+}
+//----------------------------------------------------------------------------
+QString AsSql_Database::Get_Default_Database_Path()
+{
+	return QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath("training-app.sqlite3");
+}
+//----------------------------------------------------------------------------
+int AsSql_Database::Get_Current_Schema_Version()
+{
+	// v2 — модель глобальной программы (срез W, docs/02-program-model.md §8).
+	// v3 — рекомендации текстом (issue 46): категория 'other' и правило без
+	// измеримой цели, если задан текст.
+	// v4 — килограммы в перечне единиц правил: без них метрика «вес тела» была
+	// недоступна в форме своего правила.
+	// v5 — параметры авторасчёта КБЖУ: дата рождения и уровень активности
+	// пользователя (спринт S7, issue 50).
+	// v6 — результат авторасчёта КБЖУ: числа показываются на главной, и без
+	// строки в базе экран расчёта по каждому заходу выглядел бы так, будто
+	// расчёт делают впервые.
+	return 6;
+}
+//----------------------------------------------------------------------------
+bool AsSql_Database::Ensure_Directory(const QString &in_path)
+{
+	QFileInfo file_info(in_path);
+	QDir directory;
+
+	directory = file_info.absoluteDir();
+
+	if (directory.exists() || directory.mkpath(".") || directory.exists())
+		return true;
+
+	return Set_Last_Error(QString("Не удалось создать каталог SQLite: %1").arg(directory.absolutePath()));
+}
+//----------------------------------------------------------------------------
+bool AsSql_Database::Set_Last_Error(const QString &in_error)
+{
+	Last_Error_Text = in_error;
+	qWarning("SQLite: %s", qUtf8Printable(Last_Error_Text));
+	return false;
+}
+//----------------------------------------------------------------------------
+bool AsSql_Database::Execute_SQL(const QString &in_sql)
+{
+	QSqlQuery query(*Database_Handle);
+
+	if (query.exec(in_sql))
+		return true;
+
+	// Текст запроса в сообщении: список CREATE идёт десятками строк, и по
+	// одному тексту ошибки непонятно, какой из них оборван.
+	return Set_Last_Error(QString("Ошибка SQLite: %1 [запрос: %2]").arg(query.lastError().text()).arg(in_sql));
+}
+//----------------------------------------------------------------------------
+// DDL program_rules. Живёт в функции, а не в двух местах текста: при смене
+// CHECK таблица пересоздаётся, и копия определения в миграции неизбежно
+// разошлась бы с боевой. Условие в конце — единственное, что отличает v3 от
+// v2: у рекомендации (категория 'other') вместо цели требуется текст.
+// Единица 'kg' добавлена в v4: без неё правило по весу тела не сохранялось.
+//
+// Имя таблицы подставляется не через %1: QString::arg() ищет первое вхождение
+// плейсхолдера, и подстановка в такой SQL с кавычками и процентами легко
+// попадает не туда. Поэтому имя просто конкатенируется.
+bool AsSql_Database::Create_Program_Rules_Table(const QString &in_name)
+{
+	const QString sql =
+	    QString("CREATE TABLE IF NOT EXISTS ") + in_name +
+	    QString(
+	        " (id TEXT PRIMARY KEY NOT NULL, "
+	        "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, "
+	        "category TEXT NOT NULL CHECK (category IN ('nutrition', 'training', 'recovery', 'lifestyle', "
+	        "'technique', 'other')), "
+	        "code TEXT NOT NULL, title TEXT NOT NULL, "
+	        "metric TEXT NOT NULL CHECK (metric IN ('proteinGrams', 'caloriesKcal', 'waterMl', 'sleepHours', "
+	        "'stepCount', 'bodyWeightKg', 'maxRpe', 'restHoursBetweenSessions', 'alcoholUnits', 'custom')), "
+	        "periodicity TEXT NOT NULL CHECK (periodicity IN ('perDay', 'perWeek', 'perWorkout', 'once')), "
+	        "target_min REAL, target_max REAL, target_exact REAL, "
+	        "target_unit TEXT NOT NULL CHECK (target_unit IN ('g', 'gPerKg', 'kg', 'kcal', 'ml', 'hours', 'count', "
+	        "'rpe', 'units')), "
+	        "applies_to TEXT NOT NULL DEFAULT 'allDays' CHECK (applies_to IN ('allDays', 'trainingDays', "
+	        "'restDays', 'customDays')), applies_days TEXT, "
+	        "check_source TEXT NOT NULL CHECK (check_source IN ('selfReport', 'computedFromSets', "
+	        "'computedFromProfile', 'computedFromSessions', 'computedFromLog', 'mixed')), "
+	        "enforcement TEXT NOT NULL DEFAULT 'soft' CHECK (enforcement IN ('soft', 'hard')), "
+	        "active_from TEXT, active_to TEXT, "
+	        "display_unit TEXT NOT NULL CHECK (display_unit IN ('g', 'gPerKg', 'kg', 'kcal', 'ml', 'hours', 'count', "
+	        "'rpe', 'units')), "
+	        "note TEXT, CHECK (target_min IS NOT NULL OR target_max IS NOT NULL OR target_exact IS NOT NULL "
+	        "OR (category = 'other' AND note IS NOT NULL AND TRIM(note) != '')))");
+
+	return Execute_SQL(sql);
+}
+//----------------------------------------------------------------------------
+bool AsSql_Database::Migrate_Schema_V2_To_V3()
+{
+	// Порядок важен: сначала копия под новым именем и перенос данных, и только
+	// потом удаление старой таблицы. Обратный порядок оставил бы базу без
+	// program_rules при сбое на переносе — то есть потеряла бы все правила.
+	const QString backup_name = QString("program_rules_v2_backup");
+
+	if (Execute_SQL(QString("DROP TABLE IF EXISTS %1").arg(backup_name)) == false)
+		return false;
+
+	if (Create_Program_Rules_Table(backup_name) == false)
+		return false;
+
+	// Переносим только осмысленные строки: у v2 не было текстовых правил, но
+	// строка без цели могла остаться от ручной правки базы, и новое
+	// ограничение отвергло бы её при переносе.
+	if (Execute_SQL(
+	        QString("INSERT INTO %1 (id, program_id, category, code, title, metric, periodicity, target_min, "
+	                "target_max, target_exact, target_unit, applies_to, applies_days, check_source, enforcement, "
+	                "active_from, active_to, display_unit, note) "
+	                "SELECT id, program_id, category, code, title, metric, periodicity, target_min, target_max, "
+	                "target_exact, target_unit, applies_to, applies_days, check_source, enforcement, active_from, "
+	                "active_to, display_unit, note FROM program_rules "
+	                "WHERE target_min IS NOT NULL OR target_max IS NOT NULL OR target_exact IS NOT NULL")
+	            .arg(backup_name)) == false)
+		return false;
+
+	if (Execute_SQL("DROP TABLE program_rules") == false)
+		return false;
+
+	if (Create_Program_Rules_Table(QString("program_rules")) == false)
+		return false;
+
+	if (Execute_SQL(
+	        QString("INSERT INTO program_rules (id, program_id, category, code, title, metric, periodicity, "
+	                "target_min, target_max, target_exact, target_unit, applies_to, applies_days, check_source, "
+	                "enforcement, active_from, active_to, display_unit, note) "
+	                "SELECT id, program_id, category, code, title, metric, periodicity, target_min, target_max, "
+	                "target_exact, target_unit, applies_to, applies_days, check_source, enforcement, active_from, "
+	                "active_to, display_unit, note FROM %1")
+	            .arg(backup_name)) == false)
+		return false;
+
+	return Execute_SQL(QString("DROP TABLE %1").arg(backup_name));
+}
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+// v3 → v4: в перечень единиц добавлены килограммы. CHECK не ALTER'ится, поэтому
+// таблица пересоздаётся, а строки переносятся. Приём тот же, что в v2→v3, и
+// та же оговорка: пересоздание без переноса стоило бы пользователю всех
+// правил программы.
+//
+// Переносятся все строки, а не только «осмысленные», как в v2→v3: в v4
+// ограничение по цели не меняется, поэтому отсеивать нечего, а фильтр здесь
+// был бы лишней возможностью потерять строку по недосмотру.
+bool AsSql_Database::Migrate_Schema_V3_To_V4()
+{
+	const QString backup_name = QString("program_rules_v3_backup");
+
+	if (Execute_SQL(QString("DROP TABLE IF EXISTS %1").arg(backup_name)) == false)
+		return false;
+
+	if (Create_Program_Rules_Table(backup_name) == false)
+		return false;
+
+	if (Execute_SQL(
+	        QString("INSERT INTO %1 (id, program_id, category, code, title, metric, periodicity, target_min, "
+	                "target_max, target_exact, target_unit, applies_to, applies_days, check_source, enforcement, "
+	                "active_from, active_to, display_unit, note) "
+	                "SELECT id, program_id, category, code, title, metric, periodicity, target_min, target_max, "
+	                "target_exact, target_unit, applies_to, applies_days, check_source, enforcement, active_from, "
+	                "active_to, display_unit, note FROM program_rules")
+	            .arg(backup_name)) == false)
+		return false;
+
+	if (Execute_SQL("DROP TABLE program_rules") == false)
+		return false;
+
+	if (Create_Program_Rules_Table(QString("program_rules")) == false)
+		return false;
+
+	if (Execute_SQL(
+	        QString("INSERT INTO program_rules (id, program_id, category, code, title, metric, periodicity, "
+	                "target_min, target_max, target_exact, target_unit, applies_to, applies_days, check_source, "
+	                "enforcement, active_from, active_to, display_unit, note) "
+	                "SELECT id, program_id, category, code, title, metric, periodicity, target_min, target_max, "
+	                "target_exact, target_unit, applies_to, applies_days, check_source, enforcement, active_from, "
+	                "active_to, display_unit, note FROM %1")
+	            .arg(backup_name)) == false)
+		return false;
+
+	return Execute_SQL(QString("DROP TABLE %1").arg(backup_name));
+}
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+// Миграция v4 → v5 (спринт S7, issue 50): параметры авторасчёта КБЖУ.
+//
+// Только ADD COLUMN. Пересоздание таблицы (как в v3) здесь было бы лишним
+// риском: накопленный локальный профиль пришлось бы переносить копированием
+// ради двух столбцов, а CHECK новых столбцов старые данные не затрагивает.
+//
+// birth_date хранится датой, а не возрастом: возраст завтра устареет, и счётчик
+// КБЖУ показал бы человека на десять лет моложе, чем он есть. Год рождения,
+// впрочем, тоже перестанет соответствовать — но пересчитывается сам.
+//----------------------------------------------------------------------------
+bool AsSql_Database::Migrate_Schema_V4_To_V5()
+{
+	// Таблица создаётся, если её нет. Формально она есть уже в v1, но миграция
+	// не должна зависеть от этого: база, собранная частично (сбой при создании,
+	// восстановление из частичной копии), должна чиниться, а не падать на ALTER
+	// отсутствующей таблицы.
+	if (Execute_SQL("CREATE TABLE IF NOT EXISTS profile_local (user_id TEXT PRIMARY KEY NOT NULL, level TEXT, "
+	                "goal TEXT, workouts_per_week INTEGER CHECK (workouts_per_week IS NULL OR workouts_per_week "
+	                "BETWEEN 0 AND 14), updated_at TEXT NOT NULL)") == false)
+		return false;
+
+	if (Add_Column_If_Missing("profile_local", "birth_date", "TEXT") == false)
+		return false;
+
+	return Add_Column_If_Missing("profile_local", "activity_level",
+	                             "TEXT CHECK (activity_level IS NULL OR activity_level IN "
+	                             "('sedentary', 'light', 'moderate', 'active', 'athlete'))");
+}
+//----------------------------------------------------------------------------
+// v6 — результат авторасчёта КБЖУ. Даты расчёта достаточно, чтобы отличить
+// свежие числа от прошлогодних: сами числа хранятся рядом с параметрами, потому
+// что главная показывает их без вызова домена — она не должна уметь считать
+// иначе, чем экран расчёта.
+//----------------------------------------------------------------------------
+bool AsSql_Database::Migrate_Schema_V5_To_V6()
+{
+	if (Add_Column_If_Missing("profile_local", "macro_calculated_at", "TEXT") == false)
+		return false;
+
+	if (Add_Column_If_Missing("profile_local", "macro_bmr_kcal", "REAL") == false)
+		return false;
+
+	if (Add_Column_If_Missing("profile_local", "macro_tdee_kcal", "REAL") == false)
+		return false;
+
+	if (Add_Column_If_Missing("profile_local", "macro_calories_kcal", "REAL") == false)
+		return false;
+
+	if (Add_Column_If_Missing("profile_local", "macro_protein_g", "REAL") == false)
+		return false;
+
+	if (Add_Column_If_Missing("profile_local", "macro_fat_g", "REAL") == false)
+		return false;
+
+	return Add_Column_If_Missing("profile_local", "macro_carbs_g", "REAL");
+}
+//----------------------------------------------------------------------------
+// Повторный ALTER падает, поэтому столбец добавляется только при его отсутствии.
+// Проверка идёт по информации схемы, а не по try/catch: исключение SQLite при
+// уже существующем столбце означало бы, что предыдущая попытка миграции
+// прервалась на середине, и повторный запуск обязан завершить её.
+//----------------------------------------------------------------------------
+bool AsSql_Database::Add_Column_If_Missing(const QString &in_table, const QString &in_column,
+                                           const QString &in_definition)
+{
+	QSqlQuery query(*Database_Handle);
+	bool exists = false;
+
+	// PRAGMA table_info не параметризуется, поэтому имя таблицы подставляется
+	// текстом. Это безопасно: оба имени — литералы вызывающего кода, а не
+	// пользовательский ввод (иначе значение извне ушло бы в DDL).
+	query.prepare(QString("PRAGMA table_info(%1)").arg(in_table));
+
+	if (query.exec() == false)
+		return Set_Last_Error(QString("Не удалось прочитать состав %1: %2").arg(in_table, query.lastError().text()));
+
+	while (query.next())
+	{
+		if (query.value(1).toString() != in_column)
+			continue;
+
+		exists = true;
+
+		break;
+	}
+
+	if (exists)
+		return true;
+
+	return Execute_SQL(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(in_table, in_column, in_definition));
+}
+//----------------------------------------------------------------------------
+// rule_checkins ссылается на program_rules через FK, поэтому создаётся после
+// неё и тоже отдельным вызовом: пока program_rules жил в списке statements,
+// порядок создания таблиц был случайным — правка списка ломала схему с
+// «no such table: main.program_rules».
+bool AsSql_Database::Create_Rule_Checkins_Table()
+{
+	return Execute_SQL(
+	    "CREATE TABLE IF NOT EXISTS rule_checkins (id TEXT PRIMARY KEY NOT NULL, "
+	    "rule_id TEXT NOT NULL REFERENCES program_rules(id) ON DELETE CASCADE, "
+	    "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, date TEXT NOT NULL, value REAL, "
+	    "unit TEXT NOT NULL, state TEXT NOT NULL CHECK (state IN ('done', 'failed', 'skipped', 'partial', 'unknown')), "
+	    "source TEXT NOT NULL CHECK (source IN ('manual', 'computed', 'imported')), "
+	    "session_id TEXT REFERENCES workouts(id) ON DELETE SET NULL, meal_log_id TEXT, note TEXT, "
+	    "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE (rule_id, date))");
+}
+//----------------------------------------------------------------------------
+bool AsSql_Database::Create_Schema_V1()
+{
+	const QStringList statements = {
+	    "CREATE TABLE IF NOT EXISTS user_cache (id TEXT PRIMARY KEY NOT NULL, email TEXT NOT NULL UNIQUE, "
+	    "display_name TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT)",
+	    "CREATE TABLE IF NOT EXISTS profile_cache (user_id TEXT PRIMARY KEY NOT NULL REFERENCES user_cache(id) "
+	    "ON DELETE CASCADE, age INTEGER CHECK (age IS NULL OR age BETWEEN 0 AND 150), gender TEXT, "
+	    "height_cm INTEGER CHECK (height_cm IS NULL OR height_cm BETWEEN 0 AND 300), "
+	    "weight_kg REAL CHECK (weight_kg IS NULL OR weight_kg BETWEEN 0 AND 999.999), updated_at TEXT)",
+	    "CREATE TABLE IF NOT EXISTS auth_tokens (id INTEGER PRIMARY KEY CHECK (id = 1), user_id TEXT NOT NULL, "
+	    "access_token TEXT NOT NULL, refresh_token TEXT NOT NULL, access_expires_at TEXT, refresh_expires_at TEXT, "
+	    "updated_at TEXT NOT NULL)",
+	    "CREATE TABLE IF NOT EXISTS profile_local (user_id TEXT PRIMARY KEY NOT NULL, level TEXT, goal TEXT, "
+	    "workouts_per_week INTEGER CHECK (workouts_per_week IS NULL OR workouts_per_week BETWEEN 0 AND 14), "
+	    "updated_at TEXT NOT NULL)",
+	    "CREATE TABLE IF NOT EXISTS sync_outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT NOT NULL, "
+	    "entity_id TEXT NOT NULL, operation TEXT NOT NULL, payload_json TEXT NOT NULL, created_at TEXT NOT NULL, "
+	    "attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0), next_attempt_at TEXT, last_error "
+	    "TEXT)",
+	    "CREATE INDEX IF NOT EXISTS sync_outbox_next_attempt_idx ON sync_outbox(next_attempt_at, id)"};
+
+	for (int i = 0; i < statements.size(); ++i)
+	{
+		if (Execute_SQL(statements.at(i)) == false)
+			return false;
+	}
+
+	return true;
+}
+//----------------------------------------------------------------------------
+// Схема v2 — модель глобальной программы (срез W, docs/02-program-model.md §8):
+// программы, цели, расписание, дни и предписания, правила и
+// отметки, ревизии, факты (workouts/sets), замеры тела, кэш статистики и
+// резерв питания. Каталог plans/plan_days/day_exercises и seed — миграция v3 (фаза
+// B).
+//----------------------------------------------------------------------------
+bool AsSql_Database::Create_Schema_V2()
+{
+	const QStringList statements = {
+	    "CREATE TABLE IF NOT EXISTS exercises (id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, subtitle TEXT, "
+	    "muscle_group TEXT NOT NULL, equipment TEXT NOT NULL, is_custom INTEGER NOT NULL DEFAULT 0 "
+	    "CHECK (is_custom IN (0, 1)), description TEXT, created_at TEXT NOT NULL)",
+
+	    "CREATE TABLE IF NOT EXISTS programs (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, title TEXT NOT "
+	    "NULL, "
+	    "source_kind TEXT NOT NULL CHECK (source_kind IN ('template', 'copy', 'scratch', 'matched')), "
+	    "source_template_id TEXT, "
+	    "goal TEXT NOT NULL CHECK (goal IN ('strength', 'muscle', 'fitness', 'fatLoss', 'endurance')), "
+	    "level TEXT NOT NULL CHECK (level IN ('beginner', 'intermediate', 'advanced')), "
+	    "schedule_kind TEXT NOT NULL CHECK (schedule_kind IN ('weekday', 'rotation')), "
+	    "state TEXT NOT NULL CHECK (state IN ('draft', 'active', 'paused', 'completed', 'cancelled', 'archived')), "
+	    "revision INTEGER NOT NULL CHECK (revision >= 1), start_date TEXT, actual_start_date TEXT, "
+	    "weeks_total INTEGER NOT NULL DEFAULT 0 CHECK (weeks_total >= 0 AND weeks_total <= 52), "
+	    "extended_weeks INTEGER NOT NULL DEFAULT 0 CHECK (extended_weeks >= 0), "
+	    "term_mode TEXT NOT NULL DEFAULT 'fixedWeeks' CHECK (term_mode IN ('fixedWeeks', 'openEnded')), "
+	    "end_date_generated TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, "
+	    "sync_state TEXT NOT NULL DEFAULT 'local' CHECK (sync_state IN ('synced', 'local', 'syncing', 'offline')), "
+	    "note TEXT)",
+
+	    "CREATE TABLE IF NOT EXISTS goal_targets (id TEXT PRIMARY KEY NOT NULL, "
+	    "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, "
+	    "metric TEXT NOT NULL CHECK (metric IN ('bodyWeightKg', 'workingWeightKg', 'bodyFatPercent', 'measurementCm', "
+	    "'workoutsPerWeek', 'tonnagePerWeekKg', 'repsAtWeight')), "
+	    "exercise_id TEXT REFERENCES exercises(id) ON DELETE SET NULL, "
+	    "measurement_key TEXT CHECK (measurement_key IS NULL OR measurement_key IN ('chest', 'waist', 'hip', 'arm', "
+	    "'thigh')), unit TEXT NOT NULL CHECK (unit IN ('kg', 'percent', 'cm', 'count', 'timesPerWeek')), start_value "
+	    "REAL, "
+	    "target_value REAL NOT NULL, target_weight_kg REAL, target_reps INTEGER, "
+	    "direction TEXT NOT NULL CHECK (direction IN ('increase', 'decrease', 'maintain')), target_date TEXT, "
+	    "state TEXT NOT NULL DEFAULT 'active' CHECK (state IN ('active', 'achieved', 'dropped')))",
+
+	    "CREATE TABLE IF NOT EXISTS program_days (id TEXT PRIMARY KEY NOT NULL, "
+	    "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, title TEXT NOT NULL, "
+	    "kind TEXT NOT NULL CHECK (kind IN ('workout', 'rest', 'cardio', 'mobility')), focus TEXT, "
+	    "estimated_minutes INTEGER NOT NULL DEFAULT 0 CHECK (estimated_minutes >= 0), "
+	    "order_index INTEGER NOT NULL CHECK (order_index >= 0), source_day_id TEXT, note TEXT)",
+
+	    "CREATE TABLE IF NOT EXISTS program_schedule (id TEXT PRIMARY KEY NOT NULL, "
+	    "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, "
+	    "day_of_week INTEGER CHECK (day_of_week IS NULL OR day_of_week BETWEEN 1 AND 7), "
+	    "rotation_index INTEGER CHECK (rotation_index IS NULL OR rotation_index >= 1), "
+	    "program_day_id TEXT REFERENCES program_days(id) ON DELETE SET NULL, "
+	    "kind TEXT NOT NULL CHECK (kind IN ('workout', 'rest', 'optional', 'cardio', 'mobility')), "
+	    "is_anchor INTEGER NOT NULL DEFAULT 0 CHECK (is_anchor IN (0, 1)), note TEXT, "
+	    "UNIQUE (program_id, day_of_week), UNIQUE (program_id, rotation_index))",
+
+	    "CREATE TABLE IF NOT EXISTS program_day_exercises (id TEXT PRIMARY KEY NOT NULL, "
+	    "program_day_id TEXT NOT NULL REFERENCES program_days(id) ON DELETE CASCADE, "
+	    "exercise_id TEXT NOT NULL REFERENCES exercises(id), order_index INTEGER NOT NULL CHECK (order_index >= 0), "
+	    "sets INTEGER NOT NULL CHECK (sets BETWEEN 1 AND 20), reps_min INTEGER NOT NULL CHECK (reps_min >= 0), "
+	    "reps_max INTEGER NOT NULL CHECK (reps_max >= 0), "
+	    "weight_mode TEXT NOT NULL CHECK (weight_mode IN ('fixed', 'percentOf1RM', 'byFeel', 'fromLastSession', "
+	    "'bodyWeight')), target_weight_kg REAL CHECK (target_weight_kg IS NULL OR target_weight_kg >= 0), "
+	    "percent_of_1rm REAL CHECK (percent_of_1rm IS NULL OR (percent_of_1rm > 0 AND percent_of_1rm <= 100)), "
+	    "rpe_target REAL CHECK (rpe_target IS NULL OR (rpe_target >= 5 AND rpe_target <= 10)), "
+	    "rest_seconds INTEGER NOT NULL DEFAULT 0 CHECK (rest_seconds >= 0), tempo TEXT, superset_group TEXT, "
+	    "warmup_sets INTEGER NOT NULL DEFAULT 0 CHECK (warmup_sets >= 0), progression_json TEXT, substitution_ids "
+	    "TEXT, "
+	    "is_optional INTEGER NOT NULL DEFAULT 0 CHECK (is_optional IN (0, 1)), note TEXT, CHECK (reps_max >= "
+	    "reps_min))",
+
+	    "CREATE TABLE IF NOT EXISTS program_revisions (id TEXT PRIMARY KEY NOT NULL, "
+	    "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, "
+	    "revision INTEGER NOT NULL CHECK (revision >= 1), changed_at TEXT NOT NULL, "
+	    "reason TEXT NOT NULL CHECK (reason IN ('goal', 'term', 'schedule', 'days', 'rules', 'exercisePlan', "
+	    "'state')), "
+	    "summary TEXT NOT NULL DEFAULT '', snapshot_json TEXT, UNIQUE (program_id, revision))",
+
+	    "CREATE TABLE IF NOT EXISTS workouts (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, "
+	    "program_id TEXT REFERENCES programs(id) ON DELETE SET NULL, "
+	    "program_day_id TEXT REFERENCES program_days(id) ON DELETE SET NULL, "
+	    "planned_date TEXT, planned_week_index INTEGER, date TEXT NOT NULL, started_at TEXT, completed_at TEXT, "
+	    "duration_seconds INTEGER, state TEXT NOT NULL CHECK (state IN ('draft', 'completed', 'cancelled')), "
+	    "deviation TEXT CHECK (deviation IS NULL OR deviation IN ('asPlanned', 'partial', 'substituted', 'extraDay', "
+	    "'movedDay')), exercise_count INTEGER NOT NULL DEFAULT 0 CHECK (exercise_count >= 0), "
+	    "set_count INTEGER NOT NULL DEFAULT 0 CHECK (set_count >= 0), "
+	    "tonnage_kg REAL NOT NULL DEFAULT 0 CHECK (tonnage_kg >= 0), avg_rpe REAL, program_revision INTEGER, "
+	    "correction_of_session_id TEXT, note TEXT, "
+	    "sync_state TEXT NOT NULL DEFAULT 'local' CHECK (sync_state IN ('synced', 'local', 'syncing', 'offline')))",
+
+	    "CREATE TABLE IF NOT EXISTS sets (id TEXT PRIMARY KEY NOT NULL, "
+	    "session_id TEXT NOT NULL REFERENCES workouts(id) ON DELETE CASCADE, "
+	    "day_exercise_id TEXT REFERENCES program_day_exercises(id) ON DELETE SET NULL, "
+	    "exercise_id TEXT NOT NULL REFERENCES exercises(id), set_number INTEGER NOT NULL CHECK (set_number >= 1), "
+	    "is_warmup INTEGER NOT NULL DEFAULT 0 CHECK (is_warmup IN (0, 1)), "
+	    "weight_kg REAL NOT NULL DEFAULT 0 CHECK (weight_kg >= 0), reps INTEGER NOT NULL DEFAULT 0 CHECK (reps >= 0), "
+	    "rpe REAL CHECK (rpe IS NULL OR (rpe >= 0 AND rpe <= 10)), target_weight_kg REAL, target_reps INTEGER, "
+	    "done INTEGER NOT NULL DEFAULT 0 CHECK (done IN (0, 1)), note TEXT)",
+
+	    "CREATE TABLE IF NOT EXISTS body_measurements (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, "
+	    "date TEXT NOT NULL, weight_kg REAL CHECK (weight_kg IS NULL OR (weight_kg > 0 AND weight_kg < 1000)), "
+	    "chest_cm REAL, waist_cm REAL, hip_cm REAL, arm_cm REAL, thigh_cm REAL, UNIQUE (user_id, date))",
+
+	    "CREATE TABLE IF NOT EXISTS nutrition_entries (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, "
+	    "date TEXT NOT NULL, meal_type TEXT NOT NULL CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')), "
+	    "food_id TEXT, custom_title TEXT, portion_grams REAL CHECK (portion_grams IS NULL OR portion_grams >= 0), "
+	    "protein_g REAL NOT NULL DEFAULT 0, fat_g REAL NOT NULL DEFAULT 0, carbs_g REAL NOT NULL DEFAULT 0, "
+	    "calories_kcal REAL NOT NULL DEFAULT 0, source TEXT NOT NULL DEFAULT 'manual' "
+	    "CHECK (source IN ('manual', 'barcode', 'preset')), "
+	    "sync_state TEXT NOT NULL DEFAULT 'local' CHECK (sync_state IN ('synced', 'local', 'syncing', 'offline')))",
+
+	    "CREATE TABLE IF NOT EXISTS nutrition_day_totals (user_id TEXT NOT NULL, date TEXT NOT NULL, "
+	    "protein_g REAL NOT NULL DEFAULT 0, fat_g REAL NOT NULL DEFAULT 0, carbs_g REAL NOT NULL DEFAULT 0, "
+	    "calories_kcal REAL NOT NULL DEFAULT 0, entries_count INTEGER NOT NULL DEFAULT 0, "
+	    "PRIMARY KEY (user_id, date))",
+
+	    "CREATE TABLE IF NOT EXISTS program_stats (program_id TEXT PRIMARY KEY NOT NULL "
+	    "REFERENCES programs(id) ON DELETE CASCADE, computed_at TEXT NOT NULL, program_revision INTEGER NOT NULL, "
+	    "payload_json TEXT NOT NULL)",
+
+	    "CREATE TABLE IF NOT EXISTS lifetime_stats (user_id TEXT PRIMARY KEY NOT NULL, computed_at TEXT NOT NULL, "
+	    "payload_json TEXT NOT NULL)",
+
+	    // Инвариант 1 (docs/02-program-model.md §4): одна активная
+	    // программа.
+	    "CREATE UNIQUE INDEX IF NOT EXISTS programs_one_active_per_user ON programs(user_id) WHERE state = 'active'",
+	    "CREATE INDEX IF NOT EXISTS goal_targets_program_idx ON goal_targets(program_id)",
+	    "CREATE INDEX IF NOT EXISTS program_days_program_idx ON program_days(program_id, order_index)",
+	    "CREATE INDEX IF NOT EXISTS program_schedule_program_dow_idx ON program_schedule(program_id, day_of_week)",
+	    "CREATE INDEX IF NOT EXISTS program_day_exercises_day_idx ON program_day_exercises(program_day_id, "
+	    "order_index)",
+	    "CREATE INDEX IF NOT EXISTS program_revisions_program_idx ON program_revisions(program_id, revision)",
+	    "CREATE INDEX IF NOT EXISTS workouts_program_date_idx ON workouts(program_id, date)",
+	    "CREATE INDEX IF NOT EXISTS sets_session_idx ON sets(session_id)",
+	    "CREATE INDEX IF NOT EXISTS body_measurements_user_date_idx ON body_measurements(user_id, date)",
+	    "CREATE INDEX IF NOT EXISTS nutrition_entries_user_date_idx ON nutrition_entries(user_id, date)"};
+
+	for (int i = 0; i < statements.size(); ++i)
+	{
+		if (Execute_SQL(statements.at(i)) == false)
+			return false;
+	}
+
+	// program_rules и rule_checkins создаются после списка: rule_checkins
+	// ссылается на program_rules через FK, и пока обе жили в statements, порядок
+	// создания зависел от позиции строки в списке. Отдельными вызовами порядок
+	// задан явно, а CHECK program_rules остаётся в единственном экземпляре
+	// (он менялся в v3 — issue 46, текстовые рекомендации).
+	// Индексы на program_rules и rule_checkins создаются вместе с таблицами: пока
+	// они лежали в statements списке, индекс создавался раньше таблицы, и
+	// миграция падала с «no such table: main.program_rules».
+	if (Create_Program_Rules_Table(QString("program_rules")) == false)
+		return false;
+
+	if (Create_Rule_Checkins_Table() == false)
+		return false;
+
+	const QStringList rule_indexes = {
+	    "CREATE INDEX IF NOT EXISTS program_rules_program_idx ON program_rules(program_id)",
+	    "CREATE INDEX IF NOT EXISTS rule_checkins_rule_date_idx ON "
+	    "rule_checkins(rule_id, date)"};
+
+	for (int i = 0; i < rule_indexes.size(); ++i)
+	{
+		if (Execute_SQL(rule_indexes.at(i)) == false)
+			return false;
+	}
+
+	return true;
+}
+//----------------------------------------------------------------------------
+// Базовый каталог упражнений. Идентификаторы совпадают со списком редактора
+// (ProgramEditPage/ProgramDayPage: ex_squat/ex_bench/ex_row/ex_deadlift): предписание
+// дня ссылается на упражнение по идентификатору, поэтому без этих строк FK
+// отвергает вставку и создание программы падает. Повторный запуск безопасен:
+// пока все четыре строки на месте, метод только читает, а INSERT OR IGNORE
+// оставляет нетронутыми и пользовательские (is_custom=1), и уже вставленные
+// строки.
+//----------------------------------------------------------------------------
+bool AsSql_Database::Seed_Builtin_Exercises()
+{
+	QSqlQuery probe(*Database_Handle);
+
+	// Сначала чтение, и только потом запись: пока каталог на месте, сид не
+	// меняет файл. Апгрейд разделяемой блокировки внутри транзакции SQLite
+	// отдаёт ошибкой «database is locked» сразу, не дожидаясь busy_timeout,
+	// поэтому лишняя запись ломала открытие соседним smoke-процессам.
+	if (probe.exec("SELECT COUNT(*) FROM exercises WHERE id IN "
+	               "('ex_squat', 'ex_bench', 'ex_row', 'ex_deadlift')") == false)
+		return Set_Last_Error(QString("Не удалось прочитать каталог упражнений: %1").arg(probe.lastError().text()));
+
+	if (probe.next() && probe.value(0).toInt() == Builtin_Exercise_Count)
+		return true;
+
+	const QStringList statements = {
+	    "INSERT OR IGNORE INTO exercises(id, title, muscle_group, equipment, is_custom, created_at) "
+	    "VALUES('ex_squat', 'Присед', 'legs', 'barbell', 0, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+	    "INSERT OR IGNORE INTO exercises(id, title, muscle_group, equipment, is_custom, created_at) "
+	    "VALUES('ex_bench', 'Жим лёжа', 'chest', 'barbell', 0, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+	    "INSERT OR IGNORE INTO exercises(id, title, muscle_group, equipment, is_custom, created_at) "
+	    "VALUES('ex_row', 'Тяга', 'back', 'barbell', 0, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+	    "INSERT OR IGNORE INTO exercises(id, title, muscle_group, equipment, is_custom, created_at) "
+	    "VALUES('ex_deadlift', 'Становая', 'back', 'barbell', 0, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"};
+
+	for (int i = 0; i < statements.size(); ++i)
+	{
+		if (Execute_SQL(statements.at(i)) == false)
+			return false;
+	}
+
+	return true;
+}
+//----------------------------------------------------------------------------
+bool AsSql_Database::Read_Schema_Version(int &out_version)
+{
+	QSqlQuery query(*Database_Handle);
+
+	out_version = 0;
+
+	if (query.exec("SELECT version FROM schema_version WHERE id = 1") == false)
+		return Set_Last_Error(QString("Не удалось прочитать версию SQLite: %1").arg(query.lastError().text()));
+
+	if (query.next())
+		out_version = query.value(0).toInt();
+
+	return true;
+}
+//----------------------------------------------------------------------------
+bool AsSql_Database::Write_Schema_Version(int in_version)
+{
+	QSqlQuery query(*Database_Handle);
+
+	query.prepare("INSERT INTO schema_version(id, version) VALUES(1, ?) "
+	              "ON CONFLICT(id) DO UPDATE SET version = excluded.version");
+	query.addBindValue(in_version);
+
+	if (query.exec())
+		return true;
+
+	return Set_Last_Error(QString("Не удалось записать версию SQLite: %1").arg(query.lastError().text()));
+}
+//----------------------------------------------------------------------------
+QString AsSql_Database::Connection_Name() const
+{
+	return Connection_Name_Text;
+}
+//----------------------------------------------------------------------------
+QSqlDatabase AsSql_Database::Sql_Connection() const
+{
+	if (Database_Handle == 0)
+		return QSqlDatabase();
+
+	return *Database_Handle;
+}
+//----------------------------------------------------------------------------

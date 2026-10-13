@@ -1,0 +1,82 @@
+﻿<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 — Статистика программы — макет</title>
+<link rel="stylesheet" href="theme.css">
+<script src="mock.js"></script>
+</head>
+<body>
+<header class="toolbar">
+    <h1>06 — Статистика программы (ProgramStatsPage)</h1>
+    <span class="spacer"></span>
+    <a href="index.html">← Все макеты</a>
+    <button onclick="toggleTheme()">Тема</button>
+</header>
+<main class="frames">
+
+<section class="frame">
+    <h2>Есть данные</h2>
+    <div class="phone"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Статистика</h1><p class="t-caption">По завершённым тренировкам</p></div>
+
+        <div class="metric-row">
+            <div class="card metric-card highlight"><p class="label">Выполнение</p><p class="value">84 %</p></div>
+            <div class="card metric-card"><p class="label">Тоннаж, т</p><p class="value">12.6</p></div>
+        </div>
+        <div class="metric-row">
+            <div class="card metric-card"><p class="label">Тренировок</p><p class="value">16</p></div>
+            <div class="card metric-card"><p class="label">Подходов</p><p class="value">214</p></div>
+        </div>
+        <div class="metric-row">
+            <div class="card metric-card"><p class="label">Тело, кг</p><p class="value">+0.8</p></div>
+            <div class="card metric-card"></div>
+        </div>
+
+        <p class="section-title">Тоннаж по неделям</p>
+        <div class="card chart" style="margin-top:8px">
+            <p class="body-strong">Тоннаж, кг</p>
+            <p class="caption">по недельным срезам программы</p>
+            <svg viewBox="0 0 360 130" preserveAspectRatio="none" aria-label="График тоннажа">
+                <g stroke="var(--border)" stroke-width="1">
+                    <line x1="0" y1="0.5" x2="360" y2="0.5"></line>
+                    <line x1="0" y1="43.5" x2="360" y2="43.5"></line>
+                    <line x1="0" y1="86.5" x2="360" y2="86.5"></line>
+                    <line x1="0" y1="129.5" x2="360" y2="129.5"></line>
+                </g>
+                <polyline fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"
+                    points="0,110 72,92 144,78 216,84 288,52 360,28"></polyline>
+                <circle cx="356" cy="28" r="4" fill="var(--accent)"></circle>
+            </svg>
+        </div>
+    </div></div>
+</section>
+
+<section class="frame">
+    <h2>Пока нет данных (hasStats = false)</h2>
+    <div class="phone"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Статистика</h1><p class="t-caption">Пока нет данных</p></div>
+
+        <div class="metric-row">
+            <div class="card metric-card highlight"><p class="label">Выполнение</p><p class="value">—</p></div>
+            <div class="card metric-card"><p class="label">Тоннаж, т</p><p class="value">—</p></div>
+        </div>
+        <div class="metric-row">
+            <div class="card metric-card"><p class="label">Тренировок</p><p class="value">—</p></div>
+            <div class="card metric-card"><p class="label">Подходов</p><p class="value">—</p></div>
+        </div>
+        <div class="metric-row">
+            <div class="card metric-card"><p class="label">Тело, кг</p><p class="value">—</p></div>
+            <div class="card metric-card"></div>
+        </div>
+
+        <p class="body text-center">Запишите первую тренировку — здесь появятся тоннаж, подходы и динамика по неделям.</p>
+    </div></div>
+</section>
+
+</main>
+</body>
+</html>

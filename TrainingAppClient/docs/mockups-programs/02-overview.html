@@ -1,0 +1,240 @@
+﻿<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 — Обзор программы — макет</title>
+<link rel="stylesheet" href="theme.css">
+<script src="mock.js"></script>
+</head>
+<body>
+<header class="toolbar">
+    <h1>02 — Обзор программы (ProgramOverviewPage)</h1>
+    <span class="spacer"></span>
+    <a href="index.html">← Все макеты</a>
+    <button onclick="toggleTheme()">Тема</button>
+</header>
+<main class="frames">
+
+<section class="frame">
+    <h2>Активная программа</h2>
+    <div class="phone"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Моя программа</h1><p class="t-caption">Активная программа</p></div>
+
+        <div class="card">
+            <p class="t-title">Сила 8 недель</p>
+            <div class="pill-wrap"><span class="tag">Сила</span><span class="tag">8 нед.</span><span class="tag">2026-11-03</span></div>
+        </div>
+
+        <p class="section-title">Расписание недели</p>
+        <div class="card">
+            <div class="week-dots">
+                <div class="day-dot on">Пн</div>
+                <div class="day-dot">Вт</div>
+                <div class="day-dot soft">Ср</div>
+                <div class="day-dot">Чт</div>
+                <div class="day-dot on">Пт</div>
+                <div class="day-dot on today">Сб</div>
+                <div class="day-dot">Вс</div>
+            </div>
+            <div class="week-legend">
+                <span class="legend-key"><i class="on"></i>Тренировка</span>
+                <span class="legend-key"><i class="soft"></i>Кардио</span>
+                <span class="legend-key"><i class="off"></i>Отдых</span>
+                <span class="legend-key"><i class="today"></i>Сегодня</span>
+            </div>
+        </div>
+
+        <p class="section-title">Динамика программы</p>
+        <div class="metric-row">
+            <div class="card metric-card highlight"><p class="label">Выполнение</p><p class="value">84 %</p><p class="delta">неделя 5 из 8</p></div>
+            <div class="card metric-card"><p class="label">Тренировок</p><p class="value">5 / 24</p><p class="delta">по плану</p></div>
+        </div>
+        <div class="card chart">
+            <p class="body-strong">Выполнение по неделям</p>
+            <p class="caption">доля закрытых правил, %</p>
+            <div class="bars" role="img" aria-label="Выполнение по неделям: 72, 81, 68, 90, 84 процента">
+                <div class="bar-col"><i style="height:72%"></i><span>1</span></div>
+                <div class="bar-col"><i style="height:81%"></i><span>2</span></div>
+                <div class="bar-col"><i style="height:68%"></i><span>3</span></div>
+                <div class="bar-col"><i style="height:90%"></i><span>4</span></div>
+                <div class="bar-col now"><i style="height:84%"></i><span>5</span></div>
+                <div class="bar-col future"><i style="height:0%"></i><span>6</span></div>
+                <div class="bar-col future"><i style="height:0%"></i><span>7</span></div>
+                <div class="bar-col future"><i style="height:0%"></i><span>8</span></div>
+            </div>
+            <div class="chart-legend">
+                <span class="legend-key"><i class="past"></i>Пройденная неделя</span>
+                <span class="legend-key"><i class="now"></i>Текущая</span>
+                <span class="legend-key"><i class="future"></i>Будущая</span>
+            </div>
+        </div>
+
+        <p class="section-title">Правила и отметки</p>
+        <div class="stack">
+            <div class="card rule-group">
+                <div class="rule-group-head">
+                    <p class="row-title grow">Питание</p>
+                    <div class="rule-dots"><i class="done"></i><i class="failed"></i></div>
+                    <span class="count">1 из 2</span>
+                </div>
+                <div class="rule-item">
+                    <span class="dot done"></span>
+                    <div class="text"><p class="body-strong">Белок от 1,6 г/кг</p><p class="sub">120 г · каждый день</p></div>
+                    <span class="pill done">Выполнено</span>
+                </div>
+                <div class="rule-item">
+                    <span class="dot failed"></span>
+                    <div class="text"><p class="body-strong">Вода 2 л</p><p class="sub">2000 мл · каждый день</p></div>
+                    <span class="pill failed">Не выполнено</span>
+                </div>
+            </div>
+
+            <div class="card rule-group">
+                <div class="rule-group-head">
+                    <p class="row-title grow">Тренировки</p>
+                    <div class="rule-dots"><i class="done"></i><i class="unknown"></i></div>
+                    <span class="count">1 из 2</span>
+                </div>
+                <div class="rule-item">
+                    <span class="dot done"></span>
+                    <div class="text"><p class="body-strong">Тренировка по расписанию</p><p class="sub">Пн · Пт · Сб</p></div>
+                    <span class="pill done">Выполнено</span>
+                </div>
+                <div class="rule-item">
+                    <span class="dot unknown"></span>
+                    <div class="text"><p class="body-strong">RPE не выше 8</p><p class="sub">Расчётное правило: считается по фактам тренировок</p></div>
+                    <span class="pill">Нет отметки</span>
+                </div>
+            </div>
+
+            <div class="card rule-group">
+                <div class="rule-group-head">
+                    <p class="row-title grow">Восстановление</p>
+                    <div class="rule-dots"><i class="done"></i><i class="done"></i></div>
+                    <span class="count">2 из 2</span>
+                </div>
+                <div class="rule-item">
+                    <span class="dot done"></span>
+                    <div class="text"><p class="body-strong">Сон не менее 7 часов</p><p class="sub">7 ч · каждый день</p></div>
+                    <span class="pill done">Выполнено</span>
+                </div>
+                <div class="rule-item">
+                    <span class="dot done"></span>
+                    <div class="text"><p class="body-strong">Отдых 48 ч</p><p class="sub">ч между тренировками</p></div>
+                    <span class="pill done">Выполнено</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stack">
+            <button class="btn secondary">Статистика программы</button>
+            <button class="btn secondary">Настроить программу</button>
+        </div>
+    </div></div>
+</section>
+
+<section class="frame">
+    <h2>Read-only: программа завершена</h2>
+    <div class="phone"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Моя программа</h1><p class="t-caption">Активная программа</p></div>
+
+        <div class="card">
+            <p class="t-title">Масса 12 недель</p>
+            <div class="pill-wrap"><span class="tag">Масса</span><span class="tag">12 нед.</span><span class="tag">Завершена</span></div>
+        </div>
+
+        <p class="section-title">Расписание недели</p>
+        <div class="card">
+            <div class="week-dots">
+                <div class="day-dot on">Пн</div>
+                <div class="day-dot">Вт</div>
+                <div class="day-dot">Ср</div>
+                <div class="day-dot">Чт</div>
+                <div class="day-dot">Пт</div>
+                <div class="day-dot">Сб</div>
+                <div class="day-dot">Вс</div>
+            </div>
+            <div class="week-legend">
+                <span class="legend-key"><i class="on"></i>Тренировка</span>
+                <span class="legend-key"><i class="off"></i>Отдых</span>
+            </div>
+        </div>
+
+        <p class="section-title">Правила и отметки</p>
+        <div class="card rule-group">
+            <div class="rule-group-head">
+                <p class="row-title grow">Питание</p>
+                <div class="rule-dots"><i class="unknown"></i></div>
+                <span class="count">0 из 1</span>
+            </div>
+            <div class="rule-item">
+                <span class="dot unknown"></span>
+                <div class="text"><p class="body-strong">Калорийность 2400 ккал</p><p class="sub">2400 ккал · каждый день</p></div>
+                <span class="pill">Нет отметки</span>
+            </div>
+        </div>
+
+        <div class="stack">
+            <button class="btn secondary">Статистика программы</button>
+            <p class="caption">Программа завершена — изменить её нельзя</p>
+        </div>
+    </div></div>
+</section>
+
+<section class="frame">
+    <h2>Нет правил у программы</h2>
+    <div class="phone"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Моя программа</h1><p class="t-caption">Активная программа</p></div>
+
+        <div class="card">
+            <p class="t-title">Тонус 6 недель</p>
+            <div class="pill-wrap"><span class="tag">Тонус</span><span class="tag">6 нед.</span><span class="tag">2026-11-10</span></div>
+        </div>
+
+        <p class="section-title">Расписание недели</p>
+        <div class="card">
+            <div class="week-dots">
+                <div class="day-dot on">Пн</div>
+                <div class="day-dot">Вт</div>
+                <div class="day-dot on">Ср</div>
+                <div class="day-dot">Чт</div>
+                <div class="day-dot on">Пт</div>
+                <div class="day-dot">Сб</div>
+                <div class="day-dot">Вс</div>
+            </div>
+            <div class="week-legend">
+                <span class="legend-key"><i class="on"></i>Тренировка</span>
+                <span class="legend-key"><i class="off"></i>Отдых</span>
+            </div>
+        </div>
+
+        <p class="section-title">Правила и отметки</p>
+        <p class="body text-center">Правил пока нет — добавьте их в настройке программы, и здесь появится отметка на каждый день.</p>
+
+        <div class="stack">
+            <button class="btn secondary">Статистика программы</button>
+            <button class="btn secondary">Настроить программу</button>
+        </div>
+    </div></div>
+</section>
+
+<section class="frame">
+    <h2>Нет программы (errorKey = no_active_program)</h2>
+    <div class="phone"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Моя программа</h1><p class="t-caption">Активной программы пока нет</p></div>
+        <div class="card">
+            <p class="row-title">Начните с программы</p>
+            <p class="body">Создайте программу: выберите срок и цель, настройте каждый день недели и добавьте правила.</p>
+            <button class="btn primary">Создать программу</button>
+        </div>
+    </div></div>
+</section>
+
+</main>
+</body>
+</html>
