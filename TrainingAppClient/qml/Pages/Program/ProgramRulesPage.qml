@@ -26,6 +26,9 @@ PageScaffold {
     title: qsTr("Правила и отметки")
 
     readonly property bool hasProgram: page.viewModel !== undefined && page.viewModel !== null && page.viewModel.hasProgram
+    // Сохранённый расчёт КБЖУ есть: кнопка «Создать правила из расчёта» доступна
+    // только при нём, иначе она обещала бы работу, которую нечем наполнить.
+    readonly property bool hasMacroResult: page.hasProgram && page.viewModel.hasMacroResult
     readonly property string rangeFrom: page.hasProgram ? page.viewModel.rangeFrom : ""
     readonly property string rangeTo: page.hasProgram ? page.viewModel.rangeTo : ""
     readonly property string today: page.hasProgram ? page.viewModel.today : ""
@@ -50,6 +53,17 @@ PageScaffold {
             return;
 
         page.viewModel.reload(page.currentUserId());
+    }
+
+    // Создание/обновление четырёх правил питания из сохранённого расчёта
+    // КБЖУ. Успех узнаётся перечитыванием: правила появляются (или пересчитываются
+    // по `code`) в списке ниже. Отказ — через errorKey того же ViewModel.
+    function generateFromMacro() {
+        if (page.viewModel === undefined || page.viewModel === null)
+            return;
+
+        page.viewModel.generateRulesFromMacro(page.currentUserId());
+        page.reload();
     }
 
     Label {
@@ -98,6 +112,26 @@ PageScaffold {
                 variant: AppButton.Secondary
             }
         }
+    }
+    // — Нормы из расчёта: переносит цели КБЖУ в правила программы —
+    // Видима только при сохранённом расчёте: без него кнопка обещала бы
+    // работу, которую нечем наполнить, и отказывалась бы постфактум.
+    AppButton {
+        visible: page.hasProgram && page.hasMacroResult
+        onClicked: page.generateFromMacro()
+        text: qsTr("Создать правила из расчёта")
+        variant: AppButton.Secondary
+        width: parent.width
+    }
+    // Отказ генерации показывается строкой под кнопкой: «нет расчёта» или
+    // «нет программы» — понятные состояния, а не тишина после нажатия.
+    Label {
+        color: Theme.negative
+        font: Typography.caption
+        text: page.hasProgram && page.viewModel.errorKey.length > 0 ? ApiErrorText.textFor(page.viewModel.errorKey) : ""
+        visible: page.hasProgram && page.viewModel.errorKey.length > 0
+        width: parent.width
+        wrapMode: Text.WordWrap
     }
     // — Группировка по категориям —
     // Правила идут списком по модели, а на экране они сгруппированы: человек

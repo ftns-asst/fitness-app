@@ -7,6 +7,8 @@
 #include "Domain/Macro_Calculator.h"
 #include "Presentation/Macro_VM.h"
 
+#include <QSqlError>
+#include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QUrl>
 #include <QtTest>

@@ -72,6 +72,35 @@ bool Avm_Macro::Load(const QString &in_user_id)
 	if (Users_Repository_Instance != 0)
 		Users_Repository_Instance->Load_Macro_Params(in_user_id, Birth_Date_Text, Activity_Level_Text);
 
+	// Пол берётся из кэша профиля (user_cache + profile_cache): BMR мужчины и
+	// женщины при одинаковых параметрах различается, поэтому эвристика «по
+	// умолчанию мужской» или повторный вопрос на экране дали бы другой
+	// результат расчёта. Профиль из кэша — единственный источник, доступный
+	// офлайн; пустой профиль (или его отсутствие) оставляет ручной
+	// переключатель.
+	if (Users_Repository_Instance != 0)
+	{
+		SUsers_User user;
+
+		if (Users_Repository_Instance->Get_Cached_User(in_user_id, user) && user.Has_Profile &&
+		    user.Profile.Gender.isEmpty() == false)
+		{
+			Female_Value = user.Profile.Gender == QLatin1String("female");
+			Has_Gender_Value = true;
+		}
+		else
+		{
+			// Пустого профиля нет: переключатель остаётся ручным и выключен.
+			Female_Value = false;
+			Has_Gender_Value = false;
+		}
+	}
+	else
+	{
+		Female_Value = false;
+		Has_Gender_Value = false;
+	}
+
 	// Сохранённый результат подставляется сразу: человек возвращается на экран,
 	// чтобы пересчитать, и пустая карточка «Результат» выглядела бы как
 	// потерянный расчёт (миграция v6).
@@ -84,7 +113,6 @@ bool Avm_Macro::Load(const QString &in_user_id)
 	Has_Height_Value = false;
 	Weight_Value = 0;
 	Has_Weight_Value = false;
-	Female_Value = false;
 
 	// Вес и рост берутся из последнего замера: спрашивать их отдельно значило бы
 	// завести второй источник правды о том же весе.
@@ -266,6 +294,11 @@ bool Avm_Macro::Has_Height() const
 bool Avm_Macro::Has_Birth_Date() const
 {
 	return Birth_Date_Text.isEmpty() == false;
+}
+//----------------------------------------------------------------------------
+bool Avm_Macro::Has_Gender() const
+{
+	return Has_Gender_Value;
 }
 //----------------------------------------------------------------------------
 QString Avm_Macro::birth_date() const

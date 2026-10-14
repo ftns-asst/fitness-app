@@ -296,21 +296,6 @@ PageScaffold {
         }
     }
 
-    // — КБЖУ (спринт S7): рядом с замерами, потому что вес для него берётся
-    // оттуда же. Числа расчёта сохраняются в profile_local (миграция v6), поэтому
-    // после расчёта на главной видны калорийность и макросы, а не одно
-    // приглашение рассчитать.
-    NutritionPlanCard {
-        calculatedAt: page.hasModel ? page.viewModel.macroCalculatedAt : ""
-        caloriesKcal: page.hasModel ? page.viewModel.macroCaloriesKcal : 0
-        carbsG: page.hasModel ? page.viewModel.macroCarbsG : 0
-        fatG: page.hasModel ? page.viewModel.macroFatG : 0
-        hasPlan: page.hasModel && page.viewModel.hasMacroPlan
-        proteinG: page.hasModel ? page.viewModel.macroProteinG : 0
-
-        onRecalculateRequested: page.macroRequested()
-    }
-
     // — Замеры: вес и обхваты за сегодня (спринт S6) —
     Label {
         color: Theme.textSecondary

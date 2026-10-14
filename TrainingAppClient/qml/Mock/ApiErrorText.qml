@@ -30,6 +30,7 @@ QtObject {
             no_active_program: qsTr("Активной программы пока нет"),
             program_not_found: qsTr("Программа не найдена"),
             program_read_only: qsTr("Программа завершена — изменить её нельзя"),
+            macro_calc_required: qsTr("Сначала рассчитайте КБЖУ"),
             undefined_error: fallbackText
         })
     readonly property string fallbackText: qsTr("Не удалось выполнить операцию")

@@ -96,10 +96,10 @@ void AExercises_Repository_Test::migrationCreatesCacheTables()
 	QVERIFY(database.Open(directory.filePath("cache.sqlite3")));
 	QVERIFY(database.Migrate());
 
-	// Миграция v7: таблицы кэша упражнений и справочников созданы, версия
-	// схемы поднята до текущей (v7).
-	QCOMPARE(database.Get_Schema_Version(), 7);
-	QCOMPARE(database.Get_Current_Schema_Version(), 7);
+	// Миграция v8 (v7 — кэш упражнений и справочников; v8 — метрики правил
+	// питания): таблицы кэша созданы, версия схемы поднята до текущей (v8).
+	QCOMPARE(database.Get_Schema_Version(), 8);
+	QCOMPARE(database.Get_Current_Schema_Version(), 8);
 
 	QSqlDatabase connection = database.Sql_Connection();
 	QSqlQuery probe(connection);

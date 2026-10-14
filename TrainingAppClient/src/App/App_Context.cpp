@@ -299,7 +299,8 @@ void AsApp_Context::Create_Program_Stack()
 	Program_Stats_VM_Instance =
 	    new Avm_Program_Stats(Program_Repository_Instance, Workout_Repository_Instance, Rule_Repository_Instance,
 	                          Measurement_Repository_Instance, Stats_Repository_Instance, this);
-	Program_Rules_VM_Instance = new Avm_Program_Rules(Program_Repository_Instance, Rule_Repository_Instance, this);
+	Program_Rules_VM_Instance = new Avm_Program_Rules(Program_Repository_Instance, Rule_Repository_Instance,
+	                                                  Users_Repository_Instance, this);
 	Program_Edit_VM_Instance =
 	    new Avm_Program_Edit(Program_Repository_Instance, Rule_Repository_Instance, Program_Service_Instance, this);
 	Program_Catalog_VM_Instance = new Avm_Program_Catalog(Program_Repository_Instance, this);
