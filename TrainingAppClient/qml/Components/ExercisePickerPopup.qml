@@ -48,6 +48,39 @@ Popup {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     dim: true
 
+    // Окно выезжает снизу с проявлением, закрывается обратным движением:
+    // резкое появление поверх экрана читалось как сбой, а не как выбор.
+    enter: Transition {
+        NumberAnimation {
+            duration: 220
+            easing.type: Easing.OutCubic
+            from: 0
+            property: "opacity"
+            to: 1
+        }
+        NumberAnimation {
+            duration: 260
+            easing.type: Easing.OutCubic
+            from: 0.94
+            property: "scale"
+            to: 1
+        }
+    }
+    exit: Transition {
+        NumberAnimation {
+            duration: 140
+            easing.type: Easing.InCubic
+            property: "opacity"
+            to: 0
+        }
+        NumberAnimation {
+            duration: 140
+            easing.type: Easing.InCubic
+            property: "scale"
+            to: 0.96
+        }
+    }
+
     background: Rectangle {
         border.color: Theme.border
         border.width: Theme.borderWidth
@@ -224,8 +257,25 @@ Popup {
             readonly property var selectedRow: picker.expandedIndex >= 0 && picker.showList && picker.expandedIndex < picker.catalog.exercise_list.count ? picker.catalog.exercise_list.get(picker.expandedIndex) : null
 
             Layout.fillWidth: true
+            // Панель выезжает и проявляется: выбор плитки виден по отклику, а не
+            // по резкому скачку высоты списка.
+            Layout.preferredHeight: addPanel.selectedRow !== null ? addPanel.implicitHeight : 0
+            clip: true
+            opacity: addPanel.selectedRow !== null ? 1 : 0
             spacing: Spacing.itemGap
-            visible: addPanel.selectedRow !== null
+            visible: opacity > 0.01
+
+            Behavior on Layout.preferredHeight {
+                NumberAnimation {
+                    duration: 200
+                    easing.type: Easing.OutCubic
+                }
+            }
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 160
+                }
+            }
 
             Rectangle {
                 Layout.fillWidth: true
@@ -239,45 +289,48 @@ Popup {
                 font: Typography.bodyStrong
                 text: addPanel.selectedRow !== null ? addPanel.selectedRow.title : ""
             }
+            // Подходы и вес — крупные степперы: «−/+» под большой палец, удержание
+            // повторяет шаг. Вес шагает по 2,5 кг, как линейка на записи подхода.
             RowLayout {
                 Layout.fillWidth: true
-                spacing: Spacing.itemGap
+                spacing: Spacing.listGap
 
-                AppNumberField {
+                CompactStepper {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
-                    decimals: 0
+                    Layout.preferredWidth: 1
                     from: 1
                     label: qsTr("Подходы")
-                    onEdited: function (newValue) {
-                        picker.pickedSets = Math.round(newValue);
-                    }
                     step: 1
                     to: 20
                     value: picker.pickedSets
+
+                    onEdited: function (newValue) {
+                        picker.pickedSets = Math.round(newValue);
+                    }
                 }
-                AppNumberField {
+                CompactStepper {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
+                    Layout.preferredWidth: 1
                     decimals: 1
                     from: 0
-                    label: qsTr("Вес")
-                    onEdited: function (newValue) {
-                        picker.pickedWeight = newValue;
-                    }
+                    label: qsTr("Вес, кг")
                     step: 2.5
                     to: 200
                     value: picker.pickedWeight
+
+                    onEdited: function (newValue) {
+                        picker.pickedWeight = newValue;
+                    }
                 }
-                AppButton {
-                    Layout.alignment: Qt.AlignVCenter
-                    Layout.minimumWidth: 0
-                    compact: true
-                    objectName: "exercisePickerAdd"
-                    onClicked: picker.picked(addPanel.selectedRow.id, addPanel.selectedRow.title, picker.pickedWeight, picker.pickedSets)
-                    text: qsTr("Добавить")
-                    variant: AppButton.Primary
-                }
+            }
+            AppButton {
+                Layout.fillWidth: true
+                objectName: "exercisePickerAdd"
+                onClicked: picker.picked(addPanel.selectedRow.id, addPanel.selectedRow.title, picker.pickedWeight, picker.pickedSets)
+                text: qsTr("Добавить в день")
+                variant: AppButton.Primary
             }
         }
         // — Загрузка первой страницы —

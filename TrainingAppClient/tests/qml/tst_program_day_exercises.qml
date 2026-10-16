@@ -1,4 +1,4 @@
-import QtQuick
+﻿import QtQuick
 import QtTest
 import TrainingAppClient 1.0
 
@@ -179,7 +179,10 @@ TestCase {
         verify(popup.visible, "окно выбора не открылось по кнопке");
 
         popup.close();
-        verify(popup.visible === false, "окно не закрылось по «Закрыть»");
+        // Закрытие анимировано: visible гаснет по окончании exit-перехода.
+        tryVerify(function () {
+            return popup.visible === false;
+        }, 2000, "окно не закрылось по «Закрыть»");
 
         // Явный выбор: упражнение из окна приходит с его подходами и весом.
         page.addExercise("builtin-squat", 5, 87.5);
