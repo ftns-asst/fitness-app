@@ -242,25 +242,57 @@ PageScaffold {
         Repeater {
             model: page.hasModel && page.viewModel.hasProgram ? page.viewModel.rules : []
 
-            delegate: RuleTile {
-                id: ruleTile
+            // Делегат — обёртка: роли модели объявляются на ней, а не на самой
+            // плитке. Прежде `required property string title` на RuleTile
+            // затеняло её собственное свойство title, и плитки рисовались белыми
+            // и без текста.
+            delegate: Item {
+                id: ruleCell
 
                 required property string displayText
                 required property bool isAdvice
+                required property var goalMax
+                required property var goalMin
                 required property string ruleId
+                required property string targetUnit
                 required property string title
                 required property string todayState
+                required property var todayValue
 
-                caption: ruleTile.isAdvice ? page.ruleCaption(ruleTile.title, ruleTile.displayText) : (ruleTile.todayState === "done" ? qsTr("Выполнено") : page.ruleCaption(ruleTile.title, ruleTile.displayText))
-                checkable: ruleTile.isAdvice === false
-                checkinState: ruleTile.todayState
-                height: 96
+                readonly property bool measurable: ruleCell.isAdvice === false && (ruleCell.goalMin !== null || ruleCell.goalMax !== null)
+
+                height: 112
                 width: ruleFlow.tileWidth
 
-                onOpened: page.programRequested()
-                onToggled: page.toggleCheckin(ruleTile.ruleId, ruleTile.todayState)
+                RuleTile {
+                    anchors.fill: parent
+                    caption: ruleCell.isAdvice ? page.ruleCaption(ruleCell.title, ruleCell.displayText) : (ruleCell.todayState === "done" ? qsTr("Выполнено") : page.ruleCaption(ruleCell.title, ruleCell.displayText))
+                    checkable: ruleCell.isAdvice === false
+                    checkinState: ruleCell.todayState
+                    goalMax: ruleCell.goalMax !== null ? ruleCell.goalMax : -1
+                    goalMin: ruleCell.goalMin !== null ? ruleCell.goalMin : -1
+                    numeric: ruleCell.measurable
+                    title: ruleCell.title
+                    unitText: page.unitLabel(ruleCell.targetUnit)
+                    value: ruleCell.todayValue !== null ? ruleCell.todayValue : -1
+
+                    onEdit: valuePopup.openFor(ruleCell.ruleId, ruleCell.title, page.unitLabel(ruleCell.targetUnit), ruleCell.goalMin !== null ? ruleCell.goalMin : (ruleCell.goalMax !== null ? ruleCell.goalMax : 0), ruleCell.todayValue !== null ? ruleCell.todayValue : -1, page.unitStep(ruleCell.targetUnit))
+                    onOpened: page.programRequested()
+                    onToggled: page.toggleCheckin(ruleCell.ruleId, ruleCell.todayState)
+                }
             }
         }
+    }
+
+    // Окно ввода числа для правила (калории, белок, вода…). Родитель — страница,
+    // а не колонка контента: окно центрируется по экрану.
+    RuleValuePopup {
+        id: valuePopup
+
+        parent: page
+
+        onDoneRequested: ruleId => page.viewModel.markCheckinDone(ruleId)
+        onValueSaved: (ruleId, value) => page.saveRuleValue(ruleId, value)
     }
 
     // — Замеры: вес и обхваты за сегодня (спринт S6) —
@@ -458,13 +490,54 @@ PageScaffold {
         if (page.viewModel === undefined || page.viewModel === null)
             return;
 
-        // Повторное нажатие снимает отметку: иначе «выполнено» нельзя было бы
-        // исправить, не уходя на экран правил.
-        const nextState = currentState === "done" ? "unknown" : "done";
+        // Повторное нажатие снимает отметку (и введённое число), иначе «выполнено»
+        // нельзя было бы исправить, не уходя на экран правил. Любое другое
+        // состояние (частично, не выполнено) по тапу становится «выполнено», а у
+        // числового правила число заполняется целью.
+        const ok = currentState === "done" ? page.viewModel.clearCheckin(ruleId) : page.viewModel.markCheckinDone(ruleId);
 
-        if (page.viewModel.saveCheckin(ruleId, nextState, -1, false) === false) {
+        if (ok === false) {
             Demo.notify(qsTr("Не удалось сохранить отметку"));
         }
+    }
+
+    // Ввод числа в окне: состояние выводит модель из цели правила.
+    function saveRuleValue(ruleId, value) {
+        if (page.viewModel === undefined || page.viewModel === null)
+            return;
+
+        if (page.viewModel.saveCheckinValue(ruleId, value) === false)
+            Demo.notify(qsTr("Не удалось сохранить значение"));
+    }
+
+    // Подпись единицы правила; значения приходят строкой из домена.
+    function unitLabel(unit) {
+        const labels = {
+            g: qsTr("г"),
+            gPerKg: qsTr("г/кг"),
+            kg: qsTr("кг"),
+            kcal: qsTr("ккал"),
+            ml: qsTr("мл"),
+            hours: qsTr("ч"),
+            rpe: "RPE"
+        };
+
+        return labels[unit] !== undefined ? labels[unit] : "";
+    }
+
+    // Шаг кнопок «−/+» в окне ввода: калории по 50, вода по 100 мл — по
+    // единице, в которой человек считает.
+    function unitStep(unit) {
+        const steps = {
+            g: 5,
+            kcal: 50,
+            ml: 100,
+            hours: 0.5,
+            kg: 0.5,
+            count: 500
+        };
+
+        return steps[unit] !== undefined ? steps[unit] : 1;
     }
 
     function measurementValue(key) {

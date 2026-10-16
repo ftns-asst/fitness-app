@@ -254,14 +254,18 @@ Popup {
         ColumnLayout {
             id: addPanel
 
-            readonly property var selectedRow: picker.expandedIndex >= 0 && picker.showList && picker.expandedIndex < picker.catalog.exercise_list.count ? picker.catalog.exercise_list.get(picker.expandedIndex) : null
+            readonly property bool hasSelection: picker.expandedIndex >= 0 && picker.showList && picker.expandedIndex < picker.catalog.exercise_list.count
+
+            // Разбор строки на примитивы: объект из ListModel.get() в var-свойстве ненадёжен.
+            readonly property string selectedId: addPanel.hasSelection ? String(picker.catalog.exercise_list.get(picker.expandedIndex).id) : ""
+            readonly property string selectedTitle: addPanel.hasSelection ? String(picker.catalog.exercise_list.get(picker.expandedIndex).title) : ""
 
             Layout.fillWidth: true
             // Панель выезжает и проявляется: выбор плитки виден по отклику, а не
             // по резкому скачку высоты списка.
-            Layout.preferredHeight: addPanel.selectedRow !== null ? addPanel.implicitHeight : 0
+            Layout.preferredHeight: addPanel.hasSelection ? addPanel.implicitHeight : 0
             clip: true
-            opacity: addPanel.selectedRow !== null ? 1 : 0
+            opacity: addPanel.hasSelection ? 1 : 0
             spacing: Spacing.itemGap
             visible: opacity > 0.01
 
@@ -287,7 +291,7 @@ Popup {
                 color: Theme.textPrimary
                 elide: Text.ElideRight
                 font: Typography.bodyStrong
-                text: addPanel.selectedRow !== null ? addPanel.selectedRow.title : ""
+                text: addPanel.selectedTitle
             }
             // Подходы и вес — крупные степперы: «−/+» под большой палец, удержание
             // повторяет шаг. Вес шагает по 2,5 кг, как линейка на записи подхода.
@@ -328,7 +332,7 @@ Popup {
             AppButton {
                 Layout.fillWidth: true
                 objectName: "exercisePickerAdd"
-                onClicked: picker.picked(addPanel.selectedRow.id, addPanel.selectedRow.title, picker.pickedWeight, picker.pickedSets)
+                onClicked: picker.picked(addPanel.selectedId, addPanel.selectedTitle, picker.pickedWeight, picker.pickedSets)
                 text: qsTr("Добавить в день")
                 variant: AppButton.Primary
             }

@@ -1,4 +1,4 @@
-import QtQuick
+﻿import QtQuick
 import QtTest
 import TrainingAppClient 1.0
 
@@ -159,7 +159,10 @@ TestCase {
         const addButton = testCase.findByName(popup.contentItem, "exercisePickerAdd");
 
         verify(addButton !== null, "в раскрытой строке нет кнопки «Добавить»");
-        verify(addButton.visible === true, "кнопка «Добавить» не показана");
+        // Панель проявляется анимацией: ждём её окончания, а не фиксированные 50 мс.
+        tryVerify(function () {
+            return addButton.visible === true;
+        }, 2000, "кнопка «Добавить» не показана");
 
         signalSpy.target = popup;
         signalSpy.signalName = "picked";

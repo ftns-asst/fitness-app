@@ -165,6 +165,17 @@ Rectangle {
         pixelAligned: true
         topMargin: Spacing.safeGap
 
+        // Инструмент ревью: `--scroll <px>` прокручивает страницу на старте,
+        // чтобы снимок показал нижние блоки (правила, замеры) без жеста.
+        Component.onCompleted: {
+            const index = Qt.application.arguments.indexOf("--scroll");
+
+            if (index >= 0 && index + 1 < Qt.application.arguments.length)
+                Qt.callLater(function () {
+                    flick.contentY = Number(Qt.application.arguments[index + 1]);
+                });
+        }
+
         // Десктоп: привычный скроллбар. Touch: только транзиентный индикатор
         // (у ScrollIndicator нет policy, поэтому на десктопе он не подключается).
         ScrollBar.vertical: ScrollBar {

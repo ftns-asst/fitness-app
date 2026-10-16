@@ -223,6 +223,8 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/CatalogExerciseTile.qml
         qml/Components/CompactStepper.qml
         qml/Components/RuleTile.qml
+        qml/Components/RuleValuePopup.qml
+        qml/Components/ShiftButton.qml
         qml/Components/ExerciseRow.qml
         qml/Components/ExercisePickerPopup.qml
         qml/Components/FilterChips.qml

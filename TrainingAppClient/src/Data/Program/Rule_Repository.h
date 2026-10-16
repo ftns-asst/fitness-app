@@ -37,6 +37,9 @@ public:
 	// Запись.
 	bool Replace_Rules(const QString &in_program_id, const QVector<SProgram_Rule> &in_rules);
 	bool Save_Checkin(const SRule_Checkin &in_checkin);
+	// Снятие отметки за день: строка удаляется, правило возвращается в «нет
+	// данных» (Unknown сохранять нельзя — отметка без факта не имеет смысла).
+	bool Delete_Checkin(const QString &in_rule_id, const QString &in_date);
 
 private:
 	bool Read_Program_State(const QString &in_program_id, EProgram_State &out_state, int &out_revision);

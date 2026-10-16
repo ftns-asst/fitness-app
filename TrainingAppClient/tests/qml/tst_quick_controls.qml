@@ -72,6 +72,53 @@ TestCase {
         tile.checkinState = "done";
         verify(tile.done, "состояние done не распознано");
     }
+    // Плитка числового правила: текст на месте, прогресс считается от цели, превышение «не выше» подсвечено.
+    function test_numericTileProgressAndText() {
+        const tile = createTemporaryObject(tileComponent, testCase, {
+            goalMin: 140,
+            numeric: true,
+            unitText: "г",
+            value: 70
+        });
+
+        compare(tile.title, "Сон 7–9 часов", "название не дошло до плитки");
+        compare(tile.progress, 0.5);
+        compare(tile.valueText(), "70 / 140 г");
+        verify(tile.exceeded === false);
+
+        tile.value = 200;
+        compare(tile.progress, 1, "полоса вышла за 100 %");
+    }
+    function test_maxGoalExceededTurnsRed() {
+        const tile = createTemporaryObject(tileComponent, testCase, {
+            goalMax: 2200,
+            numeric: true,
+            unitText: "ккал",
+            value: 2500
+        });
+
+        verify(tile.exceeded, "превышение «не выше» не распознано");
+        compare(tile.accentColor, Theme.negative);
+    }
+    function test_numericTapOpensEditor() {
+        const tile = createTemporaryObject(tileComponent, testCase, {
+            goalMin: 140,
+            numeric: true
+        });
+        const spy = createTemporaryObject(spyComponent, testCase, {
+            target: tile
+        });
+
+        testCase.tap(tile);
+        compare(spy.count, 1, "тап по числовой плитке не открыл ввод");
+    }
+    Component {
+        id: spyComponent
+
+        SignalSpy {
+            signalName: "edit"
+        }
+    }
     function test_adviceTileOnlyOpens() {
         const tile = createTemporaryObject(tileComponent, testCase, {
             checkable: false

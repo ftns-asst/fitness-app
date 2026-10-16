@@ -1,4 +1,4 @@
-#include "Presentation/Program_Rows.h"
+﻿#include "Presentation/Program_Rows.h"
 
 #include <QDate>
 
@@ -122,7 +122,7 @@ QStringList Rule_Roles()
 	// отметки, а решать это по displayText нельзя — он является подписью.
 	return QStringList{"ruleId",      "category",    "code",       "title",       "metric",
 	                   "periodicity", "targetValue", "targetUnit", "displayText", "checkSource",
-	                   "enforcement", "todayState",  "isAdvice"};
+	                   "enforcement", "todayState",  "isAdvice",    "todayValue", "goalMin","goalMax"};
 }
 //----------------------------------------------------------------------------
 // Роли строки каталога правил. Совпадают с ключами Build_Rule_Catalog и
@@ -457,7 +457,8 @@ QVector<QVariantMap> Build_Goal_Targets(const QVector<SGoal_Target> &in_targets,
 	return rows;
 }
 //----------------------------------------------------------------------------
-QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const QHash<QString, QString> &in_today_state)
+QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const QHash<QString, QString> &in_today_state,
+                                 const QHash<QString, double> &in_today_values)
 {
 	QVector<QVariantMap> rows;
 
@@ -483,6 +484,11 @@ QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const Q
 		// Правило без отметки за сегодня — «неизвестно», а не «выполнено»:
 		// отсутствие данных не равно нулю (§3.6).
 		row.insert("todayState", in_today_state.value(rule.ID, To_String(ECheckin_State::Unknown)));
+		// Число, записанное за сегодня (калории, белок, вода…): null — значения нет.
+		row.insert("todayValue", in_today_values.contains(rule.ID) ? QVariant(in_today_values.value(rule.ID)) : Null_Variant());
+		// Границы цели отдельно: полоса прогресса различает «не менее» и «не более».
+		row.insert("goalMin", rule.Has_Target_Min ? QVariant(rule.Target_Min) : Null_Variant());
+		row.insert("goalMax", rule.Has_Target_Max ? QVariant(rule.Target_Max) : Null_Variant());
 		rows.append(row);
 	}
 
