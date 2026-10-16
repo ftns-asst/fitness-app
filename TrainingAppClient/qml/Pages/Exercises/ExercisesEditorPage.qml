@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
+import QtQuick.Effects
 import QtQuick.Layouts
 import TrainingAppClient
 
@@ -91,18 +92,24 @@ PageScaffold {
         width: parent.width
         wrapMode: Text.WordWrap
     }
+    Label {
+        color: Theme.textSecondary
+        font: Typography.captionStrong
+        text: qsTr("Название")
+        width: parent.width
+    }
     TextField {
         id: nameField
 
-        Layout.fillWidth: true
-        Layout.preferredHeight: Theme.touchMin
         color: Theme.textPrimary
+        height: Theme.touchMin
         font: Typography.body
         leftPadding: Spacing.screenPadding
         placeholderText: qsTr("Название упражнения")
         placeholderTextColor: Theme.textMuted
         rightPadding: Spacing.screenPadding
         verticalAlignment: Text.AlignVCenter
+        width: parent.width
 
         background: Rectangle {
             border.color: nameField.activeFocus ? Theme.accent : Theme.border
@@ -157,9 +164,196 @@ PageScaffold {
             return false;
         }
     }
-    // — Фото техники (референс 2089): локальное фото, превью видно сразу —
-    AppCard {
+    // — Фото техники (референс 2089): крупный скруглённый блок; тап по нему
+    // открывает выбор файла, превью видно до сохранения —
+    Item {
+        id: photoBlock
+
+        height: 190
         visible: page.hasViewModel
+        width: parent.width
+
+        Rectangle {
+            id: photoMask
+
+            anchors.fill: parent
+            layer.enabled: true
+            radius: Theme.radiusLg
+            visible: false
+        }
+        Rectangle {
+            anchors.fill: parent
+            border.color: page.hasViewModel && page.viewModel.hasPhoto === true ? "transparent" : Theme.border
+            border.width: Theme.borderWidth
+            color: Theme.surfaceMuted
+            radius: Theme.radiusLg
+        }
+        Image {
+            // Превью из VM: новое фото видно до сохранения, правка —
+            // сразу открывается с существующим.
+            anchors.fill: parent
+            asynchronous: true
+            fillMode: Image.PreserveAspectCrop
+            layer.enabled: true
+            source: page.hasViewModel && page.viewModel.photoUrl !== undefined ? page.viewModel.photoUrl : ""
+            visible: page.hasViewModel && page.viewModel.hasPhoto === true
+
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: photoMask
+            }
+        }
+        Column {
+            anchors.centerIn: parent
+            spacing: Spacing.listGap
+            visible: page.hasViewModel === false || page.viewModel.hasPhoto !== true
+            width: parent.width - Spacing.screenPadding * 2
+
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                color: Theme.accentTint
+                height: Theme.touchMin
+                radius: height / 2
+                width: height
+
+                Label {
+                    anchors.centerIn: parent
+                    color: Theme.accent
+                    font: Typography.metric
+                    text: "+"
+                }
+            }
+            Label {
+                color: Theme.textPrimary
+                font: Typography.bodyStrong
+                horizontalAlignment: Text.AlignHCenter
+                text: qsTr("Добавить фото техники")
+                width: parent.width
+            }
+            Label {
+                color: Theme.textMuted
+                font: Typography.caption
+                horizontalAlignment: Text.AlignHCenter
+                text: qsTr("Необязательно — снимок остаётся на устройстве")
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+        }
+        TapHandler {
+            enabled: page.hasViewModel
+
+            onTapped: photoDialog.open()
+        }
+    }
+    RowLayout {
+        spacing: Spacing.itemGap
+        visible: page.hasViewModel && page.viewModel.hasPhoto === true
+        width: parent.width
+
+        AppButton {
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            onClicked: photoDialog.open()
+            text: qsTr("Заменить фото")
+            variant: AppButton.Secondary
+        }
+        AppButton {
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            onClicked: {
+                if (page.hasViewModel)
+                    page.viewModel.removePhoto();
+            }
+            text: qsTr("Убрать фото")
+            variant: AppButton.Secondary
+        }
+    }
+    // — Группы мышц: карточка-секция со счётчиком выбранного —
+    AppCard {
+        width: parent.width
+
+        ColumnLayout {
+            spacing: Spacing.itemGap
+            width: parent.width
+
+            RowLayout {
+                Layout.fillWidth: true
+
+                Label {
+                    Layout.fillWidth: true
+                    color: Theme.textPrimary
+                    font: Typography.bodyStrong
+                    text: qsTr("Группы мышц")
+                }
+                Label {
+                    color: Theme.accent
+                    font: Typography.captionStrong
+                    text: page.hasViewModel && page.viewModel.selectedMuscleGroups.length > 0 ? qsTr("Выбрано: %1").arg(page.viewModel.selectedMuscleGroups.length) : ""
+                    visible: text.length > 0
+                }
+            }
+            Flow {
+                Layout.fillWidth: true
+                spacing: Spacing.listGap
+
+                Repeater {
+                    model: page.hasViewModel ? page.viewModel.availableMuscleGroups : []
+
+                    delegate: MuscleChip {
+                        chipText: ExerciseTexts.muscleGroupTitle(modelData)
+                        chipValue: modelData
+                        selected: page.hasViewModel && page.viewModel.selectedMuscleGroups.indexOf(modelData) >= 0
+
+                        onChipTapped: name => page.viewModel.toggleMuscleGroup(name)
+                    }
+                }
+            }
+        }
+    }
+    // — Инвентарь —
+    AppCard {
+        width: parent.width
+
+        ColumnLayout {
+            spacing: Spacing.itemGap
+            width: parent.width
+
+            RowLayout {
+                Layout.fillWidth: true
+
+                Label {
+                    Layout.fillWidth: true
+                    color: Theme.textPrimary
+                    font: Typography.bodyStrong
+                    text: qsTr("Инвентарь")
+                }
+                Label {
+                    color: Theme.accent
+                    font: Typography.captionStrong
+                    text: page.hasViewModel && page.viewModel.selectedEquipments.length > 0 ? qsTr("Выбрано: %1").arg(page.viewModel.selectedEquipments.length) : ""
+                    visible: text.length > 0
+                }
+            }
+            Flow {
+                Layout.fillWidth: true
+                spacing: Spacing.listGap
+
+                Repeater {
+                    model: page.hasViewModel ? page.viewModel.availableEquipments : []
+
+                    delegate: MuscleChip {
+                        chipText: ExerciseTexts.equipmentTitle(modelData)
+                        chipValue: modelData
+                        selected: page.hasViewModel && page.viewModel.selectedEquipments.indexOf(modelData) >= 0
+
+                        onChipTapped: name => page.viewModel.toggleEquipment(name)
+                    }
+                }
+            }
+        }
+    }
+    // — Видимость: переключатель и пояснение, что он значит —
+    AppCard {
         width: parent.width
 
         ColumnLayout {
@@ -167,133 +361,32 @@ PageScaffold {
             width: parent.width
 
             Label {
+                color: Theme.textPrimary
+                font: Typography.bodyStrong
+                text: qsTr("Видимость")
+            }
+            SegmentedControl {
+                id: visibilitySelector
+
                 Layout.fillWidth: true
-                color: Theme.textSecondary
-                font: Typography.captionStrong
-                text: qsTr("Фото техники")
+                currentIndex: page.hasViewModel && page.viewModel.isPublic ? 1 : 0
+                items: [qsTr("Приватное"), qsTr("Публичное")]
+
+                onSelected: function (index) {
+                    if (page.hasViewModel)
+                        page.viewModel.isPublic = index === 1;
+                }
+            }
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textMuted
+                font: Typography.caption
+                text: visibilitySelector.currentIndex === 1 ? qsTr("Публичное упражнение увидят другие пользователи в каталоге") : qsTr("Приватное упражнение видно только вам")
                 wrapMode: Text.WordWrap
             }
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                color: Theme.surfaceMuted
-                height: 160
-                radius: Theme.radiusMd
-
-                Image {
-                    // Превью из VM: новое фото видно до сохранения, правка —
-                    // сразу открывается с существующим.
-                    anchors.fill: parent
-                    asynchronous: true
-                    fillMode: Image.PreserveAspectCrop
-                    source: page.hasViewModel && page.viewModel.photoUrl !== undefined ? page.viewModel.photoUrl : ""
-                    visible: page.hasViewModel && page.viewModel.hasPhoto === true
-                }
-                Label {
-                    anchors.centerIn: parent
-                    color: Theme.textMuted
-                    font: Typography.caption
-                    horizontalAlignment: Text.AlignHCenter
-                    text: qsTr("Фото не выбрано")
-                    visible: page.hasViewModel === false || page.viewModel.hasPhoto !== true
-                    width: parent.width - Spacing.screenPadding
-                    wrapMode: Text.WordWrap
-                }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Spacing.itemGap
-
-                AppButton {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    enabled: page.hasViewModel
-                    onClicked: photoDialog.open()
-                    text: qsTr("Загрузить фото")
-                    variant: AppButton.Primary
-                }
-                AppButton {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    enabled: page.hasViewModel
-                    onClicked: {
-                        if (page.hasViewModel)
-                            page.viewModel.removePhoto();
-                    }
-                    text: qsTr("Убрать фото")
-                    variant: AppButton.Secondary
-                    visible: page.hasViewModel && page.viewModel.hasPhoto === true
-                }
-            }
         }
     }
-    Label {
-        color: Theme.textSecondary
-        font: Typography.captionStrong
-        text: qsTr("Группы мышц")
-        width: parent.width
-    }
-    Flow {
-        spacing: Spacing.listGap
-        width: parent.width
 
-        Repeater {
-            model: page.hasViewModel ? page.viewModel.availableMuscleGroups : []
-
-            delegate: MuscleChip {
-                chipText: ExerciseTexts.muscleGroupTitle(modelData)
-                chipValue: modelData
-                selected: page.hasViewModel && page.viewModel.selectedMuscleGroups.indexOf(modelData) >= 0
-
-                onChipTapped: name => page.viewModel.toggleMuscleGroup(name)
-            }
-        }
-    }
-    Label {
-        color: Theme.textSecondary
-        font: Typography.captionStrong
-        text: qsTr("Инвентарь")
-        width: parent.width
-    }
-    Flow {
-        spacing: Spacing.listGap
-        width: parent.width
-
-        Repeater {
-            model: page.hasViewModel ? page.viewModel.availableEquipments : []
-
-            delegate: MuscleChip {
-                chipText: ExerciseTexts.equipmentTitle(modelData)
-                chipValue: modelData
-                selected: page.hasViewModel && page.viewModel.selectedEquipments.indexOf(modelData) >= 0
-
-                onChipTapped: name => page.viewModel.toggleEquipment(name)
-            }
-        }
-    }
-    Label {
-        color: Theme.textSecondary
-        font: Typography.caption
-        text: qsTr("Видимость")
-        width: parent.width
-    }
-    RowLayout {
-        width: parent.width
-
-        SegmentedControl {
-            id: visibilitySelector
-
-            Layout.fillWidth: true
-
-            currentIndex: page.hasViewModel && page.viewModel.isPublic ? 1 : 0
-            items: [qsTr("Приватное"), qsTr("Публичное")]
-
-            onSelected: function (index) {
-                if (page.hasViewModel)
-                    page.viewModel.isPublic = index === 1;
-            }
-        }
-    }
     // — Чип multi-выбора: выбран обведён акцентом, тап переключает —
     // chipValue — ключ справочника (уходит в ViewModel), chipText — перевод
     // для показа. Тап с переводом ломал выбор: toggleMuscleGroup кладёт в
@@ -307,10 +400,12 @@ PageScaffold {
 
         signal chipTapped(string name)
 
+        border.color: chip.selected ? Theme.accent : "transparent"
+        border.width: Theme.borderWidth
         color: chip.selected ? Theme.accentTint : Theme.surfaceMuted
         height: Theme.touchMin * 0.75
         implicitWidth: chipLabel.implicitWidth + Spacing.listGap * 2
-        radius: Theme.radiusSm
+        radius: height / 2
 
         TapHandler {
             onTapped: chip.chipTapped(chip.chipValue)

@@ -67,8 +67,10 @@ Rectangle {
         anchors.right: parent.right
         anchors.rightMargin: Spacing.screenPadding
         anchors.top: parent.top
-        anchors.topMargin: scaffold.topInset + Spacing.screenPadding
+        anchors.topMargin: scaffold.topInset + (header.visible ? Spacing.screenPadding : 0)
         spacing: 4
+        // Пустая шапка (страница сама рисует заголовок) не занимает места.
+        visible: scaffold.title.length > 0 || scaffold.caption.length > 0
 
         Label {
             color: Theme.textPrimary

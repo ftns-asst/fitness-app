@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import QtQuick.Layouts
 import TrainingAppClient
 
@@ -23,14 +24,37 @@ PageScaffold {
     // Показ карточки: данные есть (кэш или сервер) и ошибки нет.
     readonly property bool showCard: page.hasViewModel && page.viewModel.hasExercise && page.failed === false
 
+    // Акцентная строка над названием: первая группа мышц · первый инвентарь.
+    readonly property string overlineText: {
+        if (page.showCard === false)
+            return "";
+        const parts = [];
+        const groups = page.viewModel.muscleGroups;
+        const gear = page.viewModel.equipments;
+        if (groups.length > 0)
+            parts.push(ExerciseTexts.muscleGroupTitle(groups[0]));
+        if (gear.length > 0)
+            parts.push(ExerciseTexts.equipmentTitle(gear[0]).toLowerCase());
+        return parts.join(" · ");
+    }
+    // Подписи тегов: все группы мышц, затем весь инвентарь.
+    readonly property var tagTexts: {
+        if (page.showCard === false)
+            return [];
+        const out = [];
+        page.viewModel.muscleGroups.forEach(g => out.push(ExerciseTexts.muscleGroupTitle(g)));
+        page.viewModel.equipments.forEach(e => out.push(ExerciseTexts.equipmentTitle(e)));
+        return out;
+    }
+
     // Идентификатор задаёт оболочка до пуша (AppShell.exerciseDetailId).
     property string exerciseId: ""
 
     signal backRequested
     signal editRequested(string exerciseId)
 
-    title: page.showCard && page.viewModel.name.length > 0 ? page.viewModel.name : qsTr("Упражнение")
-    caption: page.showCard && page.viewModel.fromCache ? qsTr("Показано сохранённое упражнение") : ""
+    // Название показывается под фото (референс 2089), шапка каркаса пуста.
+    title: ""
 
     Component.onCompleted: {
         if (page.hasViewModel && page.hasId)
@@ -52,121 +76,131 @@ PageScaffold {
 
         onClicked: page.backRequested()
     }
-    // — Фото техники (референс 2089): локальное фото своего упражнения
-    // (загружается в редакторе) или плейсхолдер до первого фото —
-    AppCard {
+    // — Фото техники (референс 2089): крупный скруглённый блок без карточки-
+    // обёртки; локальное фото своего упражнения или плейсхолдер —
+    Item {
+        id: photoBlock
+
+        height: 220
         visible: page.showCard
         width: parent.width
 
         Rectangle {
-            color: Theme.surfaceMuted
-            height: 200
-            radius: Theme.radiusMd
-            width: parent.width
+            id: photoMask
 
-            Image {
-                // Локальный файл (схема v9): загруженное в редакторе фото
-                // показывается сразу, без сетевой загрузки.
-                anchors.fill: parent
-                asynchronous: true
-                fillMode: Image.PreserveAspectCrop
-                source: page.showCard ? page.viewModel.photoUrl : ""
-                visible: page.showCard && page.viewModel.photoUrl.length > 0
-            }
-            Label {
-                anchors.centerIn: parent
-                color: Theme.textMuted
-                font: Typography.caption
-                horizontalAlignment: Text.AlignHCenter
-                text: qsTr("Изображение техники")
-                visible: page.showCard === false || page.viewModel.photoUrl.length === 0
-                width: parent.width - Spacing.screenPadding
-                wrapMode: Text.WordWrap
+            anchors.fill: parent
+            layer.enabled: true
+            radius: Theme.radiusLg
+            visible: false
+        }
+        Rectangle {
+            anchors.fill: parent
+            color: Theme.surfaceMuted
+            radius: Theme.radiusLg
+        }
+        Image {
+            anchors.fill: parent
+            asynchronous: true
+            fillMode: Image.PreserveAspectCrop
+            layer.enabled: true
+            source: page.showCard ? page.viewModel.photoUrl : ""
+            visible: page.showCard && page.viewModel.photoUrl.length > 0
+
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: photoMask
             }
         }
+        Label {
+            anchors.centerIn: parent
+            color: Theme.textMuted
+            font: Typography.caption
+            horizontalAlignment: Text.AlignHCenter
+            text: qsTr("Изображение техники")
+            visible: page.showCard === false || page.viewModel.photoUrl.length === 0
+            width: parent.width - Spacing.screenPadding
+            wrapMode: Text.WordWrap
+        }
     }
-    // — Теги (референс 2089): группы мышц — акцентные чипы, инвентарь —
-    // светлые: различие видно с одного взгляда, без чтения подписи —
-    AppCard {
+    // — Заголовок по референсу: акцентная строка «группа · инвентарь» и
+    // крупное название под фото —
+    Column {
+        spacing: Spacing.listGap
         visible: page.showCard
         width: parent.width
 
-        ColumnLayout {
-            spacing: Spacing.itemGap
+        Label {
+            color: Theme.accent
+            font: Typography.overline
+            text: page.overlineText
+            visible: text.length > 0
             width: parent.width
+            wrapMode: Text.WordWrap
+        }
+        Label {
+            color: Theme.textPrimary
+            font: Typography.screenTitle
+            text: page.showCard ? page.viewModel.name : ""
+            width: parent.width
+            wrapMode: Text.WordWrap
+        }
+    }
+    // — Офлайн: карточка из кэша — тихая подпись под фото —
+    Label {
+        color: Theme.textMuted
+        font: Typography.caption
+        text: qsTr("Показано сохранённое упражнение")
+        visible: page.showCard && page.viewModel.fromCache
+        width: parent.width
+    }
+    // — Теги (референс 2089): серые «таблетки», группы мышц и инвентарь —
+    Flow {
+        spacing: Spacing.listGap
+        visible: page.showCard && repeaterTags.count > 0
+        width: parent.width
 
-            Flow {
-                spacing: Spacing.listGap
-                width: parent.width
+        Repeater {
+            id: repeaterTags
 
-                Repeater {
-                    model: page.showCard ? page.viewModel.muscleGroups : []
+            model: page.tagTexts
 
-                    delegate: Rectangle {
-                        // Группа мышц — акцентный тег референса: мягкая
-                        // заливка акцентом (accentSoft), текст акцентом.
-                        color: Theme.accentSoft
-                        height: Theme.touchMin * 0.6
-                        radius: Theme.radiusSm
-                        width: groupTagLabel.implicitWidth + Spacing.listGap * 2
+            delegate: Rectangle {
+                color: Theme.surfaceMuted
+                height: Theme.touchMin * 0.6
+                radius: height / 2
+                width: tagLabel.implicitWidth + Spacing.itemGap * 2
 
-                        Label {
-                            id: groupTagLabel
+                Label {
+                    id: tagLabel
 
-                            anchors.centerIn: parent
-                            color: Theme.accent
-                            font: Typography.caption
-                            text: ExerciseTexts.muscleGroupTitle(modelData)
-                        }
-                    }
+                    anchors.centerIn: parent
+                    color: Theme.textSecondary
+                    font: Typography.captionStrong
+                    text: modelData
                 }
-                Repeater {
-                    model: page.showCard ? page.viewModel.equipments : []
-
-                    delegate: Rectangle {
-                        color: Theme.surfaceMuted
-                        height: Theme.touchMin * 0.6
-                        radius: Theme.radiusSm
-                        width: equipmentTagLabel.implicitWidth + Spacing.listGap * 2
-
-                        Label {
-                            id: equipmentTagLabel
-
-                            anchors.centerIn: parent
-                            color: Theme.textSecondary
-                            font: Typography.caption
-                            text: ExerciseTexts.equipmentTitle(modelData)
-                        }
-                    }
-                }
-            }
-            // — Описание: необязательное поле, без него — приглушённый текст —
-            Label {
-                color: Theme.textSecondary
-                font: Typography.captionStrong
-                text: qsTr("Описание")
-            }
-            Label {
-                Layout.fillWidth: true
-                color: page.showCard && page.viewModel.description.length > 0 ? Theme.textPrimary : Theme.textMuted
-                font: Typography.body
-                text: page.showCard && page.viewModel.description.length > 0 ? page.viewModel.description : qsTr("Описание не заполнено")
-                wrapMode: Text.WordWrap
             }
         }
     }
+    // — Описание: обычным текстом, без карточки и подписи —
+    Label {
+        color: page.showCard && page.viewModel.description.length > 0 ? Theme.textPrimary : Theme.textMuted
+        font: Typography.body
+        lineHeight: 1.15
+        text: page.showCard && page.viewModel.description.length > 0 ? page.viewModel.description : qsTr("Описание не заполнено")
+        visible: page.showCard
+        width: parent.width
+        wrapMode: Text.WordWrap
+    }
     // — Tiles рекорда (референс 2089): первая — tinted-accent, остальные —
-    // серые; та же вёрстка, что в «Профиль · Прогресс» (MetricCard) —
+    // серые; та же вёрстка, что в «Профиль · Прогресс» (MetricCard). Записи
+    // подходов ещё не ведутся (этапы D2/D3): вместо выдуманных чисел — «—» —
     Row {
         spacing: Spacing.itemGap
         visible: page.showCard
         width: parent.width
 
         Repeater {
-            // Рекорды читаются из истории тренировок (этапы D2/D3): записи
-            // подходов ещё не ведутся, и вместо выдуманных чисел — честное
-            // «нет данных» в вёрстке референса.
-            model: [qsTr("Личный рекорд"), qsTr("Лучший сет"), qsTr("Тренировок")]
+            model: [qsTr("Рекорд"), qsTr("Рабочий вес"), qsTr("Подходов")]
 
             delegate: MetricCard {
                 highlight: index === 0
