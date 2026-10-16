@@ -31,6 +31,10 @@ QtObject {
             program_not_found: qsTr("Программа не найдена"),
             program_read_only: qsTr("Программа завершена — изменить её нельзя"),
             macro_calc_required: qsTr("Сначала рассчитайте КБЖУ"),
+            // Упражнения: 403 на приватное чтение/правку чужого (спринт U6).
+            forbidden_exercise: qsTr("Это упражнение доступно только его автору"),
+            // Фото техники: файл не читается или недоступен (спринт U5/U6).
+            photo_failed: qsTr("Не удалось загрузить фото"),
             undefined_error: fallbackText
         })
     readonly property string fallbackText: qsTr("Не удалось выполнить операцию")

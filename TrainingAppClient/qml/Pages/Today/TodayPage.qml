@@ -16,14 +16,16 @@ PageScaffold {
 
     required property var viewModel
 
-    // Запрос расчёта КБЖУ (спринт S7). Отдельный сигнал, а не вызов экрана из
-    // разметки: страна не знает про стек навигации.
-    signal macroRequested
     // Навигация с главного: «Открыть программу» (день отдыха) ведёт в обзор
     // активной программы, «Перейти к планам» — на вкладку планов, где программу
     // и создают. Экран только сообщает намерение, путь выбирает каркас.
     signal plansRequested
     signal programRequested
+
+    // Строка упражнения на главном — самостоятельный объект: тап открывает
+    // его обзор (спринт U6), а не молчит заглушкой. Экран сообщает намерение,
+    // путь — стек поверх вкладок — выбирает каркас.
+    signal exerciseOpenRequested(string exerciseId)
 
     // Модель задана? Проверка одной строкой, а не в каждой привязке.
     //
@@ -46,7 +48,7 @@ PageScaffold {
     }
 
     function currentUserId() {
-        return AppContext !== undefined && AppContext !== null ? AppContext.currentUserId : "u1";
+        return typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
     }
 
     function reload() {
@@ -137,6 +139,7 @@ PageScaffold {
                 // required property перекрывало бы свойство базового типа
                 // (qmllint: property-override). Остальные роли объявлены явно —
                 // так опечатку в имени ловит компилятор.
+                required property string exerciseId
                 required property var model
                 required property int sets
                 required property string repsText
@@ -154,7 +157,9 @@ PageScaffold {
                 weightText: page.weightText(targetWeightKg, weightMode)
                 width: parent.width
 
-                onClicked: Demo.notify(qsTr("Карточка упражнения — этап D3"))
+                // Обзор упражнения по тапу — то же место, что и в каталоге
+                // (входы из Сегодня/Упражнения, §7 контракта экрана D3).
+                onClicked: page.exerciseOpenRequested(exerciseId)
             }
         }
     }

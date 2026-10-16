@@ -184,6 +184,17 @@ bool AsSql_Database::Migrate()
 		return false;
 	}
 
+	// v9 — локальные фото техники упражнений (спринт U5/U6): файлы живут в
+	// app data, база хранит только имя файла по id упражнения. Отдельная
+	// таблица, а не столбец exercises_cache: кэш изоморфен ответу сервера
+	// (v7), а фото — чисто клиентское дополнение.
+	if (version < 9 && (Migrate_Schema_V8_To_V9() == false || Write_Schema_Version(9) == false))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
 	// Каталог упражнений проверяется при каждом открытии, а не только при
 	// создании схемы: базы, созданные до появления каталога, остались бы с
 	// пустой exercises, и создание любой программы молча отвергалось бы FK.
@@ -249,7 +260,9 @@ int AsSql_Database::Get_Current_Schema_Version()
 	// v8 — метрики макронутриентов в перечне единиц правил: углеводы и жиры
 	// (спринт «КБЖУ в правилах»). Без них норма макросов из расчёта КБЖУ не
 	// закрепилась бы в программе. CHECK пересоздаётся (v7 to v8) с переносом строк.
-	return 8;
+	// v9 — локальные фото техники упражнений (спринт U5/U6): таблица
+	// exercise_photos хранит имя файла по id упражнения, сам файл — в app data.
+	return 9;
 }
 //----------------------------------------------------------------------------
 bool AsSql_Database::Ensure_Directory(const QString &in_path)
@@ -303,7 +316,8 @@ bool AsSql_Database::Create_Program_Rules_Table(const QString &in_name)
 	        "category TEXT NOT NULL CHECK (category IN ('nutrition', 'training', 'recovery', 'lifestyle', "
 	        "'technique', 'other')), "
 	        "code TEXT NOT NULL, title TEXT NOT NULL, "
-	        "metric TEXT NOT NULL CHECK (metric IN ('proteinGrams', 'carbGrams', 'fatGrams', 'caloriesKcal', 'waterMl', 'sleepHours',"
+	        "metric TEXT NOT NULL CHECK (metric IN ('proteinGrams', 'carbGrams', 'fatGrams', 'caloriesKcal', "
+	        "'waterMl', 'sleepHours',"
 	        "'stepCount', 'bodyWeightKg', 'maxRpe', 'restHoursBetweenSessions', 'alcoholUnits', 'custom')), "
 	        "periodicity TEXT NOT NULL CHECK (periodicity IN ('perDay', 'perWeek', 'perWorkout', 'once')), "
 	        "target_min REAL, target_max REAL, target_exact REAL, "
@@ -547,6 +561,24 @@ bool AsSql_Database::Migrate_Schema_V7_To_V8()
 		return false;
 
 	return Execute_SQL(QString("DROP TABLE %1").arg(backup_name));
+}
+//----------------------------------------------------------------------------
+// Миграция v8 → v9 (спринт U5/U6): локальные фото техники упражнений.
+//
+// Таблица простая и без переноса: ранее фото не хранились вовсе. Имя файла,
+// а не полный путь: app data переезжает между установками и платформами, а
+// имя с id упражнения стабильно. Повторная миграция безопасна: CREATE TABLE
+// IF NOT EXISTS.
+//----------------------------------------------------------------------------
+bool AsSql_Database::Migrate_Schema_V8_To_V9()
+{
+	QSqlQuery query(*Database_Handle);
+
+	if (query.exec("CREATE TABLE IF NOT EXISTS exercise_photos (exercise_id TEXT PRIMARY KEY NOT NULL, "
+	               "file_name TEXT NOT NULL)") == false)
+		return Set_Last_Error(QString("Не удалось создать exercise_photos: %1").arg(query.lastError().text()));
+
+	return true;
 }
 //----------------------------------------------------------------------------
 // Повторный ALTER падает, поэтому столбец добавляется только при его отсутствии.

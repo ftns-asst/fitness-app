@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16)
 
 project(TrainingAppClient VERSION 0.1 LANGUAGES CXX)
 
@@ -117,6 +117,8 @@ add_library(TrainingAppCore STATIC
     src/Presentation/Exercises_VM.cpp
     src/Presentation/Exercises_Editor_VM.h
     src/Presentation/Exercises_Editor_VM.cpp
+    src/Presentation/Exercises_One_VM.h
+    src/Presentation/Exercises_One_VM.cpp
     src/Presentation/Auth_Qml_Bridge.h
     src/Presentation/Auth_Qml_Bridge.cpp
 )
@@ -203,6 +205,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         # Stable presentation contracts (mock-backed until phase V)
         qml/Presentation/AuthFormController.qml
         qml/Presentation/AuthViewModel.qml
+        qml/Presentation/ExerciseTexts.qml
         qml/Presentation/PlansViewModel.qml
         qml/Presentation/ProfileViewModel.qml
 
@@ -217,7 +220,9 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/BackRouter.qml
         qml/Components/BottomTabBar.qml
         qml/Components/CatalogExerciseRow.qml
+        qml/Components/CatalogExerciseTile.qml
         qml/Components/ExerciseRow.qml
+        qml/Components/ExercisePickerPopup.qml
         qml/Components/FilterChips.qml
         qml/Components/FormChoice.qml
         qml/Components/FpsOverlay.qml
@@ -244,6 +249,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Pages/Plans/PlansPage.qml
         qml/Pages/Exercises/ExercisesPage.qml
     qml/Pages/Exercises/ExercisesEditorPage.qml
+    qml/Pages/Exercises/ExerciseDetailPage.qml
         qml/Pages/Profile/ProfilePage.qml
 )
 

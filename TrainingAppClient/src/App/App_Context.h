@@ -21,6 +21,7 @@ class Avm_Today;
 class Avm_Macro;
 class Avm_Exercises;
 class Avm_Exercises_Editor;
+class Avm_Exercises_One;
 class AExercises_Repository;
 #include <QObject>
 #include <QSettings>
@@ -95,6 +96,8 @@ public:
 	Avm_Exercises *Exercises_VM() const;
 	// Редактор своего упражнения (спринт U5).
 	Avm_Exercises_Editor *Exercises_Editor_VM() const;
+	// Детальная карточка упражнения (спринт U6).
+	Avm_Exercises_One *Exercises_One_VM() const;
 	Avm_Auth_Bridge *Auth_Bridge() const;
 
 	static const QString Default_Api_Base_URL;
@@ -156,6 +159,7 @@ private:
 	AExercises_Repository *Exercises_Repository_Instance = 0;
 	Avm_Exercises *Exercises_VM_Instance = 0;
 	Avm_Exercises_Editor *Exercises_Editor_VM_Instance = 0;
+	Avm_Exercises_One *Exercises_One_VM_Instance = 0;
 	// Сидер демо-данных. Создаётся только при --demo-seed и живёт до конца
 	// приложения: указатель хранится, чтобы не посеять данные дважды.
 	ADemo_Seeder *Demo_Seeder_Instance = 0;

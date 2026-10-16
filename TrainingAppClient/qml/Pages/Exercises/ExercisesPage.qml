@@ -36,6 +36,12 @@ PageScaffold {
         if (page.hasViewModel === false)
             return;
 
+        // Фильтры вкладки — источник истины при показе: мини-окно выбора
+        // делит каталог с вкладкой и сбрасывает общий поиск на время выбора.
+        // Неизменённые значения уходят no-op'ами, лишних запросов нет.
+        page.viewModel.setQuery(searchField.text);
+        page.viewModel.setMuscleGroups(page.groupFilter.length === 0 ? [] : [page.groupFilter]);
+
         page.viewModel.reload();
         page.viewModel.loadCatalogs();
     }
@@ -101,7 +107,9 @@ PageScaffold {
     }
     FilterChips {
         currentIndex: page.groupFilter.length === 0 ? 0 : (page.hasViewModel ? page.viewModel.muscleGroups.indexOf(page.groupFilter) + 1 : 0)
-        items: [qsTr("Все")].concat(page.hasViewModel ? page.viewModel.muscleGroups : [])
+        items: [qsTr("Все")].concat(page.hasViewModel ? page.viewModel.muscleGroups.map(function (key) {
+            return ExerciseTexts.muscleGroupTitle(key);
+        }) : [])
         width: parent.width
 
         onSelected: function (index) {
@@ -111,8 +119,15 @@ PageScaffold {
                 page.viewModel.setMuscleGroups(page.groupFilter.length === 0 ? [] : [page.groupFilter]);
         }
     }
-    // — Каталог: роли title/subtitle — mock-контракт, делегат не менялся —
-    Column {
+    // — Каталог плитками: картинка + название, по две в строке —
+    // Flow внутри колонки страницы: ширина плитки считается от ширины
+    // колонки, а не от Layout (колонка контента не layout).
+    Flow {
+        id: tileFlow
+
+        readonly property real tileWidth: Math.floor((width - spacing) / 2)
+
+        objectName: "exerciseCatalogTiles"
         spacing: Spacing.listGap
         visible: page.showList
         width: parent.width
@@ -120,12 +135,12 @@ PageScaffold {
         Repeater {
             model: page.showList ? page.viewModel.exercise_list : null
 
-            delegate: CatalogExerciseRow {
-                subtitle: ExerciseTexts.groupsSubtitle(model.muscleGroups)
+            delegate: CatalogExerciseTile {
+                photoUrl: model.photoUrl !== undefined ? model.photoUrl : ""
                 title: model.title
-                width: parent.width
+                width: tileFlow.tileWidth
 
-                onClicked: Demo.notify(qsTr("Карточка упражнения и техника — в разработке"))
+                onClicked: page.openRequested(model.id)
             }
         }
     }

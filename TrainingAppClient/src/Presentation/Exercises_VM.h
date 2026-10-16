@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Data/Exercises/Exercises_Repository.h"
 #include "Presentation/List_Model.h"
@@ -21,6 +21,11 @@
 // «загрузить ещё» определяется по длине страницы (сервер не отдаёт total):
 // короткая страница — конец списка. Ответы устаревших запросов (после нового
 // reload) игнорируются по идентификатору.
+//
+// Кэш показывается мгновенно (offline-first): перед сетевым запросом выборка
+// заполняется из exercises_cache — окно выбора и вкладка каталога не ждут
+// сетевых таймаутов, при недоступном сервере строки уже на экране. Сетевой
+// ответ заменяет кэш, офлайн-ответ репозитория отдаёт те же строки.
 //
 // Роли строк — mock-контракт CatalogExerciseRow (title/subtitle): замена
 // mock-ViewModel в U4 не переписывает делегаты (qml/Mock, §3 роадмапа).
@@ -53,6 +58,10 @@ public:
 	Q_INVOKABLE void setQuery(const QString &in_query);
 	Q_INVOKABLE bool setMuscleGroups(const QStringList &in_groups);
 	Q_INVOKABLE bool setEquipments(const QStringList &in_equipments);
+	// Сброс поиска и фильтров без сетевого запроса: мини-окно выбора делит
+	// каталог с вкладкой «Упражнения» и не должно наследовать её фильтры.
+	// Возвращает true, если состояние было сброшено (вызову нужен reload()).
+	Q_INVOKABLE bool resetFilters();
 	Q_INVOKABLE void loadCatalogs();
 
 signals:
@@ -69,8 +78,13 @@ private slots:
 	                            const AApi_Error &in_error);
 
 private:
-	static QVariantMap Row_Data(const SExercises_Item &in_item);
+	QVariantMap Row_Data(const SExercises_Item &in_item) const;
 	bool Start_Load(int in_offset);
+	// Мгновенный показ кэша: строки появляются сразу, не дожидаясь сетевых
+	// таймаутов (офлайн-ответ репозитория мог прийти через десятки секунд,
+	// и окно выбора выглядело пустым). Сетевой ответ заменяет кэш.
+	void Show_Cache();
+	bool Matches_Filters(const SExercises_Item &in_item) const;
 
 	AExercises_Repository *Repository_Instance;
 	QStringList Known_Groups;

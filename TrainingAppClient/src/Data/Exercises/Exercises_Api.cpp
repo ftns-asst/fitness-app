@@ -184,6 +184,27 @@ int AExercises_Api::Delete_Exercise(const QString &in_id)
 	return Send_Authed_Mutation(request, Kind_Delete);
 }
 //----------------------------------------------------------------------------
+int AExercises_Api::Get_One(const QString &in_id)
+{
+	SHttp_Request request;
+
+	Last_Error_Text.clear();
+
+	if (in_id.trimmed().isEmpty())
+	{
+		Last_Error_Text = "Не указано упражнение для чтения";
+		return 0;
+	}
+
+	// GET /exercises/{id} — приватный эндпоинт (docs/03, §3.9): без активной
+	// сессии запрос не отправляется, «своё» без токена не читается.
+	request.Method = "GET";
+	request.Path = QString("exercises/%1").arg(in_id.trimmed());
+	request.Retry_Enabled = true;
+
+	return Send_Authed_Mutation(request, Kind_One);
+}
+//----------------------------------------------------------------------------
 int AExercises_Api::Send_Authed_Mutation(const SHttp_Request &in_request, int in_kind)
 {
 	SPending_Call pending;
@@ -323,6 +344,15 @@ void AExercises_Api::Finish_Call(int in_request_id, const SHttp_Response &in_res
 	{
 		qCInfo(EXERCISES_Api_Log).noquote() << "delete finished" << in_request_id;
 		emit deleteFinished(in_request_id, in_response.Error);
+		break;
+	}
+	case Kind_One:
+	{
+		SExercises_Item item;
+
+		Parse_Single(in_response, item, error);
+		qCInfo(EXERCISES_Api_Log).noquote() << "one finished" << in_request_id << "id" << item.ID;
+		emit oneFinished(in_request_id, item, error);
 		break;
 	}
 	default:

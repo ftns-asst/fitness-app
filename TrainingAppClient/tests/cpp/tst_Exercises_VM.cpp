@@ -116,6 +116,19 @@ void Avm_Exercises_Test::rolesMatchMockContract()
 	QCOMPARE(row.value("title").toString(), QString("Bench press"));
 	QCOMPARE(row.value("subtitle").toString(), QString("chest"));
 
+	// Роли списка включают id и muscleGroups: окно выбора в дне программы
+	// (ExercisePickerPopup) объявляет их required-свойствами делегата, и без
+	// роли в roleNames строка не создаётся — список выглядел бы пустым.
+	const QHash<int, QByteArray> roles = vm->exercise_list()->roleNames();
+
+	QVERIFY(roles.values().contains("id"));
+	QVERIFY(roles.values().contains("title"));
+	QVERIFY(roles.values().contains("subtitle"));
+	QVERIFY(roles.values().contains("muscleGroups"));
+
+	QCOMPARE(row.value("id").toString(), QString("aaaaaaaa-1111-2222-3333-444444444444"));
+	QCOMPARE(row.value("muscleGroups").toStringList(), QStringList({"chest"}));
+
 	// Свойства-справочники для чипов заполняются отдельными запросами.
 	server.Enqueue_Response(JSON_Response(200, QByteArray("[\"chest\",\"biceps\"]")));
 	server.Enqueue_Response(JSON_Response(200, QByteArray("[\"barbell\"]")));
@@ -226,6 +239,8 @@ void Avm_Exercises_Test::offlineShowsCacheWithMarker()
 
 	// Офлайн: репозиторий отдаёт кэш, VM поднимает fromCache и не показывает
 	// ошибку — каталог читаем, пользователь видит плашку «сохранённый».
+	// Список — кэш плюс локальный каталог: упражнения, которыми пользуются
+	// программы, остаются выбираемыми и без сети.
 	server.Stop();
 
 	QVERIFY(vm->reload());
@@ -233,7 +248,20 @@ void Avm_Exercises_Test::offlineShowsCacheWithMarker()
 
 	QVERIFY(vm->Is_From_Cache());
 	QVERIFY(vm->Error_Key().isEmpty());
-	QCOMPARE(vm->exercise_list()->Row_Count(), 2);
+	QVERIFY(vm->exercise_list()->Row_Count() >= 2);
+
+	QVector<QVariantMap> rows;
+	bool has_local_catalog_row = false;
+
+	for (int i = 0; i < vm->exercise_list()->Row_Count(); ++i)
+	{
+		const QVariantMap row = vm->exercise_list()->get(i);
+
+		if (row.value("id").toString() == QString("ex_squat"))
+			has_local_catalog_row = true;
+	}
+
+	QVERIFY(has_local_catalog_row);
 }
 //----------------------------------------------------------------------------
 

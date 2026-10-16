@@ -6,10 +6,12 @@
 #include "Support/Test_Http_Server.h"
 
 #include <QDateTime>
+#include <QDir>
 #include <QSignalSpy>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QTemporaryDir>
+#include <QTemporaryFile>
 #include <QtTest>
 
 // Спринт U2 (docs/08-exercises-sprint-plan.md §4): кэш упражнений и
@@ -26,6 +28,14 @@ private slots:
 	void ownExercisesSurviveBasicRefresh();
 	void offlineListFallsBackToCache();
 	void catalogsFallBackToCachedValues();
+	// Первый запуск без сети: пустой кэш засевается базовым каталогом,
+	// иначе экран дня открывался «не из чего выбрать».
+	void offlineEmptyCacheSeedsBaseCatalog();
+	// Засев только в пустой кэш: серверный каталог не разбавляется примитивами.
+	void offlineAfterOnlineServesServerItems();
+	// Локальные фото (схема v9): стейджинг → коммит → чтение → удаление;
+	// отмена стейджинга не оставляет файла.
+	void photoStagesCommitsAndDeletes();
 
 private:
 	static QByteArray Exercise_Array_Body();
@@ -97,9 +107,10 @@ void AExercises_Repository_Test::migrationCreatesCacheTables()
 	QVERIFY(database.Migrate());
 
 	// Миграция v8 (v7 — кэш упражнений и справочников; v8 — метрики правил
-	// питания): таблицы кэша созданы, версия схемы поднята до текущей (v8).
-	QCOMPARE(database.Get_Schema_Version(), 8);
-	QCOMPARE(database.Get_Current_Schema_Version(), 8);
+	// питания; v9 — локальные фото техники): таблицы кэша созданы, версия
+	// схемы поднята до текущей (v9).
+	QCOMPARE(database.Get_Schema_Version(), 9);
+	QCOMPARE(database.Get_Current_Schema_Version(), 9);
 
 	QSqlDatabase connection = database.Sql_Connection();
 	QSqlQuery probe(connection);
@@ -108,6 +119,8 @@ void AExercises_Repository_Test::migrationCreatesCacheTables()
 	                   "FROM exercises_cache WHERE 0"));
 	QVERIFY(probe.exec("SELECT name FROM muscle_groups_ref WHERE 0"));
 	QVERIFY(probe.exec("SELECT name FROM equipments_ref WHERE 0"));
+	// v9 — таблица локальных фото техники.
+	QVERIFY(probe.exec("SELECT exercise_id, file_name FROM exercise_photos WHERE 0"));
 }
 //----------------------------------------------------------------------------
 void AExercises_Repository_Test::listUpsertsIntoCache()
@@ -211,8 +224,22 @@ void AExercises_Repository_Test::offlineListFallsBackToCache()
 	from_cache = qvariant_cast<bool>(arguments.at(2));
 	error = qvariant_cast<AApi_Error>(arguments.at(3));
 
-	QCOMPARE(items.size(), 2);
+	// Офлайн-список = серверный кэш + локальный каталог: серверные строки
+	// идут первыми (источник истины), следом — строки локального каталога
+	// (базовые примитивы, засеянные схемой). Без них упражнение, стоящее в дне
+	// программы, не находилось бы в окне выбора.
+	QVERIFY(items.size() >= 2);
 	QCOMPARE(items[0].Name, QString("Bench press"));
+
+	bool has_local_catalog_row = false;
+
+	for (int i = 0; i < items.size(); ++i)
+	{
+		if (items.at(i).ID == QString("ex_squat"))
+			has_local_catalog_row = true;
+	}
+
+	QVERIFY(has_local_catalog_row);
 	QVERIFY(from_cache);
 	QVERIFY(error.Is_Error() == false);
 }
@@ -254,6 +281,169 @@ void AExercises_Repository_Test::catalogsFallBackToCachedValues()
 	QCOMPARE(values, QStringList({"chest", "biceps"}));
 	QVERIFY(from_cache);
 	QVERIFY(error.Is_Error() == false);
+}
+//----------------------------------------------------------------------------
+// Первый запуск без сети: кэш пуст, сервера нет — вместо «не из чего выбрать»
+// репозиторий сам засевает базовый каталог упражнений и справочники. Засев
+// обязан доехать и до локального exercises: FK дня программы иначе отверг бы
+// выбор базового упражнения.
+void AExercises_Repository_Test::offlineEmptyCacheSeedsBaseCatalog()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AsSql_Database *database = new AsSql_Database(&server);
+	AsToken_Store *store = new AsToken_Store(database, &server);
+	AsHttp_Client *client = new AsHttp_Client((QUrl()), &server);
+	AsAuth_Session *session = new AsAuth_Session(client, store, &server);
+	AExercises_Repository *repository = new AExercises_Repository(client, session, database, &server);
+
+	QVERIFY(directory.isValid());
+	QVERIFY(database->Open(directory.filePath("cache.sqlite3")));
+	QVERIFY(database->Migrate());
+	QVERIFY(server.Start());
+	QVERIFY(client->Set_Base_URL(server.Base_URL().resolved(QUrl("/api/v1"))));
+	client->Set_Max_Retry_Count(0);
+
+	QSignalSpy list_spy(repository, &AExercises_Repository::listFinished);
+	QSignalSpy groups_spy(repository, &AExercises_Repository::muscleGroupsFinished);
+	QSignalSpy equipments_spy(repository, &AExercises_Repository::equipmentsFinished);
+	QList<QVariant> arguments;
+	QVector<SExercises_Item> items;
+	QStringList values;
+
+	// Офлайн с самого начала: кэш никто не грел.
+	server.Stop();
+
+	QVERIFY(repository->Load_List("all", QStringList(), QStringList(), QString(), 50, 0) > 0);
+	QVERIFY(list_spy.wait(5000));
+
+	arguments = list_spy.takeFirst();
+	items = qvariant_cast<QVector<SExercises_Item>>(arguments.at(1));
+
+	// Базовый каталог не пуст и это не ошибка: офлайн — нормальное состояние.
+	QVERIFY(items.size() >= 10);
+	QVERIFY(arguments.at(2).toBool());
+	QVERIFY(qvariant_cast<AApi_Error>(arguments.at(3)).Is_Error() == false);
+
+	QVERIFY(repository->Load_Muscle_Groups() > 0);
+	QVERIFY(groups_spy.wait(5000));
+	values = qvariant_cast<QStringList>(groups_spy.takeFirst().at(1));
+	QVERIFY(values.contains("chest"));
+	QVERIFY(values.contains("quads"));
+
+	QVERIFY(repository->Load_Equipments() > 0);
+	QVERIFY(equipments_spy.wait(5000));
+	values = qvariant_cast<QStringList>(equipments_spy.takeFirst().at(1));
+	QVERIFY(values.contains("barbell"));
+	QVERIFY(values.contains("bodyweight"));
+
+	// Зеркало в локальном каталоге: FK program_day_exercises.exercise_id →
+	// exercises.id обязан принимать базовый идентификатор.
+	QSqlQuery probe(database->Sql_Connection());
+
+	QVERIFY(probe.exec("SELECT COUNT(*) FROM exercises WHERE id = 'builtin-squat'"));
+	QVERIFY(probe.next());
+	QCOMPARE(probe.value(0).toInt(), 1);
+}
+//----------------------------------------------------------------------------
+// Тёплый кэш и офлайн: серверные строки остаются первыми (источник истины),
+// к ним добавляется локальный каталог — упражнения, которыми уже пользуются
+// программы. Примитивы базового набора (builtin-*) в список не подмешиваются:
+// базовый каталог засевается только в пустой кэш.
+void AExercises_Repository_Test::offlineAfterOnlineServesServerItems()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AExercises_Repository *repository = 0;
+
+	Make_Repository(server, directory, false, repository);
+	QSignalSpy spy(repository, &AExercises_Repository::listFinished);
+	QList<QVariant> arguments;
+	QVector<SExercises_Item> items;
+
+	server.Enqueue_Response(JSON_Response(200, Exercise_Array_Body()));
+	QVERIFY(repository->Load_List("all", QStringList(), QStringList(), QString(), 50, 0) > 0);
+	QVERIFY(spy.wait(5000));
+	spy.clear();
+
+	server.Stop();
+
+	QVERIFY(repository->Load_List("all", QStringList(), QStringList(), QString(), 50, 0) > 0);
+	QVERIFY(spy.wait(5000));
+
+	arguments = spy.takeFirst();
+	items = qvariant_cast<QVector<SExercises_Item>>(arguments.at(1));
+
+	QVERIFY(items.size() >= 2);
+	QCOMPARE(items[0].Name, QString("Bench press"));
+	QCOMPARE(items[1].Name, QString("Push up"));
+
+	for (int i = 0; i < items.size(); ++i)
+		QVERIFY(items[i].ID.startsWith("builtin-") == false);
+}
+//----------------------------------------------------------------------------
+// Локальные фото (схема v9): стейджинг → коммит → чтение → удаление.
+// Файлы пишутся в стандартный каталог приложения: тестовый режим
+// QStandardPaths держит их в песочнице теста, а не в %APPDATA%.
+//----------------------------------------------------------------------------
+void AExercises_Repository_Test::photoStagesCommitsAndDeletes()
+{
+	qputenv("QT_STANDARDPATHS_TESTING", "1");
+
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AExercises_Repository *repository = 0;
+
+	Make_Repository(server, directory, false, repository);
+
+	// Источник — временный файл без суффикса: формат падает в jpg по умолчанию.
+	QTemporaryFile source;
+
+	QVERIFY(source.open());
+	source.write("jpeg-bytes");
+	source.close();
+
+	// Нечитаемый источник — отказ с ключом, форма показывает ошибку.
+	QString staged;
+	QString error;
+
+	QVERIFY(repository->Stage_Photo(QUrl::fromLocalFile("no-such-photo.jpg"), staged, error) == false);
+	QCOMPARE(error, QString("photo_failed"));
+
+	// Стейджинг: копия под временным именем, до коммита.
+	QVERIFY(repository->Stage_Photo(QUrl::fromLocalFile(source.fileName()), staged, error));
+	QVERIFY(error.isEmpty());
+	QVERIFY(staged.endsWith(".jpg"));
+	QVERIFY(QFile::exists(staged));
+
+	// Коммит: файл переименовывается в <id>.<ext>, строка пишется в базу.
+	QVERIFY(repository->Commit_Photo("cccccccc-1111-2222-3333-444444444444", staged));
+	QVERIFY(QFile::exists(staged) == false);
+
+	QString photo_file;
+
+	QVERIFY(repository->Photo_File("cccccccc-1111-2222-3333-444444444444", photo_file));
+	QVERIFY(photo_file.endsWith("cccccccc-1111-2222-3333-444444444444.jpg"));
+
+	// Чужой id — фото нет; произвольный путь не отменяется.
+	QString none;
+
+	QVERIFY(repository->Photo_File("unknown-id", none) == false);
+	QVERIFY(repository->Cancel_Staged_Photo(source.fileName()) == false);
+	QVERIFY(QFile::exists(source.fileName()));
+
+	// Удаление: и файл, и строка.
+	QVERIFY(repository->Delete_Photo("cccccccc-1111-2222-3333-444444444444"));
+	QVERIFY(repository->Photo_File("cccccccc-1111-2222-3333-444444444444", none) == false);
+	QVERIFY(QFile::exists(photo_file) == false);
+
+	// Отмена стейджинга: незакоммиченное фото не остаётся мусором.
+	QVERIFY(repository->Stage_Photo(QUrl::fromLocalFile(source.fileName()), staged, error));
+	QVERIFY(repository->Cancel_Staged_Photo(staged));
+	QVERIFY(QFile::exists(staged) == false);
+
+	// Песочница теста не переживает тест.
+	QDir(AExercises_Repository::Photos_Directory()).removeRecursively();
 }
 
 QTEST_MAIN(AExercises_Repository_Test)

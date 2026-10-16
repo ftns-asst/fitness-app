@@ -45,7 +45,7 @@ PageScaffold {
     // Идентификатор берётся из AppContext: литерал «u1» повторялся в четырёх
     // экранах, и любое другое значение делало программу невидимой.
     function currentUserId() {
-        return AppContext !== undefined && AppContext !== null ? AppContext.currentUserId : "u1";
+        return typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
     }
 
     function reload() {
@@ -114,11 +114,14 @@ PageScaffold {
         }
     }
     // — Нормы из расчёта: переносит цели КБЖУ в правила программы —
-    // Видима только при сохранённом расчёте: без него кнопка обещала бы
-    // работу, которую нечем наполнить, и отказывалась бы постфактум.
+    // Кнопка видима всегда, пока есть программа: спрятанная за hasMacroResult
+    // она не находилась бы вовсе — человек без расчёта просто не видел бы
+    // функцию. Нажатие без расчёта отказывает понятной ошибкой
+    // (macro_calc_required) вместо молчаливой невидимости.
     AppButton {
-        visible: page.hasProgram && page.hasMacroResult
+        visible: page.hasProgram
         onClicked: page.generateFromMacro()
+        objectName: "macroRulesButton"
         text: qsTr("Создать правила из расчёта")
         variant: AppButton.Secondary
         width: parent.width

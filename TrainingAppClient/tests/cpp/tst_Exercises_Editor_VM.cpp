@@ -1,4 +1,4 @@
-#include "Data/Auth/Auth_Session.h"
+﻿#include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Exercises/Exercises_Repository.h"
@@ -7,8 +7,10 @@
 #include "Support/Test_Http_Server.h"
 
 #include <QDateTime>
+#include <QDir>
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QTemporaryFile>
 #include <QtTest>
 
 // Спринт U5 (docs/08-exercises-sprint-plan.md §4): форма своего упражнения.
@@ -24,6 +26,11 @@ private slots:
 	void createPostsBodyAndSaves();
 	void editSendsPatchWithIdAndKeepsFormOn403();
 	void deleteRemovesFromCache();
+	// Фото техники: выбранное до сохранения коммитится с id из ответа POST;
+	// превью видно сразу, стейджинг — единственный.
+	void photoCommitsWithSavedExercise();
+	// Без входа своё упражнение сохраняется локально: кэш + зеркало FK, без запросов.
+	void createWithoutSessionSavesLocally();
 
 private:
 	static STest_Http_Response JSON_Response(int in_status, const QByteArray &in_body);
@@ -234,6 +241,145 @@ void Avm_Exercises_Editor_Test::deleteRemovesFromCache()
 	QCOMPARE(cached.size(), 0);
 }
 //----------------------------------------------------------------------------
+// Фото техники (схема v9): выбранное до сохранения стейджится (превью видно
+// сразу), коммит идёт после подтверждения сервера — с id из ответа POST.
+// Отмена формы (reset) убирает стейджинг, не оставляя файла.
+//----------------------------------------------------------------------------
+void Avm_Exercises_Editor_Test::photoCommitsWithSavedExercise()
+{
+	// Файлы фото пишутся в стандартный каталог приложения: тестовый режим
+	// QStandardPaths держит их в песочнице теста, а не в %APPDATA%.
+	qputenv("QT_STANDARDPATHS_TESTING", "1");
 
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AExercises_Repository *repository = 0;
+	Avm_Exercises_Editor *vm = 0;
+
+	Make_VM(server, directory, repository, vm);
+
+	QTemporaryFile source;
+
+	QVERIFY(source.open());
+	source.write("jpeg-bytes");
+	source.close();
+
+	// Нечитаемый источник — отказ с ключом, форма не падает.
+	QVERIFY(vm->attachPhoto(QUrl::fromLocalFile("no-such-photo.jpg")) == false);
+	QCOMPARE(vm->Error_Key(), QString("photo_failed"));
+	QVERIFY(vm->Has_Photo() == false);
+
+	// Превью видно сразу, до сохранения.
+	QVERIFY(vm->attachPhoto(QUrl::fromLocalFile(source.fileName())));
+	QVERIFY(vm->Has_Photo());
+	QVERIFY(vm->Photo_Url().startsWith("file:///"));
+	QCOMPARE(vm->Error_Key(), QString(""));
+
+	vm->set_Name("My exercise");
+	QVERIFY(vm->toggleMuscleGroup("chest"));
+
+	server.Enqueue_Response(JSON_Response(200, Exercise_Object_Body()));
+	QVERIFY(vm->submit());
+	QTRY_COMPARE_WITH_TIMEOUT(vm->Is_Busy(), false, 5000);
+
+	// Сохранение подтверждено: фото коммитится с id ответа и читается.
+	QString photo_file;
+
+	QVERIFY(repository->Photo_File("cccccccc-1111-2222-3333-444444444444", photo_file));
+	QVERIFY(photo_file.endsWith("cccccccc-1111-2222-3333-444444444444.jpg"));
+	QVERIFY(vm->Has_Photo());
+
+	// Снятие и отмена формы: новое фото убирается сразу.
+	vm->removePhoto();
+	QVERIFY(vm->Has_Photo() == false);
+
+	// Песочница теста не переживает тест.
+	QDir(AExercises_Repository::Photos_Directory()).removeRecursively();
+}
+//----------------------------------------------------------------------------
+void Avm_Exercises_Editor_Test::createWithoutSessionSavesLocally()
+{
+	qputenv("QT_STANDARDPATHS_TESTING", "1");
+
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AsSql_Database *database = new AsSql_Database(&server);
+	AsToken_Store *store = new AsToken_Store(database, &server);
+	AsHttp_Client *client = new AsHttp_Client((QUrl()), &server);
+	AsAuth_Session *session = new AsAuth_Session(client, store, &server);
+	AExercises_Repository *repository = new AExercises_Repository(client, session, database, &server);
+
+	QVERIFY(directory.isValid());
+	QVERIFY(database->Open(directory.filePath("cache.sqlite3")));
+	QVERIFY(database->Migrate());
+	QVERIFY(server.Start());
+	QVERIFY(client->Set_Base_URL(server.Base_URL().resolved(QUrl("/api/v1"))));
+	QVERIFY(repository->Save_Catalogs(QStringList({"chest", "biceps"}), QStringList({"barbell"})));
+
+	Avm_Exercises_Editor *vm = new Avm_Exercises_Editor(repository, &server);
+	QSignalSpy saved_spy(vm, &Avm_Exercises_Editor::saved);
+
+	// Сессии нет: запрос на сервер не уходит, упражнение создано.
+	QVERIFY(repository->Has_Session() == false);
+	vm->set_Name("  Своё жима  ");
+	QVERIFY(vm->toggleMuscleGroup("chest"));
+	QVERIFY(vm->submit());
+
+	QCOMPARE(server.Request_Count(), 0);
+	QCOMPARE(saved_spy.count(), 1);
+	QVERIFY(vm->Error_Key().isEmpty());
+
+	const QString id = saved_spy.takeFirst().at(0).toString();
+
+	QVERIFY(id.isEmpty() == false);
+
+	// Упражнение видно в офлайн-каталоге (кэш + локальный каталог, без дублей).
+	QVector<SExercises_Item> items;
+	int matches = 0;
+
+	QVERIFY(repository->Load_Offline_List(items));
+
+	for (int i = 0; i < items.size(); ++i)
+	{
+		if (items.at(i).ID == id)
+		{
+			++matches;
+			QCOMPARE(items.at(i).Name, QString("Своё жима"));
+		}
+	}
+
+	QCOMPARE(matches, 1);
+
+	// Правка той же записи меняет имя, а не добавляет дубль.
+	QVERIFY(vm->loadExisting(id));
+	vm->set_Name("Своё жима 2");
+	QVERIFY(vm->submit());
+	QCOMPARE(saved_spy.count(), 1);
+	QCOMPARE(saved_spy.takeFirst().at(0).toString(), id);
+	QVERIFY(repository->Load_Offline_List(items));
+
+	matches = 0;
+
+	for (int i = 0; i < items.size(); ++i)
+	{
+		if (items.at(i).ID == id)
+		{
+			++matches;
+			QCOMPARE(items.at(i).Name, QString("Своё жима 2"));
+		}
+	}
+
+	QCOMPARE(matches, 1);
+
+	// Удаление без сессии локально убирает строку.
+	QVERIFY(vm->loadExisting(id));
+	QVERIFY(vm->remove());
+	QVERIFY(repository->Load_Offline_List(items));
+
+	for (int i = 0; i < items.size(); ++i)
+		QVERIFY(items.at(i).ID != id);
+
+	QCOMPARE(server.Request_Count(), 0);
+}
 QTEST_MAIN(Avm_Exercises_Editor_Test)
 #include "tst_Exercises_Editor_VM.moc"

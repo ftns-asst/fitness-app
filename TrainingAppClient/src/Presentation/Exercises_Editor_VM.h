@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QUrl>
 
 class QTimer;
 
@@ -37,6 +38,10 @@ class Avm_Exercises_Editor : public QObject
 	Q_PROPERTY(QStringList selectedEquipments READ Selected_Equipments NOTIFY fieldsChanged)
 	Q_PROPERTY(QString errorKey READ Error_Key NOTIFY stateChanged)
 	Q_PROPERTY(bool busy READ Is_Busy NOTIFY stateChanged)
+	// Фото техники (референс 2089): превью file://-URL — новое фото видно
+	// сразу, до сохранения; пустая строка — фото нет.
+	Q_PROPERTY(QString photoUrl READ Photo_Url NOTIFY photoChanged)
+	Q_PROPERTY(bool hasPhoto READ Has_Photo NOTIFY photoChanged)
 
 public:
 	explicit Avm_Exercises_Editor(AExercises_Repository *in_repository, QObject *in_parent = 0);
@@ -51,6 +56,8 @@ public:
 	QStringList Selected_Equipments() const;
 	QString Error_Key() const;
 	bool Is_Busy() const;
+	QString Photo_Url() const;
+	bool Has_Photo() const;
 
 	void set_Name(const QString &in_name);
 	void set_Description(const QString &in_description);
@@ -64,11 +71,17 @@ public:
 	Q_INVOKABLE bool toggleEquipment(const QString &in_equipment);
 	Q_INVOKABLE bool submit();
 	Q_INVOKABLE bool remove();
+	// Фото техники: выбранное копируется в app data (стейджинг), превью —
+	// сразу; коммит — после сохранения упражнения (id узнаётся из ответа).
+	Q_INVOKABLE bool attachPhoto(const QUrl &in_source);
+	// Снятие фото: стейджинг отменяется сразу, прежнее удаляется сохранением.
+	Q_INVOKABLE void removePhoto();
 
 signals:
 	void fieldsChanged();
 	void catalogsChanged();
 	void stateChanged();
+	void photoChanged();
 	// Успех: создание — упражнение готово и лежит в кэше; удаление — строка
 	// ушла из кэша. Экран закрывается, каталог перезагружается.
 	void saved(const QString &exerciseId);
@@ -87,6 +100,12 @@ private:
 	// Проверка значений по справочникам из кэша; unknown_value — отказ.
 	bool Values_Known(const QStringList &in_values, const QStringList &in_known, QString &out_error_key) const;
 	void Set_Error(const QString &in_key);
+	// Фото подтверждается сохранением: стейджинг коммитится в <id>.<ext>,
+	// снятое прежнее удаляется. Вызывается из успехов create/update.
+	void Commit_Photo_For(const QString &in_exercise_id);
+	// Локальное сохранение (без входа или без сети): репозиторий пишет кэш и зеркало.
+	bool Save_Locally();
+	void Clear_Photo_State();
 
 	AExercises_Repository *Repository_Instance;
 	QString Name_Text;
@@ -97,6 +116,11 @@ private:
 	QStringList Known_Equipments;
 	QString Editing_Id;
 	QString Error_Key_Text;
+	// Локальные фото (схема v9): путь существующего файла (правка) и
+	// стейджинг нового (создание) — абсолютные пути app data.
+	QString Existing_Photo_File;
+	QString Staged_Photo_File;
+	bool Photo_Removed_Flag = false;
 	bool Is_Public_Flag = false;
 	bool Busy_Flag = false;
 	int Create_Request_Id = 0;

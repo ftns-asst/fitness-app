@@ -5,6 +5,7 @@
 #include "Data/Exercises/Exercises_Repository.h"
 #include "Presentation/Auth_Qml_Bridge.h"
 #include "Presentation/Exercises_Editor_VM.h"
+#include "Presentation/Exercises_One_VM.h"
 #include "Presentation/Exercises_VM.h"
 #include "Presentation/Macro_VM.h"
 #include "Presentation/Program_Catalog_VM.h"
@@ -153,6 +154,8 @@ int main(int argc, char *argv[])
 	// Форма своего упражнения (спринт U5): создание, правка, удаление.
 	engine.rootContext()->setContextProperty("ExercisesEditorVM",
 	                                         static_cast<QObject *>(app_context.Exercises_Editor_VM()));
+	// Детальная карточка упражнения (спринт U6).
+	engine.rootContext()->setContextProperty("ExercisesOneVM", static_cast<QObject *>(app_context.Exercises_One_VM()));
 
 	engine.loadFromModule("TrainingAppClient", "Main");
 

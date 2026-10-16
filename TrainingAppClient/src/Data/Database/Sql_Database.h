@@ -67,6 +67,10 @@ private:
 	// muscle_groups_ref и equipments_ref — справочники для фильтров.
 	bool Migrate_Schema_V6_To_V7();
 	bool Migrate_Schema_V7_To_V8();
+	// v9 — локальные фото техники (спринт U5/U6): exercise_photos хранит имя
+	// файла по id упражнения; файл лежит в app data (images/exercises), а не
+	// в базе — блоб в SQLite разрос бы базу и сломал бы копирование кэша.
+	bool Migrate_Schema_V8_To_V9();
 	// Столбец profile_local добавляется один раз: повторный ALTER падает, а
 	// версия схемы могла не записаться при сбое в середине миграции.
 	bool Add_Column_If_Missing(const QString &in_table, const QString &in_column, const QString &in_definition);

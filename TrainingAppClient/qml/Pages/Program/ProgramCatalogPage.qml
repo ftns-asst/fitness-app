@@ -44,7 +44,7 @@ PageScaffold {
     // литералом «u1» здесь и ещё в трёх экранах, и любое другое значение
     // (например, посев демо-данных под другим id) делало программу невидимой.
     function currentUserId() {
-        return AppContext !== undefined && AppContext !== null ? AppContext.currentUserId : "u1";
+        return typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
     }
 
     function reload() {

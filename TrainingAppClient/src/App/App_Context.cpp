@@ -19,6 +19,7 @@
 #include "Presentation/Auth_Qml_Bridge.h"
 #include "Presentation/Auth_VM.h"
 #include "Presentation/Exercises_Editor_VM.h"
+#include "Presentation/Exercises_One_VM.h"
 #include "Presentation/Exercises_VM.h"
 #include "Presentation/Macro_VM.h"
 #include "Presentation/Program_Catalog_VM.h"
@@ -227,6 +228,8 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	Exercises_VM_Instance = new Avm_Exercises(Exercises_Repository_Instance, 50, this);
 	// Редактор своего упражнения (спринт U5): та же база зависимостей.
 	Exercises_Editor_VM_Instance = new Avm_Exercises_Editor(Exercises_Repository_Instance, this);
+	// Детальная карточка упражнения (спринт U6): тот же репозиторий.
+	Exercises_One_VM_Instance = new Avm_Exercises_One(Exercises_Repository_Instance, this);
 
 	Create_Program_Stack();
 
@@ -299,10 +302,10 @@ void AsApp_Context::Create_Program_Stack()
 	Program_Stats_VM_Instance =
 	    new Avm_Program_Stats(Program_Repository_Instance, Workout_Repository_Instance, Rule_Repository_Instance,
 	                          Measurement_Repository_Instance, Stats_Repository_Instance, this);
-	Program_Rules_VM_Instance = new Avm_Program_Rules(Program_Repository_Instance, Rule_Repository_Instance,
-	                                                  Users_Repository_Instance, this);
-	Program_Edit_VM_Instance =
-	    new Avm_Program_Edit(Program_Repository_Instance, Rule_Repository_Instance, Program_Service_Instance, this);
+	Program_Rules_VM_Instance =
+	    new Avm_Program_Rules(Program_Repository_Instance, Rule_Repository_Instance, Users_Repository_Instance, this);
+	Program_Edit_VM_Instance = new Avm_Program_Edit(Program_Repository_Instance, Rule_Repository_Instance,
+	                                                Program_Service_Instance, Users_Repository_Instance, this);
 	Program_Catalog_VM_Instance = new Avm_Program_Catalog(Program_Repository_Instance, this);
 	// Главный экран «Сегодня» (issue 27) читает тот же стек репозиториев: день
 	// из расписания, упражжения дня, правила и завершённую тренировку.
@@ -527,6 +530,11 @@ Avm_Exercises *AsApp_Context::Exercises_VM() const
 Avm_Exercises_Editor *AsApp_Context::Exercises_Editor_VM() const
 {
 	return Exercises_Editor_VM_Instance;
+}
+//------------------------------------------------------------------------------
+Avm_Exercises_One *AsApp_Context::Exercises_One_VM() const
+{
+	return Exercises_One_VM_Instance;
 }
 //------------------------------------------------------------------------------
 Avm_Today *AsApp_Context::Today_VM() const

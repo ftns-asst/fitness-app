@@ -19,6 +19,10 @@ Item {
     // спринт U4). typeof: в qmltestrunner контекст-свойств нет.
     property var exercisesViewModel: typeof ExercisesVM !== "undefined" ? ExercisesVM : null
     property string initialProgramScreen: ""
+    // Инструмент ревью: --popup-shot открывает окно выбора упражнения сразу
+    // после открытия экрана дня — для скриншота мини-окна с настоящим
+    // каталогом (qmltestrunner каталог из сети не поднимает).
+    readonly property bool popupShot: Qt.application.arguments.indexOf("--popup-shot") >= 0
     property int initialTab: 0
 
     // — Память вкладок (отзыв: «вернулся на вкладку — а там корень») —
@@ -141,13 +145,15 @@ Item {
     // Сравнение записей: одинаковый экран (имя и параметры) не попадает
     // в историю дважды.
     function sameEntry(a, b) {
-        return (a.name === b.name) && ((a.id || "") === (b.id || "")) && ((a.weekday || 0) === (b.weekday || 0)) && ((a.kind || 0) === (b.kind || 0));
+        return (a.name === b.name) && ((a.id || "") === (b.id || "")) && ((a.weekday || 0) === (b.weekday || 0)) && ((a.kind || 0) === (b.kind || 0)) && ((a.exerciseId || "") === (b.exerciseId || ""));
     }
 
     // Компонент экрана по имени записи. Только для восстановления цепочки:
     // живые переходы идут через open*-функции с их сайд-эффектами.
     function componentFor(name) {
         const map = {
+            "exercise-detail": exerciseDetailComponent,
+            "exercise-edit": exerciseEditorComponent,
             "macro-calculator": macroCalculatorComponent,
             "program-catalog": programCatalogComponent,
             "program-day": programDayComponent,
@@ -176,6 +182,9 @@ Item {
 
             if (entry.id !== undefined && entry.id !== null && entry.id !== "")
                 shell.programId = entry.id;
+
+            if (entry.name === "exercise-detail")
+                shell.exerciseDetailId = entry.exerciseId || "";
 
             if (entry.name === "program-day")
                 dayEntry = entry;
@@ -225,11 +234,16 @@ Item {
     // игнорируется. Без guard'а двойной тап толкал один экран дважды —
     // человек видел это как «фантомное перелистывание»: нажатие назад
     // показывало тот же экран ещё раз.
-    function pushPage(component) {
+    function pushPage(component, properties) {
         if (pages.busy)
             return;
 
-        pages.push(component);
+        // properties — для экранов, которым нужно поведение от контекста
+        // открытия (расчёт КБЖУ из настройки программы умеет применять нормы).
+        if (properties === undefined)
+            pages.push(component);
+        else
+            pages.push(component, properties);
     }
     // Редактор своего упражнения (спринт U5): закрытие после сохранения
     // перезагружает каталог — новая строка обязана появиться без ручного
@@ -237,6 +251,36 @@ Item {
     function closeExerciseEditor() {
         pages.pop();
         shell.exercisesViewModel.reload();
+    }
+
+    // Детальная карточка упражнения (спринт U6): id задаётся до пуша — экран
+    // читает его при создании и сам грузит данные (Component.onCompleted).
+    property string exerciseDetailId: ""
+
+    function openExerciseDetail(exerciseId) {
+        shell.exerciseDetailId = exerciseId;
+        // Идентификатор живёт в exerciseId, а не в id: restoreChain трактует
+        // id как идентификатор программы, чужой UUID сломал бы восстановление.
+        shell.noteTabScreen({
+            name: "exercise-detail",
+            exerciseId: exerciseId
+        });
+        shell.pushPage(exerciseDetailComponent);
+    }
+
+    // Правка из карточки: форма должна открыться уже в режиме правки, поэтому
+    // loadExisting вызывается до пуша (title и footer формы читают selected).
+    // В историю вкладки редактор не пишется — как и «+ Своё»: восстановление
+    // возвращает к карточке, а не внутрь формы.
+    function openExerciseEditor(exerciseId) {
+        if (typeof ExercisesEditorVM !== "undefined" && ExercisesEditorVM !== null) {
+            ExercisesEditorVM.reset();
+
+            if (exerciseId !== undefined && exerciseId !== null && exerciseId !== "")
+                ExercisesEditorVM.loadExisting(exerciseId);
+        }
+
+        shell.pushPage(exerciseEditorComponent);
     }
 
     Component.onCompleted: {
@@ -258,6 +302,44 @@ Item {
         // отбрасывает команду молча.
         onBusyChanged: shell.flushPendingNavigation()
     }
+    // Отложенное открытие окна выбора упражнения для снимка (--popup-shot):
+    // стек должен закончить переход, чтобы currentItem был экраном дня.
+    Timer {
+        id: autoOpenPickerTimer
+
+        interval: 900
+
+        onTriggered: {
+            const item = pages.currentItem;
+
+            if (item !== null && item !== undefined && item.exercisePickerItem !== undefined && item.exercisePickerItem !== null) {
+                item.exercisePickerItem.open();
+                // Отчёт инструмента: состояние окна к моменту снимка —
+                // строки каталога, позиция и размер в логе приложения.
+                popupShotProbeTimer.picker = item.exercisePickerItem;
+                popupShotProbeTimer.start();
+            }
+        }
+    }
+    Timer {
+        id: popupShotProbeTimer
+
+        property var picker: null
+
+        interval: 1500
+
+        onTriggered: {
+            if (picker !== null && picker.catalog !== null && picker.catalog.exercise_list !== null && picker.catalog.exercise_list !== undefined) {
+                const model = picker.catalog.exercise_list;
+                const titles = [];
+
+                for (let i = 0; i < Math.min(model.count, 30); ++i)
+                    titles.push(model.get(i).title);
+
+                console.info("[popup-shot] rows=", model.count, "loading=", picker.catalog.loading, "fromCache=", picker.catalog.fromCache, "error=", picker.catalog.errorKey, "titles=", titles.join("; "), "popup-visible=", picker.visible, "x=", picker.x, "y=", picker.y, "w=", picker.width, "h=", picker.height, "parent=", picker.parent !== null ? picker.parent.width + "x" + picker.parent.height : "null");
+            }
+        }
+    }
     BackHandler {
         enabled: pages.depth > 1
         priority: 10
@@ -275,14 +357,14 @@ Item {
                 topInset: shell.topInset
                 viewModel: shell.todayViewModel
 
-                // Расчёт КБЖУ (спринт S7) открывается с главной: человек узнаёт
-                // о нём, когда программа уже есть, а не отправляется искать его
-                // в профиль.
-                onMacroRequested: shell.openMacroCalculator()
                 // День отдыха ведёт в обзор активной программы, а пустой
                 // главный экран — на вкладку «Планы», где программу создают.
                 onPlansRequested: shell.showTab(1)
                 onProgramRequested: shell.openProgramOverview()
+
+                // Тап по строке упражнения — его обзор: тот же вход, что и из
+                // каталога вкладки «Упражнения».
+                onExerciseOpenRequested: exerciseId => shell.openExerciseDetail(exerciseId)
             }
             PlansPage {
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
@@ -296,6 +378,7 @@ Item {
                 topInset: shell.topInset
 
                 onCreateOwnRequested: shell.pushPage(exerciseEditorComponent)
+                onOpenRequested: exerciseId => shell.openExerciseDetail(exerciseId)
             }
             ProfilePage {
                 auth: shell.auth
@@ -378,6 +461,18 @@ Item {
     function openMacroCalculator() {
         shell.openAfterPop(macroCalculatorComponent, {
             name: "macro-calculator"
+        });
+    }
+
+    // Расчёт КБЖУ из настройки программы: открывается поверх редактора, а не
+    // вместо него — «назад» возвращает в настройку. Флаг applyToProgram
+    // включает на экране расчёта кнопку «Создать правила в программе».
+    function openMacroCalculatorForProgram() {
+        shell.noteTabScreen({
+            name: "macro-calculator"
+        });
+        shell.pushPage(macroCalculatorComponent, {
+            applyToProgram: true
         });
     }
 
@@ -465,6 +560,14 @@ Item {
 
                 shell.pushPage(exerciseEditorComponent);
             },
+            // Карточка для аудита вёрстки без идентификатора показывает первое
+            // кэшированное упражнение: макет проверяется на реальных данных.
+            "exercise-detail": function () {
+                if (shell.exerciseDetailId.length === 0 && typeof ExercisesOneVM !== "undefined" && ExercisesOneVM !== null)
+                    ExercisesOneVM.loadFirstCached();
+
+                shell.openExerciseDetail(shell.exerciseDetailId);
+            },
             "program-catalog": openProgramCatalog,
             "program-overview": openProgramOverview,
             "program-edit": openProgramEditor,
@@ -477,7 +580,7 @@ Item {
             // снимок показывал «Отдых» и ноль упражнений вместо реального дня.
             "program-day": function () {
                 const weekday = 1;
-                const userId = AppContext !== undefined && AppContext !== null ? AppContext.currentUserId : "u1";
+                const userId = typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
 
                 if (ProgramVM !== undefined && ProgramVM !== null)
                     ProgramVM.reload(userId, "");
@@ -532,6 +635,11 @@ Item {
             weekday: weekday
         });
         shell.pushPage(programDayComponent);
+
+        // Инструмент ревью (см. popupShot): окно открывается, когда переход
+        // завершится и экран дня создастся.
+        if (shell.popupShot)
+            autoOpenPickerTimer.start();
     }
 
     // Открытый экран программы всегда над вкладками, поэтому «назад» просто
@@ -567,6 +675,18 @@ Item {
 
             onBackRequested: shell.closeExerciseEditor()
             onFinished: shell.closeExerciseEditor()
+        }
+    }
+    Component {
+        id: exerciseDetailComponent
+
+        ExerciseDetailPage {
+            bottomInset: shell.pageBottomInset
+            exerciseId: shell.exerciseDetailId
+            topInset: shell.topInset
+
+            onBackRequested: shell.goBack()
+            onEditRequested: exerciseId => shell.openExerciseEditor(exerciseId)
         }
     }
     Component {
@@ -625,6 +745,7 @@ Item {
                 shell.openProgramDay(weekday, dayKind);
             }
             onRulesPickerRequested: shell.openProgramRulesPicker()
+            onMacroRequested: shell.openMacroCalculatorForProgram()
         }
     }
     Component {
@@ -641,6 +762,9 @@ Item {
 
             onBackRequested: shell.goBack()
             onCloseRequested: shell.goBack()
+
+            // Тап по строке упражнения дня — его обзор, как из каталога.
+            onExerciseOpenRequested: exerciseId => shell.openExerciseDetail(exerciseId)
         }
     }
     Component {

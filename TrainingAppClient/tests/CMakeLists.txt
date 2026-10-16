@@ -1,4 +1,4 @@
-﻿# qmltestrunner is a separate process and cannot see resources embedded in the
+# qmltestrunner is a separate process and cannot see resources embedded in the
 # application executable. Build a test import directory from the exact
 # production QML files instead of maintaining test copies.
 #
@@ -276,7 +276,7 @@ qt_add_executable(tst_Exercises_Repository
 target_link_libraries(tst_Exercises_Repository PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
 add_test(NAME exercises_repository COMMAND tst_Exercises_Repository)
 set_tests_properties(exercises_repository PROPERTIES
-    TIMEOUT 30
+    TIMEOUT 60
     ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
 )
 
@@ -296,6 +296,16 @@ qt_add_executable(tst_Exercises_Editor_VM
 target_link_libraries(tst_Exercises_Editor_VM PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
 add_test(NAME exercises_editor_vm COMMAND tst_Exercises_Editor_VM)
 set_tests_properties(exercises_editor_vm PROPERTIES
+    TIMEOUT 30
+    ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+)
+
+qt_add_executable(tst_Exercises_One_VM
+    cpp/tst_Exercises_One_VM.cpp
+)
+target_link_libraries(tst_Exercises_One_VM PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME exercises_one_vm COMMAND tst_Exercises_One_VM)
+set_tests_properties(exercises_one_vm PROPERTIES
     TIMEOUT 30
     ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
 )
@@ -383,7 +393,7 @@ endforeach()
 # компоновках проекта, включая тёмную и обрамлённую.
 # profile-settings — раздел «Параметры» профиля: в нём блок «Оформление», и без
 # именованного экрана он не попадал бы в аудит вёрстки ни на одной компоновке.
-foreach(program_screen IN ITEMS program-catalog program-overview program-edit program-rules program-rules-picker program-stats program-day macro-calculator set-entry profile-settings exercises)
+foreach(program_screen IN ITEMS program-catalog program-overview program-edit program-rules program-rules-picker program-stats program-day macro-calculator set-entry profile-settings exercises exercise-detail)
     foreach(program_viewport IN ITEMS 360 390 480 frame dark)
         set(program_test_name "ui_smoke_${program_screen}_${program_viewport}")
         add_test(

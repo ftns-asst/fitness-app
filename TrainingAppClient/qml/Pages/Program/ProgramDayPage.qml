@@ -17,6 +17,10 @@ PageScaffold {
     // из QML нельзя, а экран создаётся заново на каждый переход.
     property int kind: 1
 
+    // Ссылка на окно выбора для тестов: Popup живёт в Overlay, а не в дереве
+    // детей страницы, и поиском по objectName из страницы не находится.
+    readonly property var exercisePickerItem: exercisePicker
+
     // Имена дней недели в ISO-порядке 1…7 (§3.4).
     readonly property var fullWeekdayNames: [qsTr("Понедельник"), qsTr("Вторник"), qsTr("Среда"), qsTr("Четверг"), qsTr("Пятница"), qsTr("Суббота"), qsTr("Воскресенье")]
 
@@ -41,7 +45,6 @@ PageScaffold {
             title: qsTr("Становая")
         }
     ]
-    readonly property var exerciseOptions: page.loadExerciseOptions()
     // Четыре вида дня, а не два: модель различает кардио и мобилити, и прятать
     // их значит запрещать пользователю обычный вид недели.
     readonly property var kindOptions: [
@@ -81,13 +84,19 @@ PageScaffold {
     signal backRequested
     signal closeRequested
 
+    // Строка упражнения дня — самостоятельный объект: тап по карточке
+    // открывает его обзор, а не только «Убрать» рядом. Экран сообщает
+    // намерение, путь — стек поверх вкладок — выбирает каркас.
+    signal exerciseOpenRequested(string exerciseId)
+
     Component.onCompleted: {
         // Автосохранение включается и здесь: экран дня можно открыть напрямую
         // (--screen program-day), минуя редактор программы.
         if (viewModel !== undefined && viewModel !== null && viewModel.autoSaveDraft !== undefined)
             viewModel.autoSaveDraft = true;
 
-        // Каталог упражнений для спиннера: без сети отдаёт кэш (см. U2).
+        // Каталог упражнений для окна выбора: без сети отдаёт кэш, а пустой кэш
+        // засевается базовым каталогом (Ensure_Offline_Base).
         if (typeof ExercisesVM !== "undefined" && ExercisesVM !== null && ExercisesVM.exercise_list.count === 0)
             ExercisesVM.reload();
 
@@ -157,65 +166,32 @@ PageScaffold {
                 font: Typography.caption
                 text: qsTr("Добавить упражнение")
             }
-            AppComboBox {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                model: page.exerciseOptions
-                onActivated: page.selectedExerciseId = currentValue
-            }
-            // Подходы и вес — ползунки из WeightRuler/RepsWheel, а не поля с кнопками
-            // «−/+» (docs/mockups-programs/04-day.html): «Подходы» ± меняли на 1 и
-            // требовали 5 нажатий для 9 подходов, а «Вес» ± на 2,5 кг при 100 кг —
-            // это 30 нажатий, чтобы снять плиту. Это тот же контрол, что и в
-            // записи тренировки: два разных ввода веса в приложении и расходятся.
-            WeightRuler {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                from: 1
-                // Четыре подписи, как в макете 04-day.html («1 7 14 20»): на
-                // диапазоне 1–20 пять подписей по целому шагу читаются теснее,
-                // чем четыре.
-                labelCount: 4
-                onEdited: function (newValue) {
-                    page.setsCount = Math.round(newValue);
-                }
-                step: 1
-                title: qsTr("Подходы")
-                to: 20
-                // Единица пустая: тот же контрол показывает и вес, а «4 кг
-                // подходов» читалось бы как опечатка.
-                unit: ""
-                value: page.setsCount
-                valueDecimals: 0
-            }
-            WeightRuler {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                // Диапазон 20–200 кг и шаг 2,5 — как в макете экрана дня: штанга
-                // собирается из дисков по 1,25 кг, поэтому целые значения
-                // недостижимы, а 500 кг в зале не поднимают.
-                from: 20
-                // Подсказка — часть линейки (`.slider-hint` в макете): она
-                // объясняет дробный шаг, без него «2,5» выглядит как опечатка
-                // и пользователь ищет целые веса. Раньше висела отдельной
-                // меткой под линейкой и разъезжалась с ней по отступам.
-                hint: qsTr("Шаг 2,5 кг · как в записи тренировки")
-                onEdited: function (newValue) {
-                    page.targetWeight = newValue;
-                }
-                step: 2.5
-                title: qsTr("Вес")
-                to: 200
-                value: page.targetWeight
-                // В макете вес показан как «100,0»: при шаге 2,5 кг целое «100»
-                // читалось бы как другой вес, а «100,00» перегружает подпись.
-                valueDecimals: 1
-            }
+            // Выбор — в мини-окне, а не в выпадающем списке: настоящий каталог
+            // большой, и искать его перебором закрытого ComboBox неудобно. Окно
+            // даёт поиск, фильтр по группе и раскрытие строки с подходами и весом.
             AppButton {
                 Layout.fillWidth: true
-                onClicked: page.addExercise()
-                text: qsTr("Добавить в день")
+                Layout.minimumWidth: 0
+                objectName: "exercisePickerButton"
+                onClicked: exercisePicker.open()
+                text: qsTr("Выбрать упражнение…")
                 variant: AppButton.Primary
+            }
+            ExercisePickerPopup {
+                id: exercisePicker
+                // Родитель окна — корень экрана, а не карточка, в которой окно
+                // объявлено: Popup без явного родителя позиционируется
+                // относительно item-объявления, окно сжималось до ширины
+                // карточки «Добавить упражнение» (~290×99) и список в него
+                // не помещался. Родитель-страница стабилен с момента создания
+                // (id виден внутри всего компонента), в отличие от
+                // Overlay.overlay, который при создании окна мог быть null.
+                parent: page
+
+                onPicked: function (exerciseId, title, weightKg, sets) {
+                    page.addExercise(exerciseId, sets, weightKg);
+                    exercisePicker.close();
+                }
             }
             // Заготовка выбора готовой тренировки на день: каталога дней в
             // модели пока нет (планы появятся в фазе B), поэтому кнопка
@@ -267,6 +243,15 @@ PageScaffold {
                         Layout.fillWidth: true
                         borderColor: Theme.borderSubtle
                         surfaceColor: Theme.surfaceMuted
+
+                        // Тап по карточке — обзор упражнения (вход из дня
+                        // программы, как и с главной). TapHandler, а не
+                        // MouseArea поверх: MouseArea перехватил бы нажатия
+                        // кнопки «Убрать», а handler видит только события,
+                        // не принятые детьми.
+                        TapHandler {
+                            onTapped: page.exerciseOpenRequested(exerciseRow.exerciseId)
+                        }
 
                         RowLayout {
                             width: parent.width
@@ -344,26 +329,17 @@ PageScaffold {
             viewModel.setDayKind(weekday, value);
     }
 
-    function loadExerciseOptions() {
-        // Серверный каталог: роли AList_Model (title/id), плюс свежая загрузка
-        // при показе — ниже в Component.onCompleted.
-        if (typeof ExercisesVM !== "undefined" && ExercisesVM !== null && ExercisesVM.exercise_list.count > 0) {
-            const rows = [];
-            const list = ExercisesVM.exercise_list;
-
-            for (let i = 0; i < list.count; ++i)
-                rows.push(list.get(i));
-
-            return rows;
-        }
-
-        return page.fallbackExerciseOptions;
-    }
-    function addExercise() {
+    function addExercise(exerciseId, setsCount, weightKg) {
         if (viewModel === undefined || viewModel === null)
             return;
 
-        viewModel.addDayExercise(weekday, selectedExerciseId, setsCount, 5, 8, targetWeight, targetWeight > 0);
+        // Значения по умолчанию — прежние заготовки экрана (тесты и быстрое
+        // добавление без окна), выбор из окна передаёт их явно.
+        const id = exerciseId !== undefined ? exerciseId : page.selectedExerciseId;
+        const sets = setsCount !== undefined ? setsCount : page.setsCount;
+        const weight = weightKg !== undefined ? weightKg : page.targetWeight;
+
+        viewModel.addDayExercise(weekday, id, sets, 5, 8, weight, weight > 0);
     }
 
     function pickFromTemplates() {
@@ -386,12 +362,24 @@ PageScaffold {
         viewModel.copyDay(weekday - 1, weekday);
     }
 
-    // Название упражнения ищется в каталоге по идентификатору: в модели лежит
-    // только ex_squat, а пользователю нужно видеть «Присед».
+    // Название упражнения ищется в каталоге ExercisesVM по идентификатору: в
+    // модели дня лежит только id, а пользователю нужно видеть «Присед». Без
+    // каталога (qmltestrunner, офлайн до первого засева) — локальный набор.
     function exerciseTitle(id) {
-        for (let i = 0; i < exerciseOptions.length; ++i) {
-            if (exerciseOptions[i].id === id)
-                return exerciseOptions[i].title;
+        if (typeof ExercisesVM !== "undefined" && ExercisesVM !== null) {
+            const list = ExercisesVM.exercise_list;
+
+            for (let i = 0; i < list.count; ++i) {
+                const row = list.get(i);
+
+                if (row.id === id)
+                    return row.title;
+            }
+        }
+
+        for (let j = 0; j < fallbackExerciseOptions.length; ++j) {
+            if (fallbackExerciseOptions[j].id === id)
+                return fallbackExerciseOptions[j].title;
         }
 
         return id;

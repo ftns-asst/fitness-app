@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import TrainingAppClient
 
@@ -13,7 +14,9 @@ import TrainingAppClient
 PageScaffold {
     id: page
 
-    readonly property var viewModel: typeof ExercisesEditorVM !== "undefined" ? ExercisesEditorVM : null
+    // ViewModel — контекстное свойство ExercisesEditorVM; свойство перезаписываемое,
+    // чтобы qmltestrunner подставлял заглушку (образец — ProgramDayPage.viewModel).
+    property var viewModel: typeof ExercisesEditorVM !== "undefined" ? ExercisesEditorVM : null
     readonly property bool hasViewModel: page.viewModel !== undefined && page.viewModel !== null
     // Двушаговое подтверждение удаления: первый тап готовит, второй удаляет.
     property bool deleteArmed: false
@@ -154,6 +157,76 @@ PageScaffold {
             return false;
         }
     }
+    // — Фото техники (референс 2089): локальное фото, превью видно сразу —
+    AppCard {
+        visible: page.hasViewModel
+        width: parent.width
+
+        ColumnLayout {
+            spacing: Spacing.itemGap
+            width: parent.width
+
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textSecondary
+                font: Typography.captionStrong
+                text: qsTr("Фото техники")
+                wrapMode: Text.WordWrap
+            }
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                color: Theme.surfaceMuted
+                height: 160
+                radius: Theme.radiusMd
+
+                Image {
+                    // Превью из VM: новое фото видно до сохранения, правка —
+                    // сразу открывается с существующим.
+                    anchors.fill: parent
+                    asynchronous: true
+                    fillMode: Image.PreserveAspectCrop
+                    source: page.hasViewModel && page.viewModel.photoUrl !== undefined ? page.viewModel.photoUrl : ""
+                    visible: page.hasViewModel && page.viewModel.hasPhoto === true
+                }
+                Label {
+                    anchors.centerIn: parent
+                    color: Theme.textMuted
+                    font: Typography.caption
+                    horizontalAlignment: Text.AlignHCenter
+                    text: qsTr("Фото не выбрано")
+                    visible: page.hasViewModel === false || page.viewModel.hasPhoto !== true
+                    width: parent.width - Spacing.screenPadding
+                    wrapMode: Text.WordWrap
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Spacing.itemGap
+
+                AppButton {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    enabled: page.hasViewModel
+                    onClicked: photoDialog.open()
+                    text: qsTr("Загрузить фото")
+                    variant: AppButton.Primary
+                }
+                AppButton {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    enabled: page.hasViewModel
+                    onClicked: {
+                        if (page.hasViewModel)
+                            page.viewModel.removePhoto();
+                    }
+                    text: qsTr("Убрать фото")
+                    variant: AppButton.Secondary
+                    visible: page.hasViewModel && page.viewModel.hasPhoto === true
+                }
+            }
+        }
+    }
     Label {
         color: Theme.textSecondary
         font: Typography.captionStrong
@@ -169,6 +242,7 @@ PageScaffold {
 
             delegate: MuscleChip {
                 chipText: ExerciseTexts.muscleGroupTitle(modelData)
+                chipValue: modelData
                 selected: page.hasViewModel && page.viewModel.selectedMuscleGroups.indexOf(modelData) >= 0
 
                 onChipTapped: name => page.viewModel.toggleMuscleGroup(name)
@@ -190,6 +264,7 @@ PageScaffold {
 
             delegate: MuscleChip {
                 chipText: ExerciseTexts.equipmentTitle(modelData)
+                chipValue: modelData
                 selected: page.hasViewModel && page.viewModel.selectedEquipments.indexOf(modelData) >= 0
 
                 onChipTapped: name => page.viewModel.toggleEquipment(name)
@@ -220,11 +295,15 @@ PageScaffold {
         }
     }
     // — Чип multi-выбора: выбран обведён акцентом, тап переключает —
+    // chipValue — ключ справочника (уходит в ViewModel), chipText — перевод
+    // для показа. Тап с переводом ломал выбор: toggleMuscleGroup кладёт в
+    // selected значение ключа, а selected-проверка сравнивает с ключом.
     component MuscleChip: Rectangle {
         id: chip
 
         property bool selected: false
         property string chipText: ""
+        property string chipValue: ""
 
         signal chipTapped(string name)
 
@@ -234,7 +313,7 @@ PageScaffold {
         radius: Theme.radiusSm
 
         TapHandler {
-            onTapped: chip.chipTapped(chip.chipText)
+            onTapped: chip.chipTapped(chip.chipValue)
         }
         Label {
             id: chipLabel
@@ -243,6 +322,21 @@ PageScaffold {
             color: chip.selected ? Theme.accent : Theme.textSecondary
             font: Typography.captionStrong
             text: chip.chipText
+        }
+    }
+
+    // Системный выбор файла фото: на десктопе — файловый диалог, на Android —
+    // системный пикер (content://-URL читается QFile через движок платформы).
+    // Нативный диалог не живёт в дереве экрана: ошибку выбора показывает
+    // форма (errorKey), а не диалог.
+    FileDialog {
+        id: photoDialog
+
+        nameFilters: [qsTr("Изображения (*.jpg *.jpeg *.png *.webp *.gif)")]
+
+        onAccepted: {
+            if (page.hasViewModel)
+                page.viewModel.attachPhoto(selectedFile);
         }
     }
 }

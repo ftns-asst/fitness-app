@@ -58,7 +58,8 @@ public:
 		Kind_Equipments,
 		Kind_Create,
 		Kind_Update,
-		Kind_Delete
+		Kind_Delete,
+		Kind_One
 	};
 
 	AExercises_Api(AsHttp_Client *in_http_client, AsAuth_Session *in_session, QObject *in_parent = 0);
@@ -67,9 +68,10 @@ public:
 	             const QString &in_search, int in_limit, int in_offset);
 	int Get_Muscle_Groups();
 	int Get_Equipments();
-	// CRUD своего упражнения (спринт U5, docs/03, §3.9). Возвращают 0 при
-	// невалидных локальных данных — запрос не отправляется. POST/PATCH/DELETE
-	// неидемпотентны — retry выключен. Ответ `POST` Swagger декларирует телом
+	// CRUD своего упражнения и приватное чтение (спринты U5–U6, docs/03, §3.9).
+	// Возвращают 0 при невалидных локальных данных — запрос не отправляется.
+	// POST/PATCH/DELETE неидемпотентны — retry выключен; GET /exercises/{id}
+	// идемпотентен — retry включён. Ответ `POST` Swagger декларирует телом
 	// запроса (дефект спецификации) — фактически это Exercise, парсится как он;
 	// `DELETE` отвечает 200 без тела.
 	int Create_Exercise(const QString &in_name, bool in_is_public, const QString &in_description,
@@ -77,6 +79,11 @@ public:
 	int Update_Exercise(const QString &in_id, const QString &in_name, bool in_is_public, const QString &in_description,
 	                    const QStringList &in_muscle_groups, const QStringList &in_equipments);
 	int Delete_Exercise(const QString &in_id);
+	// Детальное упражнение (спринт U6, docs/03, §3.9): приватный GET
+	// /exercises/{id}. 403 — чужое (в том числе публичное чужое: его можно
+	// получить только списком type=public), 404 — не найдено, 400 — невалидный
+	// UUID.
+	int Get_One(const QString &in_id);
 	QString Last_Error() const;
 
 signals:
@@ -86,6 +93,7 @@ signals:
 	void createFinished(int requestId, const SExercises_Item &item, const AApi_Error &error);
 	void updateFinished(int requestId, const SExercises_Item &item, const AApi_Error &error);
 	void deleteFinished(int requestId, const AApi_Error &error);
+	void oneFinished(int requestId, const SExercises_Item &item, const AApi_Error &error);
 
 private slots:
 	void on_Client_Finished(int in_request_id, const SHttp_Response &in_response);
@@ -99,7 +107,7 @@ private:
 	};
 
 	int Send_Optional(const SHttp_Request &in_request, int in_kind);
-	// Мутации приватны и требуют активную сессию: без неё запрос не уходит.
+	// Мутации и приватное чтение требуют активную сессию: без неё запрос не уходит.
 	int Send_Authed_Mutation(const SHttp_Request &in_request, int in_kind);
 	void Finish_Call(int in_request_id, const SHttp_Response &in_response);
 	static bool Valid_Type(const QString &in_type);

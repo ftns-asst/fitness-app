@@ -52,7 +52,7 @@ PageScaffold {
     // Идентификатор берётся из AppContext: литерал «u1» повторялся в четырёх
     // экранах, и любое другое значение делало программу невидимой.
     function currentUserId() {
-        return AppContext !== undefined && AppContext !== null ? AppContext.currentUserId : "u1";
+        return typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
     }
 
     function reload() {
