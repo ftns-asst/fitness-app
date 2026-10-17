@@ -189,9 +189,7 @@ void AProgram_Model_Test::jsonArrayRoundTrip()
 	QStringList parsed;
 	QString json;
 
-	list << "legs"
-	     << "push"
-	     << "core";
+	list << "legs" << "push" << "core";
 	json = To_Json_Array(list);
 	QVERIFY(json == QString("[\"legs\",\"push\",\"core\"]"));
 	QVERIFY(Parse_Json_Array(json, parsed));

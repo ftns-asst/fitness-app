@@ -36,9 +36,7 @@ static int Load_Inter_Fonts()
 	int loaded;
 	int i;
 
-	font_files << ":/fonts/Inter-Regular.otf"
-	           << ":/fonts/Inter-Medium.otf"
-	           << ":/fonts/Inter-SemiBold.otf"
+	font_files << ":/fonts/Inter-Regular.otf" << ":/fonts/Inter-Medium.otf" << ":/fonts/Inter-SemiBold.otf"
 	           << ":/fonts/Inter-Bold.otf";
 	loaded = 0;
 
