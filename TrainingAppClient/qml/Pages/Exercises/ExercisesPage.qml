@@ -17,11 +17,13 @@ PageScaffold {
     // Контекстное свойство ExercisesVM (Avm_Exercises); в qmltestrunner его
     // нет — typeof безопасен на необъявленном идентификаторе, страница
     // откатывается в состояния без данных.
-    readonly property var viewModel: typeof ExercisesVM !== "undefined" ? ExercisesVM : null
+    property var viewModel: typeof ExercisesVM !== "undefined" ? ExercisesVM : null
     readonly property bool hasViewModel: page.viewModel !== undefined && page.viewModel !== null
     readonly property bool failed: page.hasViewModel && page.viewModel.errorKey !== ""
     readonly property bool showList: page.hasViewModel && page.viewModel.exercise_list.count > 0
-    property string groupFilter: ""
+    // Ключи справочников выбранных фильтров (multi): пустой набор — «Все».
+    property var groupFilters: []
+    property var equipmentFilters: []
 
     title: qsTr("Упражнения")
     caption: page.viewModel !== undefined && page.viewModel !== null && page.viewModel.fromCache ? qsTr("Показан сохранённый каталог") : ""
@@ -40,12 +42,38 @@ PageScaffold {
         // делит каталог с вкладкой и сбрасывает общий поиск на время выбора.
         // Неизменённые значения уходят no-op'ами, лишних запросов нет.
         page.viewModel.setQuery(searchField.text);
-        page.viewModel.setMuscleGroups(page.groupFilter.length === 0 ? [] : [page.groupFilter]);
+        page.viewModel.setMuscleGroups(page.groupFilters);
+        page.viewModel.setEquipments(page.equipmentFilters);
 
         page.viewModel.reload();
         page.viewModel.loadCatalogs();
     }
     // Автодогрузка: доскроллили до конца — запрашиваем следующую страницу.
+    // Переключает ключ в наборе фильтра; индекс 0 («Все») набор очищает.
+    function toggledFilter(current, keys, index) {
+        if (index === 0)
+            return [];
+
+        const key = keys[index - 1];
+        const next = current.slice();
+        const at = next.indexOf(key);
+
+        if (at >= 0)
+            next.splice(at, 1);
+        else
+            next.push(key);
+
+        return next;
+    }
+    // Индексы чипов набора: «Все» (0) активен, пока набор пуст.
+    function activeChipIndices(current, keys) {
+        if (current.length === 0)
+            return [0];
+
+        return current.map(function (key) {
+            return keys.indexOf(key) + 1;
+        });
+    }
     function maybeLoadMore() {
         if (page.hasViewModel === false)
             return;
@@ -106,17 +134,36 @@ PageScaffold {
         }
     }
     FilterChips {
-        currentIndex: page.groupFilter.length === 0 ? 0 : (page.hasViewModel ? page.viewModel.muscleGroups.indexOf(page.groupFilter) + 1 : 0)
+        objectName: "muscleGroupChips"
         items: [qsTr("Все")].concat(page.hasViewModel ? page.viewModel.muscleGroups.map(function (key) {
             return ExerciseTexts.muscleGroupTitle(key);
         }) : [])
+        selectedIndices: page.hasViewModel ? page.activeChipIndices(page.groupFilters, page.viewModel.muscleGroups) : [0]
         width: parent.width
 
         onSelected: function (index) {
-            page.groupFilter = index === 0 ? "" : page.viewModel.muscleGroups[index - 1];
+            if (page.hasViewModel === false)
+                return;
 
-            if (page.hasViewModel)
-                page.viewModel.setMuscleGroups(page.groupFilter.length === 0 ? [] : [page.groupFilter]);
+            page.groupFilters = page.toggledFilter(page.groupFilters, page.viewModel.muscleGroups, index);
+            page.viewModel.setMuscleGroups(page.groupFilters);
+        }
+    }
+    FilterChips {
+        objectName: "equipmentChips"
+        items: [qsTr("Любой инвентарь")].concat(page.hasViewModel ? page.viewModel.equipments.map(function (key) {
+            return ExerciseTexts.equipmentTitle(key);
+        }) : [])
+        selectedIndices: page.hasViewModel ? page.activeChipIndices(page.equipmentFilters, page.viewModel.equipments) : [0]
+        visible: page.hasViewModel && page.viewModel.equipments.length > 0
+        width: parent.width
+
+        onSelected: function (index) {
+            if (page.hasViewModel === false)
+                return;
+
+            page.equipmentFilters = page.toggledFilter(page.equipmentFilters, page.viewModel.equipments, index);
+            page.viewModel.setEquipments(page.equipmentFilters);
         }
     }
     // — Каталог плитками: картинка + название, по две в строке —

@@ -98,72 +98,6 @@ PageScaffold {
         text: qsTr("Название")
         width: parent.width
     }
-    TextField {
-        id: nameField
-
-        color: Theme.textPrimary
-        height: Theme.touchMin
-        font: Typography.body
-        leftPadding: Spacing.screenPadding
-        placeholderText: qsTr("Название упражнения")
-        placeholderTextColor: Theme.textMuted
-        rightPadding: Spacing.screenPadding
-        verticalAlignment: Text.AlignVCenter
-        width: parent.width
-
-        background: Rectangle {
-            border.color: nameField.activeFocus ? Theme.accent : Theme.border
-            border.width: Theme.borderWidth
-            color: Theme.surface
-            radius: Theme.radiusMd
-        }
-
-        onTextChanged: {
-            if (page.hasViewModel)
-                page.viewModel.name = text;
-        }
-        // Связь в обратную сторону: поля задаёт loadExisting (правка из кэша).
-        Connections {
-            function onFieldsChanged() {
-                if (page.hasViewModel === false || nameField.activeFocus)
-                    return;
-
-                nameField.text = page.viewModel.name;
-            }
-
-            target: page.viewModel
-        }
-    }
-    AppTextArea {
-        id: descriptionArea
-
-        function syncFromViewModel() {
-            if (page.hasViewModel === false || descriptionArea.areaFocused())
-                return;
-
-            descriptionArea.text = page.viewModel.description;
-        }
-
-        label: qsTr("Описание")
-        lineCount: 4
-        placeholderText: qsTr("Техника, замечания — необязательно")
-        width: parent.width
-
-        onEdited: {
-            if (page.hasViewModel)
-                page.viewModel.description = descriptionArea.text;
-        }
-        Connections {
-            function onFieldsChanged() {
-                descriptionArea.syncFromViewModel();
-            }
-
-            target: page.viewModel
-        }
-        function areaFocused() {
-            return false;
-        }
-    }
     // — Фото техники (референс 2089): крупный скруглённый блок; тап по нему
     // открывает выбор файла, превью видно до сохранения —
     Item {
@@ -245,6 +179,73 @@ PageScaffold {
             onTapped: photoDialog.open()
         }
     }
+    TextField {
+        id: nameField
+
+        color: Theme.textPrimary
+        height: Theme.touchMin
+        font: Typography.body
+        leftPadding: Spacing.screenPadding
+        placeholderText: qsTr("Название упражнения")
+        placeholderTextColor: Theme.textMuted
+        rightPadding: Spacing.screenPadding
+        verticalAlignment: Text.AlignVCenter
+        width: parent.width
+
+        background: Rectangle {
+            border.color: nameField.activeFocus ? Theme.accent : Theme.border
+            border.width: Theme.borderWidth
+            color: Theme.surface
+            radius: Theme.radiusMd
+        }
+
+        onTextChanged: {
+            if (page.hasViewModel)
+                page.viewModel.name = text;
+        }
+        // Связь в обратную сторону: поля задаёт loadExisting (правка из кэша).
+        Connections {
+            function onFieldsChanged() {
+                if (page.hasViewModel === false || nameField.activeFocus)
+                    return;
+
+                nameField.text = page.viewModel.name;
+            }
+
+            target: page.viewModel
+        }
+    }
+    AppTextArea {
+        id: descriptionArea
+
+        function syncFromViewModel() {
+            if (page.hasViewModel === false || descriptionArea.areaFocused())
+                return;
+
+            descriptionArea.text = page.viewModel.description;
+        }
+
+        label: qsTr("Описание")
+        lineCount: 4
+        placeholderText: qsTr("Техника, замечания — необязательно")
+        width: parent.width
+
+        onEdited: {
+            if (page.hasViewModel)
+                page.viewModel.description = descriptionArea.text;
+        }
+        Connections {
+            function onFieldsChanged() {
+                descriptionArea.syncFromViewModel();
+            }
+
+            target: page.viewModel
+        }
+        function areaFocused() {
+            return false;
+        }
+    }
+
     RowLayout {
         spacing: Spacing.itemGap
         visible: page.hasViewModel && page.viewModel.hasPhoto === true

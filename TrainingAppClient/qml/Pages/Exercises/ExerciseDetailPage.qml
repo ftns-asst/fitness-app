@@ -267,16 +267,23 @@ PageScaffold {
     footer: ColumnLayout {
         spacing: Spacing.itemGap
 
-        // CTA референса 2089 — «График прогресса». Экран графика — этап D3
-        // (история тренировок): кнопка честно сообщает об этом вместо
-        // молчаливого нажатия.
+        // CTA референса 2089 — «График прогресса». Данных для графика нет, пока
+        // не записаны тренировки (этап D2/D3): кнопка выключена и подпись
+        // объясняет почему, вместо нажатия, которое ничего не делает.
         AppButton {
             Layout.fillWidth: true
-            enabled: page.showCard
+            enabled: false
             text: qsTr("График прогресса")
             variant: AppButton.Primary
-
-            onClicked: Demo.notify(qsTr("График прогресса — этап D3"))
+        }
+        Label {
+            Layout.fillWidth: true
+            color: Theme.textMuted
+            font: Typography.caption
+            horizontalAlignment: Text.AlignHCenter
+            text: qsTr("Появится после первой записанной тренировки")
+            visible: page.showCard
+            wrapMode: Text.WordWrap
         }
         // Правка — только свои: чужое публичное 403-ится ещё и сервером, но
         // кнопку не показываем вовсе (docs/08, §4 U6).

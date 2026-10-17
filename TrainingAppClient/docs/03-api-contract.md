@@ -36,7 +36,7 @@ staging/prod URL и HTTPS — **запрошено у backend/DevOps**.
 `muscle-groups`/`equipments` — всё, что перечислено в Swagger и в опубликованном
 дополнении. Клиентские сценарии 1–5 (§6) описаны для auth/users; exercises
 попадут в них по мере реализации — план среза: `08-exercises-sprint-plan.md`
-(спринты U1–U6, вопрос фичи к backend — там же §6).
+(спринты U1–U6, вопрос фичи к backend — там же §7).
 
 ## 2. Общие правила
 
