@@ -120,9 +120,9 @@ QStringList Rule_Roles()
 	// делегат экрана правил не смог бы объявить required property.
 	// isAdvice обязателен в контракте: по нему экран решает, рисуть ли кнопки
 	// отметки, а решать это по displayText нельзя — он является подписью.
-	return QStringList{"ruleId",      "category",    "code",       "title",       "metric",
-	                   "periodicity", "targetValue", "targetUnit", "displayText", "checkSource",
-	                   "enforcement", "todayState",  "isAdvice",    "todayValue", "goalMin","goalMax"};
+	return QStringList{"ruleId",      "category",   "code",        "title",       "metric",      "periodicity",
+	                   "targetValue", "targetUnit", "displayText", "checkSource", "enforcement", "todayState",
+	                   "isAdvice",    "todayValue", "goalMin",     "goalMax"};
 }
 //----------------------------------------------------------------------------
 // Роли строки каталога правил. Совпадают с ключами Build_Rule_Catalog и
@@ -485,7 +485,8 @@ QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const Q
 		// отсутствие данных не равно нулю (§3.6).
 		row.insert("todayState", in_today_state.value(rule.ID, To_String(ECheckin_State::Unknown)));
 		// Число, записанное за сегодня (калории, белок, вода…): null — значения нет.
-		row.insert("todayValue", in_today_values.contains(rule.ID) ? QVariant(in_today_values.value(rule.ID)) : Null_Variant());
+		row.insert("todayValue",
+		           in_today_values.contains(rule.ID) ? QVariant(in_today_values.value(rule.ID)) : Null_Variant());
 		// Границы цели отдельно: полоса прогресса различает «не менее» и «не более».
 		row.insert("goalMin", rule.Has_Target_Min ? QVariant(rule.Target_Min) : Null_Variant());
 		row.insert("goalMax", rule.Has_Target_Max ? QVariant(rule.Target_Max) : Null_Variant());

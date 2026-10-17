@@ -276,7 +276,7 @@ void Avm_Today::Load_Rules_For_Today()
 	Rule_Repository_Instance->Load_Program_Checkins_Range(Program_Id_Text, Today_Text, Today_Text, checkins);
 
 	for (int i = 0; i < checkins.size(); ++i)
-		{
+	{
 		states.insert(checkins.at(i).Rule_Id, Program_Model::To_String(checkins.at(i).State));
 
 		if (checkins.at(i).Has_Value)

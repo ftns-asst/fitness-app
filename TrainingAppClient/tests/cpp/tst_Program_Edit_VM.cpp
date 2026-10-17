@@ -1009,7 +1009,8 @@ void AProgram_Edit_VM_Test::saveFailureNotifiesScreen()
 // строку, следующие обновляют её же — копий программа не плодит.
 void AProgram_Edit_VM_Test::draftAutosavePersistsDayExercises()
 {
-	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0, this);
+	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0,
+	                        this);
 
 	editor.setAutoSaveEnabled(true);
 	QVERIFY(editor.Reset("u_draft_auto"));
@@ -1033,7 +1034,8 @@ void AProgram_Edit_VM_Test::draftAutosavePersistsDayExercises()
 // дня на месте, и редактор правит ту же строку БД, а не создаёт вторую.
 void AProgram_Edit_VM_Test::resumeDraftContinuesSavedDraftAndDoesNotDuplicate()
 {
-	Avm_Program_Edit first(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0, this);
+	Avm_Program_Edit first(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0,
+	                       this);
 
 	first.setAutoSaveEnabled(true);
 	QVERIFY(first.Reset("u_draft_resume"));
@@ -1044,8 +1046,8 @@ void AProgram_Edit_VM_Test::resumeDraftContinuesSavedDraftAndDoesNotDuplicate()
 	QVERIFY(first.Add_Day_Exercise(1, "ex_squat", 4, 5, 8, 100, true));
 
 	// «Перезапуск приложения»: новый редактор, та же БД.
-	Avm_Program_Edit reopened(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this),
-	                          0, this);
+	Avm_Program_Edit reopened(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0,
+	                          this);
 
 	QVERIFY(reopened.resumeDraft("u_draft_resume"));
 	QCOMPARE(reopened.program_days()->Row_Count(), 7);
@@ -1061,7 +1063,8 @@ void AProgram_Edit_VM_Test::resumeDraftContinuesSavedDraftAndDoesNotDuplicate()
 // редактор и ничего не пишет в БД: «Новая программа» без прошлого.
 void AProgram_Edit_VM_Test::resumeDraftWithoutSavedDraftStartsFresh()
 {
-	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0, this);
+	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0,
+	                        this);
 
 	const int programs_before = Count_Programs();
 
@@ -1076,7 +1079,8 @@ void AProgram_Edit_VM_Test::resumeDraftWithoutSavedDraftStartsFresh()
 // Повторное удаление без сохранённого черновика — не отказ, а очистка.
 void AProgram_Edit_VM_Test::deleteDraftRemovesStoredDraftAndResetsEditor()
 {
-	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0, this);
+	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0,
+	                        this);
 
 	editor.setAutoSaveEnabled(true);
 	QVERIFY(editor.Reset("u_draft_delete"));

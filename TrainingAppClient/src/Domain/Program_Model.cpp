@@ -38,9 +38,10 @@ static const char *const Rule_Display_Unit_Texts[] = {"g",     "gPerKg", "kg",  
 static const char *const Rule_Enforcement_Texts[] = {"soft", "hard"};
 static const char *const Rule_Applies_To_Texts[] = {"allDays", "trainingDays", "restDays", "customDays"};
 static const char *const Rule_Periodicity_Texts[] = {"perDay", "perWeek", "perWorkout", "once"};
-static const char *const Rule_Metric_Texts[] = {"proteinGrams", "carbGrams", "fatGrams", "caloriesKcal", "waterMl",
-                                                "sleepHours",    "stepCount",  "bodyWeightKg", "maxRpe",
-                                                "restHoursBetweenSessions", "alcoholUnits", "custom"};
+static const char *const Rule_Metric_Texts[] = {
+    "proteinGrams", "carbGrams", "fatGrams",     "caloriesKcal", "waterMl",
+    "sleepHours",   "stepCount", "bodyWeightKg", "maxRpe",       "restHoursBetweenSessions",
+    "alcoholUnits", "custom"};
 static const char *const Weight_Mode_Texts[] = {"fixed", "percentOf1RM", "byFeel", "fromLastSession", "bodyWeight"};
 static const char *const Progression_Type_Texts[] = {"linearWeight", "doubleProgression", "percentPerWeek", "manual"};
 
