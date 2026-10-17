@@ -221,7 +221,6 @@ Popup {
                 // Тест-хук: плитки каталога ищутся по objectName.
                 objectName: "exercisePickerRow"
                 required property int index
-                required property string id
                 required property string title
                 required property var muscleGroups
                 required property var model

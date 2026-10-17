@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtTest
 import TrainingAppClient 1.0
 
@@ -134,7 +134,7 @@ TestCase {
         testCase.collectByName(popup.contentItem, "exercisePickerRow", rows);
         compare(rows.length, 2, "строки каталога не отрисовались в окне");
         compare(rows[0].title, "Присед");
-        verify(rows[0].id === "builtin-squat", "роль id не дошла до делегата");
+        verify(rows[0].model.id === "builtin-squat", "роль id не дошла до делегата");
         // muscleGroups: реальный AList_Model отдаёт массив, ListModel-заглушка —
         // под-модель. Данные роли проверяет tst_Exercises_VM, здесь — только
         // то, что делегат их получил.

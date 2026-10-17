@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtTest
 import TrainingAppClient 1.0
 
