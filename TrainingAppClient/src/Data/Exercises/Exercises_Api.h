@@ -44,12 +44,6 @@ class AExercises_Api : public QObject
 	Q_OBJECT
 
 public:
-	// Источник запроса (что ожидать в on_Source_Finished).
-	enum ESource
-	{
-		Source_Session = 0,
-		Source_Client
-	};
 	// Род dispatched запроса — что парсить в ответе.
 	enum EKind
 	{
@@ -103,14 +97,22 @@ private:
 	struct SPending_Call
 	{
 		int Kind = Kind_List;
-		int Source = Source_Client;
 	};
 
 	int Send_Optional(const SHttp_Request &in_request, int in_kind);
+	// Регистрирует отправленный запрос: логический id выдаётся вызывающему,
+	// inner id источника (сессия или клиент) сопоставляется с ним.
+	int Register_Call(QHash<int, int> &in_out_inner_map, int in_inner_id, int in_kind);
 	// Мутации и приватное чтение требуют активную сессию: без неё запрос не уходит.
 	int Send_Authed_Mutation(const SHttp_Request &in_request, int in_kind);
 	void Finish_Call(int in_request_id, const SHttp_Response &in_response);
 	static bool Valid_Type(const QString &in_type);
+	// Путь `exercises/{id}`: id процент-кодируется, чтобы `/`, `?`, `#` из
+	// значения не меняли endpoint.
+	static QString Item_Path(const QString &in_id);
+	static QJsonObject Mutation_Body(const QString &in_id, const QString &in_name, bool in_is_public,
+	                                 const QString &in_description, const QStringList &in_muscle_groups,
+	                                 const QStringList &in_equipments);
 	static bool Parse_Item(const QJsonObject &in_row, SExercises_Item &out_item);
 	static void Parse_Single(const SHttp_Response &in_response, SExercises_Item &out_item, AApi_Error &out_error);
 	static QString List_Path(const QString &in_type, const QStringList &in_muscle_groups,
@@ -122,6 +124,11 @@ private:
 	AsHttp_Client *HTTP_Client_Instance;
 	AsAuth_Session *Session_Instance;
 	QHash<int, SPending_Call> Pending_Calls; // логический id → род запроса
+	// inner id → логический id. Идентификаторы сессии и клиента — разные
+	// пространства (общий AsHttp_Client обслуживает и другие API), поэтому
+	// у каждого источника своя таблица.
+	QHash<int, int> Session_Calls;
+	QHash<int, int> Client_Calls;
 	int Next_Request_Id = 1;
 	QString Last_Error_Text;
 };

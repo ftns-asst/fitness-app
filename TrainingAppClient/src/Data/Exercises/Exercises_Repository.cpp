@@ -50,6 +50,14 @@ QString AExercises_Repository::Joined_List(const QStringList &in_values)
 	return in_values.isEmpty() ? QString("") : in_values.join(",");
 }
 //----------------------------------------------------------------------------
+QSqlDatabase AExercises_Repository::Connection() const
+{
+	if (Database_Instance != 0)
+		return Database_Instance->Sql_Connection();
+
+	return QSqlDatabase();
+}
+//----------------------------------------------------------------------------
 bool AExercises_Repository::Is_Transport_Error(const AApi_Error &in_error)
 {
 	// Транспортный сбой не имеет HTTP-статуса (docs/03, §6: transport-сбой
@@ -113,7 +121,7 @@ int AExercises_Repository::Load_Equipments()
 //----------------------------------------------------------------------------
 bool AExercises_Repository::Load_Cached_List(QVector<SExercises_Item> &out_items)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_items.clear();
 
@@ -149,7 +157,7 @@ bool AExercises_Repository::Load_Cached_List(QVector<SExercises_Item> &out_items
 //----------------------------------------------------------------------------
 bool AExercises_Repository::Load_Cached_One(const QString &in_exercise_id, SExercises_Item &out_item)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_item = SExercises_Item();
 
@@ -176,7 +184,7 @@ bool AExercises_Repository::Load_Cached_One(const QString &in_exercise_id, SExer
 //----------------------------------------------------------------------------
 bool AExercises_Repository::Load_Local_Catalog(QVector<SExercises_Item> &out_items)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_items.clear();
 
@@ -293,7 +301,7 @@ bool AExercises_Repository::Save_Local_Exercise(QString &io_exercise_id, const Q
 	if (is_new)
 		io_exercise_id = QUuid::createUuid().toString(QUuid::WithoutBraces);
 
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("INSERT INTO exercises_cache(id, name, description, owner_id, is_own, muscle_groups, equipment, "
 	              "updated_at) VALUES(?, ?, ?, ?, 1, ?, ?, ?) "
@@ -329,7 +337,7 @@ bool AExercises_Repository::Save_Local_Exercise(QString &io_exercise_id, const Q
 	Mirror_Local_Exercise(item);
 
 	// Правка уже зеркалированной строки: INSERT OR IGNORE её не меняет.
-	QSqlQuery update(Database_Instance->Sql_Connection());
+	QSqlQuery update(Connection());
 
 	update.prepare("UPDATE exercises SET title = ?, muscle_group = ?, equipment = ?, description = ? WHERE id = ?");
 	update.addBindValue(item.Name);
@@ -353,7 +361,7 @@ bool AExercises_Repository::Delete_Local_Exercise(const QString &in_exercise_id)
 
 	// Зеркало удаляется, пока на него не ссылается день программы (FK):
 	// при отказе строка остаётся — упражнение стоит в программе.
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("DELETE FROM exercises WHERE id = ? AND is_custom = 1");
 	query.addBindValue(in_exercise_id);
@@ -366,7 +374,7 @@ bool AExercises_Repository::Delete_Local_Exercise(const QString &in_exercise_id)
 //----------------------------------------------------------------------------
 bool AExercises_Repository::Load_Cached_First_Id(QString &out_exercise_id)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_exercise_id.clear();
 
@@ -383,7 +391,7 @@ bool AExercises_Repository::Load_Cached_First_Id(QString &out_exercise_id)
 //----------------------------------------------------------------------------
 bool AExercises_Repository::Load_Cached_Muscle_Groups(QStringList &out_groups)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_groups.clear();
 
@@ -404,7 +412,7 @@ bool AExercises_Repository::Load_Cached_Muscle_Groups(QStringList &out_groups)
 //----------------------------------------------------------------------------
 bool AExercises_Repository::Load_Cached_Equipments(QStringList &out_equipments)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_equipments.clear();
 
@@ -557,7 +565,7 @@ bool AExercises_Repository::Ensure_Offline_Base()
 	// Сначала чтение, и запись только в пустой кэш: сервер — источник истины,
 	// и примитивы не должны подмешиваться к серверному каталогу после первой
 	// успешной загрузки.
-	QSqlQuery probe(Database_Instance->Sql_Connection());
+	QSqlQuery probe(Connection());
 
 	if (probe.exec("SELECT COUNT(*) FROM exercises_cache") == false)
 	{
@@ -570,13 +578,13 @@ bool AExercises_Repository::Ensure_Offline_Base()
 
 	// Справочники раньше упражнений, но только пустые: непустые могли быть
 	// прогреты с сервера, и засев затирал бы серверные значения фильтров.
-	QSqlQuery groups_probe(Database_Instance->Sql_Connection());
+	QSqlQuery groups_probe(Connection());
 
 	if (groups_probe.exec("SELECT COUNT(*) FROM muscle_groups_ref") && groups_probe.next() &&
 	    groups_probe.value(0).toInt() == 0)
 		Persist_String_List("muscle_groups_ref", Base_Muscle_Groups());
 
-	QSqlQuery equipments_probe(Database_Instance->Sql_Connection());
+	QSqlQuery equipments_probe(Connection());
 
 	if (equipments_probe.exec("SELECT COUNT(*) FROM equipments_ref") && equipments_probe.next() &&
 	    equipments_probe.value(0).toInt() == 0)
@@ -608,7 +616,7 @@ void AExercises_Repository::Mirror_Base_Catalog()
 //----------------------------------------------------------------------------
 void AExercises_Repository::Mirror_Base_Exercise(const SExercises_Item &in_item)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("INSERT OR IGNORE INTO exercises(id, title, subtitle, muscle_group, equipment, is_custom, "
 	              "description, created_at) VALUES(?, ?, '', ?, ?, 0, ?, ?)");
@@ -686,7 +694,7 @@ QVector<SExercises_Item> AExercises_Repository::Base_Exercises()
 //----------------------------------------------------------------------------
 bool AExercises_Repository::Delete_Cached(const QString &in_exercise_id)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
 		return false;
@@ -707,7 +715,7 @@ bool AExercises_Repository::Delete_Cached(const QString &in_exercise_id)
 //----------------------------------------------------------------------------
 bool AExercises_Repository::Is_Cached_Own(const QString &in_exercise_id)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
 		return false;
@@ -723,7 +731,7 @@ bool AExercises_Repository::Is_Cached_Own(const QString &in_exercise_id)
 //----------------------------------------------------------------------------
 bool AExercises_Repository::Persist_List(const QVector<SExercises_Item> &in_items)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 	QString user_id;
 
 	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
@@ -770,7 +778,7 @@ bool AExercises_Repository::Persist_List(const QVector<SExercises_Item> &in_item
 // каталог безопасны.
 void AExercises_Repository::Mirror_Local_Exercise(const SExercises_Item &in_item)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("INSERT OR IGNORE INTO exercises(id, title, subtitle, muscle_group, equipment, is_custom, "
 	              "description, created_at) VALUES(?, ?, '', ?, ?, 1, ?, ?)");
@@ -787,7 +795,8 @@ void AExercises_Repository::Mirror_Local_Exercise(const SExercises_Item &in_item
 //----------------------------------------------------------------------------
 bool AExercises_Repository::Persist_String_List(const char *in_table, const QStringList &in_values)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlDatabase connection = Connection();
+	QSqlQuery query(connection);
 
 	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
 		return false;
@@ -795,10 +804,18 @@ bool AExercises_Repository::Persist_String_List(const char *in_table, const QStr
 	// Справочники малы и не версионируются (docs/03, §3.10): перезапись
 	// целиком проще upsert'а и не оставляет исчезнувших значений. Имена
 	// таблиц — литералы вызывающего кода, не пользовательский ввод.
+	// Очистка и вставка — одна транзакция: сбой посередине не оставляет
+	// справочник пустым или обрезанным.
+	if (connection.transaction() == false)
+	{
+		qCWarning(EXERCISES_Repository_Log).noquote() << "catalog transaction failed";
+		return false;
+	}
+
 	if (query.exec(QString("DELETE FROM %1").arg(QLatin1String(in_table))) == false)
 	{
 		qCWarning(EXERCISES_Repository_Log).noquote() << "catalog clear failed";
-		return false;
+		goto _error_exit;
 	}
 
 	for (int i = 0; i < in_values.size(); ++i)
@@ -810,11 +827,19 @@ bool AExercises_Repository::Persist_String_List(const char *in_table, const QStr
 		if (query.exec() == false)
 		{
 			qCWarning(EXERCISES_Repository_Log).noquote() << "catalog persist failed";
-			return false;
+			goto _error_exit;
 		}
 	}
 
-	return true;
+	if (connection.commit())
+		return true;
+
+	qCWarning(EXERCISES_Repository_Log).noquote() << "catalog commit failed";
+
+_error_exit:
+	connection.rollback();
+
+	return false;
 }
 //----------------------------------------------------------------------------
 void AExercises_Repository::on_List_Finished(int in_request_id, const QVector<SExercises_Item> &in_items,
@@ -1134,7 +1159,7 @@ bool AExercises_Repository::Photo_File_Name(const QString &in_exercise_id, QStri
 	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
 		return false;
 
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("SELECT file_name FROM exercise_photos WHERE exercise_id = ?");
 	query.addBindValue(in_exercise_id);
@@ -1174,7 +1199,7 @@ bool AExercises_Repository::Commit_Photo(const QString &in_exercise_id, const QS
 		return false;
 	}
 
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("INSERT INTO exercise_photos (exercise_id, file_name) VALUES (?, ?) "
 	              "ON CONFLICT(exercise_id) DO UPDATE SET file_name = excluded.file_name");
@@ -1220,7 +1245,7 @@ bool AExercises_Repository::Delete_Photo(const QString &in_exercise_id)
 	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
 		return false;
 
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("DELETE FROM exercise_photos WHERE exercise_id = ?");
 	query.addBindValue(in_exercise_id);

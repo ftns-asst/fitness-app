@@ -171,6 +171,9 @@ private:
 		QString Exercise_Id;
 	};
 
+	// Null-безопасное соединение: без базы отдаёт пустое QSqlDatabase, и
+	// запрос откатится проверкой Is_Open() ниже, а не разыменованием 0.
+	QSqlDatabase Connection() const;
 	static bool Is_Transport_Error(const AApi_Error &in_error);
 	// Имя файла фото упражнения из exercise_photos; false — строки нет.
 	bool Photo_File_Name(const QString &in_exercise_id, QString &out_file_name);

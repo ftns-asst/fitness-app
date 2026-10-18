@@ -32,6 +32,7 @@ int AsAuth_Session::Send_Authed(const SHttp_Request &in_request)
 
 	call.Logical_Request_Id = Next_Logical_Id;
 	++Next_Logical_Id;
+	call.Generation = Session_Generation;
 	call.Request = in_request;
 
 	if (Refresh_In_Progress)
@@ -60,6 +61,7 @@ bool AsAuth_Session::Restore_From_Store()
 
 	Session_Tokens = stored;
 	Session_Active = true;
+	Begin_Generation("session restored");
 	qCInfo(AUTH_Session_Log).noquote() << "session restored";
 
 	return true;
@@ -74,6 +76,7 @@ bool AsAuth_Session::Adopt_Session(const SStored_Tokens &in_tokens)
 	// в памяти без повторного обращения к store.
 	Session_Tokens = in_tokens;
 	Session_Active = true;
+	Begin_Generation("session replaced");
 	qCInfo(AUTH_Session_Log).noquote() << "session adopted";
 
 	return true;
@@ -84,6 +87,7 @@ void AsAuth_Session::Drop_Session()
 	// Локальный logout: только память; постоянные токены очищает репозиторий.
 	Session_Active = false;
 	Session_Tokens = SStored_Tokens();
+	Begin_Generation("session dropped");
 	qCInfo(AUTH_Session_Log).noquote() << "session dropped";
 }
 //----------------------------------------------------------------------------
@@ -122,10 +126,25 @@ void AsAuth_Session::on_Http_Finished(int in_request_id, const SHttp_Response &i
 
 	// Первый auth failure ставит запрос в очередь refresh; повтор после
 	// refresh при новом 401 отдаётся вызывающему без второго refresh.
-	if (in_response.HTTP_Status_Code == 401 && call.Is_Retry_After_Refresh == false && Session_Active)
+	// Запрос прежней сессии (другое поколение) refresh не запускает.
+	if (in_response.HTTP_Status_Code == 401 && call.Is_Retry_After_Refresh == false && Session_Active &&
+	    call.Generation == Session_Generation)
 	{
 		call.Auth_Failure_Response = in_response;
 		call.Transmitted = true;
+
+		if (Refresh_In_Progress == false && call.Access_Token_Used != Session_Tokens.Access_Token)
+		{
+			// Пока запрос был в пути, refresh уже выполнен другим запросом:
+			// одноразовый refresh-токен не тратим, повторяем с новым access.
+			call.Is_Retry_After_Refresh = true;
+
+			if (Send_Call(call) == false)
+				Finish_Call(call, call.Auth_Failure_Response);
+
+			return;
+		}
+
 		Refresh_Queue.append(call);
 
 		if (Refresh_In_Progress == false)
@@ -175,7 +194,8 @@ void AsAuth_Session::Handle_Refresh_Finished(const SHttp_Response &in_response)
 		Session_Tokens.Access_Expires_At = QDateTime();
 		Session_Tokens.Refresh_Expires_At = QDateTime();
 
-		if (Token_Store_Instance->Save_Tokens(Session_Tokens.User_ID, Session_Tokens.Access_Token,
+		if (Token_Store_Instance == 0 ||
+		    Token_Store_Instance->Save_Tokens(Session_Tokens.User_ID, Session_Tokens.Access_Token,
 		                                      Session_Tokens.Refresh_Token, QDateTime(), QDateTime()) == false)
 			qCWarning(AUTH_Session_Log).noquote() << "token save failed after refresh";
 
@@ -184,10 +204,12 @@ void AsAuth_Session::Handle_Refresh_Finished(const SHttp_Response &in_response)
 		return;
 	}
 
-	if (in_response.HTTP_Status_Code > 0)
+	if (Is_Refresh_Rejected(in_response))
 	{
 		// Сервер подтвердил невалидность refresh-токена: сессия завершена.
-		Token_Store_Instance->Clear_Tokens();
+		if (Token_Store_Instance != 0)
+			Token_Store_Instance->Clear_Tokens();
+
 		Session_Active = false;
 		Session_Tokens = SStored_Tokens();
 		qCInfo(AUTH_Session_Log).noquote() << "refresh rejected" << in_response.HTTP_Status_Code;
@@ -196,8 +218,9 @@ void AsAuth_Session::Handle_Refresh_Finished(const SHttp_Response &in_response)
 		return;
 	}
 
-	// Transport-сбой refresh не уничтожает локальную сессию (docs/03, §6).
-	qCWarning(AUTH_Session_Log).noquote() << "refresh transport failure" << in_response.Network_Error_Code;
+	// Transport-сбой, 5xx и невалидный 2xx не уничтожают локальную сессию (docs/03, §6).
+	qCWarning(AUTH_Session_Log).noquote()
+	    << "refresh failure kept session" << in_response.HTTP_Status_Code << in_response.Network_Error_Code;
 	Fail_Queue("refresh transport failure");
 }
 //----------------------------------------------------------------------------
@@ -236,6 +259,9 @@ void AsAuth_Session::Fail_Queue(const char *in_reason)
 	queue = Refresh_Queue;
 	Refresh_Queue.clear();
 
+	if (queue.isEmpty())
+		return;
+
 	qCInfo(AUTH_Session_Log).noquote() << "queue released" << queue.size() << in_reason;
 
 	for (i = 0; i < queue.size(); ++i)
@@ -252,6 +278,17 @@ void AsAuth_Session::Fail_Queue(const char *in_reason)
 	}
 }
 //----------------------------------------------------------------------------
+void AsAuth_Session::Begin_Generation(const char *in_reason)
+{
+	++Session_Generation;
+
+	// Ответ на брошенный refresh придёт с Refresh_Transport_Id, которого уже
+	// нет ни здесь, ни в Active_Calls, и будет проигнорирован.
+	Refresh_In_Progress = false;
+	Refresh_Transport_Id = 0;
+	Fail_Queue(in_reason);
+}
+//----------------------------------------------------------------------------
 bool AsAuth_Session::Send_Call(SPending_Call &in_call)
 {
 	SHttp_Request request;
@@ -259,6 +296,7 @@ bool AsAuth_Session::Send_Call(SPending_Call &in_call)
 
 	request = in_call.Request;
 	request.Headers.insert("Authorization", Authorization_Value(Session_Tokens.Access_Token));
+	in_call.Access_Token_Used = Session_Tokens.Access_Token;
 	transport_id = HTTP_Client_Instance->Send(request);
 
 	if (transport_id == 0)
@@ -294,6 +332,14 @@ SHttp_Response AsAuth_Session::Auth_Failure_Response(int in_request_id)
 	response.Error = AApi_Error("invalid_token", "Session expired", 401, 0);
 
 	return response;
+}
+//----------------------------------------------------------------------------
+bool AsAuth_Session::Is_Refresh_Rejected(const SHttp_Response &in_response)
+{
+	if (in_response.HTTP_Status_Code < 400 || in_response.HTTP_Status_Code > 499)
+		return false;
+
+	return in_response.HTTP_Status_Code != 408 && in_response.HTTP_Status_Code != 429;
 }
 //----------------------------------------------------------------------------
 QByteArray AsAuth_Session::Authorization_Value(const QString &in_access_token)

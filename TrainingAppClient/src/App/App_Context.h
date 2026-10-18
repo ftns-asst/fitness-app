@@ -57,6 +57,7 @@ class AsApp_Context : public QObject
 
 public:
 	explicit AsApp_Context(QObject *in_parent = 0);
+	~AsApp_Context();
 
 	bool Initialize(const QStringList &in_arguments);
 	bool Initialize(const QStringList &in_arguments, QSettings &in_settings, const QByteArray &in_environment_url);
@@ -114,6 +115,11 @@ private:
 	// Создаёт стек модели программы в порядке зависимостей.
 	void Create_Program_Stack();
 
+	// Уничтожает весь граф объектов в порядке, обратном созданию: потребитель
+	// удаляется раньше зависимости, на которую он держит указатель. Вызывается
+	// повторным Initialize и деструктором.
+	void Destroy_Stack();
+
 	// Наполняет базу демо-данными, если передан флаг запуска (--demo-seed).
 	// Отдельным шагом, а не внутри Create_Program_Stack: он единственный
 	// пишущий шаг инициализации, и его должно быть видно при чтении.
@@ -140,7 +146,9 @@ private:
 	AUsers_Repository *Users_Repository_Instance = 0;
 
 	// Стек модели программы: точка создания и владения всех зависимостей
-	// среза W (§3.1–3.9). Порядок уничтожения обратен порядку создания.
+	// среза W (§3.1–3.9). Порядок уничтожения обратен порядку создания
+	// (Destroy_Stack). AsWorkout_Logger и AsMacro_Calculator — не QObject:
+	// единственный владелец — контекст, удаляются там же.
 	AProgram_Repository *Program_Repository_Instance = 0;
 	ARule_Repository *Rule_Repository_Instance = 0;
 	AMeasurement_Repository *Measurement_Repository_Instance = 0;

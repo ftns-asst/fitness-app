@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Data/Program/Program_Repository_Base.h"
 #include "Domain/Program_Model.h"
 

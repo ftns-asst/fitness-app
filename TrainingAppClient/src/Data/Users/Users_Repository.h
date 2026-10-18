@@ -57,6 +57,9 @@ private slots:
 	void on_Get_User_Finished(int in_request_id, const SUsers_User &in_user, const AApi_Error &in_error);
 
 private:
+	// Null-безопасное соединение: без базы отдаёт пустое QSqlDatabase, и
+	// запрос откатится проверкой Is_Open() ниже, а не разыменованием 0.
+	QSqlDatabase Connection() const;
 	bool Persist_User(const SUsers_User &in_user);
 	bool Persist_Profile_Cache(const QString &in_user_id, const SUsers_Profile &in_profile);
 

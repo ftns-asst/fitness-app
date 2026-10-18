@@ -8,6 +8,8 @@
 Q_LOGGING_CATEGORY(EXERCISES_Api_Log, "trainingapp.exercises.api")
 
 //----------------------------------------------------------------------------
+// AExercises_Api
+//----------------------------------------------------------------------------
 AExercises_Api::AExercises_Api(AsHttp_Client *in_http_client, AsAuth_Session *in_session, QObject *in_parent)
     : QObject(in_parent), HTTP_Client_Instance(in_http_client), Session_Instance(in_session)
 {
@@ -30,6 +32,11 @@ bool AExercises_Api::Valid_Type(const QString &in_type)
 {
 	return in_type == QString("basic") || in_type == QString("public") || in_type == QString("own") ||
 	       in_type == QString("all");
+}
+//----------------------------------------------------------------------------
+QString AExercises_Api::Item_Path(const QString &in_id)
+{
+	return QString("exercises/") + QString::fromLatin1(QUrl::toPercentEncoding(in_id.trimmed()));
 }
 //----------------------------------------------------------------------------
 QString AExercises_Api::List_Path(const QString &in_type, const QStringList &in_muscle_groups,
@@ -90,9 +97,9 @@ int AExercises_Api::Get_List(const QString &in_type, const QStringList &in_muscl
 // отправляем), muscle_groups, equipment; PATCH добавляет id (обязан совпадать
 // с путём, docs/03, §3.9).
 //----------------------------------------------------------------------------
-QJsonObject Exercises_Mutation_Body(const QString &in_id, const QString &in_name, bool in_is_public,
-                                    const QString &in_description, const QStringList &in_muscle_groups,
-                                    const QStringList &in_equipments)
+QJsonObject AExercises_Api::Mutation_Body(const QString &in_id, const QString &in_name, bool in_is_public,
+                                          const QString &in_description, const QStringList &in_muscle_groups,
+                                          const QStringList &in_equipments)
 {
 	QJsonObject body;
 	QJsonArray groups;
@@ -136,8 +143,8 @@ int AExercises_Api::Create_Exercise(const QString &in_name, bool in_is_public, c
 
 	request.Method = "POST";
 	request.Path = "exercises";
-	request.Body = QJsonDocument(Exercises_Mutation_Body(QString(), in_name.trimmed(), in_is_public, in_description,
-	                                                     in_muscle_groups, in_equipments))
+	request.Body = QJsonDocument(Mutation_Body(QString(), in_name.trimmed(), in_is_public, in_description,
+	                                           in_muscle_groups, in_equipments))
 	                   .toJson(QJsonDocument::Compact);
 
 	return Send_Authed_Mutation(request, Kind_Create);
@@ -158,9 +165,9 @@ int AExercises_Api::Update_Exercise(const QString &in_id, const QString &in_name
 	}
 
 	request.Method = "PATCH";
-	request.Path = QString("exercises/%1").arg(in_id.trimmed());
-	request.Body = QJsonDocument(Exercises_Mutation_Body(in_id.trimmed(), in_name.trimmed(), in_is_public,
-	                                                     in_description, in_muscle_groups, in_equipments))
+	request.Path = Item_Path(in_id);
+	request.Body = QJsonDocument(Mutation_Body(in_id.trimmed(), in_name.trimmed(), in_is_public, in_description,
+	                                           in_muscle_groups, in_equipments))
 	                   .toJson(QJsonDocument::Compact);
 
 	return Send_Authed_Mutation(request, Kind_Update);
@@ -179,7 +186,7 @@ int AExercises_Api::Delete_Exercise(const QString &in_id)
 	}
 
 	request.Method = "DELETE";
-	request.Path = QString("exercises/%1").arg(in_id.trimmed());
+	request.Path = Item_Path(in_id);
 
 	return Send_Authed_Mutation(request, Kind_Delete);
 }
@@ -199,7 +206,7 @@ int AExercises_Api::Get_One(const QString &in_id)
 	// GET /exercises/{id} — приватный эндпоинт (docs/03, §3.9): без активной
 	// сессии запрос не отправляется, «своё» без токена не читается.
 	request.Method = "GET";
-	request.Path = QString("exercises/%1").arg(in_id.trimmed());
+	request.Path = Item_Path(in_id);
 	request.Retry_Enabled = true;
 
 	return Send_Authed_Mutation(request, Kind_One);
@@ -207,7 +214,6 @@ int AExercises_Api::Get_One(const QString &in_id)
 //----------------------------------------------------------------------------
 int AExercises_Api::Send_Authed_Mutation(const SHttp_Request &in_request, int in_kind)
 {
-	SPending_Call pending;
 	int inner_id;
 
 	if (Session_Instance == 0 || Session_Instance->Has_Session() == false)
@@ -221,12 +227,7 @@ int AExercises_Api::Send_Authed_Mutation(const SHttp_Request &in_request, int in
 	if (inner_id == 0)
 		return 0;
 
-	pending.Kind = in_kind;
-	pending.Source = Source_Session;
-	Pending_Calls.insert(Next_Request_Id, pending);
-	qCInfo(EXERCISES_Api_Log).noquote() << "mutation started" << Next_Request_Id << "kind" << in_kind;
-
-	return Next_Request_Id++;
+	return Register_Call(Session_Calls, inner_id, in_kind);
 }
 //----------------------------------------------------------------------------
 int AExercises_Api::Get_Muscle_Groups()
@@ -255,7 +256,6 @@ int AExercises_Api::Get_Equipments()
 //----------------------------------------------------------------------------
 int AExercises_Api::Send_Optional(const SHttp_Request &in_request, int in_kind)
 {
-	SPending_Call pending;
 	int inner_id;
 
 	// Опциональная авторизация (docs/03, §3.9): с активной сессией токен
@@ -263,38 +263,55 @@ int AExercises_Api::Send_Optional(const SHttp_Request &in_request, int in_kind)
 	if (Session_Instance != 0 && Session_Instance->Has_Session())
 	{
 		inner_id = Session_Instance->Send_Authed(in_request);
-		pending.Source = Source_Session;
+
+		if (inner_id == 0)
+			return 0;
+
+		return Register_Call(Session_Calls, inner_id, in_kind);
 	}
-	else
-	{
-		inner_id = HTTP_Client_Instance != 0 ? HTTP_Client_Instance->Send(in_request) : 0;
-		pending.Source = Source_Client;
-	}
+
+	if (HTTP_Client_Instance == 0)
+		return 0;
+
+	inner_id = HTTP_Client_Instance->Send(in_request);
 
 	if (inner_id == 0)
 		return 0;
 
-	pending.Kind = in_kind;
-	Pending_Calls.insert(Next_Request_Id, pending);
-	qCInfo(EXERCISES_Api_Log).noquote() << "request started" << Next_Request_Id << "kind" << in_kind;
+	return Register_Call(Client_Calls, inner_id, in_kind);
+}
+//----------------------------------------------------------------------------
+int AExercises_Api::Register_Call(QHash<int, int> &in_out_inner_map, int in_inner_id, int in_kind)
+{
+	SPending_Call pending;
+	int request_id;
 
-	return Next_Request_Id++;
+	request_id = Next_Request_Id;
+	++Next_Request_Id;
+	pending.Kind = in_kind;
+	Pending_Calls.insert(request_id, pending);
+	in_out_inner_map.insert(in_inner_id, request_id);
+	qCInfo(EXERCISES_Api_Log).noquote() << "request started" << request_id << "kind" << in_kind;
+
+	return request_id;
 }
 //----------------------------------------------------------------------------
 void AExercises_Api::on_Client_Finished(int in_request_id, const SHttp_Response &in_response)
 {
-	if (Pending_Calls.contains(in_request_id) == false)
+	// Клиент сообщает о всех своих запросах, в том числе отправленных
+	// сессией и другими API: берём только зарегистрированные здесь.
+	if (Client_Calls.contains(in_request_id) == false)
 		return;
 
-	Finish_Call(in_request_id, in_response);
+	Finish_Call(Client_Calls.take(in_request_id), in_response);
 }
 //----------------------------------------------------------------------------
 void AExercises_Api::on_Session_Finished(int in_request_id, const SHttp_Response &in_response)
 {
-	if (Pending_Calls.contains(in_request_id) == false)
+	if (Session_Calls.contains(in_request_id) == false)
 		return;
 
-	Finish_Call(in_request_id, in_response);
+	Finish_Call(Session_Calls.take(in_request_id), in_response);
 }
 //----------------------------------------------------------------------------
 void AExercises_Api::Finish_Call(int in_request_id, const SHttp_Response &in_response)

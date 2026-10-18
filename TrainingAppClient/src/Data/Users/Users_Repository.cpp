@@ -39,7 +39,7 @@ int AUsers_Repository::Get_User(const QString &in_user_id, bool in_with_profile)
 //----------------------------------------------------------------------------
 bool AUsers_Repository::Get_Cached_User(const QString &in_user_id, SUsers_User &out_user)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_user = SUsers_User();
 
@@ -73,7 +73,7 @@ bool AUsers_Repository::Get_Cached_User(const QString &in_user_id, SUsers_User &
 bool AUsers_Repository::Load_Local_Profile(const QString &in_user_id, QString &out_level, QString &out_goal,
                                            int &out_workouts_per_week)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_level.clear();
 	out_goal.clear();
@@ -99,7 +99,7 @@ bool AUsers_Repository::Save_Local_Profile(const QString &in_user_id, const QStr
                                            int in_workouts_per_week, QString &out_status)
 {
 	QJsonObject payload;
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_status.clear();
 
@@ -154,7 +154,7 @@ bool AUsers_Repository::Save_Local_Profile(const QString &in_user_id, const QStr
 bool AUsers_Repository::Load_Macro_Params(const QString &in_user_id, QString &out_birth_date,
                                           QString &out_activity_level)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_birth_date.clear();
 	out_activity_level.clear();
@@ -179,7 +179,7 @@ bool AUsers_Repository::Load_Macro_Params(const QString &in_user_id, QString &ou
 bool AUsers_Repository::Save_Macro_Params(const QString &in_user_id, const QString &in_birth_date,
                                           const QString &in_activity_level)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
 		return false;
@@ -214,7 +214,7 @@ bool AUsers_Repository::Save_Macro_Params(const QString &in_user_id, const QStri
 bool AUsers_Repository::Load_Macro_Result(const QString &in_user_id, AsMacro_Calculator::SResult &out_result,
                                           QString &out_calculated_at)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_result = AsMacro_Calculator::SResult();
 	out_calculated_at.clear();
@@ -245,7 +245,7 @@ bool AUsers_Repository::Load_Macro_Result(const QString &in_user_id, AsMacro_Cal
 //----------------------------------------------------------------------------
 bool AUsers_Repository::Save_Macro_Result(const QString &in_user_id, const AsMacro_Calculator::SResult &in_result)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 	const QString now = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
 
 	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
@@ -287,7 +287,7 @@ bool AUsers_Repository::Clear_Local_Profile(const QString &in_user_id)
 	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
 		return false;
 
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("DELETE FROM profile_local WHERE user_id = ?");
 	query.addBindValue(in_user_id);
@@ -305,7 +305,7 @@ bool AUsers_Repository::Clear_Local_Profile(const QString &in_user_id)
 //----------------------------------------------------------------------------
 int AUsers_Repository::Pending_Outbox_Count() const
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
 		return 0;
@@ -342,9 +342,17 @@ void AUsers_Repository::on_Get_User_Finished(int in_request_id, const SUsers_Use
 	emit getUserFinished(in_request_id, user, from_cache, error);
 }
 //----------------------------------------------------------------------------
+QSqlDatabase AUsers_Repository::Connection() const
+{
+	if (Database_Instance != 0)
+		return Database_Instance->Sql_Connection();
+
+	return QSqlDatabase();
+}
+//----------------------------------------------------------------------------
 bool AUsers_Repository::Persist_User(const SUsers_User &in_user)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("INSERT INTO user_cache(id, email, display_name, created_at, updated_at) "
 	              "VALUES(?, ?, ?, ?, ?) "
@@ -370,7 +378,7 @@ bool AUsers_Repository::Persist_User(const SUsers_User &in_user)
 //----------------------------------------------------------------------------
 bool AUsers_Repository::Persist_Profile_Cache(const QString &in_user_id, const SUsers_Profile &in_profile)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("INSERT INTO profile_cache(user_id, age, gender, height_cm, weight_kg, updated_at) "
 	              "VALUES(?, ?, ?, ?, ?, ?) "

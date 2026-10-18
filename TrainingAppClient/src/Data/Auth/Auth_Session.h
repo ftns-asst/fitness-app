@@ -18,6 +18,8 @@ class QJsonObject;
 // запросы ждут в очереди и повторяются по одному разу с новой парой токенов.
 // HTTP-подтверждённая неудача refresh очищает токены, завершает сессию и
 // сигналит sessionExpired; transport-сбой сессию сохраняет (docs/03, §6).
+// Смена сессии (Drop/Adopt/Restore) открывает новое «поколение»: refresh и
+// ответы, начатые прежней сессией, не трогают токены новой.
 // Формат "Bearer <token>", одноразовость refresh_token и ключи 401
 // (invalid_token/token_expired) подтверждены публикацией документации backend:
 // docs/03-api-contract.md §2, docs/03-api-backend-published.md.
@@ -52,9 +54,11 @@ private:
 	struct SPending_Call
 	{
 		int Logical_Request_Id = 0;
+		int Generation = 0; // поколение сессии, в котором запрос создан
 		bool Transmitted = false;
 		bool Is_Retry_After_Refresh = false;
 		SHttp_Request Request;
+		QString Access_Token_Used; // токен последней отправки: 401 по старому токену — без нового refresh
 		SHttp_Response Auth_Failure_Response;
 	};
 
@@ -62,9 +66,15 @@ private:
 	void Handle_Refresh_Finished(const SHttp_Response &in_response);
 	void Flush_Queue_After_Refresh();
 	void Fail_Queue(const char *in_reason);
+	// Новое поколение сессии: незавершённый refresh забывается, очередь
+	// получает auth failure, ответы прежних запросов не запускают refresh.
+	void Begin_Generation(const char *in_reason);
 	bool Send_Call(SPending_Call &in_call);
 	void Finish_Call(SPending_Call &in_call, const SHttp_Response &in_response);
 	static SHttp_Response Auth_Failure_Response(int in_request_id);
+	// Отказ refresh, завершающий сессию: 4xx кроме временных 408/429. 5xx,
+	// transport-сбой и невалидный 2xx — сбой, сессия сохраняется (docs/03, §6).
+	static bool Is_Refresh_Rejected(const SHttp_Response &in_response);
 	static QByteArray Authorization_Value(const QString &in_access_token);
 
 	AsHttp_Client *HTTP_Client_Instance;
@@ -76,6 +86,7 @@ private:
 	bool Refresh_In_Progress = false;
 	int Refresh_Transport_Id = 0;
 	int Next_Logical_Id = 1;
+	int Session_Generation = 0;
 	QString Last_Error_Text;
 };
 //----------------------------------------------------------------------------

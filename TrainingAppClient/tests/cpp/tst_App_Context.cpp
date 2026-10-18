@@ -25,6 +25,7 @@ private slots:
 	void missingCommandLineValueFails();
 	void duplicateCommandLineValueFails();
 	void credentialsAndQueryAreRejected();
+	void reinitializeReplacesWholeStack();
 };
 
 //----------------------------------------------------------------------------
@@ -151,6 +152,27 @@ void AApp_Context_Test::credentialsAndQueryAreRejected()
 	QVERIFY(context.Initialize({"app", "--api-url", "https://example.com/api?environment=dev"}, settings,
 	                           QByteArray()) == false);
 	QVERIFY(context.Last_Error().contains("query"));
+}
+//----------------------------------------------------------------------------
+// Повторный Initialize пересобирает граф целиком: прежние репозитории и
+// ViewModel удаляются, а не остаются детьми контекста рядом с новыми.
+//----------------------------------------------------------------------------
+void AApp_Context_Test::reinitializeReplacesWholeStack()
+{
+	QTemporaryDir directory;
+	QSettings settings(directory.filePath("settings.ini"), QSettings::IniFormat);
+	AsApp_Context context;
+	int children_after_first;
+
+	QVERIFY(directory.isValid());
+	QVERIFY(context.Initialize({"app"}, settings, QByteArray()));
+	children_after_first = context.children().size();
+
+	QVERIFY(context.Initialize({"app"}, settings, QByteArray()));
+	QCOMPARE(context.children().size(), children_after_first);
+	QVERIFY(context.SQL_Database()->Is_Open());
+	QVERIFY(context.Program_Catalog_VM() != 0);
+	QVERIFY(context.Exercises_VM() != 0);
 }
 //----------------------------------------------------------------------------
 

@@ -59,6 +59,11 @@ AsApp_Context::AsApp_Context(QObject *in_parent) : QObject(in_parent), Error_Sta
 {
 }
 //----------------------------------------------------------------------------
+AsApp_Context::~AsApp_Context()
+{
+	Destroy_Stack();
+}
+//----------------------------------------------------------------------------
 bool AsApp_Context::Initialize(const QStringList &in_arguments)
 {
 	QSettings settings;
@@ -84,53 +89,9 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	Initialized = false;
 	Error_State.Clear_Last_Error();
 
-	if (Auth_Bridge_Instance != 0)
-	{
-		delete Auth_Bridge_Instance;
-		Auth_Bridge_Instance = 0;
-	}
-
-	if (Users_Repository_Instance != 0)
-	{
-		delete Users_Repository_Instance;
-		Users_Repository_Instance = 0;
-	}
-
-	if (Auth_VM_Instance != 0)
-	{
-		delete Auth_VM_Instance;
-		Auth_VM_Instance = 0;
-	}
-
-	if (Auth_Repository_Instance != 0)
-	{
-		delete Auth_Repository_Instance;
-		Auth_Repository_Instance = 0;
-	}
-
-	if (Auth_Session_Instance != 0)
-	{
-		delete Auth_Session_Instance;
-		Auth_Session_Instance = 0;
-	}
-
-	if (Token_Store_Instance != 0)
-	{
-		delete Token_Store_Instance;
-		Token_Store_Instance = 0;
-	}
-
-	if (HTTP_Client_Instance != 0)
-	{
-		delete HTTP_Client_Instance;
-		HTTP_Client_Instance = 0;
-	}
-
-	if (SQL_Database_Instance != 0)
-	{
-		delete SQL_Database_Instance;
-		SQL_Database_Instance = 0;
-	}
+	// Повторная инициализация пересобирает весь граф: частичный демонтаж
+	// оставил бы живые ViewModel с указателями на удалённую базу и клиент.
+	Destroy_Stack();
 
 	candidate.clear();
 	source.clear();
@@ -317,6 +278,69 @@ void AsApp_Context::Create_Program_Stack()
 	Macro_Calculator_Instance = new AsMacro_Calculator;
 	Macro_VM_Instance =
 	    new Avm_Macro(Macro_Calculator_Instance, Measurement_Repository_Instance, Users_Repository_Instance, this);
+}
+//----------------------------------------------------------------------------
+void AsApp_Context::Destroy_Stack()
+{
+	// Стек программы (обратно Create_Program_Stack).
+	delete Macro_VM_Instance;
+	Macro_VM_Instance = 0;
+	delete Macro_Calculator_Instance;
+	Macro_Calculator_Instance = 0;
+	delete Today_VM_Instance;
+	Today_VM_Instance = 0;
+	delete Program_Catalog_VM_Instance;
+	Program_Catalog_VM_Instance = 0;
+	delete Program_Edit_VM_Instance;
+	Program_Edit_VM_Instance = 0;
+	delete Program_Rules_VM_Instance;
+	Program_Rules_VM_Instance = 0;
+	delete Program_Stats_VM_Instance;
+	Program_Stats_VM_Instance = 0;
+	delete Program_VM_Instance;
+	Program_VM_Instance = 0;
+	delete Workout_Logger_Instance;
+	Workout_Logger_Instance = 0;
+	delete Program_Service_Instance;
+	Program_Service_Instance = 0;
+	delete Workout_Repository_Instance;
+	Workout_Repository_Instance = 0;
+	delete Stats_Repository_Instance;
+	Stats_Repository_Instance = 0;
+	delete Measurement_Repository_Instance;
+	Measurement_Repository_Instance = 0;
+	delete Rule_Repository_Instance;
+	Rule_Repository_Instance = 0;
+	delete Program_Repository_Instance;
+	Program_Repository_Instance = 0;
+
+	// Каталог упражнений.
+	delete Exercises_One_VM_Instance;
+	Exercises_One_VM_Instance = 0;
+	delete Exercises_Editor_VM_Instance;
+	Exercises_Editor_VM_Instance = 0;
+	delete Exercises_VM_Instance;
+	Exercises_VM_Instance = 0;
+	delete Exercises_Repository_Instance;
+	Exercises_Repository_Instance = 0;
+
+	// Auth и транспорт.
+	delete Auth_Bridge_Instance;
+	Auth_Bridge_Instance = 0;
+	delete Users_Repository_Instance;
+	Users_Repository_Instance = 0;
+	delete Auth_VM_Instance;
+	Auth_VM_Instance = 0;
+	delete Auth_Repository_Instance;
+	Auth_Repository_Instance = 0;
+	delete Auth_Session_Instance;
+	Auth_Session_Instance = 0;
+	delete Token_Store_Instance;
+	Token_Store_Instance = 0;
+	delete HTTP_Client_Instance;
+	HTTP_Client_Instance = 0;
+	delete SQL_Database_Instance;
+	SQL_Database_Instance = 0;
 }
 //----------------------------------------------------------------------------
 QString AsApp_Context::apiBaseUrl() const

@@ -28,6 +28,9 @@ private slots:
 	void listIncompleteSuccessReportsUndefinedError();
 	void muscleGroupsParseArray();
 	void equipmentsParseArray();
+	void listIgnoresForeignSessionResponses();
+	void listSurvivesTokenRefresh();
+	void oneEncodesIdInPath();
 
 private:
 	static STest_Http_Response JSON_Response(int in_status, const QByteArray &in_body);
@@ -325,6 +328,100 @@ void AExercises_Api_Test::equipmentsParseArray()
 	QCOMPARE(equipments, QStringList({"barbell", "dumbbell"}));
 	QVERIFY(error.Is_Error() == false);
 	QCOMPARE(server.Request_At(0).Target, QByteArray("/api/v1/equipments"));
+}
+//----------------------------------------------------------------------------
+// Ответ на чужой запрос той же сессии не должен попасть в каталог: идентификаторы
+// сессии и логические идентификаторы API — разные пространства.
+//----------------------------------------------------------------------------
+void AExercises_Api_Test::listIgnoresForeignSessionResponses()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AsAuth_Session *session = 0;
+	AExercises_Api *api = 0;
+	SHttp_Request foreign_request;
+
+	Make_Api(server, session, directory, true, api);
+	QSignalSpy spy(api, &AExercises_Api::listFinished);
+	QSignalSpy session_spy(session, &AsAuth_Session::requestFinished);
+	QList<QVariant> arguments;
+	QVector<SExercises_Item> items;
+	AApi_Error error;
+
+	server.Enqueue_Response(JSON_Response(200, QByteArray("{\"id\":\"user-1\"}")));
+	server.Enqueue_Response(JSON_Response(200, Exercise_Array_Body()));
+
+	foreign_request.Method = "GET";
+	foreign_request.Path = "users/user-1";
+	QVERIFY(session->Send_Authed(foreign_request) > 0);
+
+	int request_id = api->Get_List("all", QStringList(), QStringList(), QString(), 50, 0);
+
+	QVERIFY(request_id > 0);
+	QVERIFY(spy.wait(5000));
+	QCOMPARE(spy.count(), 1);
+
+	arguments = spy.takeFirst();
+	items = qvariant_cast<QVector<SExercises_Item>>(arguments.at(1));
+	error = qvariant_cast<AApi_Error>(arguments.at(2));
+
+	QCOMPARE(arguments.at(0).toInt(), request_id);
+	QVERIFY(!error.Is_Error());
+	QCOMPARE(items.size(), 2);
+	QCOMPARE(session_spy.count(), 2);
+}
+//----------------------------------------------------------------------------
+// 401 на запрос каталога уходит в single-flight refresh сессии; API получает
+// только итоговый ответ повтора, а не промежуточный 401 транспорта.
+//----------------------------------------------------------------------------
+void AExercises_Api_Test::listSurvivesTokenRefresh()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AsAuth_Session *session = 0;
+	AExercises_Api *api = 0;
+
+	Make_Api(server, session, directory, true, api);
+	QSignalSpy spy(api, &AExercises_Api::listFinished);
+	QList<QVariant> arguments;
+	QVector<SExercises_Item> items;
+	AApi_Error error;
+
+	server.Enqueue_Response(JSON_Response(401, "{\"key\":\"token_expired\",\"message\":\"expired\"}"));
+	server.Enqueue_Response(
+	    JSON_Response(200, "{\"tokens\":{\"access_token\":\"new-access\",\"refresh_token\":\"new-refresh\"}}"));
+	server.Enqueue_Response(JSON_Response(200, Exercise_Array_Body()));
+
+	QVERIFY(api->Get_List("all", QStringList(), QStringList(), QString(), 50, 0) > 0);
+	QVERIFY(spy.wait(5000));
+	QCOMPARE(spy.count(), 1);
+
+	arguments = spy.takeFirst();
+	items = qvariant_cast<QVector<SExercises_Item>>(arguments.at(1));
+	error = qvariant_cast<AApi_Error>(arguments.at(2));
+
+	QVERIFY(!error.Is_Error());
+	QCOMPARE(items.size(), 2);
+	QCOMPARE(server.Request_Count(), 3);
+	QCOMPARE(server.Request_At(2).Headers.value("authorization"), QByteArray("Bearer new-access"));
+}
+//----------------------------------------------------------------------------
+void AExercises_Api_Test::oneEncodesIdInPath()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AsAuth_Session *session = 0;
+	AExercises_Api *api = 0;
+
+	Make_Api(server, session, directory, true, api);
+	QSignalSpy spy(api, &AExercises_Api::oneFinished);
+
+	server.Enqueue_Response(JSON_Response(404, "{\"key\":\"not_found\",\"message\":\"missing\"}"));
+
+	// `/`, `?` и `#` из идентификатора не должны менять endpoint.
+	QVERIFY(api->Get_One("a/b?type=own#x") > 0);
+	QVERIFY(spy.wait(5000));
+	QCOMPARE(server.Request_At(0).Target, QByteArray("/api/v1/exercises/a%2Fb%3Ftype%3Down%23x"));
 }
 //----------------------------------------------------------------------------
 QTEST_MAIN(AExercises_Api_Test)

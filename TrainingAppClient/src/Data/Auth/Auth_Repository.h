@@ -46,6 +46,9 @@ private slots:
 	void on_Session_Expired();
 
 private:
+	// Null-безопасное соединение: без базы отдаёт пустое QSqlDatabase, и
+	// запрос откатится проверкой Is_Open() ниже, а не разыменованием 0.
+	QSqlDatabase Connection() const;
 	bool Persist_Session(const SAuth_Session_Data &in_session_data, AApi_Error &out_error);
 
 	AsSql_Database *Database_Instance;

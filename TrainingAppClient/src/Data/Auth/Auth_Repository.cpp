@@ -104,10 +104,25 @@ void AAuth_Repository::on_Session_Expired()
 	emit sessionExpired();
 }
 //----------------------------------------------------------------------------
+QSqlDatabase AAuth_Repository::Connection() const
+{
+	if (Database_Instance != 0)
+		return Database_Instance->Sql_Connection();
+
+	return QSqlDatabase();
+}
+//----------------------------------------------------------------------------
 bool AAuth_Repository::Persist_Session(const SAuth_Session_Data &in_session_data, AApi_Error &out_error)
 {
 	SStored_Tokens tokens;
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
+
+	if (Database_Instance == 0 || !Database_Instance->Is_Open() || Token_Store_Instance == 0 || Session_Instance == 0)
+	{
+		qCWarning(AUTH_Repository_Log).noquote() << "session persist without storage";
+		out_error = AApi_Error("undefined_error", "Local session persist failed", 0, 0);
+		return false;
+	}
 
 	// Порядок фиксирован: кэш пользователя → пара токенов → активация сессии.
 	tokens.User_ID = in_session_data.User.ID;

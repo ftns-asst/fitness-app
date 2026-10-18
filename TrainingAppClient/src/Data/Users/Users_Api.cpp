@@ -2,6 +2,7 @@
 
 #include <QJsonObject>
 #include <QLoggingCategory>
+#include <QUrl>
 
 Q_LOGGING_CATEGORY(USERS_Api_Log, "trainingapp.users.api")
 
@@ -21,14 +22,19 @@ AUsers_Api::AUsers_Api(AsAuth_Session *in_session, QObject *in_parent)
 int AUsers_Api::Get_User(const QString &in_user_id, bool in_with_profile)
 {
 	SHttp_Request request;
+	QString encoded_id;
 	int request_id;
 
 	if (Session_Instance == 0 || in_user_id.trimmed().isEmpty())
 		return 0;
 
+	// id процент-кодируется: `/`, `?`, `#` из значения не меняют endpoint.
+	encoded_id = QString::fromLatin1(QUrl::toPercentEncoding(in_user_id));
 	request.Method = "GET";
-	request.Path =
-	    in_with_profile ? QString("users/%1?withProfile=true").arg(in_user_id) : QString("users/%1").arg(in_user_id);
+	request.Path = QString("users/") + encoded_id;
+
+	if (in_with_profile)
+		request.Path += "?withProfile=true";
 	request.Retry_Enabled = true;
 
 	request_id = Session_Instance->Send_Authed(request);
