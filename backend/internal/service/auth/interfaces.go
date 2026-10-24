@@ -26,6 +26,6 @@ type (
 		CreateUser(ctx context.Context, user *model.User) (*model.User, error)
 		GetUserByEmail(ctx context.Context, email string) (res *model.User, err error)
 		GetUserByID(ctx context.Context, id uuid.UUID, withProfile bool) (*model.UserWithProfile, error)
-		UpdateUserPassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) error
+		UpdateUserPasswordHash(ctx context.Context, userID uuid.UUID, newPasswordHash string) error
 	}
 )

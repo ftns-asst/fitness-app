@@ -79,6 +79,7 @@ func (h *UserHandler) GetMe(c *gin.Context) {
 	userID, err := tryGetUserIDFromCtx(c.Request.Context())
 	if err != nil {
 		handleError(c, err)
+		return
 	}
 
 	var p dto.GetUserQueryParams

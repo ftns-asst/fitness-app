@@ -63,18 +63,17 @@ func (r *UserRepo) CreateOrUpdateUserProfile(ctx context.Context, userID uuid.UU
 	conn := r.db(ctx)
 
 	rows, err := conn.Query(ctx, query, userID, input.Age, input.Gender, input.HeightCm, input.WeightKg)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("insert failed: %w", err)
 	}
 
 	res, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[model.UserProfile])
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrNotFound
-	}
 	if err != nil {
 		return nil, fmt.Errorf("collect row failed: %w", err)
 	}
-
 	return res, nil
 }
 
@@ -108,14 +107,14 @@ func (r *UserRepo) GetUserByEmail(ctx context.Context, email string) (*model.Use
 	`
 	conn := r.db(ctx)
 	rows, err := conn.Query(ctx, query, email)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrNotFound
-	}
 	if err != nil {
 		return nil, fmt.Errorf("select failed: %w", err)
 	}
 
 	res, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[model.User])
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("collect row failed: %w", err)
 	}
@@ -182,6 +181,7 @@ func (u *userWithProfile) ToModel() *model.UserWithProfile {
 			Email:        u.Email,
 			PasswordHash: u.PasswordHash,
 			UpdatedAt:    u.UserUpdatedAt,
+			CreatedAt:    u.CreatedAt,
 		},
 
 		Profile: profile,
@@ -247,9 +247,13 @@ func (r *UserRepo) UpdateUserPassword(ctx context.Context, userID uuid.UUID, new
 		SET pass_hash = $2
 		WHERE u.id = $1;
 	`
-	_, err = conn.Exec(ctx, query, userID, newPasswordHash)
+	res, err := conn.Exec(ctx, query, userID, newPasswordHash)
 	if err != nil {
 		return fmt.Errorf("update failed: %w", err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return ErrNoAffectedRows
 	}
 
 	return nil

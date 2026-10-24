@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"ftns-asst/internal/model"
+	"sync/atomic"
 	"testing"
 
 	"github.com/go-openapi/testify/v2/require"
@@ -38,4 +39,17 @@ func EqualSvcErrKey(t *testing.T, err error, targetKey string) {
 	serr := new(model.ServiceError)
 	require.ErrorAs(t, err, &serr)
 	require.Equal(t, serr.Key, targetKey)
+}
+
+type MockMailer struct {
+	sentCount atomic.Int64
+}
+
+func (m *MockMailer) SendEmail(toEmail string, subjectRaw string, body string) error {
+	m.sentCount.Add(1)
+	return nil
+}
+
+func (m *MockMailer) Count() int {
+	return int(m.sentCount.Load())
 }
