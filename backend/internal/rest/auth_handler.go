@@ -129,7 +129,7 @@ func (h *AuthHandler) LogIn(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body dto.RefreshTokensRequestBody true "RefreshTokens body"
-// @Success 200 {object} dto.RefreshTokensResponse
+// @Success 200 {object} dto.Tokens
 // @Failure      400  {object}  ErrorResponse
 // @Failure      404  {object}  ErrorResponse
 // @Failure      500  {object}  ErrorResponse
