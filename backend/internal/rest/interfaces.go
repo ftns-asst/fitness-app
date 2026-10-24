@@ -23,4 +23,13 @@ type (
 		GetUserByID(ctx context.Context, id uuid.UUID, withProfile bool) (*model.UserWithProfile, error)
 		UpdateUserProfile(ctx context.Context, userID uuid.UUID, input *model.UpdateUserProfileInput) (*model.UserProfile, error)
 	}
+	ExerciseService interface {
+		GetMuscleGroups() []model.MuscleGroup
+		GetEquipment() []model.Equipment
+		CreateExercise(ctx context.Context, userID uuid.UUID, exercise *model.Exercise) (*model.Exercise, error)
+		GetExerciseByID(ctx context.Context, userID uuid.UUID, exerciseID uuid.UUID) (*model.Exercise, error)
+		GetExercises(ctx context.Context, filters *model.ExerciseFilters, page *model.PageInfo) ([]*model.Exercise, error)
+		UpdateExercise(ctx context.Context, userID uuid.UUID, input *model.UpdateExerciseInput) (*model.Exercise, error)
+		DeleteExercise(ctx context.Context, userID uuid.UUID, id uuid.UUID) error
+	}
 )

@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+set -eu
+
+repository_root=$(git rev-parse --show-toplevel)
+project_root="$repository_root/TrainingAppClient"
+
+if command -v pwsh >/dev/null 2>&1; then
+    powershell_command=pwsh
+elif command -v powershell.exe >/dev/null 2>&1; then
+    powershell_command=powershell.exe
+else
+    echo "pre-commit: PowerShell 7 or Windows PowerShell is required." >&2
+    exit 1
+fi
+
+echo "Running TrainingAppClient gates before commit..."
+"$powershell_command" -NoProfile -ExecutionPolicy Bypass -File "$project_root/scripts/run-gates.ps1" -BuildDir "build/pre-commit"

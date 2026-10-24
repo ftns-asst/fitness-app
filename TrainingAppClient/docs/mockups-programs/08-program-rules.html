@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>08 — Правила программы — макет</title>
+<link rel="stylesheet" href="theme.css">
+<script src="mock.js"></script>
+</head>
+<body>
+<header class="toolbar">
+    <h1>08 — Правила программы (ProgramRulesEditPage)</h1>
+    <span class="spacer"></span>
+    <a href="index.html">← Все макеты</a>
+    <button onclick="toggleTheme()">Тема</button>
+</header>
+<main class="frames">
+
+<!-- Экран вынесен из редактора: правила — это подбор из каталога, то есть
+     отдельный жанр задачи («что выбрать»), а редактор — «описать программу».
+     Смешивать их в одной ленте означало держать на экране и список целей,
+     и витрину пресетов, и форму нового правила. -->
+<section class="frame">
+    <h2>Основное состояние: 2 правила выбраны</h2>
+    <div class="phone device"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Правила программы</h1><p class="t-caption">Сила 8 недель · действуют весь срок</p></div>
+
+        <!-- Категория — главный фильтр каталога: пользователь думает
+             «хочу правило про питание», а не «хочу правило номер три». -->
+        <div class="chips">
+            <button class="chip on">Все</button>
+            <button class="chip">Питание</button>
+            <button class="chip">Активность</button>
+            <button class="chip">Восстановление</button>
+        </div>
+
+        <!-- Каталог — только часть возможного. Раньше выбор заканчивался
+             тут, и правило, которого нет в девяти пресетах, было невозможно:
+             типовой набор покрывает питание и сон, но не «присед раз в неделю»
+             или «не пить алкоголь за 2 дня до соревнования». Поэтому каталог
+             и своё правило равноправны: каталог сверху как быстрый путь,
+             форма снизу как путь для своего случая. -->
+        <p class="section-title">Каталог правил</p>
+        <div class="stack">
+            <div class="preset-grid">
+                <div class="preset added"><span class="name">Белок 140 г</span><span class="meta"><span class="cat nutrition"><i></i>добавлено</span></span></div>
+                <div class="preset"><span class="name">Вода 2 л</span><span class="meta"><span class="cat nutrition"><i></i>Питание</span></span></div>
+                <div class="preset"><span class="name">10 000 шагов</span><span class="meta"><span class="cat activity"><i></i>Активность</span></span></div>
+                <div class="preset added"><span class="name">Сон 8 ч</span><span class="meta"><span class="cat recovery"><i></i>добавлено</span></span></div>
+                <div class="preset"><span class="name">Отдых 48 ч</span><span class="meta"><span class="cat recovery"><i></i>Восстановление</span></span></div>
+                <div class="preset"><span class="name">Прогулка 30 мин</span><span class="meta"><span class="cat activity"><i></i>Активность</span></span></div>
+            </div>
+        </div>
+
+        <!-- Своё правило — не «Добавить» рядом с каталогом, а вход в отдельный
+             шаг: форма длинная, и развернутая она опять съела бы пол-экрана
+             после каталога. -->
+        <a class="card navrow" href="08-program-rules.html#form">
+            <div class="text">
+                <p class="body-strong">Своё правило</p>
+                <p class="caption">Например: присед раз в неделю, алкоголь — стоп за 2 дня до соревнования</p>
+            </div>
+            <span class="chev">›</span>
+        </a>
+
+        <!-- Выбранное — внизу, рядом с «Готово»: пока идёт выбор, пользователь
+             смотрит на каталог, а не на результат. Итог же нужен в том месте,
+             где его закрывают, — на выходе с экрана. -->
+        <p class="section-title">В программе <span class="section-count">2</span></p>
+        <div class="stack">
+            <div class="card subtle list-row">
+                <div class="text"><p class="body-strong">Белок от 1,6 г/кг каждый день</p><span class="cat nutrition"><i></i>Питание</span></div>
+                <button class="btn secondary compact">Убрать</button>
+            </div>
+            <div class="card subtle list-row">
+                <div class="text"><p class="body-strong">Сон не менее 7 часов</p><span class="cat recovery"><i></i>Восстановление</span></div>
+                <button class="btn secondary compact">Убрать</button>
+            </div>
+        </div>
+
+        <!-- Панель закреплена снизу: возврат в редактор — главное действие
+             этого экрана, а не «создать программу». -->
+        </div>
+        <div class="actionbar">
+            <button class="btn primary">Готово · 2 правила</button>
+        </div>
+    </div></div>
+</section>
+
+<section class="frame">
+    <h2>Правил нет: пустое состояние</h2>
+    <div class="phone device"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Правила программы</h1><p class="t-caption">Сила 8 недель · действуют весь срок</p></div>
+
+        <div class="chips">
+            <button class="chip on">Все</button>
+            <button class="chip">Питание</button>
+            <button class="chip">Активность</button>
+            <button class="chip">Восстановление</button>
+        </div>
+
+        <p class="section-title">Каталог правил</p>
+        <div class="stack">
+            <div class="preset-grid">
+                <div class="preset"><span class="name">Белок 140 г</span><span class="meta"><span class="cat nutrition"><i></i>Питание</span></span></div>
+                <div class="preset"><span class="name">Вода 2 л</span><span class="meta"><span class="cat nutrition"><i></i>Питание</span></span></div>
+                <div class="preset"><span class="name">10 000 шагов</span><span class="meta"><span class="cat activity"><i></i>Активность</span></span></div>
+                <div class="preset"><span class="name">Сон 8 ч</span><span class="meta"><span class="cat recovery"><i></i>Восстановление</span></span></div>
+            </div>
+        </div>
+
+        <!-- Пустое состояние «В программе» — тоже внизу, у «Готово»: пока
+             ничего не выбрано, блок объясняет, что ничего страшного, и
+             читать его в начале экрана незачем. -->
+        <p class="section-title">В программе <span class="section-count">0</span></p>
+        <!-- Правила необязательны (canCreate их не требует), поэтому
+             пустота здесь — норма, а не ошибка. Подсказка объясняет,
+             что дают правила, иначе непонятно, зачем сюда идти. -->
+        <div class="card muted">
+            <p class="body text-center">Программа будет работать и без правил</p>
+            <p class="caption text-center">Правила добавляют ежедневные проверки: питание, сон, шаги — и отмечаются на экране «Сегодня»</p>
+        </div>
+
+        </div>
+
+        <div class="actionbar">
+            <button class="btn primary">Готово</button>
+        </div>
+    </div></div>
+</section>
+
+<section class="frame">
+    <h2>Своё правило: форма</h2>
+    <div class="phone device"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Своё правило</h1><p class="t-caption">Сила 8 недель · добавится в программу</p></div>
+
+        <!-- Поля формы = поля SProgram_Rule (модель 02, 3.6). Порядок —
+             три вопроса правила: что измеряем, сколько, как часто. Порог
+             спрашивается до свободного текста: «Белок 140 г» без «от» или
+             «не выше» не ставится в отметку, поэтому title не главный вход. -->
+        <div class="ruleform">
+            <fieldset class="fieldset">
+                <legend>Категория</legend>
+                <div class="chips">
+                    <button class="chip">Другое</button>
+                    <button class="chip">Питание</button>
+                    <button class="chip on">Тренировки</button>
+                    <button class="chip">Восстановление</button>
+                    <button class="chip">Образ жизни</button>
+                    <button class="chip">Техника</button>
+                </div>
+            </fieldset>
+
+            <fieldset class="fieldset">
+                <legend>Что измеряем</legend>
+                <!-- Метрика выбирается плитками с единицей: «custom» из
+                     перечисления модели пользователю не о чём говорить. -->
+                <div class="metric-grid">
+                    <button class="metric-tile">Вес<span class="unit">кг</span></button>
+                    <button class="metric-tile">Белок<span class="unit">г</span></button>
+                    <button class="metric-tile">Вода<span class="unit">мл</span></button>
+                    <button class="metric-tile">Сон<span class="unit">часы</span></button>
+                    <button class="metric-tile">Шаги<span class="unit">шт</span></button>
+                    <button class="metric-tile on">RPE<span class="unit">1…10</span></button>
+                </div>
+            </fieldset>
+
+            <fieldset class="fieldset">
+                <legend>Цель</legend>
+                <!-- Условие (min/max/exact) + значение + единица — обязательная
+                     связка: без неё отметку негде поставить, это же проверяет
+                     rule_target_required. -->
+                <div class="cond">
+                    <div class="seg" role="radiogroup" aria-label="Условие цели">
+                        <button class="on" role="radio" aria-checked="true">выше</button>
+                        <button role="radio" aria-checked="false">ниже</button>
+                        <button role="radio" aria-checked="false">ровно</button>
+                    </div>
+                    <div class="cond-row">
+                        <div class="input">8</div>
+                        <div class="combo"><span>RPE</span><span class="chevron">▾</span></div>
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="fieldset">
+                <legend>Как часто</legend>
+                <div class="seg" role="radiogroup" aria-label="Периодичность">
+                    <button role="radio" aria-checked="false">в день</button>
+                    <button class="on" role="radio" aria-checked="true">на тренировке</button>
+                    <button role="radio" aria-checked="false">раз в неделю</button>
+                </div>
+            </fieldset>
+
+            <!-- Название необязательно: если оставить пустым, оно соберётся
+                 из метрики и цели. Пользователю не нужно придумывать
+                 формулировку там, где данные уже есть. -->
+            <div>
+                <div class="field-label">Своё название <span class="c-muted">— необязательно</span></div>
+                <div class="input placeholder">Например: тяжёлые подходы не тяжелее 8</div>
+            </div>
+
+            <!-- Предпросмотр: строка, которую пользователь увидит на «Сегодня»
+                 и в статистике. Показываем до сохранения, чтобы опечатку в
+                 пороге заметить сразу, а не через неделю работы. -->
+            <div class="rule-preview">
+                <p class="label">Так это будет выглядеть</p>
+                <p class="value">RPE не выше 8 на каждой тренировке</p>
+                <p class="meta"><span class="cat training"><i></i>Тренировки</span> · считается автоматически по подходам</p>
+            </div>
+
+            <div class="row">
+                <button class="btn secondary fill">Отмена</button>
+                <button class="btn primary fill">Добавить правило</button>
+            </div>
+        </div>
+        </div>
+        <div class="actionbar">
+            <button class="btn primary">Готово · 3 правила</button>
+        </div>
+    </div></div>
+</section>
+
+
+<section class="frame">
+    <h2>Своё правило текстом: «Другое»</h2>
+    <div class="phone device"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Своё правило</h1><p class="t-caption">Сила 8 недель · добавится в программу</p></div>
+
+        <!-- Категория «Другое» снимает главное ограничение предыдущих шагов:
+             там формулировка была необязательным уточнением к метрике и порогу,
+             а здесь текст и есть правило. Примеры из подсказки взяты из реальных
+             случаев, которых нет ни в одной метрике: предсоревновательный
+             ограничитель и запрет пропускать разминку не считаются вовсе. -->
+        <div class="ruleform">
+            <fieldset class="fieldset">
+                <legend>Категория</legend>
+                <div class="chips">
+                    <button class="chip on">Другое</button>
+                    <button class="chip">Питание</button>
+                    <button class="chip">Тренировки</button>
+                    <button class="chip">Восстановление</button>
+                    <button class="chip">Образ жизни</button>
+                    <button class="chip">Техника</button>
+                </div>
+            </fieldset>
+
+            <fieldset class="fieldset">
+                <legend>Своё правило</legend>
+                <!-- metric = custom, title = текст. Это ровно то, что закрывает
+                     issue 46 в 05-recommendations-catalog-today: рекомендация
+                     без числовой цели, для которой нужен ослабленный CHECK. -->
+                <div class="textarea" contenteditable="true">Не пить алкоголь за 2 дня до соревнования</div>
+                <p class="text-count">43 из 140</p>
+            </fieldset>
+
+            <fieldset class="fieldset">
+                <legend>Как часто</legend>
+                <div class="seg" role="radiogroup" aria-label="Периодичность">
+                    <button role="radio" aria-checked="false">в день</button>
+                    <button class="on" role="radio" aria-checked="true">раз в неделю</button>
+                    <button role="radio" aria-checked="false">всегда</button>
+                </div>
+            </fieldset>
+
+            <!-- Цель необязательна только здесь, и это сказано прямо: показанный
+                 рядом факт, а не молчание формы, иначе пустой блок «Цель»
+                 прочитается как забытое поле и заставит выдумывать число. -->
+            <p class="opt-hint"><b>Цель не нужна.</b> Правило будет отмечаться вручную — «сделал / не сделал», без числа.</p>
+
+            <div class="rule-preview">
+                <p class="label">Так это будет выглядеть</p>
+                <p class="value">Не пить алкоголь за 2 дня до соревнования</p>
+                <p class="meta"><span class="cat other"><i></i>Другое</span> · отмечается вручную</p>
+            </div>
+
+            <div class="row">
+                <button class="btn secondary fill">Отмена</button>
+                <button class="btn primary fill">Добавить правило</button>
+            </div>
+        </div>
+        </div>
+        <div class="actionbar">
+            <button class="btn primary">Готово · 4 правила</button>
+        </div>
+    </div></div>
+</section>
+<section class="frame">
+    <h2>Своё правило: ошибки валидации</h2>
+    <div class="phone device"><div class="screen">
+        <div class="backbar"><button class="btn secondary back">← Назад</button></div>
+        <div><h1 class="t-title">Своё правило</h1><p class="t-caption">Сила 8 недель · добавится в программу</p></div>
+
+        <!-- Ключи rule_title_required и rule_target_required из спецификации
+             (07, 7) относятся к валидации редактора, поэтому ошибки стоят
+             у полей, а не баннером в конце ленты. -->
+        <div class="ruleform">
+            <fieldset class="fieldset">
+                <legend>Категория</legend>
+                <div class="chips">
+                    <button class="chip">Другое</button>
+                    <button class="chip on">Тренировки</button>
+                    <button class="chip">Питание</button>
+                    <button class="chip">Восстановление</button>
+                    <button class="chip">Образ жизни</button>
+                    <button class="chip">Техника</button>
+                </div>
+            </fieldset>
+
+            <fieldset class="fieldset">
+                <legend>Что измеряем</legend>
+                <div class="metric-grid">
+                    <button class="metric-tile">Вес<span class="unit">кг</span></button>
+                    <button class="metric-tile">Белок<span class="unit">г</span></button>
+                    <button class="metric-tile">Вода<span class="unit">мл</span></button>
+                    <button class="metric-tile">Сон<span class="unit">часы</span></button>
+                    <button class="metric-tile">Шаги<span class="unit">шт</span></button>
+                    <button class="metric-tile">RPE<span class="unit">1…10</span></button>
+                </div>
+                <p class="field-hint c-negative">Выберите, что измеряем</p>
+            </fieldset>
+
+            <fieldset class="fieldset">
+                <legend>Цель</legend>
+                <div class="cond">
+                    <div class="seg" role="radiogroup" aria-label="Условие цели">
+                        <button class="on" role="radio" aria-checked="true">выше</button>
+                        <button role="radio" aria-checked="false">ниже</button>
+                        <button role="radio" aria-checked="false">ровно</button>
+                    </div>
+                    <div class="cond-row">
+                        <div class="input error"></div>
+                        <div class="combo"><span>RPE</span><span class="chevron">▾</span></div>
+                    </div>
+                <p class="field-hint c-negative">Укажите порог — без него отметку негде поставить</p>
+            </fieldset>
+
+            <fieldset class="fieldset">
+                <legend>Как часто</legend>
+                <div class="seg" role="radiogroup" aria-label="Периодичность">
+                    <button role="radio" aria-checked="false">в день</button>
+                    <button class="on" role="radio" aria-checked="true">на тренировке</button>
+                    <button role="radio" aria-checked="false">раз в неделю</button>
+                </div>
+            </fieldset>
+
+            <!-- Превью остаётся подсказкой формата: пока нет метрики и порога,
+                 собирать строку не из чего, и выдумывать её значило бы
+                 показывать правило, которого ещё не существует. -->
+            <div class="rule-preview empty">
+                <p class="label">Так это будет выглядеть</p>
+                <p class="value">Например: 8 000 шагов не ниже 6 000 каждый день</p>
+            </div>
+        </div>
+        </div>
+        <div class="actionbar">
+            <button class="btn primary">Готово · 2 правила</button>
+        </div>
+    </div></div>
+</section>
+</main>
+</body>
+</html>

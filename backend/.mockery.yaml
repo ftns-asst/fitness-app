@@ -14,3 +14,5 @@ packages:
     { config: { all: true } }
   ftns-asst/internal/service/users:   
     { config: { all: true } }
+  ftns-asst/internal/service/exercise:
+    { config: { all: true } }

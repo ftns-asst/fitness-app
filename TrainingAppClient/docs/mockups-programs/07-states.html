@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>07 — Компоненты и состояния — макет</title>
+<link rel="stylesheet" href="theme.css">
+<script src="mock.js"></script>
+</head>
+<body>
+<header class="toolbar">
+    <h1>07 — Галерея компонентов и состояний (спец. §4, §6–§7)</h1>
+    <span class="spacer"></span>
+    <a href="index.html">← Все макеты</a>
+    <button onclick="toggleTheme()">Тема</button>
+</header>
+<main class="frames">
+
+<section class="frame">
+    <h2>Кнопки, поля, пилюли</h2>
+    <div class="phone"><div class="screen">
+        <div><h1 class="t-title">Компоненты</h1><p class="t-caption">AppButton, поля, TagPill, CheckinStatePill</p></div>
+
+        <div class="card stack">
+            <button class="btn primary">Создать программу</button>
+            <div class="row">
+                <button class="btn secondary fill">Статистика</button>
+                <button class="btn secondary fill selected">Настроить</button>
+            </div>
+            <div class="row">
+                <button class="btn ghost">Ghost-действие</button>
+                <button class="btn secondary compact">compact 12/500</button>
+                <button class="btn secondary disabled">disabled</button>
+            </div>
+        </div>
+
+        <div class="card stack">
+            <div><div class="field-label">Название программы</div><div class="input">Сила 8 недель</div></div>
+            <div><div class="field-label">Название программы</div><div class="input focus">Сила</div></div>
+            <div>
+                <div class="field-label">Дата старта</div>
+                <div class="input error"><span>3 ноября 2026</span></div>
+                <div class="field-hint c-negative">Проверьте дату старта</div>
+            </div>
+            <div><div class="field-label">Вид дня</div><div class="seg seg-4" role="radiogroup" aria-label="Вид дня"><button class="on" role="radio" aria-checked="true">Тренировка</button><button role="radio" aria-checked="false">Отдых</button><button role="radio" aria-checked="false">Кардио</button><button role="radio" aria-checked="false">Мобилити</button></div></div>
+        </div>
+
+        <!-- Ползунок в трёх состояниях: обычное, фокус (обводка линейки,
+             значение доступно стрелками), границы диапазона. -->
+        <div class="card stack">
+            <div class="slider">
+                <div class="slider-head">
+                    <span class="slider-label">Вес</span>
+                    <span class="slider-value"><span class="slider-num">100,0</span><i>кг</i></span>
+                </div>
+                <div class="slider-control">
+                    <input class="slider-input" type="range" min="20" max="200" step="2.5" value="100" data-decimals="1" aria-label="Вес, кг">
+                    <div class="slider-track"><i class="slider-fill"></i><i class="slider-thumb" style="left: 44.4%"></i></div>
+                </div>
+                <div class="slider-scale"><span>20</span><span>65</span><span>110</span><span>155</span><span>200</span></div>
+                <p class="slider-hint">Тащите маркер, стрелки — шаг 2,5 кг</p>
+            </div>
+            <div class="slider">
+                <div class="slider-head">
+                    <span class="slider-label">Вес — минимум шкалы</span>
+                    <span class="slider-value"><span class="slider-num">20,0</span><i>кг</i></span>
+                </div>
+                <div class="slider-control">
+                    <input class="slider-input" type="range" min="20" max="200" step="2.5" value="20" data-decimals="1" aria-label="Вес, минимум">
+                    <div class="slider-track"><i class="slider-fill"></i><i class="slider-thumb" style="left: 0%"></i></div>
+                </div>
+                <div class="slider-scale"><span>20</span><span>65</span><span>110</span><span>155</span><span>200</span></div>
+            </div>
+            <div class="chips">
+                <button class="chip">4</button>
+                <button class="chip on">8</button>
+                <button class="chip">12</button>
+                <button class="chip ghost">Своё</button>
+            </div>
+        </div>
+
+        <div class="card stack">
+            <div class="pill-wrap">
+                <span class="tag">Сила</span><span class="tag">8 нед.</span><span class="tag">Активная</span><span class="tag">Без срока</span>
+            </div>
+            <div class="pill-wrap">
+                <span class="pill done">Выполнено</span>
+                <span class="pill failed">Не выполнено</span>
+                <span class="pill">Частично</span>
+                <span class="pill">Пропущено</span>
+                <span class="pill">Нет отметки</span>
+            </div>
+        </div>
+    </div></div>
+</section>
+
+<section class="frame">
+    <h2>Карта недели плитками, правила по категориям</h2>
+    <div class="phone"><div class="screen">
+        <div><h1 class="t-title">Компоненты</h1><p class="t-caption">WeekTilesRow, RuleGroupCard</p></div>
+
+        <div class="card">
+            <div class="week-dots">
+                <div class="day-dot on">Пн</div>
+                <div class="day-dot">Вт</div>
+                <div class="day-dot soft">Ср</div>
+                <div class="day-dot">Чт</div>
+                <div class="day-dot on">Пт</div>
+                <div class="day-dot today">Сб</div>
+                <div class="day-dot">Вс</div>
+            </div>
+            <div class="week-legend">
+                <span class="legend-key"><i class="on"></i>Тренировка</span>
+                <span class="legend-key"><i class="soft"></i>Кардио</span>
+                <span class="legend-key"><i class="off"></i>Отдых</span>
+                <span class="legend-key"><i class="today"></i>Сегодня</span>
+            </div>
+        </div>
+
+        <div class="card rule-group">
+            <div class="rule-group-head">
+                <p class="row-title grow">Образ жизни</p>
+                <div class="rule-dots"><i class="done"></i><i class="failed"></i><i class="unknown"></i></div>
+                <span class="count">1 из 3</span>
+            </div>
+            <div class="rule-item">
+                <span class="dot done"></span>
+                <div class="text"><p class="body-strong">8000 шагов</p><p class="sub">8000 шт · каждый день</p></div>
+                <span class="pill done">Выполнено</span>
+                <div class="rule-actions">
+                    <button class="btn secondary fill selected">Выполнено</button>
+                    <button class="btn secondary fill">Не выполнено</button>
+                </div>
+            </div>
+            <div class="rule-item">
+                <span class="dot failed"></span>
+                <div class="text"><p class="body-strong">Алкоголь — 0</p><p class="sub">ед · каждый день</p></div>
+                <span class="pill failed">Не выполнено</span>
+            </div>
+            <div class="rule-item">
+                <span class="dot partial"></span>
+                <div class="text"><p class="body-strong">Вес 78 кг</p><p class="sub">78 кг · 3 раза в неделю</p></div>
+                <span class="pill">Частично</span>
+            </div>
+            <div class="rule-item">
+                <span class="dot unknown"></span>
+                <div class="text"><p class="body-strong">Техника приседа</p><p class="sub">Расчётное правило: считается по фактам тренировок</p></div>
+                <span class="pill">Нет отметки</span>
+            </div>
+        </div>
+    </div></div>
+</section>
+
+<section class="frame">
+    <h2>Карта недели, метрики, ошибки, календарь</h2>
+    <div class="phone"><div class="screen">
+        <div><h1 class="t-title">Состояния</h1><p class="t-caption">полоса недели, строка-переход, сворачиваемый блок, метрики</p></div>
+
+        <!-- Полоса недели: четыре вида дня и состояние «не заполнен».
+             Кодирование — цветом верхней полосы и рамкой warning. -->
+        <div class="week-strip">
+            <div class="daydot k-work"><span class="wd">Пн</span><i class="bar"></i><span class="cnt">3</span></div>
+            <div class="daydot rest"><span class="wd">Вт</span><i class="bar"></i><span class="cnt">—</span></div>
+            <div class="daydot k-cardio need"><span class="wd">Ср</span><i class="bar"></i><span class="cnt">!</span></div>
+            <div class="daydot k-mob"><span class="wd">Чт</span><i class="bar"></i><span class="cnt">1</span></div>
+        </div>
+
+        <!-- Строка-переход: счётчик активный (rules>0) и нулевой (zero). -->
+        <div class="stack">
+            <a class="card navrow" href="08-program-rules.html">
+                <div class="text"><p class="body-strong">Правила программы</p><p class="caption">Питание, Восстановление</p></div>
+                <span class="count">2</span>
+                <span class="chev">›</span>
+            </a>
+            <a class="card navrow" href="08-program-rules.html">
+                <div class="text"><p class="body-strong">Правила программы</p><p class="caption">Не выбраны</p></div>
+                <span class="count zero">0</span>
+                <span class="chev">›</span>
+            </a>
+        </div>
+
+        <!-- Сворачиваемый блок в двух состояниях. -->
+        <details class="collapse"><summary>Добавить цель</summary><div class="collapse-body"><div class="combo"><span>Вес тела</span><span class="chevron">▾</span></div><button class="btn primary">Добавить</button></div></details>
+        <details class="collapse" open><summary>Добавить цель</summary><div class="collapse-body"><div class="seg"><button class="on">↓ Снизить</button><button>↑ Повысить</button></div></div></details>
+
+        <div class="metric-row">
+            <div class="card metric-card highlight"><p class="label">Выполнение</p><p class="value">84 %</p></div>
+            <div class="card metric-card"><p class="label">Тоннаж, т</p><p class="value">12.6</p><p class="delta">+1.4</p></div>
+        </div>
+
+        <div class="stack">
+            <div class="banner">Не удалось сохранить программу: FOREIGN KEY constraint failed</div>
+            <div class="banner">В рабочем дне нужно хотя бы одно упражнение</div>
+            <p class="hint">Чтобы создать программу: укажите дату старта, укажите срок.</p>
+        </div>
+
+        <div class="card">
+            <p class="row-title">Программ пока нет</p>
+            <p class="body">Создайте программу: выберите срок и цель, настройте каждый день недели и добавьте правила.</p>
+            <button class="btn primary">Создать программу</button>
+        </div>
+
+        <div class="cal">
+            <div class="cal-head"><span>‹</span><span>Ноябрь 2026</span><span>›</span></div>
+            <div class="cal-grid">
+                <span class="dow">пн</span><span class="dow">вт</span><span class="dow">ср</span><span class="dow">чт</span><span class="dow">пт</span><span class="dow">сб</span><span class="dow">вс</span>
+                <span class="d dim">27</span><span class="d dim">28</span><span class="d dim">29</span><span class="d dim">30</span><span class="d dim">31</span><span class="d">1</span><span class="d">2</span>
+                <span class="d on">3</span><span class="d">4</span><span class="d">5</span><span class="d">6</span><span class="d">7</span><span class="d">8</span><span class="d">9</span>
+                <span class="d">10</span><span class="d">11</span><span class="d">12</span><span class="d">13</span><span class="d">14</span><span class="d">15</span><span class="d">16</span>
+            </div>
+        </div>
+    </div></div>
+</section>
+
+<section class="frame">
+    <h2>Редактор: готовность, список, пресеты</h2>
+    <div class="phone"><div class="screen">
+        <div><h1 class="t-title">Состояния</h1><p class="t-caption">Чек-лист, list-row, пресеты, сводка</p></div>
+
+        <div class="card">
+            <p class="body-strong">Готовность программы</p>
+            <div class="ready-bar"><i class="on"></i><i class="on"></i><i></i></div>
+            <div class="ready-list">
+                <div class="ready-item done"><span class="check on"></span>Дата старта — 3 ноября 2026</div>
+                <div class="ready-item done"><span class="check on"></span>Срок — 8 недель</div>
+                <div class="ready-item"><span class="check"></span>Добавьте хотя бы один тренировочный день</div>
+            </div>
+        </div>
+
+        <p class="section-title">Цели <span class="section-count">2</span></p>
+        <div class="stack">
+            <div class="card subtle list-row">
+                <span class="dir down">↓</span>
+                <div class="text"><p class="body-strong">Вес тела — 82 кг</p></div>
+                <button class="btn secondary compact">Убрать</button>
+            </div>
+            <div class="card subtle list-row">
+                <span class="dir up">↑</span>
+                <div class="text"><p class="body-strong">Жим лёжа — 100 кг</p></div>
+                <button class="btn secondary compact">Убрать</button>
+            </div>
+            <div class="card subtle list-row">
+                <div class="text"><p class="body-strong">Сон не менее 7 часов</p><span class="cat recovery"><i></i>Восстановление</span></div>
+                <button class="btn secondary compact">Убрать</button>
+            </div>
+        </div>
+
+        <div class="week-summary"><span><b>4</b> тренировки</span><span class="warn">Ср не заполнен</span></div>
+        <div class="slider">
+            <div class="slider-head">
+                <span class="slider-label">Срок программы</span>
+                <span class="slider-value"><span class="slider-num">8</span><i class="slider-unit">недель</i></span>
+            </div>
+            <div class="slider-control">
+                <input class="slider-input" type="range" min="1" max="52" step="1" value="8"
+                       aria-label="Срок программы, недель"
+                       data-start="2026-11-03" data-prefix="3 ноября 2026">
+                <div class="slider-track"><i class="slider-fill"></i><i class="slider-thumb" style="left: 13.5%"></i></div>
+            </div>
+            <div class="slider-scale"><span>1</span><span>14</span><span>27</span><span>40</span><span>52</span></div>
+            <p class="slider-hint">3 ноября 2026 — 28 декабря 2026</p>
+        </div>
+
+        <div class="card">
+            <p class="muted-caption">Типовые правила</p>
+            <div class="preset-grid">
+                <div class="preset added"><span class="name">Белок 140 г</span><span class="meta"><span class="cat nutrition"><i></i>добавлено</span></span></div>
+                <div class="preset"><span class="name">10 000 шагов</span><span class="meta"><span class="cat activity"><i></i>Активность</span></span></div>
+            </div>
+        </div>
+
+        <div class="banner">
+            <p class="error-title">Не удалось сохранить программу</p>
+            <p class="error-detail">FOREIGN KEY constraint failed</p>
+        </div>
+    </div></div>
+</section>
+
+</main>
+</body>
+</html>

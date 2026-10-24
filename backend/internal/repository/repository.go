@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -24,14 +25,16 @@ var (
 )
 
 type Repositories struct {
-	user *UserRepo
-	auth *AuthRepo
+	user     *UserRepo
+	auth     *AuthRepo
+	exercise *ExerciseRepo
 }
 
 func NewRepositories(db db) *Repositories {
 	return &Repositories{
-		user: NewUserRepo(db),
-		auth: NewAuthRepo(db),
+		user:     NewUserRepo(db),
+		auth:     NewAuthRepo(db),
+		exercise: NewExerciseRepo(db),
 	}
 }
 
@@ -42,3 +45,9 @@ func (r *Repositories) User() *UserRepo {
 func (r *Repositories) Auth() *AuthRepo {
 	return r.auth
 }
+
+func (r *Repositories) Exercise() *ExerciseRepo {
+	return r.exercise
+}
+
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)

@@ -11,7 +11,6 @@ type (
 	AuthRepo interface {
 		CreateResetToken(ctx context.Context, token *model.ResetToken) (*model.ResetToken, error)
 		CreateToken(ctx context.Context, token *model.RefreshToken) (*model.RefreshToken, error)
-		SetUserTokensUsed(ctx context.Context, id uuid.UUID) error
 		CreateVerificationCodeAndRevokeOther(ctx context.Context, code *model.VerificationCode) (*model.VerificationCode, error)
 		GetCodeNotUsedOrRevokedByUserID(ctx context.Context, userID uuid.UUID) (*model.VerificationCode, error)
 		GetNotUsedResetTokenByHash(ctx context.Context, hash string) (*model.ResetToken, error)
@@ -19,6 +18,7 @@ type (
 		SetCodeUsedByID(ctx context.Context, id uuid.UUID) error
 		SetResetTokenUsedByID(ctx context.Context, id uuid.UUID) error
 		SetTokenUsedByID(ctx context.Context, id uuid.UUID) error
+		SetUserTokensUsed(ctx context.Context, id uuid.UUID) error
 	}
 
 	UserProvider interface {

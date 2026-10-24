@@ -31,7 +31,7 @@ test-full: test-run test-integration-run
 test-run:
 	go test -v -cover ./...
 
-test-integration-run: test-db-up test-integration-run test-db-down
+test-integration-run: test-db-up test-integration test-db-down
 
 test-db-up:
 	docker run -d --rm --name ftns-test-pg -e POSTGRES_PASSWORD=postgres -p 5435:5432 postgres:18

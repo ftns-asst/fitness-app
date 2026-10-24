@@ -441,6 +441,16 @@ func (s *AuthService) ResetPassword(ctx context.Context, newPassword string, res
 		return nil, err
 	}
 
+	hashedPassword, err = util.Hash(newPassword)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	err = s.userService.UpdateUserPasswordHash(ctx, user.ID, hashedPassword)
+	if err != nil {
+		return nil, err
+	}
+
 	tokens, err := s.genTokens(token.UserID)
 	if err != nil {
 		return nil, err
