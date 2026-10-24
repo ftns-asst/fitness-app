@@ -107,14 +107,14 @@ func (r *UserRepo) GetUserByEmail(ctx context.Context, email string) (*model.Use
 	`
 	conn := r.db(ctx)
 	rows, err := conn.Query(ctx, query, email)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrNotFound
-	}
 	if err != nil {
 		return nil, fmt.Errorf("select failed: %w", err)
 	}
 
 	res, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[model.User])
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("collect row failed: %w", err)
 	}
@@ -181,6 +181,7 @@ func (u *userWithProfile) ToModel() *model.UserWithProfile {
 			Email:        u.Email,
 			PasswordHash: u.PasswordHash,
 			UpdatedAt:    u.UserUpdatedAt,
+			CreatedAt:    u.CreatedAt,
 		},
 
 		Profile: profile,

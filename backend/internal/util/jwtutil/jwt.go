@@ -13,6 +13,7 @@ import (
 type UserJWTClaims struct {
 	jwt.RegisteredClaims
 	UserID uuid.UUID `json:"userID"`
+	ID     uuid.UUID
 }
 
 func GenAccessToken(userID uuid.UUID, secret string) (*model.TokenInfo, error) {
@@ -33,6 +34,7 @@ func genToken(userID uuid.UUID, secret string, expiresAt time.Time) (*model.Toke
 			RegisteredClaims: jwt.RegisteredClaims{
 				ExpiresAt: jwt.NewNumericDate(expiresAt),
 			},
+			ID: uuid.New(),
 		},
 	)
 

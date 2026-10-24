@@ -26,10 +26,23 @@ else
 	migrate -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable -path internal/repository/migrations force ${MIGRATE_VERSION}
 endif
 
+test-full: test-run test-integration-run
 
 test-run:
 	go test -v -cover ./...
-	
+
+test-integration-run: test-db-up test-integration-run test-db-down
+
+test-db-up:
+	docker run -d --rm --name ftns-test-pg -e POSTGRES_PASSWORD=postgres -p 5435:5432 postgres:18
+
+test-db-down:
+	docker stop ftns-test-pg
+
+test-integration:
+	go test -tags integration -count=1 -v ./internal/integration/...
+
+
 lint-run:
 	docker run -t --rm -v .:/app -w /app/ golangci/golangci-lint:v2.12.2 \
 		golangci-lint run --no-config -E govet,staticcheck

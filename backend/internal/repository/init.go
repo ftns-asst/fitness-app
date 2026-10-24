@@ -24,6 +24,9 @@ func runMigrations(pool *pgxpool.Pool) error {
 		return fmt.Errorf("failed to create iofs driver: %w", err)
 	}
 	db := stdlib.OpenDBFromPool(pool)
+	defer func() {
+		_ = db.Close()
+	}()
 	dbDriver, err := migrate_pgx.WithInstance(db, &migrate_pgx.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to create pgx driver: %w", err)
@@ -32,6 +35,9 @@ func runMigrations(pool *pgxpool.Pool) error {
 	if err != nil {
 		return fmt.Errorf("failed to create migrate instance: %w", err)
 	}
+	defer func() {
+		_, _ = m.Close()
+	}()
 
 	if err := m.Up(); err != nil {
 		if errors.Is(err, migrate.ErrNoChange) {
