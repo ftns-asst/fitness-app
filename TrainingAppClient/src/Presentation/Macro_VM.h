@@ -43,6 +43,11 @@ class Avm_Macro : public QObject
 	Q_PROPERTY(bool hasWeight READ Has_Weight NOTIFY changed)
 	Q_PROPERTY(bool hasHeight READ Has_Height NOTIFY changed)
 	Q_PROPERTY(bool hasBirthDate READ Has_Birth_Date NOTIFY changed)
+	// Пол взят из профиля (user_cache + profile_cache), а не спрашивается:
+	// BMR мужчины и женщины при одинаковых весе, росте и возрасте различается,
+	// и второй вопрос на экране был бы вторым источником правды. Профиль — из
+	// кэша, поэтому пол подтягивается и офлайн.
+	Q_PROPERTY(bool hasGender READ Has_Gender NOTIFY changed)
 	// Дата рождения строкой YYYY-MM-DD: DateField на экране оперирует строкой,
 	// и без неё экран тащил бы QDate в разметку.
 	Q_PROPERTY(QString birthDate READ birth_date NOTIFY changed)
@@ -82,6 +87,9 @@ public:
 	bool Has_Weight() const;
 	bool Has_Height() const;
 	bool Has_Birth_Date() const;
+	// Пол профиля известен: форма показывает значение из профиля, а не пустой
+	// выбор по умолчанию. Без флага UI оставляет ручной переключатель.
+	bool Has_Gender() const;
 	QString birth_date() const;
 	QString error_key() const;
 	QString calculated_at() const;
@@ -121,6 +129,9 @@ private:
 	bool Female_Value = false;
 	bool Has_Weight_Value = false;
 	bool Has_Height_Value = false;
+	// Пол прочитан из кэша профиля: пустой профиль (или его отсутствие)
+	// оставляет ручной переключатель на экране.
+	bool Has_Gender_Value = false;
 	// Дата, от которой считается возраст. Явная, а не currentDate: тест не должен
 	// зависеть от часов машины.
 	QString Today_Text;

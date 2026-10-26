@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Domain/Macro_Calculator.h"
 #include "Domain/Program_Model.h"
 #include "Domain/Rule_Engine.h"
 #include "Presentation/List_Model.h"
@@ -10,6 +11,7 @@
 
 class AProgram_Repository;
 class ARule_Repository;
+class AUsers_Repository;
 
 using namespace Program_Model;
 
@@ -45,6 +47,10 @@ class Avm_Program_Rules : public QObject
 	Q_PROPERTY(int checkinCount READ checkinCount NOTIFY changed)
 	Q_PROPERTY(double adherencePercent READ adherencePercent NOTIFY changed)
 	Q_PROPERTY(bool hasAdherencePercent READ hasAdherencePercent NOTIFY changed)
+	// Сохранённый расчёт КБЖУ пользователя: экран правил предлагает кнопку
+	// «Добавить нормы из расчёта» только когда расчёт есть, иначе она обещала
+	// бы работу, которую нечем наполнить.
+	Q_PROPERTY(bool hasMacroResult READ Has_Macro_Result NOTIFY changed)
 
 	// Модели списков объявлены свойствами, а не только методами: иначе QML
 	// видел бы их как функции и получал пустую модель (§5 QML-контракт).
@@ -53,7 +59,7 @@ class Avm_Program_Rules : public QObject
 
 public:
 	Avm_Program_Rules(AProgram_Repository *in_program_repository, ARule_Repository *in_rule_repository,
-	                  QObject *in_parent = 0);
+	                  AUsers_Repository *in_users_repository, QObject *in_parent = 0);
 
 	// Перечитывает правила активной программы и её отметки за период.
 	// Активной программы может не быть — это не сбой чтения, но UI обязан
@@ -63,6 +69,11 @@ public:
 	Q_INVOKABLE bool setPeriodDays(int in_days);
 	Q_INVOKABLE bool saveCheckin(const QString &in_rule_id, const QString &in_state, double in_value, bool in_has_value,
 	                             const QString &in_note);
+	// Генерация четырёх правил питания (белок, углеводы, жиры, калории) из
+	// сохранённого расчёта КБЖУ: цели — «не ниже N г» для макросов и «ровно
+	// C ккал» для калорийности. Повторное нажатие обновляет цели по свежему
+	// расчёту, а не копит дубликаты.
+	Q_INVOKABLE bool generateRulesFromMacro(const QString &in_user_id);
 
 	// Перечитывает правила активной программы и её отметки за период.
 	// Активной программы может не быть — это не сбой чтения, но UI обязан
@@ -83,6 +94,9 @@ public:
 	// задаётся явно в тестах, чтобы результат не зависел от часов.
 	void Set_Today(const QString &in_today);
 
+	// Генерация правил питания из расчёта КБЖУ (предметная область).
+	bool Generate_Rules_From_Macro(const QString &in_user_id);
+
 	bool Has_Program() const;
 	QString programId() const;
 	QString errorKey() const;
@@ -93,6 +107,8 @@ public:
 	int checkinCount() const;
 	double adherencePercent() const;
 	bool hasAdherencePercent() const;
+	// Есть ли сохранённый результат расчёта КБЖУ (заполняется при reload).
+	bool Has_Macro_Result() const;
 
 	AList_Model *rules() const;
 	AList_Model *checkins() const;
@@ -118,6 +134,10 @@ private:
 
 	AProgram_Repository *Program_Repository_Instance;
 	ARule_Repository *Rule_Repository_Instance;
+	// Кэш параметров и результата КБЖУ живёт в AUsers_Repository (миграции
+	// v5–v6): правила питания генерируются из сохранённого расчёта, и без
+	// этого указателя экран не смог бы их создать.
+	AUsers_Repository *Users_Repository_Instance;
 
 	AList_Model *Rules;
 	AList_Model *Checkins;
@@ -132,5 +152,8 @@ private:
 	int Period_Days_Number = 7;
 	double Adherence_Number = 0;
 	bool Has_Adherence = false;
+	// Расчёт КБЖУ пользователя прочитан (заполняется в Reload). Кнопка
+	// генерации правил доступна только при сохранённом расчёте.
+	bool Has_Macro_Result_Value = false;
 };
 //----------------------------------------------------------------------------

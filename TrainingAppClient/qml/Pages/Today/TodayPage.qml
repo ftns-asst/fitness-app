@@ -16,14 +16,16 @@ PageScaffold {
 
     required property var viewModel
 
-    // Запрос расчёта КБЖУ (спринт S7). Отдельный сигнал, а не вызов экрана из
-    // разметки: страна не знает про стек навигации.
-    signal macroRequested
     // Навигация с главного: «Открыть программу» (день отдыха) ведёт в обзор
     // активной программы, «Перейти к планам» — на вкладку планов, где программу
     // и создают. Экран только сообщает намерение, путь выбирает каркас.
     signal plansRequested
     signal programRequested
+
+    // Строка упражнения на главном — самостоятельный объект: тап открывает
+    // его обзор (спринт U6), а не молчит заглушкой. Экран сообщает намерение,
+    // путь — стек поверх вкладок — выбирает каркас.
+    signal exerciseOpenRequested(string exerciseId)
 
     // Модель задана? Проверка одной строкой, а не в каждой привязке.
     //
@@ -46,7 +48,7 @@ PageScaffold {
     }
 
     function currentUserId() {
-        return AppContext !== undefined && AppContext !== null ? AppContext.currentUserId : "u1";
+        return typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
     }
 
     function reload() {
@@ -137,6 +139,7 @@ PageScaffold {
                 // required property перекрывало бы свойство базового типа
                 // (qmllint: property-override). Остальные роли объявлены явно —
                 // так опечатку в имени ловит компилятор.
+                required property string exerciseId
                 required property var model
                 required property int sets
                 required property string repsText
@@ -154,7 +157,9 @@ PageScaffold {
                 weightText: page.weightText(targetWeightKg, weightMode)
                 width: parent.width
 
-                onClicked: Demo.notify(qsTr("Карточка упражнения — этап D3"))
+                // Обзор упражнения по тапу — то же место, что и в каталоге
+                // (входы из Сегодня/Упражнения, §7 контракта экрана D3).
+                onClicked: page.exerciseOpenRequested(exerciseId)
             }
         }
     }
@@ -213,102 +218,81 @@ PageScaffold {
         }
     }
 
-    // — Отметки дня: состояние правил меняется прямо здесь (спринт S6) —
-    // Отметку нельзя ставить только на экране правил: человек узнаёт о том,
-    // что правило нарушено, на главной, и решает там же.
+    // — Правила дня плитками: по две в строке, отметка одним касанием —
+    // Раньше были два вертикальных списка («Отметки дня» и «Правила на сегодня»), строки которых
+    // дублировали друг друга. Теперь одна сетка: тап по плитке ставит/снимает «выполнено»;
+    // у рекомендации текстом отметки нет (§3.6), плитка информационная.
     Label {
         color: Theme.textSecondary
         font: Typography.captionStrong
-        text: qsTr("Отметки дня")
+        text: page.doneRuleCount + " / " + page.checkableRuleCount + " " + qsTr("правил выполнено")
         visible: page.checkableRuleCount > 0
         width: parent.width
     }
-    AppCard {
-        paddingHorizontal: 0
-        paddingVertical: Spacing.itemGap
-        spacing: 0
-        visible: page.checkableRuleCount > 0
+    Flow {
+        id: ruleFlow
+
+        readonly property real tileWidth: Math.floor((width - spacing) / 2)
+
+        objectName: "ruleTiles"
+        spacing: Spacing.listGap
+        visible: page.hasModel && page.viewModel.hasProgram && page.viewModel.rules.count > 0
         width: parent.width
 
         Repeater {
-            // Модель — свойство, а не вызов функции: функция писала бы в
-            // `checkableRuleCount` во время вычисления привязки, а это
-            // binding loop (QML запрещает менять свойства из привязки).
-            model: page.checkableRuleRows
+            model: page.hasModel && page.viewModel.hasProgram ? page.viewModel.rules : []
 
+            // Делегат — обёртка: роли модели объявляются на ней, а не на самой
+            // плитке. Прежде `required property string title` на RuleTile
+            // затеняло её собственное свойство title, и плитки рисовались белыми
+            // и без текста.
             delegate: Item {
-                id: checkinRow
+                id: ruleCell
 
-                // index и modelData объявляются явно: у делегата с любым required property
-                // неявный контекст QML отключает, и `modelData` без объявления
-                // становится неопределённым — строки отметок теряли заголовок и
-                // падали с TypeError. Объявление роли required property делает
-                // опечатку в имени ошибкой компиляции, а не пустым экраном.
-                required property var modelData
-                required property int index
+                required property string displayText
+                required property bool isAdvice
+                required property var goalMax
+                required property var goalMin
+                required property string ruleId
+                required property string targetUnit
+                required property string title
+                required property string todayState
+                required property var todayValue
 
-                readonly property var rule: modelData
+                readonly property bool measurable: ruleCell.isAdvice === false && (ruleCell.goalMin !== null || ruleCell.goalMax !== null)
 
-                height: checkinLayout.implicitHeight + Spacing.listGap * 2
-                width: parent.width
+                height: 112
+                width: ruleFlow.tileWidth
 
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.leftMargin: Spacing.screenPadding
-                    anchors.right: parent.right
-                    anchors.rightMargin: Spacing.screenPadding
-                    color: Theme.border
-                    height: Theme.borderWidth
-                    visible: checkinRow.index > 0
-                }
-                RowLayout {
-                    id: checkinLayout
+                RuleTile {
+                    anchors.fill: parent
+                    caption: ruleCell.isAdvice ? page.ruleCaption(ruleCell.title, ruleCell.displayText) : (ruleCell.todayState === "done" ? qsTr("Выполнено") : page.ruleCaption(ruleCell.title, ruleCell.displayText))
+                    checkable: ruleCell.isAdvice === false
+                    checkinState: ruleCell.todayState
+                    goalMax: ruleCell.goalMax !== null ? ruleCell.goalMax : -1
+                    goalMin: ruleCell.goalMin !== null ? ruleCell.goalMin : -1
+                    numeric: ruleCell.measurable
+                    title: ruleCell.title
+                    unitText: page.unitLabel(ruleCell.targetUnit)
+                    value: ruleCell.todayValue !== null ? ruleCell.todayValue : -1
 
-                    anchors.left: parent.left
-                    anchors.leftMargin: Spacing.screenPadding
-                    anchors.right: parent.right
-                    anchors.rightMargin: Spacing.screenPadding
-                    anchors.top: parent.top
-                    anchors.topMargin: Spacing.listGap
-                    spacing: Spacing.itemGap
-
-                    Label {
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 0
-                        color: Theme.textPrimary
-                        elide: Text.ElideRight
-                        font: Typography.body
-                        text: checkinRow.rule.title
-                    }
-                    // Отметка здесь однозначна: «выполнено» и «не выполнено».
-                    // Промежуточных состояний экран не предлагает — их выставляет
-                    // движок по значению, вручную их не выбирают (§3.7).
-                    AppButton {
-                        Layout.preferredHeight: Theme.buttonSecondary
-                        text: checkinRow.rule.todayState === "done" ? qsTr("Выполнено") : qsTr("Отметить")
-                        variant: checkinRow.rule.todayState === "done" ? AppButton.Secondary : AppButton.Primary
-
-                        onClicked: page.toggleCheckin(checkinRow.rule.ruleId, checkinRow.rule.todayState)
-                    }
+                    onEdit: valuePopup.openFor(ruleCell.ruleId, ruleCell.title, page.unitLabel(ruleCell.targetUnit), ruleCell.goalMin !== null ? ruleCell.goalMin : (ruleCell.goalMax !== null ? ruleCell.goalMax : 0), ruleCell.todayValue !== null ? ruleCell.todayValue : -1, page.unitStep(ruleCell.targetUnit))
+                    onOpened: page.programRequested()
+                    onToggled: page.toggleCheckin(ruleCell.ruleId, ruleCell.todayState)
                 }
             }
         }
     }
 
-    // — КБЖУ (спринт S7): рядом с замерами, потому что вес для него берётся
-    // оттуда же. Числа расчёта сохраняются в profile_local (миграция v6), поэтому
-    // после расчёта на главной видны калорийность и макросы, а не одно
-    // приглашение рассчитать.
-    NutritionPlanCard {
-        calculatedAt: page.hasModel ? page.viewModel.macroCalculatedAt : ""
-        caloriesKcal: page.hasModel ? page.viewModel.macroCaloriesKcal : 0
-        carbsG: page.hasModel ? page.viewModel.macroCarbsG : 0
-        fatG: page.hasModel ? page.viewModel.macroFatG : 0
-        hasPlan: page.hasModel && page.viewModel.hasMacroPlan
-        proteinG: page.hasModel ? page.viewModel.macroProteinG : 0
+    // Окно ввода числа для правила (калории, белок, вода…). Родитель — страница,
+    // а не колонка контента: окно центрируется по экрану.
+    RuleValuePopup {
+        id: valuePopup
 
-        onRecalculateRequested: page.macroRequested()
+        parent: page
+
+        onDoneRequested: ruleId => page.viewModel.markCheckinDone(ruleId)
+        onValueSaved: (ruleId, value) => page.saveRuleValue(ruleId, value)
     }
 
     // — Замеры: вес и обхваты за сегодня (спринт S6) —
@@ -425,105 +409,6 @@ PageScaffold {
         }
     }
 
-    // — Правила дня: состояние отметки за сегодня (§5.1) —
-    Label {
-        color: Theme.textSecondary
-        font: Typography.captionStrong
-        text: qsTr("Правила на сегодня")
-        visible: page.hasModel && page.viewModel.hasProgram && page.viewModel.rules.count > 0
-        width: parent.width
-    }
-    AppCard {
-        paddingHorizontal: 0
-        paddingVertical: Spacing.itemGap
-        spacing: 0
-        visible: page.hasModel && page.viewModel.hasProgram && page.viewModel.rules.count > 0
-        width: parent.width
-
-        Repeater {
-            model: page.hasModel && page.viewModel.hasProgram ? page.viewModel.rules : []
-
-            delegate: Item {
-                // Строка правила — свой элемент: у неё нет номера и веса, как у
-                // упражнения, и повторять ExerciseRow значило бы враньё.
-                id: rule
-
-                required property string displayText
-                required property bool isAdvice
-                // index объявляется явно: разделитель между строками не может
-                // опираться на неявный контекстный index — qmllint правомерно
-                // считает его отсутствующим свойством.
-                required property int index
-                required property string title
-                required property string todayState
-
-                // Высота задаётся явно: у строки, привязанной только боковыми
-                // якорями, implicitHeight не применялся, и строки правил
-                // наезжали друг на друга.
-                height: ruleRow.implicitHeight + Spacing.listGap * 2
-                width: parent.width
-
-                // Разделитель — между строками, а не под последней: иначе
-                // карточка закрывалась бы висящей чертой снизу.
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.leftMargin: Spacing.screenPadding
-                    anchors.right: parent.right
-                    anchors.rightMargin: Spacing.screenPadding
-                    color: Theme.border
-                    height: Theme.borderWidth
-                    visible: rule.index > 0
-                }
-                RowLayout {
-                    id: ruleRow
-
-                    // Отступы по краям задаются якорями, а не x: строка с
-                    // `x` и `width: parent.width` выходила за правый край карточки
-                    // на величину отступа, и пилюля отметки обрезалась.
-                    anchors.left: parent.left
-                    anchors.leftMargin: Spacing.screenPadding
-                    anchors.right: parent.right
-                    anchors.rightMargin: Spacing.screenPadding
-                    anchors.top: parent.top
-                    anchors.topMargin: Spacing.listGap
-                    spacing: Spacing.listGap
-
-                    // Название правила — заголовок строки, цель или совет — подпись под ним.
-                    // Обратный порядок был бы неудобен: у правил с советом цель
-                    // пустая, и тогда заголовком вставал бы служебный текст вида
-                    // «Рекомендация текстом: цели нет», а название правила пряталось бы.
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
-
-                        Label {
-                            Layout.fillWidth: true
-                            color: Theme.textPrimary
-                            elide: Text.ElideRight
-                            font: Typography.bodyStrong
-                            text: rule.title
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            color: Theme.textMuted
-                            font: Typography.caption
-                            text: page.ruleCaption(rule.title, rule.displayText)
-                            visible: text.length > 0
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-                    // Отметка только у измеримых правил: у рекомендации текстом
-                    // отмечать нечего (§3.6).
-                    CheckinStatePill {
-                        checkinState: rule.todayState
-                        visible: rule.isAdvice === false
-                    }
-                }
-            }
-        }
-    }
-
     // Имена дней недели в ISO-порядке 1…7 (§3.4): номер приходит из C++, а
     // название переводит разметка.
     readonly property var weekdayNames: [qsTr("Понедельник"), qsTr("Вторник"), qsTr("Среда"), qsTr("Четверг"), qsTr("Пятница"), qsTr("Суббота"), qsTr("Воскресенье")]
@@ -546,6 +431,8 @@ PageScaffold {
     // модели: обращения к ней внутри функции QML не отслеживает, поэтому
     // число хранится свойством, а не вычисляется в привязке `visible`.
     property int checkableRuleCount: 0
+    // Сколько правил отмечено выполненными: счётчик над сеткой плиток.
+    property int doneRuleCount: 0
 
     // Правила, которые можно отметить здесь: рекомендация текстом отметки не
     // имеет (§3.6), и кнопка у неё обещала бы действие, которого нет.
@@ -572,6 +459,7 @@ PageScaffold {
         if (page.viewModel === undefined || page.viewModel === null) {
             page.checkableRuleRows = result;
             page.checkableRuleCount = 0;
+            page.doneRuleCount = 0;
 
             return;
         }
@@ -589,19 +477,67 @@ PageScaffold {
 
         page.checkableRuleRows = result;
         page.checkableRuleCount = result.length;
+
+        let done = 0;
+        for (let j = 0; j < result.length; ++j) {
+            if (result[j].todayState === "done")
+                ++done;
+        }
+        page.doneRuleCount = done;
     }
 
     function toggleCheckin(ruleId, currentState) {
         if (page.viewModel === undefined || page.viewModel === null)
             return;
 
-        // Повторное нажатие снимает отметку: иначе «выполнено» нельзя было бы
-        // исправить, не уходя на экран правил.
-        const nextState = currentState === "done" ? "unknown" : "done";
+        // Повторное нажатие снимает отметку (и введённое число), иначе «выполнено»
+        // нельзя было бы исправить, не уходя на экран правил. Любое другое
+        // состояние (частично, не выполнено) по тапу становится «выполнено», а у
+        // числового правила число заполняется целью.
+        const ok = currentState === "done" ? page.viewModel.clearCheckin(ruleId) : page.viewModel.markCheckinDone(ruleId);
 
-        if (page.viewModel.saveCheckin(ruleId, nextState, -1, false) === false) {
+        if (ok === false) {
             Demo.notify(qsTr("Не удалось сохранить отметку"));
         }
+    }
+
+    // Ввод числа в окне: состояние выводит модель из цели правила.
+    function saveRuleValue(ruleId, value) {
+        if (page.viewModel === undefined || page.viewModel === null)
+            return;
+
+        if (page.viewModel.saveCheckinValue(ruleId, value) === false)
+            Demo.notify(qsTr("Не удалось сохранить значение"));
+    }
+
+    // Подпись единицы правила; значения приходят строкой из домена.
+    function unitLabel(unit) {
+        const labels = {
+            g: qsTr("г"),
+            gPerKg: qsTr("г/кг"),
+            kg: qsTr("кг"),
+            kcal: qsTr("ккал"),
+            ml: qsTr("мл"),
+            hours: qsTr("ч"),
+            rpe: "RPE"
+        };
+
+        return labels[unit] !== undefined ? labels[unit] : "";
+    }
+
+    // Шаг кнопок «−/+» в окне ввода: калории по 50, вода по 100 мл — по
+    // единице, в которой человек считает.
+    function unitStep(unit) {
+        const steps = {
+            g: 5,
+            kcal: 50,
+            ml: 100,
+            hours: 0.5,
+            kg: 0.5,
+            count: 500
+        };
+
+        return steps[unit] !== undefined ? steps[unit] : 1;
     }
 
     function measurementValue(key) {

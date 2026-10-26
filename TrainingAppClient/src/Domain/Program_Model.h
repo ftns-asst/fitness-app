@@ -187,6 +187,11 @@ enum class ERule_Kind : unsigned char
 enum class ERule_Metric : unsigned char
 {
 	ProteinGrams,
+	// Метрики макронутриентов (спринт «КБЖУ в правилах»): правила «белок/углеводы/
+	// жиры ≥ N г» создаются из расчёта КБЖУ, и без них в программе нечем закрепить
+	// нормы макросов. Значения совпадают с CHECK schema v8.
+	CarbGrams,
+	FatGrams,
 	CaloriesKcal,
 	WaterMl,
 	SleepHours,

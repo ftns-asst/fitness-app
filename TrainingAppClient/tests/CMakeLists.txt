@@ -1,4 +1,4 @@
-﻿# qmltestrunner is a separate process and cannot see resources embedded in the
+# qmltestrunner is a separate process and cannot see resources embedded in the
 # application executable. Build a test import directory from the exact
 # production QML files instead of maintaining test copies.
 #
@@ -15,9 +15,9 @@ file(MAKE_DIRECTORY "${MOCK_IMPORT_DIR}")
 set(SINGLETON_QML_NAMES
     ApiErrorText
     AuthViewModel
+    ExerciseTexts
     BackRouter
     Demo
-    ExercisesViewModel
     MockApi
     MockCatalog
     MockSession
@@ -260,6 +260,56 @@ target_link_libraries(tst_Avm_Auth PRIVATE TrainingAppCore TrainingAppTestSuppor
 add_test(NAME auth_vm COMMAND tst_Avm_Auth)
 set_tests_properties(auth_vm PROPERTIES TIMEOUT 30)
 
+qt_add_executable(tst_Exercises_Api
+    cpp/tst_Exercises_Api.cpp
+)
+target_link_libraries(tst_Exercises_Api PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME exercises_api COMMAND tst_Exercises_Api)
+set_tests_properties(exercises_api PROPERTIES
+    TIMEOUT 30
+    ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+)
+
+qt_add_executable(tst_Exercises_Repository
+    cpp/tst_Exercises_Repository.cpp
+)
+target_link_libraries(tst_Exercises_Repository PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME exercises_repository COMMAND tst_Exercises_Repository)
+set_tests_properties(exercises_repository PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+)
+
+qt_add_executable(tst_Exercises_VM
+    cpp/tst_Exercises_VM.cpp
+)
+target_link_libraries(tst_Exercises_VM PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME exercises_vm COMMAND tst_Exercises_VM)
+set_tests_properties(exercises_vm PROPERTIES
+    TIMEOUT 30
+    ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+)
+
+qt_add_executable(tst_Exercises_Editor_VM
+    cpp/tst_Exercises_Editor_VM.cpp
+)
+target_link_libraries(tst_Exercises_Editor_VM PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME exercises_editor_vm COMMAND tst_Exercises_Editor_VM)
+set_tests_properties(exercises_editor_vm PROPERTIES
+    TIMEOUT 30
+    ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+)
+
+qt_add_executable(tst_Exercises_One_VM
+    cpp/tst_Exercises_One_VM.cpp
+)
+target_link_libraries(tst_Exercises_One_VM PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME exercises_one_vm COMMAND tst_Exercises_One_VM)
+set_tests_properties(exercises_one_vm PROPERTIES
+    TIMEOUT 30
+    ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+)
+
 qt_add_executable(tst_Users_Api
     cpp/tst_Users_Api.cpp
 )
@@ -343,7 +393,7 @@ endforeach()
 # компоновках проекта, включая тёмную и обрамлённую.
 # profile-settings — раздел «Параметры» профиля: в нём блок «Оформление», и без
 # именованного экрана он не попадал бы в аудит вёрстки ни на одной компоновке.
-foreach(program_screen IN ITEMS program-catalog program-overview program-edit program-rules program-rules-picker program-stats program-day macro-calculator set-entry profile-settings)
+foreach(program_screen IN ITEMS program-catalog program-overview program-edit program-rules program-rules-picker program-stats program-day macro-calculator set-entry profile-settings exercises exercise-detail)
     foreach(program_viewport IN ITEMS 360 390 480 frame dark)
         set(program_test_name "ui_smoke_${program_screen}_${program_viewport}")
         add_test(

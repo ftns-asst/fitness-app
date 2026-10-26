@@ -50,7 +50,27 @@ PageScaffold {
     }
 
     function currentUserId() {
-        return AppContext !== undefined && AppContext !== null ? AppContext.currentUserId : "u1";
+        return typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
+    }
+
+    // Режим «открыто из настройки программы»: после расчёта нормы можно
+    // применить к черновику программы прямо отсюда — кнопка «Создать правила
+    // в программе» вызывает ProgramEditVM и возвращает в настройку.
+    property bool applyToProgram: false
+    property string applyError: ""
+
+    function applyRules() {
+        if (typeof ProgramEditVM === "undefined" || ProgramEditVM === null) {
+            page.applyError = qsTr("Настройка программы закрыта — откройте её заново");
+            return;
+        }
+
+        if (ProgramEditVM.generateRulesFromMacro(page.currentUserId())) {
+            page.applyError = "";
+            page.backRequested();
+        } else {
+            page.applyError = ApiErrorText.textFor(ProgramEditVM.errorKey);
+        }
     }
 
     // Высота и вес подставляются из модели один раз. Дальше форма принадлежит
@@ -404,8 +424,21 @@ PageScaffold {
         width: parent.width
         wrapMode: Text.WordWrap
     }
+    // Отказ применения правил к программе: показывается строкой, а не
+    // молчаливым «ничего не произошло».
+    Label {
+        color: Theme.negative
+        font: Typography.caption
+        text: page.applyError
+        visible: text.length > 0
+        width: parent.width
+        wrapMode: Text.WordWrap
+    }
 
     // Расчёт в подвале: он длиннее прокрутки, и искать его внизу не нужно.
+    // Вторая кнопка — применить сохранённый (или только что посчитанный)
+    // результат к программе: появляется в режиме applyToProgram, когда у
+    // расчёта есть результат.
     footer: RowLayout {
         AppButton {
             Layout.fillWidth: true
@@ -413,6 +446,15 @@ PageScaffold {
             variant: AppButton.Primary
 
             onClicked: page.calculate()
+        }
+        AppButton {
+            objectName: "macroApplyRulesButton"
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            onClicked: page.applyRules()
+            text: qsTr("Создать правила в программе")
+            variant: AppButton.Primary
+            visible: page.applyToProgram && page.hasResult
         }
     }
 }

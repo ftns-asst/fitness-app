@@ -12,6 +12,7 @@
 
 class AProgram_Repository;
 class ARule_Repository;
+class AUsers_Repository;
 
 using namespace Program_Model;
 
@@ -95,7 +96,7 @@ class Avm_Program_Edit : public QObject
 
 public:
 	Avm_Program_Edit(AProgram_Repository *in_program_repository, ARule_Repository *in_rule_repository,
-	                 AsProgram_Service *in_service, QObject *in_parent = 0);
+	                 AsProgram_Service *in_service, AUsers_Repository *in_users_repository, QObject *in_parent = 0);
 
 	// QML-мост. Имена в нижнем регистре первой буквы: из C++ они выглядели бы
 	// как set_Weeks, то есть внутренний стиль утекал бы в контракт экрана
@@ -167,6 +168,11 @@ public:
 	// одной из форм (min/max/exact), какая допустима — говорит каталог метрик.
 	Q_INVOKABLE bool addCustomRule(const QString &in_title, int in_metric, int in_unit, double in_min, bool in_has_min,
 	                               double in_max, bool in_has_max, double in_exact, bool in_has_exact);
+	// Генерация четырёх правил питания из сохранённого расчёта КБЖУ: белок,
+	// углеводы, жиры («не ниже N г») и калорийность («ровно C ккал»). Кнопка
+	// живёт на экране настройки программы — правила добавляются в редактируемый
+	// черновик, а не в активную программу.
+	Q_INVOKABLE bool generateRulesFromMacro(const QString &in_user_id);
 
 	// Доменные операции объявлены отдельно от QML-обёрток: тесты и будущие
 	// сценарии вызывают предметную область напрямую, и тогда имена методов не
@@ -191,6 +197,8 @@ public:
 	// Произвольное измеримое правило по метрике из каталога.
 	bool Add_Custom_Rule(const QString &in_title, int in_metric, int in_unit, double in_min, bool in_has_min,
 	                     double in_max, bool in_has_max, double in_exact, bool in_has_exact);
+	// Генерация правил питания из сохранённого расчёта КБЖУ (см. QML-обёртку).
+	bool Generate_Rules_From_Macro(const QString &in_user_id);
 
 	// Очищает редактор и запоминает владельца программы.
 	bool Reset(const QString &in_user_id);
@@ -313,6 +321,7 @@ private:
 	AProgram_Repository *Program_Repository_Instance;
 	ARule_Repository *Rule_Repository_Instance;
 	AsProgram_Service *Service_Instance;
+	AUsers_Repository *Users_Repository_Instance;
 
 	AList_Model *Program_Days;
 	AList_Model *Goal_Targets;

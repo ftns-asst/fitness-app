@@ -7,6 +7,8 @@
 #include "Domain/Macro_Calculator.h"
 #include "Presentation/Macro_VM.h"
 
+#include <QSqlError>
+#include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QUrl>
 #include <QtTest>
@@ -29,6 +31,10 @@ private slots:
 	void resultIsEmptyBeforeFirstCalculation();
 	void calculationPersistsResultForNextOpen();
 	void recalculationReplacesPreviousNumbers();
+	// Пол подтягивается из профиля пользователя (GET /users/{id} кэшируется в
+	// profile_cache.gender): спрашивать его заново на экране расчёта значило бы
+	// второй источник правды о поле, и расхождение с профилем меняло бы BMR.
+	void sexComesFromProfileCache();
 
 private:
 	QTemporaryDir Directory;
@@ -108,6 +114,32 @@ void AMacro_VM_Test::recalculationReplacesPreviousNumbers()
 
 	QVERIFY(vm.load("macro-vm-user"));
 	QCOMPARE(vm.calories_kcal(), lighter);
+}
+//------------------------------------------------------------------------------
+// Пол подтягивается из профиля: BMR мужчины и женщины при одинаковых весе,
+// росте и возрасте различается, поэтому эвристика «по имени» или повторный
+// вопрос на экране давали бы другой результат. Профиль кладётся в кэш, откуда
+// ViewModel его и читает; пустой профиль оставляет ручной переключатель.
+//------------------------------------------------------------------------------
+void AMacro_VM_Test::sexComesFromProfileCache()
+{
+	// Профиль в кэше: user_cache + profile_cache (Get_Cached_User читает их
+	// JOIN'ом). Пол 'female' — отличие от значения по умолчанию (мужской).
+	QSqlQuery seed(Database.Sql_Connection());
+	QVERIFY2(seed.exec("INSERT INTO user_cache(id, email, display_name, created_at, updated_at) "
+	                   "VALUES('macro-sex-user', 'sex@example.com', 'Пол', '2026-01-01T00:00:00Z', "
+	                   "'2026-01-01T00:00:00Z')"),
+	         qPrintable(seed.lastError().text()));
+	QVERIFY2(seed.exec("INSERT INTO profile_cache(user_id, age, gender, height_cm, weight_kg, updated_at) "
+	                   "VALUES('macro-sex-user', 30, 'female', 168, 62, '2026-01-01T00:00:00Z')"),
+	         qPrintable(seed.lastError().text()));
+
+	Avm_Macro vm(Calculator, Measurement_Repository, Users_Repository);
+
+	vm.setToday("2026-10-09");
+	QVERIFY(vm.load("macro-sex-user"));
+	QVERIFY(vm.Has_Gender());
+	QCOMPARE(vm.is_female(), true);
 }
 //------------------------------------------------------------------------------
 QTEST_GUILESS_MAIN(AMacro_VM_Test)

@@ -1,4 +1,4 @@
-#include "Presentation/Program_Rows.h"
+﻿#include "Presentation/Program_Rows.h"
 
 #include <QDate>
 
@@ -120,9 +120,9 @@ QStringList Rule_Roles()
 	// делегат экрана правил не смог бы объявить required property.
 	// isAdvice обязателен в контракте: по нему экран решает, рисуть ли кнопки
 	// отметки, а решать это по displayText нельзя — он является подписью.
-	return QStringList{"ruleId",      "category",    "code",       "title",       "metric",
-	                   "periodicity", "targetValue", "targetUnit", "displayText", "checkSource",
-	                   "enforcement", "todayState",  "isAdvice"};
+	return QStringList{"ruleId",      "category",   "code",        "title",       "metric",      "periodicity",
+	                   "targetValue", "targetUnit", "displayText", "checkSource", "enforcement", "todayState",
+	                   "isAdvice",    "todayValue", "goalMin",     "goalMax"};
 }
 //----------------------------------------------------------------------------
 // Роли строки каталога правил. Совпадают с ключами Build_Rule_Catalog и
@@ -150,6 +150,10 @@ struct SMetric
 
 const SMetric Rule_Metrics[] = {
     {"Белок", ERule_Metric::ProteinGrams, ERule_Display_Unit::G, ERule_Periodicity::PerDay, true, true, false},
+    // Углеводы и жиры из расчёта КБЖУ: норма задаётся диапазоном «не ниже N г»
+    // (спринт «КБЖУ в правилах»), поэтому allowsMin/allowsMax, как у белка.
+    {"Углеводы", ERule_Metric::CarbGrams, ERule_Display_Unit::G, ERule_Periodicity::PerDay, true, true, false},
+    {"Жиры", ERule_Metric::FatGrams, ERule_Display_Unit::G, ERule_Periodicity::PerDay, true, true, false},
     {"Калории", ERule_Metric::CaloriesKcal, ERule_Display_Unit::Kcal, ERule_Periodicity::PerDay, true, true, false},
     {"Вода", ERule_Metric::WaterMl, ERule_Display_Unit::Ml, ERule_Periodicity::PerDay, true, true, false},
     {"Сон", ERule_Metric::SleepHours, ERule_Display_Unit::Hours, ERule_Periodicity::PerDay, true, true, true},
@@ -453,7 +457,8 @@ QVector<QVariantMap> Build_Goal_Targets(const QVector<SGoal_Target> &in_targets,
 	return rows;
 }
 //----------------------------------------------------------------------------
-QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const QHash<QString, QString> &in_today_state)
+QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const QHash<QString, QString> &in_today_state,
+                                 const QHash<QString, double> &in_today_values)
 {
 	QVector<QVariantMap> rows;
 
@@ -479,6 +484,12 @@ QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const Q
 		// Правило без отметки за сегодня — «неизвестно», а не «выполнено»:
 		// отсутствие данных не равно нулю (§3.6).
 		row.insert("todayState", in_today_state.value(rule.ID, To_String(ECheckin_State::Unknown)));
+		// Число, записанное за сегодня (калории, белок, вода…): null — значения нет.
+		row.insert("todayValue",
+		           in_today_values.contains(rule.ID) ? QVariant(in_today_values.value(rule.ID)) : Null_Variant());
+		// Границы цели отдельно: полоса прогресса различает «не менее» и «не более».
+		row.insert("goalMin", rule.Has_Target_Min ? QVariant(rule.Target_Min) : Null_Variant());
+		row.insert("goalMax", rule.Has_Target_Max ? QVariant(rule.Target_Max) : Null_Variant());
 		rows.append(row);
 	}
 

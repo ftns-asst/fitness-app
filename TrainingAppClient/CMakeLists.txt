@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16)
 
 project(TrainingAppClient VERSION 0.1 LANGUAGES CXX)
 
@@ -99,6 +99,10 @@ add_library(TrainingAppCore STATIC
     src/Data/Auth/Token_Store.cpp
     src/Data/Database/Sql_Database.h
     src/Data/Database/Sql_Database.cpp
+    src/Data/Exercises/Exercises_Api.h
+    src/Data/Exercises/Exercises_Api.cpp
+    src/Data/Exercises/Exercises_Repository.h
+    src/Data/Exercises/Exercises_Repository.cpp
     src/Data/Network/Api_Error.h
     src/Data/Network/Api_Error.cpp
     src/Data/Network/Http_Client.h
@@ -109,6 +113,12 @@ add_library(TrainingAppCore STATIC
     src/Data/Users/Users_Repository.cpp
     src/Presentation/Auth_VM.h
     src/Presentation/Auth_VM.cpp
+    src/Presentation/Exercises_VM.h
+    src/Presentation/Exercises_VM.cpp
+    src/Presentation/Exercises_Editor_VM.h
+    src/Presentation/Exercises_Editor_VM.cpp
+    src/Presentation/Exercises_One_VM.h
+    src/Presentation/Exercises_One_VM.cpp
     src/Presentation/Auth_Qml_Bridge.h
     src/Presentation/Auth_Qml_Bridge.cpp
 )
@@ -144,7 +154,7 @@ set_source_files_properties(
     qml/Mock/MockSession.qml
     qml/Mock/MockTokenStore.qml
     qml/Presentation/AuthViewModel.qml
-    qml/Presentation/ExercisesViewModel.qml
+    qml/Presentation/ExerciseTexts.qml
     qml/Presentation/PlansViewModel.qml
     qml/Presentation/ProfileViewModel.qml
     qml/Components/BackRouter.qml
@@ -195,7 +205,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         # Stable presentation contracts (mock-backed until phase V)
         qml/Presentation/AuthFormController.qml
         qml/Presentation/AuthViewModel.qml
-        qml/Presentation/ExercisesViewModel.qml
+        qml/Presentation/ExerciseTexts.qml
         qml/Presentation/PlansViewModel.qml
         qml/Presentation/ProfileViewModel.qml
 
@@ -210,9 +220,16 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/BackRouter.qml
         qml/Components/BottomTabBar.qml
         qml/Components/CatalogExerciseRow.qml
+        qml/Components/CatalogExerciseTile.qml
+        qml/Components/CompactStepper.qml
+        qml/Components/RuleTile.qml
+        qml/Components/RuleValuePopup.qml
+        qml/Components/ShiftButton.qml
         qml/Components/ExerciseRow.qml
+        qml/Components/ExercisePickerPopup.qml
         qml/Components/FilterChips.qml
         qml/Components/FormChoice.qml
+        qml/Components/FpsOverlay.qml
         qml/Components/HeroCard.qml
         qml/Components/LineChartCard.qml
         qml/Components/MetricCard.qml
@@ -235,6 +252,8 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Pages/Today/TodayPage.qml
         qml/Pages/Plans/PlansPage.qml
         qml/Pages/Exercises/ExercisesPage.qml
+    qml/Pages/Exercises/ExercisesEditorPage.qml
+    qml/Pages/Exercises/ExerciseDetailPage.qml
         qml/Pages/Profile/ProfilePage.qml
 )
 

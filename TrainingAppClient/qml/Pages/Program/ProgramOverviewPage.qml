@@ -48,7 +48,7 @@ PageScaffold {
     // литерала: раньше значение «u1» повторялось в пяти местах QML, и любое
     // другое значение (например, посев демо-данных) делало программу невидимой.
     function currentUserId() {
-        return AppContext !== undefined && AppContext !== null ? AppContext.currentUserId : "u1";
+        return typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
     }
 
     function reload() {
