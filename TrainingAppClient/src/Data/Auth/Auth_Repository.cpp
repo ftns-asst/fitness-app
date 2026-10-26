@@ -1,4 +1,4 @@
-#include "Data/Auth/Auth_Repository.h"
+﻿#include "Data/Auth/Auth_Repository.h"
 
 #include <QDateTime>
 #include <QLoggingCategory>
@@ -7,9 +7,9 @@
 
 Q_LOGGING_CATEGORY(AUTH_Repository_Log, "trainingapp.auth.repository")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AAuth_Repository
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AAuth_Repository::AAuth_Repository(AsHttp_Client *in_http_client, AsSql_Database *in_database,
                                    AsToken_Store *in_token_store, AsAuth_Session *in_session, QObject *in_parent)
     : QObject(in_parent), Database_Instance(in_database), Token_Store_Instance(in_token_store),
@@ -25,22 +25,22 @@ AAuth_Repository::AAuth_Repository(AsHttp_Client *in_http_client, AsSql_Database
 	if (Session_Instance != 0)
 		connect(Session_Instance, &AsAuth_Session::sessionExpired, this, &AAuth_Repository::on_Session_Expired);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AAuth_Repository::Check_Email(const QString &in_email)
 {
 	return Auth_Api_Instance->Check_Email(in_email);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AAuth_Repository::Signup(const QString &in_email, const QString &in_name, const QString &in_password)
 {
 	return Auth_Api_Instance->Signup(in_email, in_name, in_password);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AAuth_Repository::Login(const QString &in_email, const QString &in_password)
 {
 	return Auth_Api_Instance->Login(in_email, in_password);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository::Logout()
 {
 	// Локальный logout (docs/03, §7): серверный revocation endpoint не
@@ -55,7 +55,7 @@ void AAuth_Repository::Logout()
 
 	emit loggedOut();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AAuth_Repository::Restore_Local_Session()
 {
 	if (Session_Instance == 0)
@@ -63,7 +63,7 @@ bool AAuth_Repository::Restore_Local_Session()
 
 	return Session_Instance->Restore_From_Store();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AAuth_Repository::Has_Local_Session() const
 {
 	if (Token_Store_Instance == 0)
@@ -71,39 +71,39 @@ bool AAuth_Repository::Has_Local_Session() const
 
 	return Token_Store_Instance->Has_Tokens();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository::on_Check_Email_Finished(int in_request_id, bool in_free, const AApi_Error &in_error)
 {
 	emit checkEmailFinished(in_request_id, in_free, in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository::on_Signup_Finished(int in_request_id, const SAuth_Session_Data &in_session_data,
                                           const AApi_Error &in_error)
 {
 	AApi_Error error = in_error;
 
-	if (error.Is_Error() == false && Persist_Session(in_session_data, error) == false)
+	if (!error.Is_Error() && !Persist_Session(in_session_data, error))
 		qCWarning(AUTH_Repository_Log).noquote() << "signup persist failed" << in_request_id;
 
 	emit signupFinished(in_request_id, in_session_data.User, error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository::on_Login_Finished(int in_request_id, const SAuth_Session_Data &in_session_data,
                                          const AApi_Error &in_error)
 {
 	AApi_Error error = in_error;
 
-	if (error.Is_Error() == false && Persist_Session(in_session_data, error) == false)
+	if (!error.Is_Error() && !Persist_Session(in_session_data, error))
 		qCWarning(AUTH_Repository_Log).noquote() << "login persist failed" << in_request_id;
 
 	emit loginFinished(in_request_id, in_session_data.User, error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository::on_Session_Expired()
 {
 	emit sessionExpired();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QSqlDatabase AAuth_Repository::Connection() const
 {
 	if (Database_Instance != 0)
@@ -111,7 +111,7 @@ QSqlDatabase AAuth_Repository::Connection() const
 
 	return QSqlDatabase();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AAuth_Repository::Persist_Session(const SAuth_Session_Data &in_session_data, AApi_Error &out_error)
 {
 	SStored_Tokens tokens;
@@ -139,22 +139,22 @@ bool AAuth_Repository::Persist_Session(const SAuth_Session_Data &in_session_data
 	query.addBindValue(in_session_data.User.Created_At);
 	query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		qCWarning(AUTH_Repository_Log).noquote() << "user cache persist failed";
 		out_error = AApi_Error("undefined_error", "Local session persist failed", 0, 0);
 		return false;
 	}
 
-	if (Token_Store_Instance->Save_Tokens(tokens.User_ID, tokens.Access_Token, tokens.Refresh_Token, QDateTime(),
-	                                      QDateTime()) == false)
+	if (!Token_Store_Instance->Save_Tokens(tokens.User_ID, tokens.Access_Token, tokens.Refresh_Token, QDateTime(),
+	                                       QDateTime()))
 	{
 		qCWarning(AUTH_Repository_Log).noquote() << "token persist failed";
 		out_error = AApi_Error("undefined_error", "Local session persist failed", 0, 0);
 		return false;
 	}
 
-	if (Session_Instance->Adopt_Session(tokens) == false)
+	if (!Session_Instance->Adopt_Session(tokens))
 	{
 		qCWarning(AUTH_Repository_Log).noquote() << "session adopt failed";
 		out_error = AApi_Error("undefined_error", "Local session persist failed", 0, 0);
@@ -165,4 +165,4 @@ bool AAuth_Repository::Persist_Session(const SAuth_Session_Data &in_session_data
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

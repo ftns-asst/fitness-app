@@ -1,4 +1,4 @@
-#include "Presentation/Auth_Qml_Bridge.h"
+﻿#include "Presentation/Auth_Qml_Bridge.h"
 
 #include "Data/Auth/Auth_Repository.h"
 #include "Data/Auth/Auth_Session.h"
@@ -19,7 +19,7 @@
 
 static QStringList Captured_Messages;
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static void Capture_Message(QtMsgType in_type, const QMessageLogContext &in_context, const QString &in_message)
 {
 	Q_UNUSED(in_type);
@@ -51,7 +51,7 @@ private:
 	static void Close_Inspection_Database(QSqlDatabase &in_database);
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::checkEmailMapsFreeFlagAndOperation()
 {
 	ATest_Http_Server server;
@@ -92,7 +92,7 @@ void AAuth_Qml_Bridge_Test::checkEmailMapsFreeFlagAndOperation()
 	QCOMPARE(data.value("free").toBool(), true);
 	QVERIFY(error.isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::checkEmailErrorMapsKeyAndStatus()
 {
 	ATest_Http_Server server;
@@ -129,7 +129,7 @@ void AAuth_Qml_Bridge_Test::checkEmailErrorMapsKeyAndStatus()
 	QCOMPARE(error.value("httpStatus").toInt(), 400);
 	QCOMPARE(error.value("message").toString(), QString("bad email"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::signupEmitsCamelCaseUserAndSavesSession()
 {
 	ATest_Http_Server server;
@@ -180,7 +180,7 @@ void AAuth_Qml_Bridge_Test::signupEmitsCamelCaseUserAndSavesSession()
 	QVERIFY(store.Load_Tokens(tokens));
 	QCOMPARE(tokens.Access_Token, QString("access-1"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::signupErrorPassthrough()
 {
 	ATest_Http_Server server;
@@ -219,9 +219,9 @@ void AAuth_Qml_Bridge_Test::signupErrorPassthrough()
 	QCOMPARE(arguments.at(2).toBool(), false);
 	QCOMPARE(error.value("key").toString(), QString("email_taken"));
 	QCOMPARE(error.value("httpStatus").toInt(), 400);
-	QVERIFY(session.Has_Session() == false);
+	QVERIFY(!session.Has_Session());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::loginEmitsCamelCaseUser()
 {
 	ATest_Http_Server server;
@@ -260,7 +260,7 @@ void AAuth_Qml_Bridge_Test::loginEmitsCamelCaseUser()
 	QCOMPARE(user.value("email").toString(), QString("user@example.com"));
 	QVERIFY(session.Has_Session());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::logoutEmitsLoggedOutSignal()
 {
 	ATest_Http_Server server;
@@ -290,10 +290,10 @@ void AAuth_Qml_Bridge_Test::logoutEmitsLoggedOutSignal()
 
 	bridge.logout();
 	QCOMPARE(logout_spy.count(), 1);
-	QVERIFY(session.Has_Session() == false);
-	QVERIFY(store.Has_Tokens() == false);
+	QVERIFY(!session.Has_Session());
+	QVERIFY(!store.Has_Tokens());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::sessionExpiredIsForwarded()
 {
 	ATest_Http_Server server;
@@ -328,9 +328,9 @@ void AAuth_Qml_Bridge_Test::sessionExpiredIsForwarded()
 	QVERIFY(session.Send_Authed(request) > 0);
 	QVERIFY(expired_spy.wait(5000));
 	QCOMPARE(expired_spy.count(), 1);
-	QVERIFY(store.Has_Tokens() == false);
+	QVERIFY(!store.Has_Tokens());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::restoreSessionEmitsCachedUser()
 {
 	ATest_Http_Server server;
@@ -381,7 +381,7 @@ void AAuth_Qml_Bridge_Test::restoreSessionEmitsCachedUser()
 	QCOMPARE(user.value("email").toString(), QString("user@example.com"));
 	QCOMPARE(user.value("createdAt").toString(), QString("2026-09-20T12:00:00Z"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::saveLocalProfileWritesRealDbForSessionUser()
 {
 	ATest_Http_Server server;
@@ -426,7 +426,7 @@ void AAuth_Qml_Bridge_Test::saveLocalProfileWritesRealDbForSessionUser()
 	Close_Inspection_Database(inspection);
 	QCOMPARE(users_repository.Pending_Outbox_Count(), 1);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::clearLocalProfileRemovesSavedRow()
 {
 	ATest_Http_Server server;
@@ -468,7 +468,7 @@ void AAuth_Qml_Bridge_Test::clearLocalProfileRemovesSavedRow()
 	QCOMPARE(query.value(0).toInt(), 0);
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::logsDoNotContainCredentials()
 {
 	ATest_Http_Server server;
@@ -506,12 +506,12 @@ void AAuth_Qml_Bridge_Test::logsDoNotContainCredentials()
 
 	// Лог важного процесса есть, но без email, пароля и значений токенов.
 	QVERIFY(all_messages.contains("login finished"));
-	QVERIFY(all_messages.contains("user@example.com") == false);
-	QVERIFY(all_messages.contains("pass-1") == false);
-	QVERIFY(all_messages.contains("access-1") == false);
-	QVERIFY(all_messages.contains("refresh-1") == false);
+	QVERIFY(!all_messages.contains("user@example.com"));
+	QVERIFY(!all_messages.contains("pass-1"));
+	QVERIFY(!all_messages.contains("access-1"));
+	QVERIFY(!all_messages.contains("refresh-1"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Response AAuth_Qml_Bridge_Test::JSON_Response(int in_status, const QByteArray &in_body)
 {
 	STest_Http_Response response;
@@ -522,14 +522,14 @@ STest_Http_Response AAuth_Qml_Bridge_Test::JSON_Response(int in_status, const QB
 
 	return response;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray AAuth_Qml_Bridge_Test::Session_Body()
 {
 	return "{\"user\":{\"id\":\"user-1\",\"name\":\"somename\",\"email\":\"user@example.com\","
 	       "\"created_at\":\"2026-09-20T12:00:00Z\"},"
 	       "\"tokens\":{\"access_token\":\"access-1\",\"refresh_token\":\"refresh-1\"}}";
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QSqlDatabase AAuth_Qml_Bridge_Test::Open_Inspection_Database(const QString &in_path, const QString &in_name)
 {
 	QSqlDatabase database;
@@ -540,7 +540,7 @@ QSqlDatabase AAuth_Qml_Bridge_Test::Open_Inspection_Database(const QString &in_p
 
 	return database;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::Close_Inspection_Database(QSqlDatabase &in_database)
 {
 	QString name;
@@ -550,7 +550,7 @@ void AAuth_Qml_Bridge_Test::Close_Inspection_Database(QSqlDatabase &in_database)
 	in_database = QSqlDatabase();
 	QSqlDatabase::removeDatabase(name);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(AAuth_Qml_Bridge_Test)
 

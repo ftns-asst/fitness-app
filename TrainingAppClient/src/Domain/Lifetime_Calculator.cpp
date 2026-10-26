@@ -1,4 +1,4 @@
-#include "Lifetime_Calculator.h"
+﻿#include "Lifetime_Calculator.h"
 
 #include "Program_Stats_Calculator.h"
 #include "Progress_Support.h"
@@ -9,10 +9,10 @@
 
 Q_LOGGING_CATEGORY(LIFETIME_Calculator_Log, "trainingapp.program.lifetime")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Дельта ключевого упражнения программы: упражнение с максимальным e1RM, а
 // дельта — между его лучшим и худшим e1RM (§5.3 `keyLiftDeltaKg`).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static bool Key_Lift_Delta(const SProgress_Facts &in_facts, double &out_delta)
 {
 	QHash<QString, double> best_by_exercise;
@@ -34,10 +34,10 @@ static bool Key_Lift_Delta(const SProgress_Facts &in_facts, double &out_delta)
 			const SSet_Log &set = in_facts.Sets.at(j);
 			double e1rm = 0;
 
-			if (set.Session_Id != session.ID || Set_Counts_In_Volume(set) == false || set.Exercise_Id.isEmpty())
+			if (set.Session_Id != session.ID || !Set_Counts_In_Volume(set) || set.Exercise_Id.isEmpty())
 				continue;
 
-			if (best_by_exercise.contains(set.Exercise_Id) == false)
+			if (!best_by_exercise.contains(set.Exercise_Id))
 			{
 				best_by_exercise.insert(set.Exercise_Id, 0);
 				worst_by_exercise.insert(set.Exercise_Id, 0);
@@ -57,7 +57,7 @@ static bool Key_Lift_Delta(const SProgress_Facts &in_facts, double &out_delta)
 	{
 		double value = best_by_exercise.value(order.at(i));
 
-		if (has_best == false || value > best_value)
+		if (!has_best || value > best_value)
 		{
 			best_value = value;
 			key_exercise = order.at(i);
@@ -65,36 +65,36 @@ static bool Key_Lift_Delta(const SProgress_Facts &in_facts, double &out_delta)
 		}
 	}
 
-	if (has_best == false)
+	if (!has_best)
 		return false;
 
 	out_delta = best_by_exercise.value(key_exercise) - worst_by_exercise.value(key_exercise);
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 // AsLifetime_Calculator
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsLifetime_Calculator::AsLifetime_Calculator() : Error_State(&LIFETIME_Calculator_Log())
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AsLifetime_Calculator::Get_Last_Error() const
 {
 	return Error_State.Get_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsLifetime_Calculator::Set_Last_Error(const QString &in_error)
 {
 	return Error_State.Set_Last_Error(in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsLifetime_Calculator::Clear_Last_Error()
 {
 	Error_State.Clear_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsLifetime_Calculator::Compute(const SLifetime_Facts &in_facts, const QVector<SProgress_Facts> &in_programs,
                                     AsProgram_Stats_Calculator *in_program_calculator, SLifetime_Stats &out_stats)
 {
@@ -123,7 +123,7 @@ bool AsLifetime_Calculator::Compute(const SLifetime_Facts &in_facts, const QVect
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsLifetime_Calculator::Count_Programs(const QVector<SProgram> &in_programs, SLifetime_Stats &in_out_stats) const
 {
 	for (int i = 0; i < in_programs.size(); ++i)
@@ -137,10 +137,10 @@ void AsLifetime_Calculator::Count_Programs(const QVector<SProgram> &in_programs,
 			++in_out_stats.Cancelled_Programs;
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Сессии: итоги, границы данных, активные дни и счётчик тренировок по неделям
 // ISO. Черновики и незавершённые тренировки не считаются фактом (§3.8).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsLifetime_Calculator::Count_Sessions(const SLifetime_Facts &in_facts, QSet<QString> &out_completed_ids,
                                            QSet<QString> &out_active_dates, QHash<QString, int> &out_week_counts,
                                            SLifetime_Stats &in_out_stats) const
@@ -182,10 +182,10 @@ void AsLifetime_Calculator::Count_Sessions(const SLifetime_Facts &in_facts, QSet
 	in_out_stats.Last_Session_Date = dates.Last_Date;
 	in_out_stats.Active_Days_Count = out_active_dates.size();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Подходы завершённых тренировок: объём «всё время» и лучший подход по e1RM
 // для каждого упражнения. Порядок упражнений — по первому появлению.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsLifetime_Calculator::Count_Sets(const SLifetime_Facts &in_facts, const QSet<QString> &in_completed_ids,
                                        QHash<QString, SExercise_Record> &in_out_records,
                                        QStringList &in_out_record_order, SLifetime_Stats &in_out_stats) const
@@ -195,15 +195,14 @@ void AsLifetime_Calculator::Count_Sets(const SLifetime_Facts &in_facts, const QS
 		const SSet_Log &set = in_facts.Sets.at(i);
 		double e1rm = 0;
 
-		if (in_completed_ids.contains(set.Session_Id) == false || Set_Counts_In_Volume(set) == false ||
-		    set.Exercise_Id.isEmpty())
+		if (!in_completed_ids.contains(set.Session_Id) || !Set_Counts_In_Volume(set) || set.Exercise_Id.isEmpty())
 			continue;
 
 		++in_out_stats.Total_Sets;
 		in_out_stats.Total_Reps += set.Reps;
 		in_out_stats.Lifetime_Tonnage_Kg += Set_Tonnage(set);
 
-		if (in_out_records.contains(set.Exercise_Id) == false)
+		if (!in_out_records.contains(set.Exercise_Id))
 		{
 			SExercise_Record empty;
 
@@ -229,10 +228,10 @@ void AsLifetime_Calculator::Count_Sets(const SLifetime_Facts &in_facts, const QS
 		}
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Регулярность: неделя ISO от первой до последней тренировки, счётчик
 // тренировок в каждой и серии недель подряд (§5.3 `regularityHeatmap[]`).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsLifetime_Calculator::Build_Regularity(const QHash<QString, int> &in_week_counts,
                                              SLifetime_Stats &in_out_stats) const
 {
@@ -278,10 +277,10 @@ void AsLifetime_Calculator::Build_Regularity(const QHash<QString, int> &in_week_
 	in_out_stats.Average_Sessions_Per_Week = in_out_stats.Total_Sessions * 1.0 / in_out_stats.Regularity.size();
 	in_out_stats.Has_Average_Sessions_Per_Week = true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Личные рекорды: подход известен, а его дата и программа берутся из сессии
 // рекорда. Соло-тренировка оставляет Program_Id пустым.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsLifetime_Calculator::Resolve_Records(const SLifetime_Facts &in_facts,
                                             const QHash<QString, SExercise_Record> &in_records,
                                             const QStringList &in_record_order, SLifetime_Stats &in_out_stats) const
@@ -308,29 +307,29 @@ void AsLifetime_Calculator::Resolve_Records(const SLifetime_Facts &in_facts,
 		in_out_stats.Records.append(record);
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsLifetime_Calculator::Collect_Body_Weight(const SLifetime_Facts &in_facts, SLifetime_Stats &in_out_stats) const
 { // Дельта веса тела за всё время: первый и последний известные замеры.
 	SExtremes_Value weight;
 
 	for (int i = 0; i < in_facts.Measurements.size(); ++i)
 	{
-		if (in_facts.Measurements.at(i).Has_Weight_Kg == false)
+		if (!in_facts.Measurements.at(i).Has_Weight_Kg)
 			continue;
 
 		weight.Add(in_facts.Measurements.at(i).Date, in_facts.Measurements.at(i).Weight_Kg);
 	}
 
-	if (weight.Has_Both() == false)
+	if (!weight.Has_Both())
 		return;
 
 	in_out_stats.Body_Weight_Total_Delta_Kg = weight.Delta();
 	in_out_stats.Has_Body_Weight_Total_Delta_Kg = true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Сводка каждой программы для экрана сравнения и лучшая программа по
 // выполнению. Метрики берутся из того же расчёта, что и экран программы.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsLifetime_Calculator::Build_Summaries(const SLifetime_Facts &in_facts,
                                             const QVector<SProgress_Facts> &in_programs,
                                             AsProgram_Stats_Calculator *in_program_calculator,
@@ -362,7 +361,7 @@ void AsLifetime_Calculator::Build_Summaries(const SLifetime_Facts &in_facts,
 
 		in_out_stats.Summaries.append(summary);
 
-		if (summary.Has_Adherence_Percent == false)
+		if (!summary.Has_Adherence_Percent)
 			continue;
 
 		if (has_best_adherence && summary.Adherence_Percent <= best_adherence)
@@ -373,7 +372,7 @@ void AsLifetime_Calculator::Build_Summaries(const SLifetime_Facts &in_facts,
 		has_best_adherence = true;
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsLifetime_Calculator::Fill_Summary_Metrics(const SProgress_Facts &in_facts,
                                                  AsProgram_Stats_Calculator &in_calculator,
                                                  SProgram_Summary &in_out_summary) const
@@ -381,7 +380,7 @@ void AsLifetime_Calculator::Fill_Summary_Metrics(const SProgress_Facts &in_facts
 	SProgram_Stats stats;
 	double key_lift = 0;
 
-	if (in_calculator.Compute(in_facts, stats) == false)
+	if (!in_calculator.Compute(in_facts, stats))
 		return;
 
 	in_out_summary.Sessions = stats.Completed_Sessions;
@@ -391,10 +390,10 @@ void AsLifetime_Calculator::Fill_Summary_Metrics(const SProgress_Facts &in_facts
 	in_out_summary.Body_Weight_Delta_Kg = stats.Body_Weight_Delta_Kg;
 	in_out_summary.Has_Body_Weight_Delta_Kg = stats.Has_Body_Weight_Delta_Kg;
 
-	if (Key_Lift_Delta(in_facts, key_lift) == false)
+	if (!Key_Lift_Delta(in_facts, key_lift))
 		return;
 
 	in_out_summary.Key_Lift_Delta_Kg = key_lift;
 	in_out_summary.Has_Key_Lift_Delta_Kg = true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

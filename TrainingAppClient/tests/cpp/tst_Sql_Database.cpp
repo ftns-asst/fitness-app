@@ -1,4 +1,4 @@
-#include "Data/Database/Sql_Database.h"
+﻿#include "Data/Database/Sql_Database.h"
 
 #include <QFile>
 #include <QSqlDatabase>
@@ -51,7 +51,7 @@ private slots:
 	void keepsRulesWhenAddingMacroNutrientMetrics();
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QSqlDatabase Open_Inspection_Database(const QString &in_path, const QString &in_name)
 {
 	QSqlDatabase database;
@@ -61,7 +61,7 @@ static QSqlDatabase Open_Inspection_Database(const QString &in_path, const QStri
 	database.open();
 	return database;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static void Close_Inspection_Database(QSqlDatabase &in_database)
 {
 	QString name;
@@ -71,7 +71,7 @@ static void Close_Inspection_Database(QSqlDatabase &in_database)
 	in_database = QSqlDatabase();
 	QSqlDatabase::removeDatabase(name);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Минимальная цепочка, нужная для вставки правила: программа с активным
 // состоянием. Повторялась бы в каждом тесте про правила, поэтому вынесена:
 // тест про правило не должен знать, чем заполняется programs.
@@ -84,7 +84,7 @@ static void Seed_Program_Fixture(const QSqlDatabase &in_database, QSqlQuery &in_
 	                      "'active', 1, 8, 'fixedWeeks', '2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z', "
 	                      "'local')"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ASql_Database_Test::createsCurrentSchema()
 {
 	QTemporaryDir directory;
@@ -123,11 +123,11 @@ void ASql_Database_Test::createsCurrentSchema()
 		QVERIFY2(tables.contains(table), qPrintable(QString("Нет таблицы %1").arg(table)));
 
 	// Каталог планов из issue 22 в срез W не входит (миграция v3).
-	QVERIFY(tables.contains("plans") == false);
-	QVERIFY(tables.contains("plan_days") == false);
+	QVERIFY(!tables.contains("plans"));
+	QVERIFY(!tables.contains("plan_days"));
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ASql_Database_Test::migrationIsIdempotent()
 {
 	QTemporaryDir directory;
@@ -145,7 +145,7 @@ void ASql_Database_Test::migrationIsIdempotent()
 	QVERIFY(database.Open(path));
 	QCOMPARE(database.Get_Schema_Version(), AsSql_Database::Get_Current_Schema_Version());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Каталог упражнений: редактор дня пишет предписание с жёсткими
 // идентификаторами (ProgramEditPage/ProgramDayPage: ex_squat, ex_bench, ex_row,
 // ex_deadlift), поэтому строки обязаны существовать сразу после Open(). На
@@ -199,7 +199,7 @@ void ASql_Database_Test::seedsBuiltinExerciseCatalog()
 	QCOMPARE(query.value(0).toInt(), 4);
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ASql_Database_Test::migratesProfileLocalAddingColumns()
 {
 	QTemporaryDir directory;
@@ -260,11 +260,11 @@ void ASql_Database_Test::migratesProfileLocalAddingColumns()
 	query = QSqlQuery();
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Та же база, что у установленного клиента: создана релизом v1, где таблица
 // profile_local могла не появиться из-за обрыва записи. Миграция обязана её
 // вылечить, а не упасть на ALTER отсутствующей таблицы.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ASql_Database_Test::migratesPartialDatabaseWithoutProfileLocal()
 {
 	QTemporaryDir directory;
@@ -305,7 +305,7 @@ void ASql_Database_Test::migratesPartialDatabaseWithoutProfileLocal()
 	query = QSqlQuery();
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ASql_Database_Test::storesBackendAlignedCache()
 {
 	QTemporaryDir directory;
@@ -347,7 +347,7 @@ void ASql_Database_Test::storesBackendAlignedCache()
 	QCOMPARE(query.value(2).toDouble(), 74.125);
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ASql_Database_Test::enforcesConstraintsAndForeignKeys()
 {
 	QTemporaryDir directory;
@@ -363,16 +363,16 @@ void ASql_Database_Test::enforcesConstraintsAndForeignKeys()
 	QVERIFY(inspection.isOpen());
 	query = QSqlQuery(inspection);
 	QVERIFY(query.exec("PRAGMA foreign_keys = ON"));
-	QVERIFY(query.exec("INSERT INTO profile_cache(user_id, age) VALUES('missing', 31)") == false);
+	QVERIFY(!query.exec("INSERT INTO profile_cache(user_id, age) VALUES('missing', 31)"));
 	QVERIFY(query.exec("INSERT INTO user_cache(id, email, display_name, created_at) "
 	                   "VALUES('u1', 'a@example.com', 'A', '2026-09-20T10:00:00Z')"));
-	QVERIFY(query.exec("INSERT INTO user_cache(id, email, display_name, created_at) "
-	                   "VALUES('u2', 'a@example.com', 'B', '2026-09-20T10:00:00Z')") == false);
-	QVERIFY(query.exec("INSERT INTO profile_cache(user_id, age, weight_kg) VALUES('u1', 151, 70)") == false);
-	QVERIFY(query.exec("INSERT INTO profile_cache(user_id, age, weight_kg) VALUES('u1', 31, 1000)") == false);
+	QVERIFY(!query.exec("INSERT INTO user_cache(id, email, display_name, created_at) "
+	                    "VALUES('u2', 'a@example.com', 'B', '2026-09-20T10:00:00Z')"));
+	QVERIFY(!query.exec("INSERT INTO profile_cache(user_id, age, weight_kg) VALUES('u1', 151, 70)"));
+	QVERIFY(!query.exec("INSERT INTO profile_cache(user_id, age, weight_kg) VALUES('u1', 31, 1000)"));
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ASql_Database_Test::rejectsNewerSchema()
 {
 	QTemporaryDir directory;
@@ -390,11 +390,11 @@ void ASql_Database_Test::rejectsNewerSchema()
 	QVERIFY(query.exec("INSERT INTO schema_version(id, version) VALUES(1, 999)"));
 	Close_Inspection_Database(inspection);
 
-	QVERIFY(database.Open(path) == false);
-	QVERIFY(database.Is_Open() == false);
+	QVERIFY(!database.Open(path));
+	QVERIFY(!database.Is_Open());
 	QVERIFY(database.Get_Last_Error().contains("новее поддерживаемой"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Правило-рекомендация: пользователь пишет совет текстом, без измеримой
 // цели (категория «Другое»). До миграции v3 таблица program_rules требовала
 // одну из целей CHECK-ограничением, и такой отказ доходил до пользователя
@@ -424,7 +424,7 @@ void ASql_Database_Test::acceptsAdviceRuleWithoutTarget()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toString(), QString("Пей воду натощак каждое утро"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Ослабление CHECK не должно открыть лазейку: измеримое правило без цели
 // по-прежнему бессмысленно и должно отвергаться.
 void ASql_Database_Test::keepsMeasurableRuleTargetRequired()
@@ -451,7 +451,7 @@ void ASql_Database_Test::keepsMeasurableRuleTargetRequired()
 	                    "120.0, 'g', 'allDays', 'selfReport', 'g', 'Белок')"),
 	         qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Защита от бессмысленной записи: ни цели, ни текста. Именно этот случай
 // закрывает «Другое» — иначе можно было бы завести пустое правило.
 void ASql_Database_Test::rejectsRuleWithoutTargetNorText()
@@ -466,18 +466,18 @@ void ASql_Database_Test::rejectsRuleWithoutTargetNorText()
 	QVERIFY(database.Open(path));
 	Seed_Program_Fixture(database.Sql_Connection(), query);
 
-	QVERIFY(query.exec("INSERT INTO program_rules(id, program_id, category, code, title, metric, periodicity, "
-	                   "target_unit, applies_to, check_source, display_unit, note) "
-	                   "VALUES('r3', 'p1', 'other', 'custom', 'Совет', 'custom', 'perDay', "
-	                   "'units', 'allDays', 'selfReport', 'units', NULL)") == false);
+	QVERIFY(!query.exec("INSERT INTO program_rules(id, program_id, category, code, title, metric, periodicity, "
+	                    "target_unit, applies_to, check_source, display_unit, note) "
+	                    "VALUES('r3', 'p1', 'other', 'custom', 'Совет', 'custom', 'perDay', "
+	                    "'units', 'allDays', 'selfReport', 'units', NULL)"));
 
 	// Пустой текст — тоже мусор: иначе «Другое» пропускает пустую строку.
-	QVERIFY(query.exec("INSERT INTO program_rules(id, program_id, category, code, title, metric, periodicity, "
-	                   "target_unit, applies_to, check_source, display_unit, note) "
-	                   "VALUES('r4', 'p1', 'other', 'custom', 'Совет', 'custom', 'perDay', "
-	                   "'units', 'allDays', 'selfReport', 'units', '   ')") == false);
+	QVERIFY(!query.exec("INSERT INTO program_rules(id, program_id, category, code, title, metric, periodicity, "
+	                    "target_unit, applies_to, check_source, display_unit, note) "
+	                    "VALUES('r4', 'p1', 'other', 'custom', 'Совет', 'custom', 'perDay', "
+	                    "'units', 'allDays', 'selfReport', 'units', '   ')"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Миграция v2 → v3 не теряет накопленные правила: ослабление CHECK требует
 // пересоздать таблицу, и при этом легко потерять строки.
 void ASql_Database_Test::migratesWithExistingRules()
@@ -520,7 +520,7 @@ void ASql_Database_Test::migratesWithExistingRules()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toInt(), 1);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Килограммы в CHECK display_unit: без них правило «вес не выше 80 кг» не
 // сохранилось бы, и метрика веса оставалась бы недоступна в форме.
 void ASql_Database_Test::acceptsKilogramUnit()
@@ -546,7 +546,7 @@ void ASql_Database_Test::acceptsKilogramUnit()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toString(), QString("kg"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Добавление единицы требует пересоздать таблицу (CHECK не ALTER'ится), а
 // пересоздание без переноса строк стоило бы пользователю всех правил. Это тот
 // же приём, что в v2→v3, и он обязан быть проверен на данных.
@@ -595,7 +595,7 @@ void ASql_Database_Test::keepsRulesWhenAddingKilogramUnit()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toInt(), 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Метрики углеводов и жиров принимаются схемой: правило «углеводы ≥ 250 г»,
 // созданное из расчёта КБЖУ, обязано сохраняться. Без метрик в CHECK норма
 // макросов не закрепилась бы, и интеграция КБЖУ↔правила была бы неполной.
@@ -629,7 +629,7 @@ void ASql_Database_Test::acceptsMacroNutrientMetrics()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toString(), QString("fatGrams"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Добавление метрик требует пересоздать таблицу (CHECK не ALTER'ится), а
 // пересоздание без переноса строк стоило бы пользователю всех правил. Приём
 // тот же, что в v3→v4 и v2→v3, и он обязан быть проверен на данных.
@@ -678,7 +678,7 @@ void ASql_Database_Test::keepsRulesWhenAddingMacroNutrientMetrics()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toInt(), 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ASql_Database_Test::reportsOpenError()
 {
 	QTemporaryDir directory;
@@ -692,11 +692,11 @@ void ASql_Database_Test::reportsOpenError()
 	file.write("not-a-directory");
 	file.close();
 
-	QVERIFY(database.Open(path + "/cache.sqlite3") == false);
-	QVERIFY(database.Is_Open() == false);
-	QVERIFY(database.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!database.Open(path + "/cache.sqlite3"));
+	QVERIFY(!database.Is_Open());
+	QVERIFY(!database.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ASql_Database_Test::migratesV1DatabaseToCurrent()
 {
 	QTemporaryDir directory;
@@ -737,7 +737,7 @@ void ASql_Database_Test::migratesV1DatabaseToCurrent()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toInt(), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ASql_Database_Test::enforcesProgramSchemaConstraints()
 {
 	QTemporaryDir directory;
@@ -772,12 +772,12 @@ void ASql_Database_Test::enforcesProgramSchemaConstraints()
 
 	// Инвариант 1 (`02-program-model.md` §4): одна активная программа
 	// на пользователя.
-	QVERIFY(
-	    query.exec("INSERT INTO programs(id, user_id, title, source_kind, goal, level, schedule_kind, state, revision, "
-	               "weeks_total, term_mode, created_at, updated_at, sync_state) "
-	               "VALUES('p2', 'u1', 'Вторая', 'scratch', 'muscle', 'beginner', 'weekday', 'active', 1, 0, "
-	               "'openEnded', "
-	               "'2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z', 'local')") == false);
+	QVERIFY(!query.exec(
+	    "INSERT INTO programs(id, user_id, title, source_kind, goal, level, schedule_kind, state, revision, "
+	    "weeks_total, term_mode, created_at, updated_at, sync_state) "
+	    "VALUES('p2', 'u1', 'Вторая', 'scratch', 'muscle', 'beginner', 'weekday', 'active', 1, 0, "
+	    "'openEnded', "
+	    "'2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z', 'local')"));
 	QVERIFY(query.exec(
 	    "INSERT INTO programs(id, user_id, title, source_kind, goal, level, schedule_kind, state, revision, "
 	    "weeks_total, term_mode, created_at, updated_at, sync_state) "
@@ -807,16 +807,16 @@ void ASql_Database_Test::enforcesProgramSchemaConstraints()
 	               "VALUES('r1', 'p1', 'nutrition', 'protein', 'Белок 1,8 г/кг', 'proteinGrams', 'perDay', 130, 'g', "
 	               "'allDays', 'selfReport', 'soft', 'g')"),
 	    qPrintable(query.lastError().text()));
-	QVERIFY(
-	    query.exec("INSERT INTO program_rules(id, program_id, category, code, title, metric, periodicity, target_unit, "
-	               "applies_to, check_source, enforcement, display_unit) "
-	               "VALUES('r2', 'p1', 'nutrition', 'calories', 'Ккал', 'caloriesKcal', 'perDay', 'kcal', 'allDays', "
-	               "'selfReport', 'soft', 'kcal')") == false);
-	QVERIFY(query.exec(
-	            "INSERT INTO program_rules(id, program_id, category, code, title, metric, periodicity, target_min, "
-	            "target_unit, applies_to, check_source, enforcement, display_unit) "
-	            "VALUES('r3', 'p1', 'nutrition', 'x', 'X', 'wrongMetric', 'perDay', 1, 'g', 'allDays', 'selfReport', "
-	            "'soft', 'g')") == false);
+	QVERIFY(!query.exec(
+	    "INSERT INTO program_rules(id, program_id, category, code, title, metric, periodicity, target_unit, "
+	    "applies_to, check_source, enforcement, display_unit) "
+	    "VALUES('r2', 'p1', 'nutrition', 'calories', 'Ккал', 'caloriesKcal', 'perDay', 'kcal', 'allDays', "
+	    "'selfReport', 'soft', 'kcal')"));
+	QVERIFY(!query.exec(
+	    "INSERT INTO program_rules(id, program_id, category, code, title, metric, periodicity, target_min, "
+	    "target_unit, applies_to, check_source, enforcement, display_unit) "
+	    "VALUES('r3', 'p1', 'nutrition', 'x', 'X', 'wrongMetric', 'perDay', 1, 'g', 'allDays', 'selfReport', "
+	    "'soft', 'g')"));
 
 	// Отметки: одна на пару (rule, date).
 	QVERIFY2(
@@ -825,16 +825,16 @@ void ASql_Database_Test::enforcesProgramSchemaConstraints()
 	               "'2026-09-29T20:00:00Z', '2026-09-29T20:00:00Z')"),
 	    qPrintable(query.lastError().text()));
 	QVERIFY(
-	    query.exec("INSERT INTO rule_checkins(id, rule_id, program_id, date, value, unit, state, source, created_at, "
-	               "updated_at) VALUES('c2', 'r1', 'p1', '2026-09-29', 120, 'g', 'failed', 'manual', "
-	               "'2026-09-29T21:00:00Z', '2026-09-29T21:00:00Z')") == false);
+	    !query.exec("INSERT INTO rule_checkins(id, rule_id, program_id, date, value, unit, state, source, created_at, "
+	                "updated_at) VALUES('c2', 'r1', 'p1', '2026-09-29', 120, 'g', 'failed', 'manual', "
+	                "'2026-09-29T21:00:00Z', '2026-09-29T21:00:00Z')"));
 
 	// Ревизии: уникальность (program, revision).
 	QVERIFY2(query.exec("INSERT INTO program_revisions(id, program_id, revision, changed_at, reason, summary) "
 	                    "VALUES('rev1', 'p1', 1, '2026-09-29T00:00:00Z', 'state', 'Программа создана')"),
 	         qPrintable(query.lastError().text()));
-	QVERIFY(query.exec("INSERT INTO program_revisions(id, program_id, revision, changed_at, reason, summary) "
-	                   "VALUES('rev2', 'p1', 1, '2026-09-29T01:00:00Z', 'days', 'Дубликат ревизии')") == false);
+	QVERIFY(!query.exec("INSERT INTO program_revisions(id, program_id, revision, changed_at, reason, summary) "
+	                    "VALUES('rev2', 'p1', 1, '2026-09-29T01:00:00Z', 'days', 'Дубликат ревизии')"));
 
 	// Сессия и подходы: enum состояния, FK, CHECK номеров подходов.
 	QVERIFY2(
@@ -852,10 +852,10 @@ void ASql_Database_Test::enforcesProgramSchemaConstraints()
 	               "reps, rpe, target_weight_kg, target_reps, done) "
 	               "VALUES('st1', 'w1', 'dx1', 'ex1', 1, 0, 60, 8, 8, 60, 8, 1)"),
 	    qPrintable(query.lastError().text()));
-	QVERIFY(query.exec("INSERT INTO sets(id, session_id, exercise_id, set_number, weight_kg, reps, done) "
-	                   "VALUES('st2', 'missing', 'ex1', 1, 60, 8, 1)") == false);
-	QVERIFY(query.exec("INSERT INTO sets(id, session_id, exercise_id, set_number, weight_kg, reps, done) "
-	                   "VALUES('st3', 'w1', 'ex1', 0, 60, 8, 1)") == false);
+	QVERIFY(!query.exec("INSERT INTO sets(id, session_id, exercise_id, set_number, weight_kg, reps, done) "
+	                    "VALUES('st2', 'missing', 'ex1', 1, 60, 8, 1)"));
+	QVERIFY(!query.exec("INSERT INTO sets(id, session_id, exercise_id, set_number, weight_kg, reps, done) "
+	                    "VALUES('st3', 'w1', 'ex1', 0, 60, 8, 1)"));
 
 	// Замеры тела: одна запись на (user, date).
 	QVERIFY2(query.exec(
@@ -885,7 +885,7 @@ void ASql_Database_Test::enforcesProgramSchemaConstraints()
 	QCOMPARE(query.value(0).toInt(), 1);
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(ASql_Database_Test)
 

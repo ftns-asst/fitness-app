@@ -1,4 +1,4 @@
-#include "Presentation/Program_Catalog_VM.h"
+﻿#include "Presentation/Program_Catalog_VM.h"
 
 #include "Data/Program/Program_Repository.h"
 #include "Presentation/Program_Rows.h"
@@ -7,7 +7,7 @@
 
 Q_LOGGING_CATEGORY(PROGRAM_CATALOG_VM_Log, "trainingapp.program.catalog")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Program_Catalog::Avm_Program_Catalog(AProgram_Repository *in_program_repository, QObject *in_parent)
     : QObject(in_parent), Program_Repository_Instance(in_program_repository), Active_List(new AList_Model(this)),
       Draft_List(new AList_Model(this)), Finished_List(new AList_Model(this))
@@ -27,7 +27,7 @@ bool Avm_Program_Catalog::reload(const QString &in_user_id)
 {
 	return Reload(in_user_id);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Catalog::Reload(const QString &in_user_id)
 {
 	QVector<SProgram> programs;
@@ -46,7 +46,7 @@ bool Avm_Program_Catalog::Reload(const QString &in_user_id)
 		return false;
 	}
 
-	if (Program_Repository_Instance->Load_Programs(in_user_id, programs) == false)
+	if (!Program_Repository_Instance->Load_Programs(in_user_id, programs))
 	{
 		Set_Error();
 
@@ -59,7 +59,7 @@ bool Avm_Program_Catalog::Reload(const QString &in_user_id)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Program_Catalog::Fill_Groups(const QVector<SProgram> &in_programs)
 {
 	QVector<SProgram> active;
@@ -94,37 +94,37 @@ void Avm_Program_Catalog::Fill_Groups(const QVector<SProgram> &in_programs)
 	Draft_List->Set_Rows(Program_Rows::Build_Catalog_Programs(draft));
 	Finished_List->Set_Rows(Program_Rows::Build_Catalog_Programs(finished));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Catalog::Has_Programs() const
 {
 	return Active_List->Row_Count() + Draft_List->Row_Count() + Finished_List->Row_Count() > 0;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Program_Catalog::Error_Key() const
 {
 	return Error_Key_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program_Catalog::active_list() const
 {
 	return Active_List;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program_Catalog::draft_list() const
 {
 	return Draft_List;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program_Catalog::finished_list() const
 {
 	return Finished_List;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Program_Catalog::Clear_Error()
 {
 	Error_Key_Text.clear();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Catalog::Set_Error()
 {
 	Error_Key_Text = "undefined_error";
@@ -133,4 +133,4 @@ bool Avm_Program_Catalog::Set_Error()
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

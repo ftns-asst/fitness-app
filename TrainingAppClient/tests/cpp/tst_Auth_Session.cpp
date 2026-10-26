@@ -1,4 +1,4 @@
-#include "Data/Auth/Auth_Session.h"
+﻿#include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
@@ -11,7 +11,7 @@
 
 static QStringList Captured_Messages;
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static void Capture_Message(QtMsgType in_type, const QMessageLogContext &in_context, const QString &in_message)
 {
 	Q_UNUSED(in_type);
@@ -62,7 +62,7 @@ private:
 	static SHttp_Request Authed_Get(const QString &in_path);
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::authedRequestCarriesStoredBearerToken()
 {
 	ATest_Http_Server server;
@@ -103,7 +103,7 @@ void AAuth_Session_Test::authedRequestCarriesStoredBearerToken()
 	QCOMPARE(captured.Headers.value("authorization"), QByteArray("Bearer stored-access"));
 	QCOMPARE(session.Last_Error(), QString());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::sendWithoutSessionIsRejected()
 {
 	ATest_Http_Server server;
@@ -119,14 +119,14 @@ void AAuth_Session_Test::sendWithoutSessionIsRejected()
 	QVERIFY(server.Start());
 	QVERIFY(client.Set_Base_URL(server.Base_URL().resolved(QUrl("/api/v1"))));
 
-	QVERIFY(session.Restore_From_Store() == false);
-	QVERIFY(session.Has_Session() == false);
+	QVERIFY(!session.Restore_From_Store());
+	QVERIFY(!session.Has_Session());
 	QCOMPARE(session.Send_Authed(Authed_Get("users/user-1")), 0);
-	QVERIFY(session.Last_Error().isEmpty() == false);
+	QVERIFY(!session.Last_Error().isEmpty());
 	QCOMPARE(finished_spy.count(), 0);
 	QCOMPARE(server.Request_Count(), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::expiredAccessTriggersSingleRefreshAndRetriesOnce()
 {
 	ATest_Http_Server server;
@@ -171,7 +171,7 @@ void AAuth_Session_Test::expiredAccessTriggersSingleRefreshAndRetriesOnce()
 	QCOMPARE(refresh_request.Target, QByteArray("/api/v1/auth/refresh"));
 	QCOMPARE(refresh_request.Headers.value("content-type"), QByteArray("application/json"));
 	QVERIFY(refresh_request.Body.contains("old-refresh"));
-	QVERIFY(refresh_request.Body.contains("expired-access") == false);
+	QVERIFY(!refresh_request.Body.contains("expired-access"));
 
 	// Исходный запрос повторён один раз с новым access-токеном.
 	retried_request = server.Request_At(2);
@@ -185,7 +185,7 @@ void AAuth_Session_Test::expiredAccessTriggersSingleRefreshAndRetriesOnce()
 	QCOMPARE(rotated.Refresh_Token, QString("new-refresh"));
 	QVERIFY(session.Has_Session());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::parallelFailuresShareSingleRefresh()
 {
 	ATest_Http_Server server;
@@ -266,7 +266,7 @@ void AAuth_Session_Test::parallelFailuresShareSingleRefresh()
 	QVERIFY(retried_targets.contains("/api/v1/users/first"));
 	QVERIFY(retried_targets.contains("/api/v1/users/second"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::failedRefreshClearsTokensAndEmitsSessionExpired()
 {
 	ATest_Http_Server server;
@@ -297,21 +297,21 @@ void AAuth_Session_Test::failedRefreshClearsTokensAndEmitsSessionExpired()
 	QVERIFY(request_id > 0);
 	QVERIFY(Wait_For_Response(finished_spy, response));
 	QCOMPARE(response.Request_Id, request_id);
-	QVERIFY(response.Success == false);
+	QVERIFY(!response.Success);
 	QCOMPARE(response.HTTP_Status_Code, 401);
 	QCOMPARE(response.Error.Key(), QString("token_expired"));
 	QCOMPARE(server.Request_Count(), 2);
 
 	// Токены очищены, сессия завершена, UI получает sessionExpired.
 	QCOMPARE(expired_spy.count(), 1);
-	QVERIFY(store.Has_Tokens() == false);
-	QVERIFY(session.Has_Session() == false);
+	QVERIFY(!store.Has_Tokens());
+	QVERIFY(!session.Has_Session());
 	QVERIFY(session.User_ID().isEmpty());
 
 	// Новые приватные запросы отклоняются до нового входа.
 	QCOMPARE(session.Send_Authed(Authed_Get("users/user-1")), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::networkRefreshFailureKeepsLocalSession()
 {
 	ATest_Http_Server server;
@@ -344,7 +344,7 @@ void AAuth_Session_Test::networkRefreshFailureKeepsLocalSession()
 	QVERIFY(request_id > 0);
 	QVERIFY(Wait_For_Response(finished_spy, response));
 	QCOMPARE(response.Request_Id, request_id);
-	QVERIFY(response.Success == false);
+	QVERIFY(!response.Success);
 	QCOMPARE(response.HTTP_Status_Code, 401);
 	QCOMPARE(server.Request_Count(), 2);
 
@@ -353,7 +353,7 @@ void AAuth_Session_Test::networkRefreshFailureKeepsLocalSession()
 	QVERIFY(store.Has_Tokens());
 	QVERIFY(session.Has_Session());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::secondAuthFailureAfterRefreshIsNotRetried()
 {
 	ATest_Http_Server server;
@@ -388,7 +388,7 @@ void AAuth_Session_Test::secondAuthFailureAfterRefreshIsNotRetried()
 	QVERIFY(request_id > 0);
 	QVERIFY(Wait_For_Response(finished_spy, response));
 	QCOMPARE(response.Request_Id, request_id);
-	QVERIFY(response.Success == false);
+	QVERIFY(!response.Success);
 	QCOMPARE(response.HTTP_Status_Code, 401);
 	QCOMPARE(response.Error.Key(), QString("invalid_token"));
 
@@ -407,7 +407,7 @@ void AAuth_Session_Test::secondAuthFailureAfterRefreshIsNotRetried()
 	QVERIFY(store.Has_Tokens());
 	QVERIFY(session.Has_Session());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::coldStartRestoresSessionFromStore()
 {
 	ATest_Http_Server server;
@@ -439,7 +439,7 @@ void AAuth_Session_Test::coldStartRestoresSessionFromStore()
 
 	// Cold start: сессия восстанавливается из приватной SQLite.
 	QVERIFY(database.Open(path));
-	QVERIFY(session.Has_Session() == false);
+	QVERIFY(!session.Has_Session());
 	QVERIFY(session.Restore_From_Store());
 	QVERIFY(session.Has_Session());
 	QCOMPARE(session.User_ID(), QString("user-7"));
@@ -454,7 +454,7 @@ void AAuth_Session_Test::coldStartRestoresSessionFromStore()
 	captured = server.Request_At(0);
 	QCOMPARE(captured.Headers.value("authorization"), QByteArray("Bearer cold-access"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::logsDoNotContainTokens()
 {
 	ATest_Http_Server server;
@@ -493,19 +493,19 @@ void AAuth_Session_Test::logsDoNotContainTokens()
 
 	QVERIFY(request_id > 0);
 	QVERIFY(response_received);
-	QVERIFY(all_messages.contains("expired-access") == false);
-	QVERIFY(all_messages.contains("old-refresh") == false);
-	QVERIFY(all_messages.contains("new-access") == false);
-	QVERIFY(all_messages.contains("new-refresh") == false);
-	QVERIFY(all_messages.contains("secret-message") == false);
-	QVERIFY(all_messages.contains("Authorization") == false);
+	QVERIFY(!all_messages.contains("expired-access"));
+	QVERIFY(!all_messages.contains("old-refresh"));
+	QVERIFY(!all_messages.contains("new-access"));
+	QVERIFY(!all_messages.contains("new-refresh"));
+	QVERIFY(!all_messages.contains("secret-message"));
+	QVERIFY(!all_messages.contains("Authorization"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AAuth_Session_Test::Wait_For_Response(QSignalSpy &in_spy, SHttp_Response &out_response, int in_timeout_ms)
 {
 	QList<QVariant> arguments;
 
-	if (in_spy.isEmpty() && in_spy.wait(in_timeout_ms) == false)
+	if (in_spy.isEmpty() && !in_spy.wait(in_timeout_ms))
 		return false;
 
 	arguments = in_spy.takeFirst();
@@ -517,7 +517,7 @@ bool AAuth_Session_Test::Wait_For_Response(QSignalSpy &in_spy, SHttp_Response &o
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Response AAuth_Session_Test::JSON_Response(int in_status, const QByteArray &in_body)
 {
 	STest_Http_Response response;
@@ -528,7 +528,7 @@ STest_Http_Response AAuth_Session_Test::JSON_Response(int in_status, const QByte
 
 	return response;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SHttp_Request AAuth_Session_Test::Authed_Get(const QString &in_path)
 {
 	SHttp_Request request;
@@ -539,7 +539,7 @@ SHttp_Request AAuth_Session_Test::Authed_Get(const QString &in_path)
 
 	return request;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AAuth_Session_Test::Start_Fixture(SFixture &in_fixture)
 {
 	if (!in_fixture.Directory.isValid() || !in_fixture.Database.Open(in_fixture.Directory.filePath("cache.sqlite3")))
@@ -556,7 +556,7 @@ bool AAuth_Session_Test::Start_Fixture(SFixture &in_fixture)
 
 	return in_fixture.Session.Restore_From_Store();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AAuth_Session_Test::Count_Refreshes(const ATest_Http_Server &in_server)
 {
 	int count = 0;
@@ -569,9 +569,9 @@ int AAuth_Session_Test::Count_Refreshes(const ATest_Http_Server &in_server)
 
 	return count;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // 5xx на refresh — сбой сервера, а не отказ: сессия и токены сохраняются.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::serverErrorOnRefreshKeepsSession()
 {
 	SFixture fixture;
@@ -591,9 +591,9 @@ void AAuth_Session_Test::serverErrorOnRefreshKeepsSession()
 	QVERIFY(fixture.Session.Has_Session());
 	QVERIFY(fixture.Store.Has_Tokens());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // 200 без пары токенов трактуется как transport-сбой (docs/03, сценарий 4).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::malformedRefreshSuccessKeepsSession()
 {
 	SFixture fixture;
@@ -612,10 +612,10 @@ void AAuth_Session_Test::malformedRefreshSuccessKeepsSession()
 	QVERIFY(fixture.Session.Has_Session());
 	QVERIFY(fixture.Store.Has_Tokens());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Logout и вход другим пользователем во время refresh: запоздалая ротация
 // прежней сессии не попадает в новую, очередь прежней сессии не отправляется.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::replacedSessionIgnoresStaleRefresh()
 {
 	SFixture fixture;
@@ -654,10 +654,10 @@ void AAuth_Session_Test::replacedSessionIgnoresStaleRefresh()
 	QVERIFY(Wait_For_Response(finished_spy, response));
 	QCOMPARE(fixture.Server.Request_At(2).Headers.value("authorization"), QByteArray("Bearer access-2"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // 401 по старому токену, пришедший после завершённого refresh, повторяется с
 // новым access без второго обмена одноразового refresh-токена.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Session_Test::lateAuthFailureAfterRefreshSkipsSecondRefresh()
 {
 	SFixture fixture;
@@ -688,7 +688,7 @@ void AAuth_Session_Test::lateAuthFailureAfterRefreshSkipsSecondRefresh()
 	QCOMPARE(fixture.Server.Request_At(4).Headers.value("authorization"), QByteArray("Bearer new-access"));
 	QVERIFY(fixture.Session.Has_Session());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(AAuth_Session_Test)
 

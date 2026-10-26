@@ -1,15 +1,15 @@
-#pragma once
+﻿#pragma once
 
 #include "Data/Auth/Auth_Repository.h"
 
 #include <QObject>
 #include <QString>
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // ViewModel auth-сценариев. Стабильные состояния для UI: idle, checkingEmail,
 // emailTaken, signingUp, loggingIn, error (ключ ошибки — errorKey),
 // authenticated, sessionExpired. UI не знает transport-DTO и backend-имён.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 class Avm_Auth : public QObject
 {
 	Q_OBJECT
@@ -56,4 +56,4 @@ private:
 	static const QString State_Email_Taken;
 	static const QString State_Session_Expired;
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

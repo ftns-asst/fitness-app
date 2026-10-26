@@ -1,4 +1,4 @@
-#include "Data/Network/Api_Error.h"
+﻿#include "Data/Network/Api_Error.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -8,45 +8,45 @@
 
 Q_LOGGING_CATEGORY(API_Error_Log, "trainingapp.api.error")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AApi_Error
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AApi_Error::AApi_Error()
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AApi_Error::AApi_Error(const QString &in_key, const QString &in_message, int in_http_status_code,
                        int in_network_error_code)
     : Error_Key(in_key), Error_Message(in_message), HTTP_Status(in_http_status_code),
       Network_Error(in_network_error_code)
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AApi_Error::Key() const
 {
 	return Error_Key;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AApi_Error::Message() const
 {
 	return Error_Message;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AApi_Error::HTTP_Status_Code() const
 {
 	return HTTP_Status;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AApi_Error::Network_Error_Code() const
 {
 	return Network_Error;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AApi_Error::Is_Error() const
 {
-	return Error_Key.isEmpty() == false;
+	return !Error_Key.isEmpty();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AApi_Error AApi_Error::From_Response(int in_http_status_code, int in_network_error_code,
                                      const QString &in_network_error_text, const QByteArray &in_body)
 {
@@ -56,7 +56,7 @@ AApi_Error AApi_Error::From_Response(int in_http_status_code, int in_network_err
 	QString key;
 	QString message;
 
-	if (in_body.isEmpty() == false)
+	if (!in_body.isEmpty())
 	{
 		document = QJsonDocument::fromJson(in_body, &parse_error);
 
@@ -87,7 +87,7 @@ AApi_Error AApi_Error::From_Response(int in_http_status_code, int in_network_err
 
 	return AApi_Error(key, message, in_http_status_code, in_network_error_code);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AApi_Error::Fallback_Key(int in_http_status_code, int in_network_error_code)
 {
 	if (in_http_status_code <= 0)
@@ -119,4 +119,4 @@ QString AApi_Error::Fallback_Key(int in_http_status_code, int in_network_error_c
 
 	return "undefined_error";
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-#include "Support/Test_Http_Server.h"
+﻿#include "Support/Test_Http_Server.h"
 
 #include <QElapsedTimer>
 #include <QNetworkAccessManager>
@@ -26,7 +26,7 @@ private:
 	static bool Wait_For_Reply(QNetworkReply *in_reply, int in_timeout_ms = 2000);
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server_Test::getReturnsQueuedResponse()
 {
 	ATest_Http_Server server;
@@ -54,7 +54,7 @@ void ATest_Http_Server_Test::getReturnsQueuedResponse()
 	QCOMPARE(request.Target, QByteArray("/api/v1/ping?probe=1"));
 	reply->deleteLater();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server_Test::postCapturesBodyAndHeaders()
 {
 	ATest_Http_Server server;
@@ -86,7 +86,7 @@ void ATest_Http_Server_Test::postCapturesBodyAndHeaders()
 	QCOMPARE(request.Body, body);
 	reply->deleteLater();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server_Test::responsesAreConsumedInOrder()
 {
 	ATest_Http_Server server;
@@ -118,7 +118,7 @@ void ATest_Http_Server_Test::responsesAreConsumedInOrder()
 	first_reply->deleteLater();
 	second_reply->deleteLater();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server_Test::delayedResponseIsDelayed()
 {
 	ATest_Http_Server server;
@@ -135,13 +135,13 @@ void ATest_Http_Server_Test::delayedResponseIsDelayed()
 	elapsed.start();
 
 	QTest::qWait(40);
-	QVERIFY(reply->isFinished() == false);
+	QVERIFY(!reply->isFinished());
 	QVERIFY(Wait_For_Reply(reply));
 	QVERIFY(elapsed.elapsed() >= 100);
 	QCOMPARE(reply->readAll(), QByteArray("delayed"));
 	reply->deleteLater();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server_Test::disconnectProducesNetworkError()
 {
 	ATest_Http_Server server;
@@ -159,7 +159,7 @@ void ATest_Http_Server_Test::disconnectProducesNetworkError()
 	QCOMPARE(server.Request_Count(), 1);
 	reply->deleteLater();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server_Test::malformedRequestReturnsBadRequest()
 {
 	ATest_Http_Server server;
@@ -178,7 +178,7 @@ void ATest_Http_Server_Test::malformedRequestReturnsBadRequest()
 	QVERIFY(response.startsWith("HTTP/1.1 400 Bad Request\r\n"));
 	QCOMPARE(server.Request_Count(), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server_Test::splitRequestBodyIsBuffered()
 {
 	ATest_Http_Server server;
@@ -209,7 +209,7 @@ void ATest_Http_Server_Test::splitRequestBodyIsBuffered()
 	request = server.Request_At(0);
 	QCOMPARE(request.Body, QByteArray("hello world"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server_Test::missingResponseReturnsServerError()
 {
 	ATest_Http_Server server;
@@ -224,7 +224,7 @@ void ATest_Http_Server_Test::missingResponseReturnsServerError()
 	QVERIFY(reply->readAll().contains("No fake response queued"));
 	reply->deleteLater();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ATest_Http_Server_Test::Wait_For_Reply(QNetworkReply *in_reply, int in_timeout_ms)
 {
 	QSignalSpy finished_spy(in_reply, &QNetworkReply::finished);
@@ -234,7 +234,7 @@ bool ATest_Http_Server_Test::Wait_For_Reply(QNetworkReply *in_reply, int in_time
 
 	return finished_spy.wait(in_timeout_ms);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(ATest_Http_Server_Test)
 

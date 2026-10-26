@@ -1,9 +1,10 @@
-#pragma once
+﻿#pragma once
 
 #include "Data/Auth/Auth_Session.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Exercises/Exercises_Api.h"
 #include "Data/Network/Api_Error.h"
+#include "Domain/Error_State.h"
 
 #include <QHash>
 #include <QObject>
@@ -11,14 +12,14 @@
 #include <QStringList>
 #include <QVector>
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Оркестрация каталога упражнений (спринт U2, docs/08-exercises-sprint-plan.md):
 // сеть — источник истины, успех переписывает exercises_cache upsert'ом;
 // transport-сбой (офлайн) вместо ошибки отдаёт кэш с маркером from_cache —
 // каталог обязан открываться без сети. «Своё» распознаётся по владельцу
 // сессии (owner_id == User_ID) и не вытесняется обновлениями базовых:
 // наборы списков не пересекаются, вытеснение разомнуло бы кэш при пагинации.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 class AExercises_Repository : public QObject
 {
 	Q_OBJECT
@@ -152,22 +153,23 @@ private slots:
 	void on_One_Finished(int in_request_id, const SExercises_Item &in_item, const AApi_Error &in_error);
 
 private:
-	// Kind_List — каталог; Kind_Public_List — запрос публичного набора
+	// EPending_Kind::List — каталог; EPending_Kind::Public_List — запрос публичного набора
 	// (is_public-проверка редактора): listFinished слушают два обработчика,
 	// род различает их по идентификатору запроса.
-	enum EPending_Kind
+	enum class EPending_Kind : unsigned char
 	{
-		Kind_List = 0,
-		Kind_Public_List,
-		Kind_One
+		List,
+		Public_List,
+		One,
+		Max
 	};
 	struct SPending_Call
 	{
-		// Kind_List — каталог; Kind_Public_List — запрос публичного набора
+		// EPending_Kind::List — каталог; EPending_Kind::Public_List — запрос публичного набора
 		// (is_public-проверка редактора): сигналы listFinished слушают оба
-		// обработчика, род различает их по идентификатору. Kind_One хранит
+		// обработчика, род различает их по идентификатору. EPending_Kind::One хранит
 		// запрошенный id: в ошибочном ответе (403/404) item пуст.
-		int Kind = Kind_List;
+		EPending_Kind Kind = EPending_Kind::List;
 		QString Exercise_Id;
 	};
 
@@ -175,6 +177,9 @@ private:
 	// запрос откатится проверкой Is_Open() ниже, а не разыменованием 0.
 	QSqlDatabase Connection() const;
 	static bool Is_Transport_Error(const AApi_Error &in_error);
+	// Порядок списка по названию с учётом локали (кириллица и латиница).
+	static void Sort_By_Name(QVector<SExercises_Item> &in_out_items);
+	static bool Name_Less(const SExercises_Item &in_left, const SExercises_Item &in_right);
 	// Имя файла фото упражнения из exercise_photos; false — строки нет.
 	bool Photo_File_Name(const QString &in_exercise_id, QString &out_file_name);
 	// Уборка незакоммиченных стейджингов: стейджинг единственный, новое фото
@@ -194,6 +199,6 @@ private:
 	AsAuth_Session *Session_Instance;
 	AExercises_Api *Exercises_Api_Instance;
 	QHash<int, SPending_Call> Pending_Calls; // request id → вид запроса
-	QString Last_Error_Text;
+	AError_State Error_State; // без категории: ошибки API уже залогированы самим API
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

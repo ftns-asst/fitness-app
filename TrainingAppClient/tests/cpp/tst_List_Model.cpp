@@ -1,4 +1,4 @@
-#include "Presentation/List_Model.h"
+﻿#include "Presentation/List_Model.h"
 
 #include <QSignalSpy>
 #include <QtTest>
@@ -31,7 +31,7 @@ QVector<QVariantMap> AList_Model_Test::Make_Rows()
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AList_Model_Test::startsEmpty()
 {
 	AList_Model model;
@@ -40,7 +40,7 @@ void AList_Model_Test::startsEmpty()
 
 	QCOMPARE(model.Row_Count(), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AList_Model_Test::rowsAndRolesAreExposed()
 {
 	AList_Model model;
@@ -57,7 +57,7 @@ void AList_Model_Test::rowsAndRolesAreExposed()
 	QCOMPARE(roles.value(Qt::UserRole + 2), QByteArray("title"));
 	QCOMPARE(roles.size(), 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AList_Model_Test::dataReturnsRoleValueByName()
 {
 	AList_Model model;
@@ -68,7 +68,7 @@ void AList_Model_Test::dataReturnsRoleValueByName()
 	QCOMPARE(model.Data(0, Qt::UserRole + 1).toString(), QString("p1"));
 	QCOMPARE(model.Data(1, Qt::UserRole + 2).toString(), QString("Масса"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AList_Model_Test::unknownRoleReturnsInvalidVariant()
 {
 	AList_Model model;
@@ -76,9 +76,9 @@ void AList_Model_Test::unknownRoleReturnsInvalidVariant()
 	model.Set_Roles(QStringList{"id"});
 	model.Set_Rows(Make_Rows());
 
-	QVERIFY(model.Data(0, Qt::UserRole + 9).isValid() == false);
+	QVERIFY(!model.Data(0, Qt::UserRole + 9).isValid());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AList_Model_Test::setRowsEmitsResetAndReplacesData()
 {
 	AList_Model model;
@@ -96,7 +96,7 @@ void AList_Model_Test::setRowsEmitsResetAndReplacesData()
 	QCOMPARE(model.Row_Count(), 1);
 	QCOMPARE(model.Data(0, Qt::UserRole + 2).toString(), QString());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AList_Model_Test::outOfRangeIndexIsInvalid()
 {
 	AList_Model model;
@@ -104,10 +104,10 @@ void AList_Model_Test::outOfRangeIndexIsInvalid()
 	model.Set_Roles(QStringList{"id"});
 	model.Set_Rows(Make_Rows());
 
-	QVERIFY(model.Data(-1, Qt::UserRole + 1).isValid() == false);
-	QVERIFY(model.Data(5, Qt::UserRole + 1).isValid() == false);
+	QVERIFY(!model.Data(-1, Qt::UserRole + 1).isValid());
+	QVERIFY(!model.Data(5, Qt::UserRole + 1).isValid());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AList_Model_Test::rowsPreservedAreCopied()
 {
 	AList_Model model;

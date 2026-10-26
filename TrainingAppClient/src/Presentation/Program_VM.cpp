@@ -1,4 +1,4 @@
-#include "Presentation/Program_VM.h"
+﻿#include "Presentation/Program_VM.h"
 
 #include "Data/Program/Program_Repository.h"
 #include "Data/Program/Rule_Repository.h"
@@ -9,7 +9,7 @@
 
 Q_LOGGING_CATEGORY(PROGRAM_VM_Log, "trainingapp.program.vm")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Program::Avm_Program(AProgram_Repository *in_program_repository, ARule_Repository *in_rule_repository,
                          QObject *in_parent)
     : QObject(in_parent), Program_Repository_Instance(in_program_repository),
@@ -23,21 +23,21 @@ Avm_Program::Avm_Program(AProgram_Repository *in_program_repository, ARule_Repos
 	Goal_Targets->Set_Roles(Program_Rows::Goal_Target_Roles());
 	Rules->Set_Roles(Program_Rows::Rule_Roles());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // — QML-мост (camelCase) —
 // Обёртки отделены от методов предметной области: контракт экрана не должен
 // повторять внутренний стиль имён (§2 CODE_STYLE) и зависеть от него.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program::reload(const QString &in_user_id, const QString &in_program_id)
 {
 	return Reload(in_user_id, in_program_id);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Program::selectDay(const QString &in_program_day_id)
 {
 	Select_Day(in_program_day_id);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program::Reload(const QString &in_user_id, const QString &in_program_id)
 {
 	QString program_id;
@@ -56,7 +56,7 @@ bool Avm_Program::Reload(const QString &in_user_id, const QString &in_program_id
 	// по-прежнему показывает текущую, а каталог передаёт конкретную.
 	if (in_program_id.isEmpty())
 	{
-		if (Program_Repository_Instance->Get_Active_Program_Id(in_user_id, program_id) == false || program_id.isEmpty())
+		if (!Program_Repository_Instance->Get_Active_Program_Id(in_user_id, program_id) || program_id.isEmpty())
 		{
 			// Активной программы может не быть — законное состояние «нет
 			// программы», но UI обязан отличать его от ошибки чтения.
@@ -70,7 +70,7 @@ bool Avm_Program::Reload(const QString &in_user_id, const QString &in_program_id
 		program_id = in_program_id;
 	}
 
-	if (Load_Tree(program_id) == false)
+	if (!Load_Tree(program_id))
 	{
 		Set_Error();
 
@@ -82,7 +82,7 @@ bool Avm_Program::Reload(const QString &in_user_id, const QString &in_program_id
 	if (Program.User_Id != in_user_id)
 	{
 		Clear_Tree();
-		Set_Error(Reason_Not_Owned);
+		Set_Error(EReason::Not_Owned);
 
 		return false;
 	}
@@ -91,7 +91,7 @@ bool Avm_Program::Reload(const QString &in_user_id, const QString &in_program_id
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Program::Select_Day(const QString &in_program_day_id)
 {
 	Selected_Day_Id.clear();
@@ -101,7 +101,7 @@ void Avm_Program::Select_Day(const QString &in_program_day_id)
 
 	emit changed();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Program::Clear_Tree()
 {
 	Program = Program_Model::SProgram();
@@ -115,7 +115,7 @@ void Avm_Program::Clear_Tree()
 	Goal_Targets->Set_Rows(QVector<QVariantMap>());
 	Rules->Set_Rows(QVector<QVariantMap>());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program::Load_Tree(const QString &in_program_id)
 {
 	QVector<SGoal_Target> targets;
@@ -141,7 +141,7 @@ bool Avm_Program::Load_Tree(const QString &in_program_id)
 
 	for (int i = 0; i < exercises.size(); ++i)
 	{
-		if (exercises.at(i).Exercise_Id.isEmpty() == false)
+		if (!exercises.at(i).Exercise_Id.isEmpty())
 			exercise_ids.append(exercises.at(i).Exercise_Id);
 	}
 
@@ -172,7 +172,7 @@ bool Avm_Program::Load_Tree(const QString &in_program_id)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program::Load_Day_Exercises(const QString &in_program_day_id)
 {
 	QVector<SDay_Exercise> exercises;
@@ -180,14 +180,14 @@ bool Avm_Program::Load_Day_Exercises(const QString &in_program_day_id)
 	// День проверяется по загруженному списку: репозиторий читает
 	// предписания запросом и для несуществующего дня возвращает пустой
 	// список с true, поэтому выбрать «несуществующий день» нельзя.
-	if (in_program_day_id.isEmpty() || Known_Day_Ids.contains(in_program_day_id) == false)
+	if (in_program_day_id.isEmpty() || !Known_Day_Ids.contains(in_program_day_id))
 	{
 		Day_Exercises->Set_Rows(QVector<QVariantMap>());
 
 		return false;
 	}
 
-	if (Program_Repository_Instance->Load_Day_Exercises(in_program_day_id, exercises) == false)
+	if (!Program_Repository_Instance->Load_Day_Exercises(in_program_day_id, exercises))
 	{
 		Day_Exercises->Set_Rows(QVector<QVariantMap>());
 
@@ -198,36 +198,36 @@ bool Avm_Program::Load_Day_Exercises(const QString &in_program_day_id)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program::Is_Read_Only() const
 {
 	// Без загруженной программы состояние неизвестно, и экран не должен
 	// блокировать действия из-за пустого дерева.
-	if (Has_Program() == false)
+	if (!Has_Program())
 		return false;
 
-	return Program_Model::Program_State_Is_Editable(Program.State) == false;
+	return !Program_Model::Program_State_Is_Editable(Program.State);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Program::Today_Text() const
 {
 	return QDate::currentDate().toString("yyyy-MM-dd");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Program::Clear_Error()
 {
 	Error_Key_Text.clear();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Program::Set_Error(EReason in_reason)
 {
 	bool has_repository_error =
-	    Program_Repository_Instance != 0 && Program_Repository_Instance->Get_Last_Error().isEmpty() == false;
+	    Program_Repository_Instance != 0 && !Program_Repository_Instance->Get_Last_Error().isEmpty();
 
 	// Причину отказа различаем явно: «нет активной программы» и «программа не
 	// найдена или чужая» — разные состояния экрана, и подменять их одним ключом
 	// значило бы показывать пользователю неверную подпись.
-	if (in_reason == Reason_Not_Owned)
+	if (in_reason == EReason::Not_Owned)
 		Error_Key_Text = "program_not_found";
 	else
 		Error_Key_Text = has_repository_error ? "undefined_error" : "no_active_program";
@@ -239,79 +239,79 @@ void Avm_Program::Set_Error(EReason in_reason)
 	// перезагрузе, и пользователь не видит, почему ничего не открылось.
 	emit changed();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program::Has_Program() const
 {
-	return Program.ID.isEmpty() == false;
+	return !Program.ID.isEmpty();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Program::programId() const
 {
 	return Program.ID;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Program::title() const
 {
 	return Program.Title;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Program::goal() const
 {
 	return Program_Model::To_String(Program.Goal);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Program::state() const
 {
 	return Program_Model::To_String(Program.State);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int Avm_Program::weeksTotal() const
 {
 	return Program.Term.Weeks_Total;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int Avm_Program::revision() const
 {
 	return Program.Revision;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Program::startDate() const
 {
 	return Program.Actual_Start_Date.isEmpty() ? Program.Term.Start_Date : Program.Actual_Start_Date;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Program::selectedDayId() const
 {
 	return Selected_Day_Id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Program::errorKey() const
 {
 	return Error_Key_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program::week_slots() const
 {
 	return Week_Slots;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program::program_days() const
 {
 	return Program_Days;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program::day_exercises() const
 {
 	return Day_Exercises;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program::goal_targets() const
 {
 	return Goal_Targets;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program::rules() const
 {
 	return Rules;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

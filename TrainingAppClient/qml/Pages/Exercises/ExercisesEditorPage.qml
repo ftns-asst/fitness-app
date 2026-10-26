@@ -103,7 +103,7 @@ PageScaffold {
     Item {
         id: photoBlock
 
-        height: 190
+        height: 240
         visible: page.hasViewModel
         width: parent.width
 

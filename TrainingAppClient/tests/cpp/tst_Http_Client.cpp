@@ -1,4 +1,4 @@
-#include "Data/Network/Http_Client.h"
+﻿#include "Data/Network/Http_Client.h"
 #include "Support/Test_Http_Server.h"
 
 #include <QElapsedTimer>
@@ -9,7 +9,7 @@
 
 static QStringList Captured_Messages;
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static void Capture_Message(QtMsgType in_type, const QMessageLogContext &in_context, const QString &in_message)
 {
 	Q_UNUSED(in_type);
@@ -34,13 +34,14 @@ private slots:
 	void timeoutProducesTimeoutError();
 	void invalidRequestIsRejectedSynchronously();
 	void logsDoNotContainSecretsOrQuery();
+	void oversizedResponseIsAbortedWithoutRetry();
 
 private:
 	static bool Wait_For_Response(QSignalSpy &in_spy, SHttp_Response &out_response, int in_timeout_ms = 3000);
 	static STest_Http_Response JSON_Response(int in_status, const QByteArray &in_body);
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AHttp_Client_Test::successReturnsUnifiedResponse()
 {
 	ATest_Http_Server server;
@@ -71,7 +72,7 @@ void AHttp_Client_Test::successReturnsUnifiedResponse()
 	QVERIFY(response.JSON_Valid);
 	QVERIFY(response.JSON.object().value("free").toBool());
 	QCOMPARE(response.Headers.value("x-trace-id"), QByteArray("trace-1"));
-	QVERIFY(response.Error.Is_Error() == false);
+	QVERIFY(!response.Error.Is_Error());
 	QCOMPARE(server.Request_Count(), 1);
 	captured_request = server.Request_At(0);
 	QCOMPARE(captured_request.Method, QByteArray("GET"));
@@ -79,7 +80,7 @@ void AHttp_Client_Test::successReturnsUnifiedResponse()
 	QCOMPARE(captured_request.Headers.value("accept"), QByteArray("application/json"));
 	QCOMPARE(captured_request.Headers.value("authorization"), QByteArray("Bearer unit-test-access-token"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AHttp_Client_Test::malformedSuccessBodyIsReportedWithoutTransportFailure()
 {
 	ATest_Http_Server server;
@@ -95,11 +96,11 @@ void AHttp_Client_Test::malformedSuccessBodyIsReportedWithoutTransportFailure()
 
 	QVERIFY(Wait_For_Response(response_spy, response));
 	QVERIFY(response.Success);
-	QVERIFY(response.JSON_Valid == false);
+	QVERIFY(!response.JSON_Valid);
 	QCOMPARE(response.Body, QByteArray("not-json"));
-	QVERIFY(response.Error.Is_Error() == false);
+	QVERIFY(!response.Error.Is_Error());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AHttp_Client_Test::postJsonSendsBodyAndDoesNotRetryByDefault()
 {
 	ATest_Http_Server server;
@@ -119,7 +120,7 @@ void AHttp_Client_Test::postJsonSendsBodyAndDoesNotRetryByDefault()
 	QVERIFY(client.Post_JSON("auth/login", body) > 0);
 
 	QVERIFY(Wait_For_Response(response_spy, response));
-	QVERIFY(response.Success == false);
+	QVERIFY(!response.Success);
 	QCOMPARE(response.Attempt_Count, 1);
 	QCOMPARE(server.Request_Count(), 1);
 	QCOMPARE(server.Pending_Response_Count(), 1);
@@ -129,7 +130,7 @@ void AHttp_Client_Test::postJsonSendsBodyAndDoesNotRetryByDefault()
 	QCOMPARE(QJsonDocument::fromJson(captured_request.Body).object().value("email").toString(),
 	         QString("user@example.com"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AHttp_Client_Test::backendErrorKeyHasPriority()
 {
 	ATest_Http_Server server;
@@ -144,14 +145,14 @@ void AHttp_Client_Test::backendErrorKeyHasPriority()
 	QVERIFY(client.Get("error") > 0);
 
 	QVERIFY(Wait_For_Response(response_spy, response));
-	QVERIFY(response.Success == false);
+	QVERIFY(!response.Success);
 	QCOMPARE(response.Error.Key(), QString("email_taken"));
 	QCOMPARE(response.Error.Message(), QString("already used"));
 	QCOMPARE(response.Error.HTTP_Status_Code(), 400);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AHttp_Client_Test::fallbackErrorMapping_data()
 {
 	QTest::addColumn<int>("httpStatus");
@@ -168,7 +169,7 @@ void AHttp_Client_Test::fallbackErrorMapping_data()
 	QTest::newRow("network") << 0 << (int)QNetworkReply::RemoteHostClosedError << QString("network_error");
 	QTest::newRow("timeout-network") << 0 << (int)QNetworkReply::TimeoutError << QString("timeout");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AHttp_Client_Test::fallbackErrorMapping()
 {
 	QFETCH(int, httpStatus);
@@ -181,7 +182,7 @@ void AHttp_Client_Test::fallbackErrorMapping()
 	QCOMPARE(error.HTTP_Status_Code(), httpStatus);
 	QCOMPARE(error.Network_Error_Code(), networkError);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AHttp_Client_Test::retriesServerErrorsWithBackoff()
 {
 	ATest_Http_Server server;
@@ -207,7 +208,7 @@ void AHttp_Client_Test::retriesServerErrorsWithBackoff()
 	QCOMPARE(server.Request_Count(), 3);
 	QVERIFY(elapsed.elapsed() >= 50);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AHttp_Client_Test::retriesNetworkDisconnect()
 {
 	ATest_Http_Server server;
@@ -231,7 +232,7 @@ void AHttp_Client_Test::retriesNetworkDisconnect()
 	QCOMPARE(response.Attempt_Count, 2);
 	QCOMPARE(server.Request_Count(), 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AHttp_Client_Test::retryExhaustionReturnsLastError()
 {
 	ATest_Http_Server server;
@@ -251,13 +252,13 @@ void AHttp_Client_Test::retryExhaustionReturnsLastError()
 
 	QVERIFY(client.Get("retry-exhaustion") > 0);
 	QVERIFY(Wait_For_Response(response_spy, response));
-	QVERIFY(response.Success == false);
+	QVERIFY(!response.Success);
 	QCOMPARE(response.Attempt_Count, 3);
 	QCOMPARE(response.Error.Key(), QString("server_error"));
 	QCOMPARE(server.Request_Count(), 3);
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AHttp_Client_Test::timeoutProducesTimeoutError()
 {
 	ATest_Http_Server server;
@@ -277,12 +278,12 @@ void AHttp_Client_Test::timeoutProducesTimeoutError()
 	QVERIFY(client.Get("timeout") > 0);
 
 	QVERIFY(Wait_For_Response(response_spy, response));
-	QVERIFY(response.Success == false);
+	QVERIFY(!response.Success);
 	QCOMPARE(response.HTTP_Status_Code, 0);
 	QCOMPARE(response.Network_Error_Code, (int)QNetworkReply::TimeoutError);
 	QCOMPARE(response.Error.Key(), QString("timeout"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AHttp_Client_Test::invalidRequestIsRejectedSynchronously()
 {
 	AsHttp_Client client(QUrl("https://example.com/api/v1"));
@@ -308,10 +309,10 @@ void AHttp_Client_Test::invalidRequestIsRejectedSynchronously()
 	QCOMPARE(client.Send(request), 0);
 	QVERIFY(client.Last_Error().contains("A-Z"));
 
-	QVERIFY(client.Set_Base_URL(QUrl("file:///tmp/api")) == false);
+	QVERIFY(!client.Set_Base_URL(QUrl("file:///tmp/api")));
 	QVERIFY(client.Base_URL().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AHttp_Client_Test::logsDoNotContainSecretsOrQuery()
 {
 	ATest_Http_Server server;
@@ -341,17 +342,17 @@ void AHttp_Client_Test::logsDoNotContainSecretsOrQuery()
 	QVERIFY(response_received);
 	QCOMPARE(response.Error.Key(), QString("token_expired"));
 	QVERIFY(all_messages.contains("/users/id"));
-	QVERIFY(all_messages.contains("super-secret-access-token") == false);
-	QVERIFY(all_messages.contains("super-secret-refresh-token") == false);
-	QVERIFY(all_messages.contains("secret-message") == false);
-	QVERIFY(all_messages.contains("Authorization") == false);
+	QVERIFY(!all_messages.contains("super-secret-access-token"));
+	QVERIFY(!all_messages.contains("super-secret-refresh-token"));
+	QVERIFY(!all_messages.contains("secret-message"));
+	QVERIFY(!all_messages.contains("Authorization"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AHttp_Client_Test::Wait_For_Response(QSignalSpy &in_spy, SHttp_Response &out_response, int in_timeout_ms)
 {
 	QList<QVariant> arguments;
 
-	if (in_spy.isEmpty() && in_spy.wait(in_timeout_ms) == false)
+	if (in_spy.isEmpty() && !in_spy.wait(in_timeout_ms))
 		return false;
 
 	arguments = in_spy.takeFirst();
@@ -363,7 +364,7 @@ bool AHttp_Client_Test::Wait_For_Response(QSignalSpy &in_spy, SHttp_Response &ou
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Response AHttp_Client_Test::JSON_Response(int in_status, const QByteArray &in_body)
 {
 	STest_Http_Response response;
@@ -374,7 +375,32 @@ STest_Http_Response AHttp_Client_Test::JSON_Response(int in_status, const QByteA
 
 	return response;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+void AHttp_Client_Test::oversizedResponseIsAbortedWithoutRetry()
+{
+	ATest_Http_Server server;
+	QUrl base_url;
+	AsHttp_Client client(base_url);
+	QSignalSpy response_spy(&client, &AsHttp_Client::requestFinished);
+	SHttp_Response response;
+
+	QVERIFY(server.Start());
+	QVERIFY(client.Set_Base_URL(server.Base_URL()));
+	client.Set_Max_Response_Bytes(1024);
+	client.Set_Max_Retry_Count(2);
+	client.Set_Initial_Retry_Delay_Ms(1);
+	server.Enqueue_Response(JSON_Response(200, QByteArray("[\"") + QByteArray(4096, 'x') + "\"]"));
+	server.Enqueue_Response(JSON_Response(200, "[]"));
+	QVERIFY(client.Get("big") > 0);
+
+	QVERIFY(Wait_For_Response(response_spy, response));
+	QVERIFY(!response.Success);
+	QVERIFY(response.Body.isEmpty());
+	QCOMPARE(response.Error.Key(), QString("response_too_large"));
+	QCOMPARE(response.Attempt_Count, 1);
+	QCOMPARE(server.Request_Count(), 1);
+}
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(AHttp_Client_Test)
 

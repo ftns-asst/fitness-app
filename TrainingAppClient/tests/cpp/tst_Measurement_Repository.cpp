@@ -1,4 +1,4 @@
-#include "Data/Database/Sql_Database.h"
+﻿#include "Data/Database/Sql_Database.h"
 #include "Data/Program/Measurement_Repository.h"
 #include "Domain/Program_Model.h"
 
@@ -25,14 +25,14 @@ private:
 	QTemporaryDir Directory;
 	int Counter = 0;
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AMeasurement_Repository_Test::Make_Database_Path()
 {
 	++Counter;
 
 	return Directory.filePath(QString("measurements_%1.sqlite3").arg(Counter));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SBody_Measurement AMeasurement_Repository_Test::Make_Measurement(const QString &in_user_id, const QString &in_date)
 {
 	SBody_Measurement measurement;
@@ -42,7 +42,7 @@ SBody_Measurement AMeasurement_Repository_Test::Make_Measurement(const QString &
 
 	return measurement;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMeasurement_Repository_Test::saveAndMergeSameDay()
 {
 	AsSql_Database database;
@@ -61,10 +61,10 @@ void AMeasurement_Repository_Test::saveAndMergeSameDay()
 	measurement.Has_Weight_Kg = true;
 	QVERIFY(repository.Save_Measurement(measurement));
 	QVERIFY(repository.Find_Measurement("u1", "2026-09-29", loaded));
-	QVERIFY(loaded.ID.isEmpty() == false);
+	QVERIFY(!loaded.ID.isEmpty());
 	first_id = loaded.ID;
 	QCOMPARE(loaded.Weight_Kg, 82.5);
-	QVERIFY(loaded.Has_Waist_Cm == false);
+	QVERIFY(!loaded.Has_Waist_Cm);
 
 	// Вечерние обхваты не затирают утренний вес (§3.8).
 	measurement = Make_Measurement("u1", "2026-09-29");
@@ -79,7 +79,7 @@ void AMeasurement_Repository_Test::saveAndMergeSameDay()
 	QCOMPARE(loaded.Weight_Kg, 82.5);
 	QCOMPARE(loaded.Waist_Cm, 84.0);
 	QCOMPARE(loaded.Chest_Cm, 104.0);
-	QVERIFY(loaded.Has_Hip_Cm == false);
+	QVERIFY(!loaded.Has_Hip_Cm);
 
 	// Повторный вес того же дня обновляет значение, а не создаёт строку.
 	measurement = Make_Measurement("u1", "2026-09-29");
@@ -98,7 +98,7 @@ void AMeasurement_Repository_Test::saveAndMergeSameDay()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toInt(), 1);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMeasurement_Repository_Test::saveValidatesInput()
 {
 	AsSql_Database database;
@@ -109,44 +109,44 @@ void AMeasurement_Repository_Test::saveValidatesInput()
 
 	QVERIFY(database.Open(Make_Database_Path()));
 	measurement = Make_Measurement("u1", "2026-09-29");
-	QVERIFY(repository.Save_Measurement(measurement) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Save_Measurement(measurement));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 
 	measurement = Make_Measurement(QString(), "2026-09-29");
 	measurement.Weight_Kg = 80;
 	measurement.Has_Weight_Kg = true;
-	QVERIFY(repository.Save_Measurement(measurement) == false);
+	QVERIFY(!repository.Save_Measurement(measurement));
 
 	measurement = Make_Measurement("u1", "29.09.2026");
 	measurement.Weight_Kg = 80;
 	measurement.Has_Weight_Kg = true;
-	QVERIFY(repository.Save_Measurement(measurement) == false);
+	QVERIFY(!repository.Save_Measurement(measurement));
 	measurement.Date = "2026-13-01";
-	QVERIFY(repository.Save_Measurement(measurement) == false);
+	QVERIFY(!repository.Save_Measurement(measurement));
 	measurement.Date = QString();
-	QVERIFY(repository.Save_Measurement(measurement) == false);
+	QVERIFY(!repository.Save_Measurement(measurement));
 
 	measurement = Make_Measurement("u1", "2026-09-29");
 	measurement.Weight_Kg = 1000;
 	measurement.Has_Weight_Kg = true;
-	QVERIFY(repository.Save_Measurement(measurement) == false);
+	QVERIFY(!repository.Save_Measurement(measurement));
 	measurement.Weight_Kg = 80;
 	measurement.Waist_Cm = -1;
 	measurement.Has_Waist_Cm = true;
-	QVERIFY(repository.Save_Measurement(measurement) == false);
+	QVERIFY(!repository.Save_Measurement(measurement));
 
 	AsSql_Database closed;
 	AMeasurement_Repository closed_repository(&closed);
 	measurement = Make_Measurement("u1", "2026-09-29");
 	measurement.Weight_Kg = 80;
 	measurement.Has_Weight_Kg = true;
-	QVERIFY(closed_repository.Save_Measurement(measurement) == false);
-	QVERIFY(closed_repository.Find_Measurement("u1", "2026-09-29", loaded) == false);
-	QVERIFY(closed_repository.Load_Range("u1", "2026-09-01", "2026-09-30", empty_range) == false);
-	QVERIFY(closed_repository.Load_Latest("u1", loaded) == false);
-	QVERIFY(closed_repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!closed_repository.Save_Measurement(measurement));
+	QVERIFY(!closed_repository.Find_Measurement("u1", "2026-09-29", loaded));
+	QVERIFY(!closed_repository.Load_Range("u1", "2026-09-01", "2026-09-30", empty_range));
+	QVERIFY(!closed_repository.Load_Latest("u1", loaded));
+	QVERIFY(!closed_repository.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMeasurement_Repository_Test::rangeAndLatest()
 {
 	AsSql_Database database;
@@ -178,18 +178,18 @@ void AMeasurement_Repository_Test::rangeAndLatest()
 	QVERIFY(repository.Load_Range("u1", "2026-09-21", "2026-09-21", range));
 	QCOMPARE(range.size(), 1);
 	QCOMPARE(range.at(0).Weight_Kg, 83.5);
-	QVERIFY(range.at(0).Has_Waist_Cm == false);
+	QVERIFY(!range.at(0).Has_Waist_Cm);
 	QVERIFY(repository.Load_Range("u1", "2026-08-01", "2026-08-31", range));
 	QVERIFY(range.isEmpty());
 	QVERIFY(repository.Load_Latest("u1", latest));
 	QCOMPARE(latest.Date, QString("2026-09-28"));
 	QCOMPARE(latest.Weight_Kg, 83.0);
 	QCOMPARE(latest.Waist_Cm, 82.0);
-	QVERIFY(repository.Load_Latest("u2", latest) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
-	QVERIFY(repository.Find_Measurement("u2", "2026-09-28", latest) == false);
+	QVERIFY(!repository.Load_Latest("u2", latest));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
+	QVERIFY(!repository.Find_Measurement("u2", "2026-09-28", latest));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMeasurement_Repository_Test::deleteMeasurement()
 {
 	AsSql_Database database;
@@ -204,14 +204,14 @@ void AMeasurement_Repository_Test::deleteMeasurement()
 	measurement.Has_Weight_Kg = true;
 	QVERIFY(repository.Save_Measurement(measurement));
 	QVERIFY(repository.Delete_Measurement("u1", "2026-09-29"));
-	QVERIFY(repository.Find_Measurement("u1", "2026-09-29", loaded) == false);
+	QVERIFY(!repository.Find_Measurement("u1", "2026-09-29", loaded));
 	QVERIFY(repository.Load_Range("u1", "2026-09-01", "2026-09-30", range));
 	QVERIFY(range.isEmpty());
-	QVERIFY(repository.Delete_Measurement("u1", "2026-09-29") == false);
-	QVERIFY(repository.Delete_Measurement("u2", "2026-09-29") == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Delete_Measurement("u1", "2026-09-29"));
+	QVERIFY(!repository.Delete_Measurement("u2", "2026-09-29"));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMeasurement_Repository_Test::measurementsArePerUser()
 {
 	AsSql_Database database;
@@ -237,7 +237,7 @@ void AMeasurement_Repository_Test::measurementsArePerUser()
 	QCOMPARE(range.size(), 1);
 	QCOMPARE(range.at(0).User_Id, QString("u1"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QTEST_MAIN(AMeasurement_Repository_Test)
 
 #include "tst_Measurement_Repository.moc"

@@ -1,4 +1,4 @@
-#include "Data/Users/Users_Repository.h"
+﻿#include "Data/Users/Users_Repository.h"
 
 #include <QDateTime>
 #include <QJsonDocument>
@@ -9,11 +9,11 @@
 
 Q_LOGGING_CATEGORY(USERS_Repository_Log, "trainingapp.users.repository")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AUsers_Repository
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 const char *AUsers_Repository::Status_Saved_Locally = "saved_locally";
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AUsers_Repository::AUsers_Repository(AsAuth_Session *in_session, AsSql_Database *in_database, QObject *in_parent)
     : QObject(in_parent), Database_Instance(in_database), Session_Instance(in_session)
 {
@@ -22,7 +22,7 @@ AUsers_Repository::AUsers_Repository(AsAuth_Session *in_session, AsSql_Database 
 
 	connect(Users_Api_Instance, &AUsers_Api::getUserFinished, this, &AUsers_Repository::on_Get_User_Finished);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AUsers_Repository::Get_User(const QString &in_user_id, bool in_with_profile)
 {
 	int request_id;
@@ -36,21 +36,21 @@ int AUsers_Repository::Get_User(const QString &in_user_id, bool in_with_profile)
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AUsers_Repository::Get_Cached_User(const QString &in_user_id, SUsers_User &out_user)
 {
 	QSqlQuery query(Connection());
 
 	out_user = SUsers_User();
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	query.prepare("SELECT u.email, u.display_name, u.created_at, p.age, p.gender, p.height_cm, p.weight_kg "
 	              "FROM user_cache u LEFT JOIN profile_cache p ON p.user_id = u.id WHERE u.id = ?");
 	query.addBindValue(in_user_id);
 
-	if (query.exec() == false || query.next() == false)
+	if (!query.exec() || !query.next())
 		return false;
 
 	out_user.ID = in_user_id;
@@ -58,7 +58,7 @@ bool AUsers_Repository::Get_Cached_User(const QString &in_user_id, SUsers_User &
 	out_user.Name = query.value(1).toString();
 	out_user.Created_At = query.value(2).toString();
 
-	if (query.isNull(3) == false)
+	if (!query.isNull(3))
 	{
 		out_user.Has_Profile = true;
 		out_user.Profile.Age = query.value(3).toInt();
@@ -69,7 +69,7 @@ bool AUsers_Repository::Get_Cached_User(const QString &in_user_id, SUsers_User &
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AUsers_Repository::Load_Local_Profile(const QString &in_user_id, QString &out_level, QString &out_goal,
                                            int &out_workouts_per_week)
 {
@@ -79,13 +79,13 @@ bool AUsers_Repository::Load_Local_Profile(const QString &in_user_id, QString &o
 	out_goal.clear();
 	out_workouts_per_week = 0;
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	query.prepare("SELECT level, goal, workouts_per_week FROM profile_local WHERE user_id = ?");
 	query.addBindValue(in_user_id);
 
-	if (query.exec() == false || query.next() == false)
+	if (!query.exec() || !query.next())
 		return false;
 
 	out_level = query.value(0).toString();
@@ -94,7 +94,7 @@ bool AUsers_Repository::Load_Local_Profile(const QString &in_user_id, QString &o
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AUsers_Repository::Save_Local_Profile(const QString &in_user_id, const QString &in_level, const QString &in_goal,
                                            int in_workouts_per_week, QString &out_status)
 {
@@ -103,7 +103,7 @@ bool AUsers_Repository::Save_Local_Profile(const QString &in_user_id, const QStr
 
 	out_status.clear();
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	// Изменения фиксируются локально; доставка на сервер — воркер issue 34.
@@ -117,7 +117,7 @@ bool AUsers_Repository::Save_Local_Profile(const QString &in_user_id, const QStr
 	query.addBindValue(in_workouts_per_week);
 	query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		qCWarning(USERS_Repository_Log).noquote() << "profile_local persist failed";
 		return false;
@@ -133,7 +133,7 @@ bool AUsers_Repository::Save_Local_Profile(const QString &in_user_id, const QStr
 	query.addBindValue(QString::fromUtf8(QJsonDocument(payload).toJson(QJsonDocument::Compact)));
 	query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		qCWarning(USERS_Repository_Log).noquote() << "sync_outbox persist failed";
 		return false;
@@ -144,13 +144,13 @@ bool AUsers_Repository::Save_Local_Profile(const QString &in_user_id, const QStr
 
 	return true;
 }
-//----------------------------------------------------------------------------
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Параметры авторасчёта КБЖУ (спринт S7): дата рождения и уровень активности.
 // Запись идёт отдельным upsert, чтобы не трогать уровень и цель: их вызывает
 // редактор программы, и общий upsert затирал бы их пустыми значениями при
 // заполнении только этих двух полей.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AUsers_Repository::Load_Macro_Params(const QString &in_user_id, QString &out_birth_date,
                                           QString &out_activity_level)
 {
@@ -159,7 +159,7 @@ bool AUsers_Repository::Load_Macro_Params(const QString &in_user_id, QString &ou
 	out_birth_date.clear();
 	out_activity_level.clear();
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	query.prepare("SELECT birth_date, activity_level FROM profile_local WHERE user_id = ?");
@@ -167,7 +167,7 @@ bool AUsers_Repository::Load_Macro_Params(const QString &in_user_id, QString &ou
 
 	// Отсутствие строки — не ошибка: параметры просто не заданы, и экран
 	// покажет пустую форму вместо сообщения о сбое.
-	if (query.exec() == false || query.next() == false)
+	if (!query.exec() || !query.next())
 		return false;
 
 	out_birth_date = query.value(0).toString();
@@ -175,13 +175,13 @@ bool AUsers_Repository::Load_Macro_Params(const QString &in_user_id, QString &ou
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AUsers_Repository::Save_Macro_Params(const QString &in_user_id, const QString &in_birth_date,
                                           const QString &in_activity_level)
 {
 	QSqlQuery query(Connection());
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	// Пустые значения сохраняются как есть (NULL в QString): незаполненное
@@ -196,7 +196,7 @@ bool AUsers_Repository::Save_Macro_Params(const QString &in_user_id, const QStri
 	query.addBindValue(in_activity_level);
 	query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		qCWarning(USERS_Repository_Log).noquote() << "macro params persist failed" << query.lastError().text();
 
@@ -205,12 +205,12 @@ bool AUsers_Repository::Save_Macro_Params(const QString &in_user_id, const QStri
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Результат авторасчёта КБЖУ (миграция v6). Строка профиля существует ради
 // уровня и цели, поэтому её наличие ещё не означает, что расчёт делали: признак
 // «считали» — заполненная дата расчёта, и NULL в ней возвращает false, а не
 // нули, которые на экране выглядели бы как честный результат.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AUsers_Repository::Load_Macro_Result(const QString &in_user_id, AsMacro_Calculator::SResult &out_result,
                                           QString &out_calculated_at)
 {
@@ -219,14 +219,14 @@ bool AUsers_Repository::Load_Macro_Result(const QString &in_user_id, AsMacro_Cal
 	out_result = AsMacro_Calculator::SResult();
 	out_calculated_at.clear();
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	query.prepare("SELECT macro_calculated_at, macro_bmr_kcal, macro_tdee_kcal, macro_calories_kcal, macro_protein_g, "
 	              "macro_fat_g, macro_carbs_g FROM profile_local WHERE user_id = ?");
 	query.addBindValue(in_user_id);
 
-	if (query.exec() == false || query.next() == false)
+	if (!query.exec() || !query.next())
 		return false;
 
 	if (query.value(0).isNull() || query.value(3).isNull())
@@ -242,13 +242,13 @@ bool AUsers_Repository::Load_Macro_Result(const QString &in_user_id, AsMacro_Cal
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AUsers_Repository::Save_Macro_Result(const QString &in_user_id, const AsMacro_Calculator::SResult &in_result)
 {
 	QSqlQuery query(Connection());
 	const QString now = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	// Отдельный upsert, как и у параметров: строка profile_local принадлежит
@@ -272,7 +272,7 @@ bool AUsers_Repository::Save_Macro_Result(const QString &in_user_id, const AsMac
 	query.addBindValue(in_result.Carbs_G);
 	query.addBindValue(now);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		qCWarning(USERS_Repository_Log).noquote() << "macro result persist failed" << query.lastError().text();
 
@@ -281,10 +281,10 @@ bool AUsers_Repository::Save_Macro_Result(const QString &in_user_id, const AsMac
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AUsers_Repository::Clear_Local_Profile(const QString &in_user_id)
 {
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	QSqlQuery query(Connection());
@@ -292,7 +292,7 @@ bool AUsers_Repository::Clear_Local_Profile(const QString &in_user_id)
 	query.prepare("DELETE FROM profile_local WHERE user_id = ?");
 	query.addBindValue(in_user_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		qCWarning(USERS_Repository_Log).noquote() << "profile_local clear failed";
 		return false;
@@ -302,20 +302,20 @@ bool AUsers_Repository::Clear_Local_Profile(const QString &in_user_id)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AUsers_Repository::Pending_Outbox_Count() const
 {
 	QSqlQuery query(Connection());
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return 0;
 
-	if (query.exec("SELECT COUNT(*) FROM sync_outbox") == false || query.next() == false)
+	if (!query.exec("SELECT COUNT(*) FROM sync_outbox") || !query.next())
 		return 0;
 
 	return query.value(0).toInt();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Repository::on_Get_User_Finished(int in_request_id, const SUsers_User &in_user, const AApi_Error &in_error)
 {
 	SUsers_User user = in_user;
@@ -325,9 +325,9 @@ void AUsers_Repository::on_Get_User_Finished(int in_request_id, const SUsers_Use
 
 	user_id = Pending_Requests.contains(in_request_id) ? Pending_Requests.take(in_request_id) : user.ID;
 
-	if (error.Is_Error() == false)
+	if (!error.Is_Error())
 	{
-		if (Persist_User(user) == false)
+		if (!Persist_User(user))
 		{
 			// Сеть ответила успешно, но локальная база не приняла кэш.
 			error = AApi_Error("undefined_error", "Local user cache persist failed", 0, 0);
@@ -341,7 +341,7 @@ void AUsers_Repository::on_Get_User_Finished(int in_request_id, const SUsers_Use
 
 	emit getUserFinished(in_request_id, user, from_cache, error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QSqlDatabase AUsers_Repository::Connection() const
 {
 	if (Database_Instance != 0)
@@ -349,7 +349,7 @@ QSqlDatabase AUsers_Repository::Connection() const
 
 	return QSqlDatabase();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AUsers_Repository::Persist_User(const SUsers_User &in_user)
 {
 	QSqlQuery query(Connection());
@@ -364,18 +364,18 @@ bool AUsers_Repository::Persist_User(const SUsers_User &in_user)
 	query.addBindValue(in_user.Created_At);
 	query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		qCWarning(USERS_Repository_Log).noquote() << "user_cache persist failed";
 		return false;
 	}
 
-	if (in_user.Has_Profile && Persist_Profile_Cache(in_user.ID, in_user.Profile) == false)
+	if (in_user.Has_Profile && !Persist_Profile_Cache(in_user.ID, in_user.Profile))
 		return false;
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AUsers_Repository::Persist_Profile_Cache(const QString &in_user_id, const SUsers_Profile &in_profile)
 {
 	QSqlQuery query(Connection());
@@ -392,7 +392,7 @@ bool AUsers_Repository::Persist_Profile_Cache(const QString &in_user_id, const S
 	query.addBindValue(in_profile.Weight_Kg);
 	query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		qCWarning(USERS_Repository_Log).noquote() << "profile_cache persist failed";
 		return false;
@@ -400,4 +400,4 @@ bool AUsers_Repository::Persist_Profile_Cache(const QString &in_user_id, const S
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

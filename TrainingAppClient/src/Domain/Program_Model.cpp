@@ -1,4 +1,4 @@
-#include "Domain/Program_Model.h"
+﻿#include "Domain/Program_Model.h"
 
 #include <QDate>
 #include <QJsonArray>
@@ -45,9 +45,9 @@ static const char *const Rule_Metric_Texts[] = {
 static const char *const Weight_Mode_Texts[] = {"fixed", "percentOf1RM", "byFeel", "fromLastSession", "bodyWeight"};
 static const char *const Progression_Type_Texts[] = {"linearWeight", "doubleProgression", "percentPerWeek", "manual"};
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // STerm
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString STerm::Compute_End_Date() const
 {
 	QDate start_date;
@@ -59,16 +59,16 @@ QString STerm::Compute_End_Date() const
 
 	start_date = QDate::fromString(Start_Date, "yyyy-MM-dd");
 
-	if (start_date.isValid() == false)
+	if (!start_date.isValid())
 		return QString();
 
 	return start_date.addDays(Weeks_Total * 7 - 1).toString("yyyy-MM-dd");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // SProgram_Rule: вид правила
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Вид выводится из наличия цели, а не из категории: категория «Другое» с
 // числом остаётся измеримым правилом, иначе оно выпало бы из adherence
 // вместе со своей целью. Категория при этом тоже должна быть «Другое» —
@@ -82,7 +82,7 @@ ERule_Kind Get_Rule_Kind(const SProgram_Rule &in_rule)
 
 	return Has_Advice_Text(in_rule) ? ERule_Kind::Advice : ERule_Kind::Measurable;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Текст рекомендации содержателен, только если в нём есть непробельный
 // символ: строка из пробелов прошла бы проверку «не пусто» и превратила
 // снятие требования цели в способ завести пустое правило.
@@ -91,11 +91,11 @@ bool Has_Advice_Text(const SProgram_Rule &in_rule)
 	if (in_rule.Category != ERule_Category::Other)
 		return false;
 
-	return in_rule.Note.trimmed().isEmpty() == false;
+	return !in_rule.Note.trimmed().isEmpty();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EProgram_Source_Kind in_value)
 {
 	int index;
@@ -107,7 +107,7 @@ QString To_String(EProgram_Source_Kind in_value)
 
 	return QString::fromLatin1(Program_Source_Kind_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EProgram_Source_Kind &out_value)
 {
 	for (int i = 0; i < (int)EProgram_Source_Kind::Max; ++i)
@@ -122,7 +122,7 @@ bool From_String(const QString &in_text, EProgram_Source_Kind &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EProgram_Goal in_value)
 {
 	int index;
@@ -134,7 +134,7 @@ QString To_String(EProgram_Goal in_value)
 
 	return QString::fromLatin1(Program_Goal_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EProgram_Goal &out_value)
 {
 	for (int i = 0; i < (int)EProgram_Goal::Max; ++i)
@@ -149,7 +149,7 @@ bool From_String(const QString &in_text, EProgram_Goal &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EProgram_Level in_value)
 {
 	int index;
@@ -161,7 +161,7 @@ QString To_String(EProgram_Level in_value)
 
 	return QString::fromLatin1(Program_Level_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EProgram_Level &out_value)
 {
 	for (int i = 0; i < (int)EProgram_Level::Max; ++i)
@@ -176,7 +176,7 @@ bool From_String(const QString &in_text, EProgram_Level &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ESchedule_Kind in_value)
 {
 	int index;
@@ -188,7 +188,7 @@ QString To_String(ESchedule_Kind in_value)
 
 	return QString::fromLatin1(Schedule_Kind_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ESchedule_Kind &out_value)
 {
 	for (int i = 0; i < (int)ESchedule_Kind::Max; ++i)
@@ -203,7 +203,7 @@ bool From_String(const QString &in_text, ESchedule_Kind &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EProgram_State in_value)
 {
 	int index;
@@ -215,7 +215,7 @@ QString To_String(EProgram_State in_value)
 
 	return QString::fromLatin1(Program_State_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EProgram_State &out_value)
 {
 	for (int i = 0; i < (int)EProgram_State::Max; ++i)
@@ -230,7 +230,7 @@ bool From_String(const QString &in_text, EProgram_State &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ETerm_Mode in_value)
 {
 	int index;
@@ -242,7 +242,7 @@ QString To_String(ETerm_Mode in_value)
 
 	return QString::fromLatin1(Term_Mode_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ETerm_Mode &out_value)
 {
 	for (int i = 0; i < (int)ETerm_Mode::Max; ++i)
@@ -257,7 +257,7 @@ bool From_String(const QString &in_text, ETerm_Mode &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ESync_State in_value)
 {
 	int index;
@@ -269,7 +269,7 @@ QString To_String(ESync_State in_value)
 
 	return QString::fromLatin1(Sync_State_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ESync_State &out_value)
 {
 	for (int i = 0; i < (int)ESync_State::Max; ++i)
@@ -284,7 +284,7 @@ bool From_String(const QString &in_text, ESync_State &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EGoal_Metric in_value)
 {
 	int index;
@@ -296,7 +296,7 @@ QString To_String(EGoal_Metric in_value)
 
 	return QString::fromLatin1(Goal_Metric_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EGoal_Metric &out_value)
 {
 	for (int i = 0; i < (int)EGoal_Metric::Max; ++i)
@@ -311,7 +311,7 @@ bool From_String(const QString &in_text, EGoal_Metric &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EGoal_Unit in_value)
 {
 	int index;
@@ -323,7 +323,7 @@ QString To_String(EGoal_Unit in_value)
 
 	return QString::fromLatin1(Goal_Unit_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EGoal_Unit &out_value)
 {
 	for (int i = 0; i < (int)EGoal_Unit::Max; ++i)
@@ -338,7 +338,7 @@ bool From_String(const QString &in_text, EGoal_Unit &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EGoal_Direction in_value)
 {
 	int index;
@@ -350,7 +350,7 @@ QString To_String(EGoal_Direction in_value)
 
 	return QString::fromLatin1(Goal_Direction_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EGoal_Direction &out_value)
 {
 	for (int i = 0; i < (int)EGoal_Direction::Max; ++i)
@@ -365,7 +365,7 @@ bool From_String(const QString &in_text, EGoal_Direction &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EGoal_Target_State in_value)
 {
 	int index;
@@ -377,7 +377,7 @@ QString To_String(EGoal_Target_State in_value)
 
 	return QString::fromLatin1(Goal_Target_State_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EGoal_Target_State &out_value)
 {
 	for (int i = 0; i < (int)EGoal_Target_State::Max; ++i)
@@ -392,7 +392,7 @@ bool From_String(const QString &in_text, EGoal_Target_State &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EMeasurement_Key in_value)
 {
 	int index;
@@ -404,7 +404,7 @@ QString To_String(EMeasurement_Key in_value)
 
 	return QString::fromLatin1(Measurement_Key_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EMeasurement_Key &out_value)
 {
 	for (int i = 0; i < (int)EMeasurement_Key::Max; ++i)
@@ -419,7 +419,7 @@ bool From_String(const QString &in_text, EMeasurement_Key &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ESlot_Kind in_value)
 {
 	int index;
@@ -431,7 +431,7 @@ QString To_String(ESlot_Kind in_value)
 
 	return QString::fromLatin1(Slot_Kind_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ESlot_Kind &out_value)
 {
 	for (int i = 0; i < (int)ESlot_Kind::Max; ++i)
@@ -446,7 +446,7 @@ bool From_String(const QString &in_text, ESlot_Kind &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EDay_Kind in_value)
 {
 	int index;
@@ -458,7 +458,7 @@ QString To_String(EDay_Kind in_value)
 
 	return QString::fromLatin1(Day_Kind_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EDay_Kind &out_value)
 {
 	for (int i = 0; i < (int)EDay_Kind::Max; ++i)
@@ -473,7 +473,7 @@ bool From_String(const QString &in_text, EDay_Kind &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EWeight_Mode in_value)
 {
 	int index;
@@ -485,7 +485,7 @@ QString To_String(EWeight_Mode in_value)
 
 	return QString::fromLatin1(Weight_Mode_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EWeight_Mode &out_value)
 {
 	for (int i = 0; i < (int)EWeight_Mode::Max; ++i)
@@ -500,7 +500,7 @@ bool From_String(const QString &in_text, EWeight_Mode &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EProgression_Type in_value)
 {
 	int index;
@@ -512,7 +512,7 @@ QString To_String(EProgression_Type in_value)
 
 	return QString::fromLatin1(Progression_Type_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EProgression_Type &out_value)
 {
 	for (int i = 0; i < (int)EProgression_Type::Max; ++i)
@@ -527,7 +527,7 @@ bool From_String(const QString &in_text, EProgression_Type &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ERule_Category in_value)
 {
 	int index;
@@ -539,7 +539,7 @@ QString To_String(ERule_Category in_value)
 
 	return QString::fromLatin1(Rule_Category_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ERule_Category &out_value)
 {
 	for (int i = 0; i < (int)ERule_Category::Max; ++i)
@@ -554,7 +554,7 @@ bool From_String(const QString &in_text, ERule_Category &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ERule_Metric in_value)
 {
 	int index;
@@ -566,7 +566,7 @@ QString To_String(ERule_Metric in_value)
 
 	return QString::fromLatin1(Rule_Metric_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ERule_Metric &out_value)
 {
 	for (int i = 0; i < (int)ERule_Metric::Max; ++i)
@@ -581,7 +581,7 @@ bool From_String(const QString &in_text, ERule_Metric &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ERule_Periodicity in_value)
 {
 	int index;
@@ -593,7 +593,7 @@ QString To_String(ERule_Periodicity in_value)
 
 	return QString::fromLatin1(Rule_Periodicity_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ERule_Periodicity &out_value)
 {
 	for (int i = 0; i < (int)ERule_Periodicity::Max; ++i)
@@ -608,7 +608,7 @@ bool From_String(const QString &in_text, ERule_Periodicity &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ERule_Applies_To in_value)
 {
 	int index;
@@ -620,7 +620,7 @@ QString To_String(ERule_Applies_To in_value)
 
 	return QString::fromLatin1(Rule_Applies_To_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ERule_Applies_To &out_value)
 {
 	for (int i = 0; i < (int)ERule_Applies_To::Max; ++i)
@@ -635,7 +635,7 @@ bool From_String(const QString &in_text, ERule_Applies_To &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ERule_Check_Source in_value)
 {
 	int index;
@@ -647,7 +647,7 @@ QString To_String(ERule_Check_Source in_value)
 
 	return QString::fromLatin1(Rule_Check_Source_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ERule_Check_Source &out_value)
 {
 	for (int i = 0; i < (int)ERule_Check_Source::Max; ++i)
@@ -662,7 +662,7 @@ bool From_String(const QString &in_text, ERule_Check_Source &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ERule_Enforcement in_value)
 {
 	int index;
@@ -674,7 +674,7 @@ QString To_String(ERule_Enforcement in_value)
 
 	return QString::fromLatin1(Rule_Enforcement_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ERule_Enforcement &out_value)
 {
 	for (int i = 0; i < (int)ERule_Enforcement::Max; ++i)
@@ -689,7 +689,7 @@ bool From_String(const QString &in_text, ERule_Enforcement &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ERule_Display_Unit in_value)
 {
 	int index;
@@ -701,7 +701,7 @@ QString To_String(ERule_Display_Unit in_value)
 
 	return QString::fromLatin1(Rule_Display_Unit_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ERule_Display_Unit &out_value)
 {
 	for (int i = 0; i < (int)ERule_Display_Unit::Max; ++i)
@@ -716,7 +716,7 @@ bool From_String(const QString &in_text, ERule_Display_Unit &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ECheckin_State in_value)
 {
 	int index;
@@ -728,7 +728,7 @@ QString To_String(ECheckin_State in_value)
 
 	return QString::fromLatin1(Checkin_State_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ECheckin_State &out_value)
 {
 	for (int i = 0; i < (int)ECheckin_State::Max; ++i)
@@ -743,7 +743,7 @@ bool From_String(const QString &in_text, ECheckin_State &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ECheckin_Source in_value)
 {
 	int index;
@@ -755,7 +755,7 @@ QString To_String(ECheckin_Source in_value)
 
 	return QString::fromLatin1(Checkin_Source_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ECheckin_Source &out_value)
 {
 	for (int i = 0; i < (int)ECheckin_Source::Max; ++i)
@@ -770,7 +770,7 @@ bool From_String(const QString &in_text, ECheckin_Source &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EDeviation in_value)
 {
 	int index;
@@ -782,7 +782,7 @@ QString To_String(EDeviation in_value)
 
 	return QString::fromLatin1(Deviation_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EDeviation &out_value)
 {
 	for (int i = 0; i < (int)EDeviation::Max; ++i)
@@ -797,7 +797,7 @@ bool From_String(const QString &in_text, EDeviation &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(EWorkout_State in_value)
 {
 	int index;
@@ -809,7 +809,7 @@ QString To_String(EWorkout_State in_value)
 
 	return QString::fromLatin1(Workout_State_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, EWorkout_State &out_value)
 {
 	for (int i = 0; i < (int)EWorkout_State::Max; ++i)
@@ -824,7 +824,7 @@ bool From_String(const QString &in_text, EWorkout_State &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_String(ERevision_Reason in_value)
 {
 	int index;
@@ -836,7 +836,7 @@ QString To_String(ERevision_Reason in_value)
 
 	return QString::fromLatin1(Revision_Reason_Texts[index]);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool From_String(const QString &in_text, ERevision_Reason &out_value)
 {
 	for (int i = 0; i < (int)ERevision_Reason::Max; ++i)
@@ -851,20 +851,20 @@ bool From_String(const QString &in_text, ERevision_Reason &out_value)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Предикат редактируемости (инвариант 24 §4). Живёт здесь, потому что по
 // нему решают и репозиторий (отказ правки), и экран (показ пункта меню).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Program_State_Is_Editable(EProgram_State in_state)
 {
 	return in_state != EProgram_State::Completed && in_state != EProgram_State::Cancelled &&
 	       in_state != EProgram_State::Archived;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // JSON-сериализация правила прогрессии (§3.5). Ключи camelCase — как роли
 // mock-контракта; отсутствующий ключ = необязательное поле не
 // задано.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_Progression_Json(const SProgression_Rule &in_rule)
 {
 	QJsonObject object;
@@ -884,7 +884,7 @@ QString To_Progression_Json(const SProgression_Rule &in_rule)
 
 	return QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Parse_Progression_Json(const QString &in_json, SProgression_Rule &out_rule)
 {
 	QJsonDocument document;
@@ -893,12 +893,12 @@ bool Parse_Progression_Json(const QString &in_json, SProgression_Rule &out_rule)
 
 	document = QJsonDocument::fromJson(in_json.toUtf8());
 
-	if (document.isObject() == false)
+	if (!document.isObject())
 		return false;
 
 	object = document.object();
 
-	if (From_String(object.value("type").toString(), type) == false)
+	if (!From_String(object.value("type").toString(), type))
 		return false;
 
 	out_rule = SProgression_Rule();
@@ -936,9 +936,9 @@ bool Parse_Progression_Json(const QString &in_json, SProgression_Rule &out_rule)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Списки строк (focus, substitution_ids, applies_days) как JSON-массив.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString To_Json_Array(const QStringList &in_list)
 {
 	QJsonArray array;
@@ -948,7 +948,7 @@ QString To_Json_Array(const QStringList &in_list)
 
 	return QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Parse_Json_Array(const QString &in_json, QStringList &out_list)
 {
 	QJsonDocument document;
@@ -956,7 +956,7 @@ bool Parse_Json_Array(const QString &in_json, QStringList &out_list)
 
 	document = QJsonDocument::fromJson(in_json.toUtf8());
 
-	if (document.isArray() == false)
+	if (!document.isArray())
 		return false;
 
 	out_list.clear();
@@ -967,5 +967,5 @@ bool Parse_Json_Array(const QString &in_json, QStringList &out_list)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 } // namespace Program_Model

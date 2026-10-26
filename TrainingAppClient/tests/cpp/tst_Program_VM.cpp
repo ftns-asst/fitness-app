@@ -1,4 +1,4 @@
-#include "Data/Database/Sql_Database.h"
+﻿#include "Data/Database/Sql_Database.h"
 #include "Data/Program/Program_Repository.h"
 #include "Data/Program/Rule_Repository.h"
 #include "Presentation/Program_Catalog_VM.h"
@@ -42,7 +42,7 @@ private:
 	AProgram_Repository *Program_Repository = 0;
 	ARule_Repository *Rule_Repository = 0;
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::initTestCase()
 {
 	QVERIFY(Directory.isValid());
@@ -55,7 +55,7 @@ void AProgram_VM_Test::initTestCase()
 	Seed_Exercise("ex_fixture");
 	Seed_Program();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVariant AProgram_VM_Test::Role_Of(AList_Model &in_model, int in_row, const QString &in_role)
 {
 	for (int i = 0; i < in_model.Role_Count(); ++i)
@@ -66,7 +66,7 @@ QVariant AProgram_VM_Test::Role_Of(AList_Model &in_model, int in_row, const QStr
 
 	return QVariant();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::Seed_Exercise(const QString &in_id)
 {
 	QSqlQuery query(Database.Sql_Connection());
@@ -79,7 +79,7 @@ void AProgram_VM_Test::Seed_Exercise(const QString &in_id)
 	query.addBindValue("barbell");
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::Seed_Program()
 {
 	SProgram program;
@@ -151,18 +151,18 @@ void AProgram_VM_Test::Seed_Program()
 	QVERIFY2(Program_Repository->Change_State("p1", EProgram_State::Active),
 	         qPrintable(Program_Repository->Get_Last_Error()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::withoutProgramExposesEmptyState()
 {
 	Avm_Program vm(Program_Repository, Rule_Repository, this);
 
-	QVERIFY(vm.Reload("nobody") == false);
-	QVERIFY(vm.Has_Program() == false);
+	QVERIFY(!vm.Reload("nobody"));
+	QVERIFY(!vm.Has_Program());
 	QCOMPARE(vm.week_slots()->Row_Count(), 0);
 	QCOMPARE(vm.program_days()->Row_Count(), 0);
-	QVERIFY(vm.errorKey().isEmpty() == false);
+	QVERIFY(!vm.errorKey().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::loadsProgramTreeIntoModels()
 {
 	Avm_Program vm(Program_Repository, Rule_Repository, this);
@@ -189,7 +189,7 @@ void AProgram_VM_Test::loadsProgramTreeIntoModels()
 	QCOMPARE(Role_Of(*vm.day_exercises(), 0, "title").toString(), QString("Упражнение ex_fixture"));
 	QCOMPARE(vm.selectedDayId(), QString("d1"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::exposesScalarProgramProperties()
 {
 	Avm_Program vm(Program_Repository, Rule_Repository, this);
@@ -203,7 +203,7 @@ void AProgram_VM_Test::exposesScalarProgramProperties()
 	QCOMPARE(vm.goal_targets()->Row_Count(), 1);
 	QCOMPARE(vm.rules()->Row_Count(), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::daySelectionFiltersExercises()
 {
 	Avm_Program vm(Program_Repository, Rule_Repository, this);
@@ -216,7 +216,7 @@ void AProgram_VM_Test::daySelectionFiltersExercises()
 	QCOMPARE(vm.day_exercises()->Row_Count(), 0);
 	QVERIFY(vm.selectedDayId().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::reloadEmitsChanged()
 {
 	Avm_Program vm(Program_Repository, Rule_Repository, this);
@@ -226,7 +226,7 @@ void AProgram_VM_Test::reloadEmitsChanged()
 	QCOMPARE(spy.count(), 1);
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Программа заданного состояния для сценариев каталога. Отдельный хелпер, а не
 // переиспользование Seed_Program: каталогу не нужны дни, цели и расписание, а
 // программа нужна конкретная — с заданным названием и владельцем.
@@ -250,7 +250,7 @@ void AProgram_VM_Test::Seed_Program_State(AProgram_Repository &in_repository, co
 
 	QVERIFY(in_repository.Insert_Program(program));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Открытие конкретной программы из каталога (срез S2). Пока reload умел только
 // активную, каталог показывал все программы, а открыть можно было лишь одну.
 void AProgram_VM_Test::reloadLoadsRequestedProgram()
@@ -275,7 +275,7 @@ void AProgram_VM_Test::reloadLoadsRequestedProgram()
 	// Программа принадлежит пользователю: hasProgram остаётся истинным.
 	QCOMPARE(vm.Has_Program(), true);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::reloadRejectsProgramOfAnotherUser()
 {
 	AsSql_Database database;
@@ -293,12 +293,12 @@ void AProgram_VM_Test::reloadRejectsProgramOfAnotherUser()
 	// (changed), иначе QML-привязка errorKey не увидит новое состояние.
 	QSignalSpy spy(&vm, &Avm_Program::changed);
 
-	QVERIFY(vm.Reload("u1", "p_foreign") == false);
+	QVERIFY(!vm.Reload("u1", "p_foreign"));
 	QCOMPARE(vm.Has_Program(), false);
-	QVERIFY(vm.errorKey().isEmpty() == false);
+	QVERIFY(!vm.errorKey().isEmpty());
 	QVERIFY2(spy.count() > 0, "без changed() QML не перечитает errorKey после отказа");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::reloadReportsReadOnlyForFinishedProgram()
 {
 	AsSql_Database database;
@@ -324,7 +324,7 @@ void AProgram_VM_Test::reloadReportsReadOnlyForFinishedProgram()
 	QVERIFY(vm.Reload("u1", "p_arch"));
 	QCOMPARE(vm.Is_Read_Only(), true);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Каталог программ (срез S1). Отдельный сценарий от активной программы:
 // пользователю нужны ВСЕ его программы, а не только активная. ViewModel
 // раскладывает их по группам состояний; SQL-порядок проверяет
@@ -370,7 +370,7 @@ void AProgram_VM_Test::catalogListsAllStates()
 	QCOMPARE(catalog.active_list()->Row_Count(), 1);
 	QCOMPARE(catalog.finished_list()->Row_Count(), 1);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::catalogEmptyStateIsNotError()
 {
 	AsSql_Database database;
@@ -386,15 +386,15 @@ void AProgram_VM_Test::catalogEmptyStateIsNotError()
 	QCOMPARE(catalog.active_list()->Row_Count(), 0);
 	QVERIFY(catalog.Error_Key().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::catalogFailsWithoutRepository()
 {
 	Avm_Program_Catalog catalog(0, this);
 
 	// Без хранилища каталог не читается: обязан отдать ошибку, а не молча
 	// показать пустоту — иначе экран стёр бы настоящие программы.
-	QVERIFY(catalog.Reload("u1") == false);
-	QVERIFY(catalog.Error_Key().isEmpty() == false);
+	QVERIFY(!catalog.Reload("u1"));
+	QVERIFY(!catalog.Error_Key().isEmpty());
 	QCOMPARE(catalog.active_list()->Row_Count(), 0);
 }
 QTEST_GUILESS_MAIN(AProgram_VM_Test)

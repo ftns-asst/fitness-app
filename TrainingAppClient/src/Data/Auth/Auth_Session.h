@@ -1,7 +1,8 @@
-#pragma once
+﻿#pragma once
 
 #include "Data/Auth/Token_Store.h"
 #include "Data/Network/Http_Client.h"
+#include "Domain/Error_State.h"
 
 #include <QByteArray>
 #include <QHash>
@@ -11,7 +12,7 @@
 
 class QJsonObject;
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Auth-сессия приложения поверх AsHttp_Client и AsToken_Store. Добавляет
 // Authorization к приватным запросам и выполняет single-flight refresh: при
 // первом auth failure отправляется один POST /auth/refresh, параллельные
@@ -23,7 +24,7 @@ class QJsonObject;
 // Формат "Bearer <token>", одноразовость refresh_token и ключи 401
 // (invalid_token/token_expired) подтверждены публикацией документации backend:
 // docs/03-api-contract.md §2, docs/03-api-backend-published.md.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 class AsAuth_Session : public QObject
 {
 	Q_OBJECT
@@ -87,6 +88,6 @@ private:
 	int Refresh_Transport_Id = 0;
 	int Next_Logical_Id = 1;
 	int Session_Generation = 0;
-	QString Last_Error_Text;
+	AError_State Error_State;
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

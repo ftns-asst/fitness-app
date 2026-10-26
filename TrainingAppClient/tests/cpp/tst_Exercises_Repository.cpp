@@ -1,4 +1,4 @@
-#include "Data/Auth/Auth_Session.h"
+﻿#include "Data/Auth/Auth_Session.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Exercises/Exercises_Api.h"
 #include "Data/Exercises/Exercises_Repository.h"
@@ -45,7 +45,7 @@ private:
 	void Make_Repository(ATest_Http_Server &in_server, QTemporaryDir &out_dir, bool in_with_session,
 	                     AExercises_Repository *&out_repository);
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Response AExercises_Repository_Test::JSON_Response(int in_status, const QByteArray &in_body)
 {
 	STest_Http_Response response;
@@ -55,7 +55,7 @@ STest_Http_Response AExercises_Repository_Test::JSON_Response(int in_status, con
 
 	return response;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray AExercises_Repository_Test::Exercise_Array_Body()
 {
 	// Голый массив; второе упражнение — своё (owner_id = user-1).
@@ -69,7 +69,7 @@ QByteArray AExercises_Repository_Test::Exercise_Array_Body()
 	                  "\"created_at\":\"2026-10-02T10:00:00Z\"}"
 	                  "]");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository_Test::Make_Repository(ATest_Http_Server &in_server, QTemporaryDir &out_dir,
                                                  bool in_with_session, AExercises_Repository *&out_repository)
 {
@@ -95,7 +95,7 @@ void AExercises_Repository_Test::Make_Repository(ATest_Http_Server &in_server, Q
 
 	out_repository = repository;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository_Test::migrationCreatesCacheTables()
 {
 	ATest_Http_Server server;
@@ -122,7 +122,7 @@ void AExercises_Repository_Test::migrationCreatesCacheTables()
 	// v9 — таблица локальных фото техники.
 	QVERIFY(probe.exec("SELECT exercise_id, file_name FROM exercise_photos WHERE 0"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository_Test::listUpsertsIntoCache()
 {
 	ATest_Http_Server server;
@@ -147,8 +147,8 @@ void AExercises_Repository_Test::listUpsertsIntoCache()
 	error = qvariant_cast<AApi_Error>(arguments.at(3));
 
 	QCOMPARE(items.size(), 2);
-	QVERIFY(from_cache == false);
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!from_cache);
+	QVERIFY(!error.Is_Error());
 
 	// Повторная страница с обновлённым описанием переписывает upsert'ом,
 	// а не дублирует строки кэша.
@@ -162,9 +162,9 @@ void AExercises_Repository_Test::listUpsertsIntoCache()
 	// «Своё» распознаётся по владельцу сессии (user-1).
 	QVERIFY(items[1].Has_Owner);
 	QVERIFY(repository->Is_Cached_Own("bbbbbbbb-1111-2222-3333-444444444444"));
-	QVERIFY(repository->Is_Cached_Own("aaaaaaaa-1111-2222-3333-444444444444") == false);
+	QVERIFY(!repository->Is_Cached_Own("aaaaaaaa-1111-2222-3333-444444444444"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository_Test::ownExercisesSurviveBasicRefresh()
 {
 	ATest_Http_Server server;
@@ -193,7 +193,7 @@ void AExercises_Repository_Test::ownExercisesSurviveBasicRefresh()
 	QVERIFY(repository->Load_Cached_List(items));
 	QCOMPARE(items.size(), 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository_Test::offlineListFallsBackToCache()
 {
 	ATest_Http_Server server;
@@ -241,9 +241,9 @@ void AExercises_Repository_Test::offlineListFallsBackToCache()
 
 	QVERIFY(has_local_catalog_row);
 	QVERIFY(from_cache);
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!error.Is_Error());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository_Test::catalogsFallBackToCachedValues()
 {
 	ATest_Http_Server server;
@@ -280,9 +280,9 @@ void AExercises_Repository_Test::catalogsFallBackToCachedValues()
 
 	QCOMPARE(values, QStringList({"chest", "biceps"}));
 	QVERIFY(from_cache);
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!error.Is_Error());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Первый запуск без сети: кэш пуст, сервера нет — вместо «не из чего выбрать»
 // репозиторий сам засевает базовый каталог упражнений и справочники. Засев
 // обязан доехать и до локального exercises: FK дня программы иначе отверг бы
@@ -323,7 +323,7 @@ void AExercises_Repository_Test::offlineEmptyCacheSeedsBaseCatalog()
 	// Базовый каталог не пуст и это не ошибка: офлайн — нормальное состояние.
 	QVERIFY(items.size() >= 10);
 	QVERIFY(arguments.at(2).toBool());
-	QVERIFY(qvariant_cast<AApi_Error>(arguments.at(3)).Is_Error() == false);
+	QVERIFY(!qvariant_cast<AApi_Error>(arguments.at(3)).Is_Error());
 
 	QVERIFY(repository->Load_Muscle_Groups() > 0);
 	QVERIFY(groups_spy.wait(5000));
@@ -345,7 +345,7 @@ void AExercises_Repository_Test::offlineEmptyCacheSeedsBaseCatalog()
 	QVERIFY(probe.next());
 	QCOMPARE(probe.value(0).toInt(), 1);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Тёплый кэш и офлайн: серверные строки остаются первыми (источник истины),
 // к ним добавляется локальный каталог — упражнения, которыми уже пользуются
 // программы. Примитивы базового набора (builtin-*) в список не подмешиваются:
@@ -379,13 +379,13 @@ void AExercises_Repository_Test::offlineAfterOnlineServesServerItems()
 	QCOMPARE(items[1].Name, QString("Push up"));
 
 	for (int i = 0; i < items.size(); ++i)
-		QVERIFY(items[i].ID.startsWith("builtin-") == false);
+		QVERIFY(!items[i].ID.startsWith("builtin-"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Локальные фото (схема v9): стейджинг → коммит → чтение → удаление.
 // Файлы пишутся в стандартный каталог приложения: тестовый режим
 // QStandardPaths держит их в песочнице теста, а не в %APPDATA%.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository_Test::photoStagesCommitsAndDeletes()
 {
 	qputenv("QT_STANDARDPATHS_TESTING", "1");
@@ -407,7 +407,7 @@ void AExercises_Repository_Test::photoStagesCommitsAndDeletes()
 	QString staged;
 	QString error;
 
-	QVERIFY(repository->Stage_Photo(QUrl::fromLocalFile("no-such-photo.jpg"), staged, error) == false);
+	QVERIFY(!repository->Stage_Photo(QUrl::fromLocalFile("no-such-photo.jpg"), staged, error));
 	QCOMPARE(error, QString("photo_failed"));
 
 	// Стейджинг: копия под временным именем, до коммита.
@@ -418,7 +418,7 @@ void AExercises_Repository_Test::photoStagesCommitsAndDeletes()
 
 	// Коммит: файл переименовывается в <id>.<ext>, строка пишется в базу.
 	QVERIFY(repository->Commit_Photo("cccccccc-1111-2222-3333-444444444444", staged));
-	QVERIFY(QFile::exists(staged) == false);
+	QVERIFY(!QFile::exists(staged));
 
 	QString photo_file;
 
@@ -428,19 +428,19 @@ void AExercises_Repository_Test::photoStagesCommitsAndDeletes()
 	// Чужой id — фото нет; произвольный путь не отменяется.
 	QString none;
 
-	QVERIFY(repository->Photo_File("unknown-id", none) == false);
-	QVERIFY(repository->Cancel_Staged_Photo(source.fileName()) == false);
+	QVERIFY(!repository->Photo_File("unknown-id", none));
+	QVERIFY(!repository->Cancel_Staged_Photo(source.fileName()));
 	QVERIFY(QFile::exists(source.fileName()));
 
 	// Удаление: и файл, и строка.
 	QVERIFY(repository->Delete_Photo("cccccccc-1111-2222-3333-444444444444"));
-	QVERIFY(repository->Photo_File("cccccccc-1111-2222-3333-444444444444", none) == false);
-	QVERIFY(QFile::exists(photo_file) == false);
+	QVERIFY(!repository->Photo_File("cccccccc-1111-2222-3333-444444444444", none));
+	QVERIFY(!QFile::exists(photo_file));
 
 	// Отмена стейджинга: незакоммиченное фото не остаётся мусором.
 	QVERIFY(repository->Stage_Photo(QUrl::fromLocalFile(source.fileName()), staged, error));
 	QVERIFY(repository->Cancel_Staged_Photo(staged));
-	QVERIFY(QFile::exists(staged) == false);
+	QVERIFY(!QFile::exists(staged));
 
 	// Песочница теста не переживает тест.
 	QDir(AExercises_Repository::Photos_Directory()).removeRecursively();

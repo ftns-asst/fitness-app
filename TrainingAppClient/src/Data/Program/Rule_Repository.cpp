@@ -1,4 +1,4 @@
-#include "Data/Program/Rule_Repository.h"
+﻿#include "Data/Program/Rule_Repository.h"
 
 #include <QDate>
 #include <QDateTime>
@@ -9,7 +9,7 @@
 #include <QSqlQuery>
 #include <QUuid>
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QJsonObject Rule_Snapshot_Object(const SProgram_Rule &in_rule)
 {
 	QJsonObject object;
@@ -34,38 +34,38 @@ static QJsonObject Rule_Snapshot_Object(const SProgram_Rule &in_rule)
 
 	for (int i = 0; i < in_rule.Applies_Days.size(); ++i)
 		applies_days.append(in_rule.Applies_Days.at(i));
-	if (applies_days.isEmpty() == false)
+	if (!applies_days.isEmpty())
 		object.insert("appliesDays", applies_days);
 
 	object.insert("checkSource", To_String(in_rule.Check_Source));
 	object.insert("enforcement", To_String(in_rule.Enforcement));
 
-	if (in_rule.Active_From.isEmpty() == false)
+	if (!in_rule.Active_From.isEmpty())
 		object.insert("activeFrom", in_rule.Active_From);
-	if (in_rule.Active_To.isEmpty() == false)
+	if (!in_rule.Active_To.isEmpty())
 		object.insert("activeTo", in_rule.Active_To);
 
 	object.insert("displayUnit", To_String(in_rule.Display_Unit));
 
-	if (in_rule.Note.isEmpty() == false)
+	if (!in_rule.Note.isEmpty())
 		object.insert("note", in_rule.Note);
 
 	return object;
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ARule_Repository::Is_Valid_Date(const QString &in_date) const
 {
 	QDate date = QDate::fromString(in_date, Qt::ISODate);
 
 	return date.isValid() && date.toString("yyyy-MM-dd") == in_date;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 ARule_Repository::ARule_Repository(AsSql_Database *in_database, QObject *in_parent)
     : AProgram_Repository_Base(in_database, in_parent)
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ARule_Repository::Read_Program_State(const QString &in_program_id, EProgram_State &out_state, int &out_revision)
 {
 	QSqlQuery query(Connection());
@@ -74,13 +74,13 @@ bool ARule_Repository::Read_Program_State(const QString &in_program_id, EProgram
 	query.prepare("SELECT state, revision FROM programs WHERE id = ?");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать программу: %1").arg(query.lastError().text()));
 
-	if (query.next() == false)
+	if (!query.next())
 		return Set_Last_Error(QString("Программа %1 не найдена").arg(in_program_id));
 
-	if (From_String(query.value(0).toString(), state) == false)
+	if (!From_String(query.value(0).toString(), state))
 		return Set_Last_Error(QString("Неизвестное состояние программы: %1").arg(query.value(0).toString()));
 
 	out_state = state;
@@ -88,7 +88,7 @@ bool ARule_Repository::Read_Program_State(const QString &in_program_id, EProgram
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ARule_Repository::Load_Rules(const QString &in_program_id, QVector<SProgram_Rule> &out_rules)
 {
 	QSqlQuery query(Connection());
@@ -97,7 +97,7 @@ bool ARule_Repository::Load_Rules(const QString &in_program_id, QVector<SProgram
 	Clear_Last_Error();
 	out_rules.clear();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT id, category, code, title, metric, periodicity, target_min, target_max, target_exact, "
@@ -105,7 +105,7 @@ bool ARule_Repository::Load_Rules(const QString &in_program_id, QVector<SProgram
 	              "display_unit, note FROM program_rules WHERE program_id = ? ORDER BY id");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать правила: %1").arg(query.lastError().text()));
 
 	while (query.next())
@@ -119,19 +119,19 @@ bool ARule_Repository::Load_Rules(const QString &in_program_id, QVector<SProgram
 		From_String(query.value(4).toString(), rule.Metric);
 		From_String(query.value(5).toString(), rule.Periodicity);
 
-		if (query.isNull(6) == false)
+		if (!query.isNull(6))
 		{
 			rule.Has_Target_Min = true;
 			rule.Target_Min = query.value(6).toDouble();
 		}
 
-		if (query.isNull(7) == false)
+		if (!query.isNull(7))
 		{
 			rule.Has_Target_Max = true;
 			rule.Target_Max = query.value(7).toDouble();
 		}
 
-		if (query.isNull(8) == false)
+		if (!query.isNull(8))
 		{
 			rule.Has_Target_Exact = true;
 			rule.Target_Exact = query.value(8).toDouble();
@@ -140,7 +140,7 @@ bool ARule_Repository::Load_Rules(const QString &in_program_id, QVector<SProgram
 		From_String(query.value(9).toString(), rule.Target_Unit);
 		From_String(query.value(10).toString(), rule.Applies_To);
 
-		if (query.isNull(11) == false)
+		if (!query.isNull(11))
 			Parse_Json_Array(query.value(11).toString(), rule.Applies_Days);
 
 		From_String(query.value(12).toString(), rule.Check_Source);
@@ -154,11 +154,11 @@ bool ARule_Repository::Load_Rules(const QString &in_program_id, QVector<SProgram
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Has_Advice_Text живёт в домене (Program_Model): та же проверка нужна и
 // движку правил, и здесь, а две реализации «непустого текста» разошлись бы
 // — одна приняла бы строку из пробелов, другая нет.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ARule_Repository::Validate_Rules(const QVector<SProgram_Rule> &in_rules) const
 {
 	for (int i = 0; i < in_rules.size(); ++i)
@@ -178,13 +178,13 @@ bool ARule_Repository::Validate_Rules(const QVector<SProgram_Rule> &in_rules) co
 		// стало бы способом завести правило вообще без содержания.
 		const bool has_target = rule.Has_Target_Min || rule.Has_Target_Max || rule.Has_Target_Exact;
 
-		if (has_target == false && Get_Rule_Kind(rule) != ERule_Kind::Advice)
+		if (!has_target && Get_Rule_Kind(rule) != ERule_Kind::Advice)
 			return false;
 	}
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ARule_Repository::Insert_Rules_Internal(const QString &in_program_id, const QVector<SProgram_Rule> &in_rules)
 {
 	QSqlQuery query(Connection());
@@ -221,20 +221,20 @@ bool ARule_Repository::Insert_Rules_Internal(const QString &in_program_id, const
 		query.addBindValue(To_String(rule.Display_Unit));
 		query.addBindValue(Text_Column(rule.Note));
 
-		if (query.exec() == false)
+		if (!query.exec())
 			return Set_Last_Error(
 			    QString("Не удалось сохранить правило %1: %2").arg(rule.ID).arg(query.lastError().text()));
 	}
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString ARule_Repository::Build_Rules_Snapshot(const QString &in_program_id)
 {
 	QVector<SProgram_Rule> rules;
 	QJsonArray array;
 
-	if (Load_Rules(in_program_id, rules) == false)
+	if (!Load_Rules(in_program_id, rules))
 		return QString();
 
 	for (int i = 0; i < rules.size(); ++i)
@@ -242,7 +242,7 @@ QString ARule_Repository::Build_Rules_Snapshot(const QString &in_program_id)
 
 	return QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ARule_Repository::Replace_Rules(const QString &in_program_id, const QVector<SProgram_Rule> &in_rules)
 {
 	EProgram_State state = EProgram_State::Draft;
@@ -252,10 +252,10 @@ bool ARule_Repository::Replace_Rules(const QString &in_program_id, const QVector
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
-	if (Read_Program_State(in_program_id, state, old_revision) == false)
+	if (!Read_Program_State(in_program_id, state, old_revision))
 		return false;
 
 	// Инвариант 24 (§4): read-only-состояния правку правил запрещают.
@@ -263,11 +263,11 @@ bool ARule_Repository::Replace_Rules(const QString &in_program_id, const QVector
 		return Set_Last_Error(
 		    QString("Программа %1 в состоянии %2: правка правил запрещена").arg(in_program_id).arg(To_String(state)));
 
-	if (Validate_Rules(in_rules) == false)
+	if (!Validate_Rules(in_rules))
 		return Set_Last_Error(
 		    "Каждое правило требует id, заголовок и цель; для рекомендации («Другое») вместо цели — текст");
 
-	if (Connection().transaction() == false)
+	if (!Connection().transaction())
 		return Set_Last_Error("Не удалось начать транзакцию");
 
 	snapshot = Build_Rules_Snapshot(in_program_id);
@@ -281,25 +281,25 @@ bool ARule_Repository::Replace_Rules(const QString &in_program_id, const QVector
 	query.prepare("DELETE FROM program_rules WHERE program_id = ?");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false || Insert_Rules_Internal(in_program_id, in_rules) == false ||
-	    Bump_Revision_Internal(in_program_id, old_revision) == false ||
-	    Write_Revision_Row(in_program_id, old_revision + 1, ERevision_Reason::Rules, "Правка правил программы",
-	                       snapshot) == false)
+	if (!query.exec() || !Insert_Rules_Internal(in_program_id, in_rules) ||
+	    !Bump_Revision_Internal(in_program_id, old_revision) ||
+	    !Write_Revision_Row(in_program_id, old_revision + 1, ERevision_Reason::Rules, "Правка правил программы",
+	                        snapshot))
 	{
 		Connection().rollback();
 
-		if (Error_State.Has_Error() == false)
+		if (!Error_State.Has_Error())
 			Set_Last_Error(QString("Не удалось заменить правила: %1").arg(query.lastError().text()));
 
 		return false;
 	}
 
-	if (Connection().commit() == false)
+	if (!Connection().commit())
 		return Set_Last_Error("Не удалось зафиксировать правила");
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ARule_Repository::Save_Checkin(const SRule_Checkin &in_checkin)
 {
 	QSqlQuery query(Connection());
@@ -308,14 +308,14 @@ bool ARule_Repository::Save_Checkin(const SRule_Checkin &in_checkin)
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	if (in_checkin.Rule_Id.isEmpty() || in_checkin.Program_Id.isEmpty() || in_checkin.Date.isEmpty() ||
 	    in_checkin.Unit.isEmpty())
 		return Set_Last_Error("Отметке правила нужны ruleId, programId, date и unit");
 
-	if (Is_Valid_Date(in_checkin.Date) == false)
+	if (!Is_Valid_Date(in_checkin.Date))
 		return Set_Last_Error(QString("Некорректная дата отметки: %1").arg(in_checkin.Date));
 
 	if (checkin_id.isEmpty())
@@ -345,7 +345,7 @@ bool ARule_Repository::Save_Checkin(const SRule_Checkin &in_checkin)
 	query.addBindValue(in_checkin.Rule_Id);
 	query.addBindValue(in_checkin.Program_Id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось сохранить отметку: %1").arg(query.lastError().text()));
 	if (query.numRowsAffected() == 0)
 		return Set_Last_Error(
@@ -353,29 +353,29 @@ bool ARule_Repository::Save_Checkin(const SRule_Checkin &in_checkin)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ARule_Repository::Delete_Checkin(const QString &in_rule_id, const QString &in_date)
 {
 	QSqlQuery query(Connection());
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
-	if (in_rule_id.isEmpty() || Is_Valid_Date(in_date) == false)
+	if (in_rule_id.isEmpty() || !Is_Valid_Date(in_date))
 		return Set_Last_Error("Для снятия отметки нужны ruleId и корректная дата");
 
 	query.prepare("DELETE FROM rule_checkins WHERE rule_id = ? AND date = ?");
 	query.addBindValue(in_rule_id);
 	query.addBindValue(in_date);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось снять отметку: %1").arg(query.lastError().text()));
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static void Read_Checkin_Row(QSqlQuery &in_query, SRule_Checkin &out_checkin)
 {
 	out_checkin = SRule_Checkin();
@@ -384,7 +384,7 @@ static void Read_Checkin_Row(QSqlQuery &in_query, SRule_Checkin &out_checkin)
 	out_checkin.Program_Id = in_query.value(2).toString();
 	out_checkin.Date = in_query.value(3).toString();
 
-	if (in_query.isNull(4) == false)
+	if (!in_query.isNull(4))
 	{
 		out_checkin.Has_Value = true;
 		out_checkin.Value = in_query.value(4).toDouble();
@@ -399,11 +399,11 @@ static void Read_Checkin_Row(QSqlQuery &in_query, SRule_Checkin &out_checkin)
 	out_checkin.Created_At = in_query.value(11).toString();
 	out_checkin.Updated_At = in_query.value(12).toString();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Чтение отметки по ключу (rule, date) без ошибки на «не найдено»: нужно и
 // для публичного Find_Checkin, и для upsert в Save_Checkin.
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ARule_Repository::Read_Checkin_By_Key(const QString &in_rule_id, const QString &in_date,
                                            SRule_Checkin &out_checkin, bool &out_found)
 {
@@ -417,10 +417,10 @@ bool ARule_Repository::Read_Checkin_By_Key(const QString &in_rule_id, const QStr
 	query.addBindValue(in_rule_id);
 	query.addBindValue(in_date);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать отметку: %1").arg(query.lastError().text()));
 
-	if (query.next() == false)
+	if (!query.next())
 		return true;
 
 	Read_Checkin_Row(query, out_checkin);
@@ -428,7 +428,7 @@ bool ARule_Repository::Read_Checkin_By_Key(const QString &in_rule_id, const QStr
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ARule_Repository::Find_Checkin(const QString &in_rule_id, const QString &in_date, SRule_Checkin &out_checkin)
 {
 	bool found = false;
@@ -436,18 +436,18 @@ bool ARule_Repository::Find_Checkin(const QString &in_rule_id, const QString &in
 	Clear_Last_Error();
 	out_checkin = SRule_Checkin();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
-	if (Read_Checkin_By_Key(in_rule_id, in_date, out_checkin, found) == false)
+	if (!Read_Checkin_By_Key(in_rule_id, in_date, out_checkin, found))
 		return false;
 
-	if (found == false)
+	if (!found)
 		return Set_Last_Error(QString("Отметка правила %1 за %2 не найдена").arg(in_rule_id).arg(in_date));
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ARule_Repository::Load_Checkins_Range(const QString &in_rule_id, const QString &in_date_from,
                                            const QString &in_date_to, QVector<SRule_Checkin> &out_checkins)
 {
@@ -457,7 +457,7 @@ bool ARule_Repository::Load_Checkins_Range(const QString &in_rule_id, const QStr
 	Clear_Last_Error();
 	out_checkins.clear();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT id, rule_id, program_id, date, value, unit, state, source, session_id, meal_log_id, note, "
@@ -467,7 +467,7 @@ bool ARule_Repository::Load_Checkins_Range(const QString &in_rule_id, const QStr
 	query.addBindValue(in_date_from);
 	query.addBindValue(in_date_to);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать отметки: %1").arg(query.lastError().text()));
 
 	while (query.next())
@@ -478,7 +478,7 @@ bool ARule_Repository::Load_Checkins_Range(const QString &in_rule_id, const QStr
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ARule_Repository::Load_Program_Checkins_Range(const QString &in_program_id, const QString &in_date_from,
                                                    const QString &in_date_to, QVector<SRule_Checkin> &out_checkins)
 {
@@ -488,7 +488,7 @@ bool ARule_Repository::Load_Program_Checkins_Range(const QString &in_program_id,
 	Clear_Last_Error();
 	out_checkins.clear();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT id, rule_id, program_id, date, value, unit, state, source, session_id, meal_log_id, note, "
@@ -498,7 +498,7 @@ bool ARule_Repository::Load_Program_Checkins_Range(const QString &in_program_id,
 	query.addBindValue(in_date_from);
 	query.addBindValue(in_date_to);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать отметки программы: %1").arg(query.lastError().text()));
 
 	while (query.next())
@@ -509,4 +509,4 @@ bool ARule_Repository::Load_Program_Checkins_Range(const QString &in_program_id,
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

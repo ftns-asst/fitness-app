@@ -5,22 +5,22 @@
 #include <QJsonParseError>
 #include <QSqlError>
 #include <QSqlQuery>
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QString Now_Stamp()
 {
 	return QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AStats_Repository
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AStats_Repository::AStats_Repository(AsSql_Database *in_database, QObject *in_parent)
     : AProgram_Repository_Base(in_database, in_parent)
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Нагрузка кэша — компактный JSON-объект (метрики §5.1/§5.3). Проверяем на
 // записи, чтобы битый JSON не всплывал ошибкой на экране статистики.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AStats_Repository::Validate_Payload(const QString &in_payload_json)
 {
 	QJsonParseError parse_error;
@@ -35,7 +35,7 @@ bool AStats_Repository::Validate_Payload(const QString &in_payload_json)
 
 	return document.isObject();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AStats_Repository::Load_Program_Stats(const QString &in_program_id, SStats_Cache_Entry &out_entry)
 {
 	QSqlQuery query(Connection());
@@ -43,17 +43,17 @@ bool AStats_Repository::Load_Program_Stats(const QString &in_program_id, SStats_
 	Clear_Last_Error();
 	out_entry = SStats_Cache_Entry();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT program_id, computed_at, program_revision, payload_json FROM program_stats "
 	              "WHERE program_id = ?");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать кэш статистики: %1").arg(query.lastError().text()));
 
-	if (query.next() == false)
+	if (!query.next())
 		return Set_Last_Error(QString("Кэш статистики программы %1 не найден").arg(in_program_id));
 
 	out_entry.Owner_Id = query.value(0).toString();
@@ -63,7 +63,7 @@ bool AStats_Repository::Load_Program_Stats(const QString &in_program_id, SStats_
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AStats_Repository::Load_Lifetime_Stats(const QString &in_user_id, SStats_Cache_Entry &out_entry)
 {
 	QSqlQuery query(Connection());
@@ -71,16 +71,16 @@ bool AStats_Repository::Load_Lifetime_Stats(const QString &in_user_id, SStats_Ca
 	Clear_Last_Error();
 	out_entry = SStats_Cache_Entry();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT user_id, computed_at, payload_json FROM lifetime_stats WHERE user_id = ?");
 	query.addBindValue(in_user_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать общую статистику: %1").arg(query.lastError().text()));
 
-	if (query.next() == false)
+	if (!query.next())
 		return Set_Last_Error(QString("Общая статистика пользователя %1 не найдена").arg(in_user_id));
 
 	out_entry.Owner_Id = query.value(0).toString();
@@ -90,7 +90,7 @@ bool AStats_Repository::Load_Lifetime_Stats(const QString &in_user_id, SStats_Ca
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AStats_Repository::Is_Program_Stats_Fresh(const QString &in_program_id, int in_program_revision,
                                                bool &out_is_fresh)
 {
@@ -99,23 +99,23 @@ bool AStats_Repository::Is_Program_Stats_Fresh(const QString &in_program_id, int
 	Clear_Last_Error();
 	out_is_fresh = false;
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT program_revision FROM program_stats WHERE program_id = ?");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось проверить кэш статистики: %1").arg(query.lastError().text()));
 
-	if (query.next() == false)
+	if (!query.next())
 		return true;
 
 	out_is_fresh = (query.value(0).toInt() == in_program_revision);
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AStats_Repository::Save_Program_Stats(const QString &in_program_id, int in_program_revision,
                                            const QString &in_payload_json)
 {
@@ -123,7 +123,7 @@ bool AStats_Repository::Save_Program_Stats(const QString &in_program_id, int in_
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	if (in_program_id.isEmpty())
@@ -132,7 +132,7 @@ bool AStats_Repository::Save_Program_Stats(const QString &in_program_id, int in_
 	if (in_program_revision < 1)
 		return Set_Last_Error("Кэш статистики привязан к ревизии структуры программы (revision >= 1)");
 
-	if (Validate_Payload(in_payload_json) == false)
+	if (!Validate_Payload(in_payload_json))
 		return Set_Last_Error("Нагрузка кэша статистики должна быть JSON-объектом");
 
 	query.prepare("INSERT INTO program_stats(program_id, computed_at, program_revision, payload_json) "
@@ -149,20 +149,20 @@ bool AStats_Repository::Save_Program_Stats(const QString &in_program_id, int in_
 
 	return Set_Last_Error(QString("Не удалось сохранить кэш статистики: %1").arg(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AStats_Repository::Save_Lifetime_Stats(const QString &in_user_id, const QString &in_payload_json)
 {
 	QSqlQuery query(Connection());
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	if (in_user_id.isEmpty())
 		return Set_Last_Error("Общей статистике нужен userId");
 
-	if (Validate_Payload(in_payload_json) == false)
+	if (!Validate_Payload(in_payload_json))
 		return Set_Last_Error("Нагрузка общей статистики должна быть JSON-объектом");
 
 	query.prepare("INSERT INTO lifetime_stats(user_id, computed_at, payload_json) VALUES(?, ?, ?) "
@@ -177,14 +177,14 @@ bool AStats_Repository::Save_Lifetime_Stats(const QString &in_user_id, const QSt
 
 	return Set_Last_Error(QString("Не удалось сохранить общую статистику: %1").arg(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AStats_Repository::Invalidate_Program_Stats(const QString &in_program_id)
 {
 	QSqlQuery query(Connection());
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("DELETE FROM program_stats WHERE program_id = ?");
@@ -195,14 +195,14 @@ bool AStats_Repository::Invalidate_Program_Stats(const QString &in_program_id)
 
 	return Set_Last_Error(QString("Не удалось сбросить кэш статистики: %1").arg(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AStats_Repository::Invalidate_Lifetime_Stats(const QString &in_user_id)
 {
 	QSqlQuery query(Connection());
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("DELETE FROM lifetime_stats WHERE user_id = ?");
@@ -213,26 +213,26 @@ bool AStats_Repository::Invalidate_Lifetime_Stats(const QString &in_user_id)
 
 	return Set_Last_Error(QString("Не удалось сбросить общую статистику: %1").arg(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Запись факта или завершение программы касаются и программы, и общей
 // статистики, поэтому сброс идёт одной транзакцией.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AStats_Repository::Invalidate_User_Stats(const QString &in_user_id)
 {
 	QSqlQuery query(Connection());
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
-	if (Connection().transaction() == false)
+	if (!Connection().transaction())
 		return Set_Last_Error("Не удалось начать транзакцию");
 
 	query.prepare("DELETE FROM program_stats WHERE program_id IN (SELECT id FROM programs WHERE user_id = ?)");
 	query.addBindValue(in_user_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		Connection().rollback();
 
@@ -242,16 +242,16 @@ bool AStats_Repository::Invalidate_User_Stats(const QString &in_user_id)
 	query.prepare("DELETE FROM lifetime_stats WHERE user_id = ?");
 	query.addBindValue(in_user_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		Connection().rollback();
 
 		return Set_Last_Error(QString("Не удалось сбросить общую статистику: %1").arg(query.lastError().text()));
 	}
 
-	if (Connection().commit() == false)
+	if (!Connection().commit())
 		return Set_Last_Error("Не удалось зафиксировать сброс статистики");
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

@@ -14,11 +14,11 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Avm_Program_Rules: правила программы и ручные отметки пользователя
 // (§3.6–3.7, §5.1). Дата фиксируется через Set_Today, чтобы результат не
 // зависел от системных часов.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 class AProgram_Rules_VM_Test : public QObject
 {
 	Q_OBJECT
@@ -71,7 +71,7 @@ private:
 	AsToken_Store Token_Store = AsToken_Store(&Database);
 	AsAuth_Session Auth_Session = AsAuth_Session(&HTTP_Client, &Token_Store);
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::initTestCase()
 {
 	QVERIFY(Directory.isValid());
@@ -83,7 +83,7 @@ void AProgram_Rules_VM_Test::initTestCase()
 	// заглушки: генерация не ходит в сеть, только в локальную базу.
 	Users_Repository = new AUsers_Repository(&Auth_Session, &Database, this);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::Seed_Macro_Result(const QString &in_user_id, double in_protein, double in_fat,
                                                double in_carbs, double in_calories)
 {
@@ -96,7 +96,7 @@ void AProgram_Rules_VM_Test::Seed_Macro_Result(const QString &in_user_id, double
 
 	QVERIFY(Users_Repository->Save_Macro_Result(in_user_id, result));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVariant AProgram_Rules_VM_Test::Row_By_Role(const AList_Model *in_model, int in_row, const QString &in_role) const
 {
 	// Значения ролей Qt начинаются с Qt::UserRole + 1, поэтому перебираются
@@ -111,7 +111,7 @@ QVariant AProgram_Rules_VM_Test::Row_By_Role(const AList_Model *in_model, int in
 
 	return QVariant();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SProgram_Rule AProgram_Rules_VM_Test::Make_Rule(const QString &in_program_id, const QString &in_id,
                                                 const QString &in_code, ERule_Check_Source in_source)
 {
@@ -134,7 +134,7 @@ SProgram_Rule AProgram_Rules_VM_Test::Make_Rule(const QString &in_program_id, co
 
 	return rule;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::Seed_Program(const QString &in_user_id, const QString &in_program_id)
 {
 	SProgram program;
@@ -191,7 +191,7 @@ void AProgram_Rules_VM_Test::Seed_Program(const QString &in_user_id, const QStri
 	// (В§3.1).
 	QVERIFY(Program_Repository->Change_State(in_program_id, EProgram_State::Active));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::Seed_Rules(const QString &in_program_id)
 {
 	QVector<SProgram_Rule> rules;
@@ -200,27 +200,27 @@ void AProgram_Rules_VM_Test::Seed_Rules(const QString &in_program_id)
 	rules.append(Make_Rule(in_program_id, "r_steps", "steps", ERule_Check_Source::ComputedFromSets));
 	QVERIFY(Rule_Repository->Replace_Rules(in_program_id, rules));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::Seed_User(const QString &in_tag)
 {
 	Seed_Program("u_" + in_tag, "p_" + in_tag);
 	Seed_Rules("p_" + in_tag);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::reloadWithoutActiveProgramFails()
 {
 	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
 	vm.Set_Today("2026-10-05");
 
-	QVERIFY(vm.Reload("u_unknown") == false);
-	QVERIFY(vm.Has_Program() == false);
-	QVERIFY(vm.errorKey().isEmpty() == false);
+	QVERIFY(!vm.Reload("u_unknown"));
+	QVERIFY(!vm.Has_Program());
+	QVERIFY(!vm.errorKey().isEmpty());
 	QCOMPARE(vm.rules()->Row_Count(), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Правило без отметки за сегодня показывает «неизвестно», а не
 // «выполнено»: отсутствие данных не равно нулю (§3.6).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::reloadLoadsRulesWithUnknownTodayState()
 {
 	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
@@ -234,7 +234,7 @@ void AProgram_Rules_VM_Test::reloadLoadsRulesWithUnknownTodayState()
 	QCOMPARE(Row_By_Role(vm.rules(), 0, "todayState").toString(), QString("unknown"));
 	QCOMPARE(vm.today(), QString("2026-10-05"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::manualCheckinAppearsInTodayState()
 {
 	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
@@ -256,7 +256,7 @@ void AProgram_Rules_VM_Test::manualCheckinAppearsInTodayState()
 	QVERIFY(vm.Reload("u_manual"));
 	QCOMPARE(Row_By_Role(vm.rules(), 0, "todayState").toString(), QString("done"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::savesManualCheckinWithValueAndNote()
 {
 	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
@@ -273,7 +273,7 @@ void AProgram_Rules_VM_Test::savesManualCheckinWithValueAndNote()
 	QCOMPARE(Row_By_Role(vm.checkins(), 0, "note").toString(), QString("РїРѕСЃР»Рµ С‚СЂРµРЅРёСЂРѕРІРєРё"));
 	QCOMPARE(Row_By_Role(vm.checkins(), 0, "source").toString(), QString("manual"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // §3.7: расчётная отметка не перезаписывает ручную.
 void AProgram_Rules_VM_Test::computedCheckinCannotOverwriteManual()
 {
@@ -283,10 +283,10 @@ void AProgram_Rules_VM_Test::computedCheckinCannotOverwriteManual()
 	QVERIFY(vm.Reload("u_state"));
 
 	QVERIFY(vm.Save_Checkin("p_state_r_protein", "done", 160, true, "РІСЂСѓС‡РЅСѓСЋ"));
-	QVERIFY(vm.Save_Checkin("p_state_r_protein", "computed", 0, false, "") == false);
-	QVERIFY(vm.errorKey().isEmpty() == false);
+	QVERIFY(!vm.Save_Checkin("p_state_r_protein", "computed", 0, false, ""));
+	QVERIFY(!vm.errorKey().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::periodLimitsLoadedCheckins()
 {
 	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
@@ -309,10 +309,10 @@ void AProgram_Rules_VM_Test::periodLimitsLoadedCheckins()
 	vm.Set_Period_Days(90);
 	QCOMPARE(vm.checkinCount(), 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // В adherence входят только вердикты: «неизвестно» не считается ни
 // успехом, ни провалом (§5.5).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::adherenceCountsVerdictsOnly()
 {
 	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
@@ -321,19 +321,19 @@ void AProgram_Rules_VM_Test::adherenceCountsVerdictsOnly()
 
 	QVERIFY(vm.Reload("u_adh"));
 	// Отметок нет вовсе — считать нечего.
-	QVERIFY(vm.hasAdherencePercent() == false);
+	QVERIFY(!vm.hasAdherencePercent());
 
 	QVERIFY(vm.Save_Checkin("p_adh_r_protein", "done", 150, true, ""));
 	QVERIFY(vm.hasAdherencePercent());
 	QVERIFY(vm.adherencePercent() >= 0.0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Процент считается после того, как прочитаны правила: движок
 // раскладывает вердикты отметок по целям правил, поэтому расчёт
 // на пустом наборе правил оставляет метрику отсутствующей —
 // экран показывает прочерк при полной базе. Отметка здесь без
 // явного состояния: вердикт выводится из значения (§3.6).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::adherenceComputedAfterRulesLoad()
 {
 	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
@@ -364,7 +364,7 @@ void AProgram_Rules_VM_Test::adherenceComputedAfterRulesLoad()
 	QCOMPARE(vm.checkinCount(), 1);
 	QVERIFY(vm.hasAdherencePercent());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::emitsChangedOnReloadAndSave()
 {
 	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
@@ -378,11 +378,11 @@ void AProgram_Rules_VM_Test::emitsChangedOnReloadAndSave()
 	QVERIFY(vm.Save_Checkin("p_signal_r_protein", "done", 150, true, ""));
 	QCOMPARE(spy.count(), 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Генерация создаёт четыре правила питания с целевыми значениями расчёта:
 // белок/углеводы/жиры — «не ниже N г», калории — «ровно C ккал». Именно это
 // закрепляет норму макросов в программе, чтобы её можно было отмечать.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::generateRulesFromMacroCreatesNutritionRules()
 {
 	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
@@ -404,12 +404,12 @@ void AProgram_Rules_VM_Test::generateRulesFromMacroCreatesNutritionRules()
 	QVERIFY(vm.Generate_Rules_From_Macro("u_gen"));
 	QCOMPARE(vm.rules()->Row_Count(), before + 4);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Повторное нажатие обновляет целевые значения макро-правил по
 // новому расчёту, а не копит дубликаты: иначе экран правил
 // засорялся бы одинаковыми строками, а adherence считал бы по двум
 // противоречащим нормам белка.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::generateRulesFromMacroUpdatesInsteadOfDuplicating()
 {
 	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
@@ -427,11 +427,11 @@ void AProgram_Rules_VM_Test::generateRulesFromMacroUpdatesInsteadOfDuplicating()
 	QVERIFY(vm.Generate_Rules_From_Macro("u_upd"));
 	QCOMPARE(vm.rules()->Row_Count(), after_first);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Без сохранённого расчёта кнопка отказывает понятной ошибкой и
 // не создаёт пустых правил: «углеводы ≥ 0 г» в программе
 // бессмысленны и только запутали бы.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rules_VM_Test::generateRulesFromMacroRequiresCalculatedMacro()
 {
 	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
@@ -441,12 +441,12 @@ void AProgram_Rules_VM_Test::generateRulesFromMacroRequiresCalculatedMacro()
 	QVERIFY(vm.Reload("u_nocalc"));
 	const int before = vm.rules()->Row_Count();
 
-	QVERIFY(vm.Generate_Rules_From_Macro("u_nocalc") == false);
-	QVERIFY(vm.errorKey().isEmpty() == false);
+	QVERIFY(!vm.Generate_Rules_From_Macro("u_nocalc"));
+	QVERIFY(!vm.errorKey().isEmpty());
 	QCOMPARE(vm.rules()->Row_Count(), before);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_GUILESS_MAIN(AProgram_Rules_VM_Test)
 #include "tst_Program_Rules_VM.moc"
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

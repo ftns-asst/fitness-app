@@ -16,12 +16,12 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Avm_Today: главный экран на данных программы (issue 27, §5.1-§5.2).
 //
 // Дата фиксируется через Set_Today, поэтому результат не зависит от часов: день
 // недели вычисляется из даты, а слот ищется по нему (§3.4).
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 class AToday_VM_Test : public QObject
 {
 	Q_OBJECT
@@ -38,6 +38,9 @@ private slots:
 	// — Ввод значений (спринт S6, issue 51) —
 	void measurementIsSavedOncePerDay();
 	void measurementWithoutValueIsRejected();
+	void measurementGoesToCurrentDayAfterMidnight();
+	void pinnedDateIsNotOverwrittenByClock();
+	void reloadIfDayChangedFollowsClock();
 	void measurementIsReadableWithoutProgram();
 	void checkinUpdatesRuleStateOnce();
 	void measurementInvalidatesStatsCache();
@@ -70,7 +73,7 @@ private:
 	AStats_Repository *Stats_Repository = 0;
 	AUsers_Repository *Users_Repository = 0;
 };
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::initTestCase()
 {
 	QVERIFY(Directory.isValid());
@@ -82,7 +85,7 @@ void AToday_VM_Test::initTestCase()
 	Stats_Repository = new AStats_Repository(&Database, this);
 	Users_Repository = new AUsers_Repository(&Auth_Session, &Database, this);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVariant AToday_VM_Test::Row_By_Role(const AList_Model *in_model, int in_row, const QString &in_role) const
 {
 	// Значения ролей Qt начинаются с Qt::UserRole + 1, поэтому перебираются
@@ -97,7 +100,7 @@ QVariant AToday_VM_Test::Row_By_Role(const AList_Model *in_model, int in_row, co
 
 	return QVariant();
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::Seed_Program(const QString &in_user_id, const QString &in_program_id)
 {
 	SProgram program;
@@ -198,7 +201,7 @@ void AToday_VM_Test::Seed_Program(const QString &in_user_id, const QString &in_p
 	         qPrintable(Program_Repository->Get_Last_Error()));
 	QVERIFY(Program_Repository->Change_State(in_program_id, EProgram_State::Active));
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::Seed_Rules(const QString &in_program_id)
 {
 	QVector<SProgram_Rule> rules;
@@ -238,14 +241,14 @@ void AToday_VM_Test::Seed_Rules(const QString &in_program_id)
 
 	// Посев идемпотентен: тесты делят одну базу, а повторная вставка тех же
 	// правил отвергается первичным ключом.
-	if (Rule_Repository->Load_Rules(in_program_id, existing_rules) && existing_rules.isEmpty() == false)
+	if (Rule_Repository->Load_Rules(in_program_id, existing_rules) && !existing_rules.isEmpty())
 		return;
 
 	rules.append(protein);
 	rules.append(sleep);
 	QVERIFY(Rule_Repository->Replace_Rules(in_program_id, rules));
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::Seed_Session(const QString &in_id, const QString &in_date)
 {
 	QSqlQuery query(Database.Sql_Connection());
@@ -259,7 +262,7 @@ void AToday_VM_Test::Seed_Session(const QString &in_id, const QString &in_date)
 	query.addBindValue(in_date + "T19:00:00Z");
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Без программы главный экран пуст, и это не ошибка: гость не должен видеть на
 // главной сообщение об ошибке вместо приглашения создать программу (§5.5).
 void AToday_VM_Test::withoutActiveProgramIsEmptyState()
@@ -269,13 +272,13 @@ void AToday_VM_Test::withoutActiveProgramIsEmptyState()
 
 	vm.Set_Today("2026-10-05");
 	QVERIFY(vm.Load("u_guest"));
-	QVERIFY(vm.Has_Program() == false);
+	QVERIFY(!vm.Has_Program());
 	QVERIFY(vm.errorKey().isEmpty());
 	QCOMPARE(vm.programId(), QString());
 	QCOMPARE(vm.exercises()->Row_Count(), 0);
 	QCOMPARE(vm.rules()->Row_Count(), 0);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::todayDayComesFromScheduleSlot()
 {
 	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
@@ -293,7 +296,7 @@ void AToday_VM_Test::todayDayComesFromScheduleSlot()
 	QCOMPARE(vm.today(), QString("2026-10-05"));
 	QCOMPARE(vm.weekday(), 1);
 	QCOMPARE(vm.dayTitle(), QString("День 1"));
-	QVERIFY(vm.Is_Rest_Day() == false);
+	QVERIFY(!vm.Is_Rest_Day());
 	QCOMPARE(vm.estimated_minutes(), 55);
 	QCOMPARE(vm.exercises()->Row_Count(), 2);
 
@@ -302,7 +305,7 @@ void AToday_VM_Test::todayDayComesFromScheduleSlot()
 	QCOMPARE(Row_By_Role(vm.exercises(), 0, "title").toString(), QString("Присед"));
 	QCOMPARE(Row_By_Role(vm.exercises(), 1, "title").toString(), QString("Жим лёжа"));
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Вид дня берётся у дня плана: слот может называть кардио-день тренировкой, и
 // тогда главная показала бы «тренировка» вместо кардио.
 void AToday_VM_Test::dayKindFollowsDayPlanNotSlot()
@@ -315,9 +318,9 @@ void AToday_VM_Test::dayKindFollowsDayPlanNotSlot()
 
 	vm.Set_Today("2026-10-05");
 	QVERIFY(vm.Load("u_today"));
-	QCOMPARE(vm.dayKind(), int(EDay_Kind::Cardio));
+	QCOMPARE(vm.dayKind(), (int)EDay_Kind::Cardio);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::restDayHasNoExercises()
 {
 	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
@@ -330,12 +333,12 @@ void AToday_VM_Test::restDayHasNoExercises()
 	QVERIFY(vm.Load("u_today"));
 
 	QCOMPARE(vm.weekday(), 4);
-	QCOMPARE(vm.dayKind(), int(EDay_Kind::Rest));
+	QCOMPARE(vm.dayKind(), (int)EDay_Kind::Rest);
 	QVERIFY(vm.Is_Rest_Day());
 	QCOMPARE(vm.estimated_minutes(), 0);
 	QCOMPARE(vm.exercises()->Row_Count(), 0);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::rulesShowTodayCheckinState()
 {
 	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
@@ -370,7 +373,7 @@ void AToday_VM_Test::rulesShowTodayCheckinState()
 	QVERIFY(vm.Load("u_today"));
 	QCOMPARE(Row_By_Role(vm.rules(), 0, "todayState").toString(), QString("unknown"));
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::completedSessionMarksDayDone()
 {
 	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
@@ -385,9 +388,9 @@ void AToday_VM_Test::completedSessionMarksDayDone()
 	// Тренировка вчерашнего дня сегодняшним днём не считается.
 	vm.Set_Today("2026-10-06");
 	QVERIFY(vm.Load("u_today"));
-	QVERIFY(vm.Session_Completed() == false);
+	QVERIFY(!vm.Session_Completed());
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 // Неделя срока считается от фактического старта, а не от даты создания:
 // программа может стартовать с задержкой, и тогда неделя «не соответствует».
@@ -420,9 +423,9 @@ void AToday_VM_Test::weekOfTermFollowsActualStart()
 	QVERIFY(vm.Load("u_today"));
 	QCOMPARE(vm.Current_Week(), 4);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Ввод значений (спринт S6, issue 51)
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::measurementIsSavedOncePerDay()
 {
 	// Свой пользователь на каждый тест: база общая, и замер, оставленный
@@ -456,7 +459,74 @@ void AToday_VM_Test::measurementIsSavedOncePerDay()
 	QCOMPARE(stored.Weight_Kg, 82.3);
 	QCOMPARE(stored.Chest_Cm, 104.0);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+// Модель создана в прошлые сутки и живёт дальше: запись обязана попасть в
+// сегодняшний день по часам, а не затереть вчерашний замер.
+//-------------------------------------------------------------------------------------------------------------
+void AToday_VM_Test::measurementGoesToCurrentDayAfterMidnight()
+{
+	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
+	             Users_Repository);
+	const QString current = QDate::currentDate().toString("yyyy-MM-dd");
+	SBody_Measurement stored;
+
+	vm.Set_Today("2020-01-01");
+	QVERIFY(vm.Load("u_meas_midnight"));
+	QVERIFY(vm.saveMeasurement(80.0, true, -1, false, -1, false, -1, false, -1, false, -1, false));
+	QVERIFY(Measurement_Repository->Find_Measurement("u_meas_midnight", "2020-01-01", stored));
+	QCOMPARE(stored.Weight_Kg, 80.0);
+
+	// Прошли сутки: часы снова главные.
+	vm.Follow_Clock();
+	QVERIFY(vm.saveMeasurement(79.0, true, -1, false, -1, false, -1, false, -1, false, -1, false));
+
+	QCOMPARE(vm.today(), current);
+	QVERIFY(Measurement_Repository->Find_Measurement("u_meas_midnight", current, stored));
+	QCOMPARE(stored.Weight_Kg, 79.0);
+	// Вчерашний замер не затёрт.
+	QVERIFY(Measurement_Repository->Find_Measurement("u_meas_midnight", "2020-01-01", stored));
+	QCOMPARE(stored.Weight_Kg, 80.0);
+}
+//-------------------------------------------------------------------------------------------------------------
+void AToday_VM_Test::pinnedDateIsNotOverwrittenByClock()
+{
+	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
+	             Users_Repository);
+	SBody_Measurement stored;
+
+	vm.Set_Today("2020-02-02");
+	QVERIFY(vm.Load("u_meas_pinned"));
+	QVERIFY(vm.saveMeasurement(75.0, true, -1, false, -1, false, -1, false, -1, false, -1, false));
+
+	QCOMPARE(vm.today(), QString("2020-02-02"));
+	QVERIFY(!vm.reloadIfDayChanged("u_meas_pinned"));
+	QVERIFY(Measurement_Repository->Find_Measurement("u_meas_pinned", "2020-02-02", stored));
+}
+//-------------------------------------------------------------------------------------------------------------
+void AToday_VM_Test::reloadIfDayChangedFollowsClock()
+{
+	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
+	             Users_Repository);
+	QSignalSpy changed_spy(&vm, &Avm_Today::changed);
+
+	vm.Set_Today("2020-03-03");
+	QVERIFY(vm.Load("u_meas_reload"));
+	QVERIFY(vm.saveMeasurement(70.0, true, -1, false, -1, false, -1, false, -1, false, -1, false));
+	QVERIFY(vm.Has_Measurement());
+
+	vm.Follow_Clock();
+	changed_spy.clear();
+
+	// Новый день: форма замера пуста, а не показывает вчерашнее как сегодняшнее.
+	QVERIFY(vm.reloadIfDayChanged("u_meas_reload"));
+	QCOMPARE(vm.today(), QDate::currentDate().toString("yyyy-MM-dd"));
+	QVERIFY(!vm.Has_Measurement());
+	QVERIFY(changed_spy.count() >= 1);
+
+	// Тот же день повторно ничего не перечитывает.
+	QVERIFY(!vm.reloadIfDayChanged("u_meas_reload"));
+}
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::measurementWithoutValueIsRejected()
 {
 	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
@@ -468,10 +538,10 @@ void AToday_VM_Test::measurementWithoutValueIsRejected()
 	// Пустая форма — не ошибка ввода и не запись: показывать пользователю
 	// сообщение об ошибке после нажатия «Сохранить» без единого числа значило бы
 	// ругаться на то, что он и не вводил.
-	QVERIFY(vm.saveMeasurement(-1, false, -1, false, -1, false, -1, false, -1, false, -1, false) == false);
-	QVERIFY(vm.Has_Measurement() == false);
+	QVERIFY(!vm.saveMeasurement(-1, false, -1, false, -1, false, -1, false, -1, false, -1, false));
+	QVERIFY(!vm.Has_Measurement());
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::measurementIsReadableWithoutProgram()
 {
 	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
@@ -482,12 +552,12 @@ void AToday_VM_Test::measurementIsReadableWithoutProgram()
 	// У пользователя без активной программы замер остаётся осмысленным
 	// (таблица замеров от программы не зависит, инвариант 20 §4).
 	QVERIFY(vm.Load("u_solo"));
-	QVERIFY(vm.Has_Program() == false);
+	QVERIFY(!vm.Has_Program());
 	QVERIFY(vm.saveMeasurement(70.0, true, -1, false, -1, false, -1, false, -1, false, -1, false));
 	QVERIFY(vm.Has_Measurement());
 	QCOMPARE(vm.weightKg(), 70.0);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::checkinUpdatesRuleStateOnce()
 {
 	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
@@ -514,7 +584,7 @@ void AToday_VM_Test::checkinUpdatesRuleStateOnce()
 	// у шагов их не было бы вовсе.
 	QCOMPARE(checkins.at(0).Unit, QString("g"));
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::measurementInvalidatesStatsCache()
 {
 	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
@@ -534,10 +604,10 @@ void AToday_VM_Test::measurementInvalidatesStatsCache()
 
 	// Новый замер делает прежние числа статистики недействительными (§5.4):
 	// экран статистики не должен продолжать показывать вес, которого нет.
-	QVERIFY(Stats_Repository->Load_Program_Stats("p_meas_cache", entry) == false);
-	QVERIFY(Stats_Repository->Load_Lifetime_Stats("u_meas_cache", entry) == false);
+	QVERIFY(!Stats_Repository->Load_Program_Stats("p_meas_cache", entry));
+	QVERIFY(!Stats_Repository->Load_Lifetime_Stats("u_meas_cache", entry));
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::checkinInvalidatesStatsCache()
 {
 	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
@@ -555,16 +625,16 @@ void AToday_VM_Test::checkinInvalidatesStatsCache()
 	// Процент выполнения входит в кэш, поэтому отметка инвалидирует его так же,
 	// как запись факта: иначе «выполнено» появилось бы на главной, а процент на
 	// экране статистики остался бы прежним.
-	QVERIFY(Stats_Repository->Load_Lifetime_Stats("u_checkin_cache", entry) == false);
+	QVERIFY(!Stats_Repository->Load_Lifetime_Stats("u_checkin_cache", entry));
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Результат авторасчёта КБЖУ показывается на главной (спринт S7, миграция v6):
 // числа читаются из profile_local, а не пересчитываются экраном. Расчёт не
 // зависит от программы, поэтому проверка идёт без активной программы — так же,
 // как у гостя, который считает КБЖУ до создания программы.
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::macroPlanAppearsOnToday()
 {
 	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
@@ -581,7 +651,7 @@ void AToday_VM_Test::macroPlanAppearsOnToday()
 
 	// До расчёта карточка пустая: нули выглядели бы как честный результат.
 	QVERIFY(vm.Load(user_id));
-	QVERIFY(vm.Has_Macro_Plan() == false);
+	QVERIFY(!vm.Has_Macro_Plan());
 	QCOMPARE(vm.macro_calories_kcal(), 0.0);
 
 	QVERIFY(Users_Repository->Save_Macro_Result(user_id, result));
@@ -592,10 +662,10 @@ void AToday_VM_Test::macroPlanAppearsOnToday()
 	QCOMPARE(vm.macro_protein_g(), 132.0);
 	QCOMPARE(vm.macro_fat_g(), 56.0);
 	QCOMPARE(vm.macro_carbs_g(), 210.0);
-	QVERIFY(vm.macro_calculated_at().isEmpty() == false);
+	QVERIFY(!vm.macro_calculated_at().isEmpty());
 }
-//------------------------------------------------------------------------------
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::numericCheckinDerivesStateAndAutofills()
 {
 	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
@@ -638,7 +708,7 @@ void AToday_VM_Test::numericCheckinDerivesStateAndAutofills()
 	QCOMPARE(Row_By_Role(vm.rules(), 1, "todayState").toString(), QString("done"));
 
 	// Отрицательное число отвергается.
-	QVERIFY(vm.saveCheckinValue("p_num_r_sleep", -5) == false);
+	QVERIFY(!vm.saveCheckinValue("p_num_r_sleep", -5));
 }
 QTEST_GUILESS_MAIN(AToday_VM_Test)
 #include "tst_Today_VM.moc"

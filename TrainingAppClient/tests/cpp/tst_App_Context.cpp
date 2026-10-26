@@ -1,4 +1,4 @@
-#include "App/App_Context.h"
+﻿#include "App/App_Context.h"
 
 #include "Data/Auth/Auth_Repository.h"
 #include "Data/Auth/Auth_Session.h"
@@ -28,7 +28,7 @@ private slots:
 	void reinitializeReplacesWholeStack();
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Context_Test::defaultUrlIsUsed()
 {
 	QTemporaryDir directory;
@@ -47,16 +47,16 @@ void AApp_Context_Test::defaultUrlIsUsed()
 	QCOMPARE(context.HTTP_Client()->Base_URL(), QUrl(AsApp_Context::Default_Api_Base_URL));
 	QVERIFY(context.Token_Store() != 0);
 	QVERIFY(context.Auth_Session() != 0);
-	QVERIFY(context.Token_Store()->Has_Tokens() == false);
-	QVERIFY(context.Auth_Session()->Has_Session() == false);
+	QVERIFY(!context.Token_Store()->Has_Tokens());
+	QVERIFY(!context.Auth_Session()->Has_Session());
 	QVERIFY(context.Auth_Repository() != 0);
 	QVERIFY(context.Auth_VM() != 0);
 	QCOMPARE(context.Auth_VM()->state(), QString("idle"));
-	QVERIFY(context.Auth_Repository()->Has_Local_Session() == false);
+	QVERIFY(!context.Auth_Repository()->Has_Local_Session());
 	QVERIFY(context.Users_Repository() != 0);
 	QVERIFY(context.Auth_Bridge() != 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Context_Test::environmentOverridesDefault()
 {
 	QTemporaryDir directory;
@@ -67,7 +67,7 @@ void AApp_Context_Test::environmentOverridesDefault()
 	QCOMPARE(context.apiBaseUrl(), QString("https://env.example/api/v1"));
 	QCOMPARE(context.apiUrlSource(), QString("environment"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Context_Test::settingsOverrideEnvironment()
 {
 	QTemporaryDir directory;
@@ -80,7 +80,7 @@ void AApp_Context_Test::settingsOverrideEnvironment()
 	QCOMPARE(context.apiBaseUrl(), QString("https://settings.example/api/v1"));
 	QCOMPARE(context.apiUrlSource(), QString("settings"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Context_Test::commandLineOverridesSettings()
 {
 	QTemporaryDir directory;
@@ -94,7 +94,7 @@ void AApp_Context_Test::commandLineOverridesSettings()
 	QCOMPARE(context.apiBaseUrl(), QString("https://cli.example/api/v2"));
 	QCOMPARE(context.apiUrlSource(), QString("commandLine"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Context_Test::urlIsNormalized()
 {
 	QTemporaryDir directory;
@@ -104,7 +104,7 @@ void AApp_Context_Test::urlIsNormalized()
 	QVERIFY(context.Initialize({"app", "--api-url", "HTTPS://Example.COM/api/v1/"}, settings, QByteArray()));
 	QCOMPARE(context.apiBaseUrl(), QString("https://example.com/api/v1"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Context_Test::invalidSelectedSourceFails()
 {
 	QTemporaryDir directory;
@@ -113,32 +113,32 @@ void AApp_Context_Test::invalidSelectedSourceFails()
 
 	settings.setValue(AsApp_Context::Settings_Key, "file:///tmp/api");
 
-	QVERIFY(context.Initialize({"app"}, settings, "https://env.example/api/v1") == false);
-	QVERIFY(context.initialized() == false);
+	QVERIFY(!context.Initialize({"app"}, settings, "https://env.example/api/v1"));
+	QVERIFY(!context.initialized());
 	QVERIFY(context.Last_Error().contains("settings"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Context_Test::missingCommandLineValueFails()
 {
 	QTemporaryDir directory;
 	QSettings settings(directory.filePath("settings.ini"), QSettings::IniFormat);
 	AsApp_Context context;
 
-	QVERIFY(context.Initialize({"app", "--api-url"}, settings, QByteArray()) == false);
+	QVERIFY(!context.Initialize({"app", "--api-url"}, settings, QByteArray()));
 	QVERIFY(context.Last_Error().contains("требуется значение"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Context_Test::duplicateCommandLineValueFails()
 {
 	QTemporaryDir directory;
 	QSettings settings(directory.filePath("settings.ini"), QSettings::IniFormat);
 	AsApp_Context context;
 
-	QVERIFY(context.Initialize({"app", "--api-url", "https://one.example", "--api-url", "https://two.example"},
-	                           settings, QByteArray()) == false);
+	QVERIFY(!context.Initialize({"app", "--api-url", "https://one.example", "--api-url", "https://two.example"},
+	                            settings, QByteArray()));
 	QVERIFY(context.Last_Error().contains("более одного раза"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Context_Test::credentialsAndQueryAreRejected()
 {
 	QTemporaryDir directory;
@@ -149,14 +149,14 @@ void AApp_Context_Test::credentialsAndQueryAreRejected()
 	        false);
 	QVERIFY(context.Last_Error().contains("credentials"));
 
-	QVERIFY(context.Initialize({"app", "--api-url", "https://example.com/api?environment=dev"}, settings,
-	                           QByteArray()) == false);
+	QVERIFY(
+	    !context.Initialize({"app", "--api-url", "https://example.com/api?environment=dev"}, settings, QByteArray()));
 	QVERIFY(context.Last_Error().contains("query"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Повторный Initialize пересобирает граф целиком: прежние репозитории и
 // ViewModel удаляются, а не остаются детьми контекста рядом с новыми.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Context_Test::reinitializeReplacesWholeStack()
 {
 	QTemporaryDir directory;
@@ -174,7 +174,7 @@ void AApp_Context_Test::reinitializeReplacesWholeStack()
 	QVERIFY(context.Program_Catalog_VM() != 0);
 	QVERIFY(context.Exercises_VM() != 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(AApp_Context_Test)
 

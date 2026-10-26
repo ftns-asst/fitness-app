@@ -1,4 +1,4 @@
-#include "Domain/Error_State.h"
+﻿#include "Domain/Error_State.h"
 
 #include <QtTest>
 
@@ -22,15 +22,15 @@ void AError_State_Test::startsEmpty()
 {
 	QVERIFY(state.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AError_State_Test::setErrorStoresTextAndFails()
 {
 	const bool result = state.Set_Last_Error("Некорректная дата");
 
-	QVERIFY(result == false);
+	QVERIFY(!result);
 	QCOMPARE(state.Get_Last_Error(), QString("Некорректная дата"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AError_State_Test::clearResetsPreviousError()
 {
 	state.Set_Last_Error("Прошлая ошибка");
@@ -39,7 +39,7 @@ void AError_State_Test::clearResetsPreviousError()
 
 	QVERIFY(state.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AError_State_Test::clearBySetterIsIdempotent()
 {
 	state.Set_Last_Error("Первая ошибка");

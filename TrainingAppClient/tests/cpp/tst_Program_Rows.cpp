@@ -1,4 +1,4 @@
-#include "Presentation/List_Model.h"
+﻿#include "Presentation/List_Model.h"
 #include "Presentation/Program_Rows.h"
 
 #include <QHash>
@@ -66,7 +66,7 @@ QVariant AProgram_Rows_Test::Role_Of(int in_row, const QString &in_role) const
 
 	return QVariant();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rows_Test::weekSlotsMapContractRoles()
 {
 	SWeek_Slot slot;
@@ -90,7 +90,7 @@ void AProgram_Rows_Test::weekSlotsMapContractRoles()
 	QCOMPARE(Role_Of(0, "isAnchor").toBool(), true);
 	QCOMPARE(Role_Of(0, "note").toString(), QString("старт"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rows_Test::weekSlotTodayFlagUsesGivenDate()
 {
 	SWeek_Slot slot;
@@ -110,7 +110,7 @@ void AProgram_Rows_Test::weekSlotTodayFlagUsesGivenDate()
 
 	QCOMPARE(Role_Of(0, "isToday").toBool(), false);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rows_Test::programDaysMapContractRoles()
 {
 	SProgram_Day day;
@@ -132,7 +132,7 @@ void AProgram_Rows_Test::programDaysMapContractRoles()
 	QCOMPARE(Role_Of(0, "estimatedMinutes").toInt(), 55);
 	QCOMPARE(Role_Of(0, "orderIndex").toInt(), 1);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rows_Test::dayExercisesFormatRepsAndWeight()
 {
 	SDay_Exercise exercise;
@@ -171,7 +171,7 @@ void AProgram_Rows_Test::dayExercisesFormatRepsAndWeight()
 
 	QCOMPARE(Role_Of(0, "repsText").toString(), QString("5–8"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rows_Test::dayExerciseNullsMissingWeight()
 {
 	SDay_Exercise exercise;
@@ -183,10 +183,10 @@ void AProgram_Rows_Test::dayExerciseNullsMissingWeight()
 	model.Set_Rows(Program_Rows::Build_Day_Exercises(QVector<SDay_Exercise>{exercise}, QHash<QString, QString>()));
 
 	// Нет заданного веса — null, а не 0: «не задано» и «ноль» различаются.
-	QVERIFY(Role_Of(0, "targetWeightKg").isNull() == true);
-	QVERIFY(Role_Of(0, "rpeTarget").isNull() == true);
+	QVERIFY(Role_Of(0, "targetWeightKg").isNull());
+	QVERIFY(Role_Of(0, "rpeTarget").isNull());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rows_Test::rulesDescribeTargetRange()
 {
 	SProgram_Rule rule;
@@ -222,9 +222,9 @@ void AProgram_Rows_Test::ruleWithoutTargetHasNullValue()
 	model.Set_Roles(Program_Rows::Rule_Roles());
 	model.Set_Rows(Program_Rows::Build_Rules(QVector<SProgram_Rule>{rule}, QHash<QString, QString>()));
 
-	QVERIFY(Role_Of(0, "targetValue").isNull() == true);
+	QVERIFY(Role_Of(0, "targetValue").isNull());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Подпись рекомендации — это сам совет, а не «нет цели». Иначе карточка в
 // списке показывала бы пустую строку там, где у соседей стоит «≥ 140 г», и
 // пользователь не понял бы, что правило вообще чем-то наполнено.
@@ -247,7 +247,7 @@ void AProgram_Rows_Test::adviceRuleShowsItsText()
 	QCOMPARE(Role_Of(0, "displayText").toString(), QString("Отбой до 23:00, без экрана"));
 	QCOMPARE(Role_Of(0, "category").toString(), QString("other"));
 	// Числовой цели у рекомендации нет — и роли цели это не выдумывают.
-	QVERIFY(Role_Of(0, "targetValue").isNull() == true);
+	QVERIFY(Role_Of(0, "targetValue").isNull());
 
 	// «Другое» с числом остаётся измеримым и показывает именно число, а не
 	// текст: вид правила решает по цели, а не по категории.
@@ -256,7 +256,7 @@ void AProgram_Rows_Test::adviceRuleShowsItsText()
 	model.Set_Rows(Program_Rows::Build_Rules(QVector<SProgram_Rule>{rule}, QHash<QString, QString>()));
 	QCOMPARE(Role_Of(0, "displayText").toString(), QString("≥ 8 units"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Экран решает по роли, а не по displayText: подпись у рекомендации — это сам
 // совет, и по тексту нельзя понять, показывать ли кнопки отметки. Роль
 // обязана быть в контракте, иначе делегат QML не сможет её объявить.
@@ -284,16 +284,16 @@ void AProgram_Rows_Test::adviceFlagExposedAsRole()
 	model.Set_Rows(Program_Rows::Build_Rules(QVector<SProgram_Rule>{advice, measurable}, QHash<QString, QString>()));
 
 	QVERIFY(Role_Of(0, "isAdvice").toBool());
-	QVERIFY(Role_Of(1, "isAdvice").toBool() == false);
+	QVERIFY(!Role_Of(1, "isAdvice").toBool());
 
 	// Флаг отражает вид правила, а не категорию: «Другое» с числом остаётся
 	// измеримым, и кнопки отметки у него нужны.
 	advice.Target_Min = 8;
 	advice.Has_Target_Min = true;
 	model.Set_Rows(Program_Rows::Build_Rules(QVector<SProgram_Rule>{advice}, QHash<QString, QString>()));
-	QVERIFY(Role_Of(0, "isAdvice").toBool() == false);
+	QVERIFY(!Role_Of(0, "isAdvice").toBool());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Порядок каталога фиксирован: экран показывает правила по смыслу (питание,
 // активность, восстановление), а не в случайном порядке контейнера. Идентификатор
 // обязан быть стабильным — по нему пресет узнаётся уже добавленным.
@@ -310,7 +310,7 @@ void AProgram_Rows_Test::ruleCatalogHasStableOrderAndIds()
 	{
 		ids.append(all.at(i).value("code").toString());
 		titles.append(all.at(i).value("title").toString());
-		QVERIFY2(all.at(i).value("title").toString().isEmpty() == false, "пресет без названия");
+		QVERIFY2(!all.at(i).value("title").toString().isEmpty(), "пресет без названия");
 	}
 
 	// Повторный вызов даёт тот же порядок: экран не должен перетасовывать
@@ -322,14 +322,14 @@ void AProgram_Rows_Test::ruleCatalogHasStableOrderAndIds()
 	QSet<QString> unique(ids.begin(), ids.end());
 	QCOMPARE(unique.size(), ids.size());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rows_Test::ruleCatalogFiltersByCategory()
 {
 	QVector<QVariantMap> nutrition = Program_Rows::Build_Rule_Catalog(QString("nutrition"));
 	QVector<QVariantMap> recovery = Program_Rows::Build_Rule_Catalog(QString("recovery"));
 
-	QVERIFY(nutrition.isEmpty() == false);
-	QVERIFY(recovery.isEmpty() == false);
+	QVERIFY(!nutrition.isEmpty());
+	QVERIFY(!recovery.isEmpty());
 
 	for (int i = 0; i < nutrition.size(); ++i)
 		QCOMPARE(nutrition.at(i).value("category").toString(), QString("nutrition"));
@@ -347,7 +347,7 @@ void AProgram_Rows_Test::ruleCatalogFiltersByCategory()
 	QVERIFY(nutrition.size() < total);
 	QVERIFY(recovery.size() < total);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Пресет обязан нести все поля, нужные для создания правила. Иначе экран
 // пришлось бы держать таблицу соответствия между названием пресета и
 // параметрами — то самое, что ушло из разметки в домен.
@@ -369,12 +369,12 @@ void AProgram_Rows_Test::ruleCatalogExposesFieldsNeededToAddRule()
 
 	// Числа, а не строки: модель ждёт числа (§7 QML-контракт).
 	QVERIFY(preset.value("metric").toInt() > 0 || preset.value("metric").toInt() == 0);
-	QCOMPARE(preset.value("hasTargetMin").type(), QVariant::Bool);
+	QCOMPARE(preset.value("hasTargetMin").typeId(), (int)QMetaType::Bool);
 
 	// Подпись единицы читается из словаря, а не из сырой строки «gPerKg».
-	QVERIFY(preset.value("unit").toString().isEmpty() == false);
+	QVERIFY(!preset.value("unit").toString().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Все пресеты обязаны быть создаваемы: измеримые — с целью, рекомендации —
 // с текстом. Пресет, который нельзя добавить, — мёртвая кнопка в каталоге.
 void AProgram_Rows_Test::catalogPresetsAreCreatable()
@@ -390,7 +390,7 @@ void AProgram_Rows_Test::catalogPresetsAreCreatable()
 		         qPrintable(QString("пресет «%1» нечем создать").arg(preset.value("title").toString())));
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Метрика определяет единицу сама: белок измеряется в граммах, сон — в часах.
 // Если бы единицу выбирал пользователь, форма позволяла бы «белок в мл» — такое
 // правило прошло бы всю валидацию и при этом не значило бы ничего.
@@ -403,48 +403,47 @@ void AProgram_Rows_Test::metricCatalogGivesEachMetricItsOwnUnit()
 	{
 		const int metric = metrics.at(i).value("metric").toInt();
 
-		QVERIFY2(metrics.at(i).value("unit").toString().isEmpty() == false,
-		         "метрика без единицы: цель было бы нечем измерить");
+		QVERIFY2(!metrics.at(i).value("unit").toString().isEmpty(), "метрика без единицы: цель было бы нечем измерить");
 		// Периодичность проверяется «входит в enum», а не «больше нуля»: PerDay
 		// это 0, и проверка на положительность отвергала бы самый частый случай.
 		const int periodicity = metrics.at(i).value("periodicity").toInt();
 
-		QVERIFY2(periodicity >= 0 && periodicity < int(ERule_Periodicity::Max), "метрика без периодичности");
-		QVERIFY2(metrics.at(i).value("title").toString().isEmpty() == false, "метрика без названия");
+		QVERIFY2(periodicity >= 0 && periodicity < (int)ERule_Periodicity::Max, "метрика без периодичности");
+		QVERIFY2(!metrics.at(i).value("title").toString().isEmpty(), "метрика без названия");
 
 		// Метрика не встречается дважды: иначе фильтр формы показал бы дубль.
-		QVERIFY2(unit_by_metric.contains(metric) == false, "метрика продублирована в каталоге");
+		QVERIFY2(!unit_by_metric.contains(metric), "метрика продублирована в каталоге");
 		unit_by_metric.insert(metric, metrics.at(i).value("unit").toString());
 	}
 
-	QCOMPARE(unit_by_metric.value(int(ERule_Metric::ProteinGrams)), QString("g"));
-	QCOMPARE(unit_by_metric.value(int(ERule_Metric::WaterMl)), QString("ml"));
-	QCOMPARE(unit_by_metric.value(int(ERule_Metric::SleepHours)), QString("hours"));
-	QCOMPARE(unit_by_metric.value(int(ERule_Metric::MaxRpe)), QString("rpe"));
+	QCOMPARE(unit_by_metric.value((int)ERule_Metric::ProteinGrams), QString("g"));
+	QCOMPARE(unit_by_metric.value((int)ERule_Metric::WaterMl), QString("ml"));
+	QCOMPARE(unit_by_metric.value((int)ERule_Metric::SleepHours), QString("hours"));
+	QCOMPARE(unit_by_metric.value((int)ERule_Metric::MaxRpe), QString("rpe"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Единица «сна» и «калории» различаются, а «миллилитры» белку не подходят:
 // проверка единицы по метрике обязана отвергать чужую.
 void AProgram_Rows_Test::metricCatalogRejectsUnitForeignToMetric()
 {
-	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric(int(ERule_Metric::ProteinGrams), int(ERule_Display_Unit::G)));
-	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric(int(ERule_Metric::WaterMl), int(ERule_Display_Unit::Ml)));
+	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric((int)ERule_Metric::ProteinGrams, (int)ERule_Display_Unit::G));
+	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric((int)ERule_Metric::WaterMl, (int)ERule_Display_Unit::Ml));
 
-	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric(int(ERule_Metric::ProteinGrams), int(ERule_Display_Unit::Ml)) ==
+	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric((int)ERule_Metric::ProteinGrams, (int)ERule_Display_Unit::Ml) ==
 	        false);
-	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric(int(ERule_Metric::SleepHours), int(ERule_Display_Unit::Kcal)) ==
+	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric((int)ERule_Metric::SleepHours, (int)ERule_Display_Unit::Kcal) ==
 	        false);
-	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric(int(ERule_Metric::MaxRpe), int(ERule_Display_Unit::Hours)) == false);
+	QVERIFY(!Program_Rows::Is_Unit_Valid_For_Metric((int)ERule_Metric::MaxRpe, (int)ERule_Display_Unit::Hours));
 
 	// Метрика «Произвольная» допускает единицы: её смысл задаёт пользователь.
-	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric(int(ERule_Metric::Custom), int(ERule_Display_Unit::Units)));
+	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric((int)ERule_Metric::Custom, (int)ERule_Display_Unit::Units));
 
 	// Несуществующий enum не должен молча проходить как «подходит».
-	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric(int(ERule_Metric::ProteinGrams), int(ERule_Display_Unit::Max)) ==
+	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric((int)ERule_Metric::ProteinGrams, (int)ERule_Display_Unit::Max) ==
 	        false);
-	QVERIFY(Program_Rows::Is_Unit_Valid_For_Metric(int(ERule_Metric::Max), int(ERule_Display_Unit::G)) == false);
+	QVERIFY(!Program_Rows::Is_Unit_Valid_For_Metric((int)ERule_Metric::Max, (int)ERule_Display_Unit::G));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Каталог обязан покрывать все измеримые метрики: пропущенная исчезла бы из
 // формы без объяснения, и правило по ней стало бы невозможно создать.
 void AProgram_Rows_Test::metricCatalogCoversEveryRuleMetric()
@@ -455,22 +454,22 @@ void AProgram_Rows_Test::metricCatalogCoversEveryRuleMetric()
 	for (int i = 0; i < metrics.size(); ++i)
 		known.insert(metrics.at(i).value("metric").toInt());
 
-	for (int metric = 0; metric < int(ERule_Metric::Max); ++metric)
+	for (int metric = 0; metric < (int)ERule_Metric::Max; ++metric)
 	{
 		// Custom пропускается намеренно: произвольное измерение — это уже
 		// рекомендация, у неё другой вход (§3.6).
-		if (metric == int(ERule_Metric::Custom))
+		if (metric == (int)ERule_Metric::Custom)
 			continue;
 
 		QVERIFY2(known.contains(metric), qPrintable(QString("метрика %1 не покрыта").arg(metric)));
 	}
 
-	QVERIFY(known.contains(int(ERule_Metric::Custom)) == false);
+	QVERIFY(!known.contains((int)ERule_Metric::Custom));
 	// Вес тела покрыт с миграции v4: до неё в ERule_Display_Unit не было
 	// килограммов, и метрика была недоступна в форме.
-	QVERIFY(known.contains(int(ERule_Metric::BodyWeightKg)));
+	QVERIFY(known.contains((int)ERule_Metric::BodyWeightKg));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rows_Test::goalTargetsMapProgress()
 {
 	SGoal_Target goal;
@@ -493,7 +492,7 @@ void AProgram_Rows_Test::goalTargetsMapProgress()
 	QCOMPARE(Role_Of(0, "direction").toString(), QString("decrease"));
 	QCOMPARE(Role_Of(0, "state").toString(), QString("active"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rows_Test::checkinsMapStateAndValue()
 {
 	SRule_Checkin checkin;
@@ -520,9 +519,9 @@ void AProgram_Rows_Test::checkinsMapStateAndValue()
 	checkin.Value = -1;
 	model.Set_Rows(Program_Rows::Build_Checkins(QVector<SRule_Checkin>{checkin}));
 
-	QVERIFY(Role_Of(0, "value").isNull() == true);
+	QVERIFY(Role_Of(0, "value").isNull());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rows_Test::measurementsNullMissingFields()
 {
 	SBody_Measurement measurement;
@@ -536,9 +535,9 @@ void AProgram_Rows_Test::measurementsNullMissingFields()
 	model.Set_Rows(Program_Rows::Build_Measurements(QVector<SBody_Measurement>{measurement}));
 
 	QCOMPARE(Role_Of(0, "weightKg").toDouble(), 78.4);
-	QVERIFY(Role_Of(0, "waistCm").isNull() == true);
+	QVERIFY(Role_Of(0, "waistCm").isNull());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Rows_Test::summariesMarkBestProgram()
 {
 	SProgram_Summary best;

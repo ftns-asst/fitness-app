@@ -1,4 +1,4 @@
-#include "Data/Auth/Auth_Session.h"
+﻿#include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
@@ -28,7 +28,7 @@ private:
 	static QByteArray User_Without_Profile_Body();
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Api_Test::getUserParsesUserAndProfile()
 {
 	ATest_Http_Server server;
@@ -70,14 +70,14 @@ void AUsers_Api_Test::getUserParsesUserAndProfile()
 	QCOMPARE(user.Profile.Gender, QString("male"));
 	QCOMPARE(user.Profile.Height_Cm, (double)179);
 	QCOMPARE(user.Profile.Weight_Kg, 74.5);
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!error.Is_Error());
 
 	STest_Http_Request captured = server.Request_At(0);
 	QCOMPARE(captured.Method, QByteArray("GET"));
 	QCOMPARE(captured.Target, QByteArray("/api/v1/users/user-1?withProfile=true"));
 	QCOMPARE(captured.Headers.value("authorization"), QByteArray("Bearer stored-access"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Api_Test::getUserWithoutProfileIsNotError()
 {
 	ATest_Http_Server server;
@@ -112,13 +112,13 @@ void AUsers_Api_Test::getUserWithoutProfileIsNotError()
 	user = qvariant_cast<SUsers_User>(arguments.at(1));
 	error = qvariant_cast<AApi_Error>(arguments.at(2));
 	QCOMPARE(user.ID, QString("user-1"));
-	QVERIFY(user.Has_Profile == false);
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!user.Has_Profile);
+	QVERIFY(!error.Is_Error());
 
 	STest_Http_Request captured = server.Request_At(0);
 	QCOMPARE(captured.Target, QByteArray("/api/v1/users/user-1"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Api_Test::getUserPreservesBackendErrorKey()
 {
 	ATest_Http_Server server;
@@ -155,7 +155,7 @@ void AUsers_Api_Test::getUserPreservesBackendErrorKey()
 	QCOMPARE(error.HTTP_Status_Code(), 404);
 	QVERIFY(user.ID.isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Api_Test::getUserIncompleteSuccessReportsUndefinedError()
 {
 	ATest_Http_Server server;
@@ -192,7 +192,7 @@ void AUsers_Api_Test::getUserIncompleteSuccessReportsUndefinedError()
 	QCOMPARE(error.Key(), QString("undefined_error"));
 	QVERIFY(user.ID.isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Api_Test::getUserWithoutSessionIsRejected()
 {
 	ATest_Http_Server server;
@@ -215,7 +215,7 @@ void AUsers_Api_Test::getUserWithoutSessionIsRejected()
 	QCOMPARE(spy.count(), 0);
 	QCOMPARE(server.Request_Count(), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Api_Test::refreshRetriesGetUserOnce()
 {
 	ATest_Http_Server server;
@@ -252,14 +252,14 @@ void AUsers_Api_Test::refreshRetriesGetUserOnce()
 	arguments = spy.takeFirst();
 	user = qvariant_cast<SUsers_User>(arguments.at(1));
 	error = qvariant_cast<AApi_Error>(arguments.at(2));
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!error.Is_Error());
 	QCOMPARE(user.ID, QString("user-1"));
 	QVERIFY(user.Has_Profile);
 	QCOMPARE(server.Request_Count(), 3);
 	QCOMPARE(server.Request_At(2).Headers.value("authorization"), QByteArray("Bearer new-access"));
 	QCOMPARE(server.Request_At(2).Target, QByteArray("/api/v1/users/user-1?withProfile=true"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Response AUsers_Api_Test::JSON_Response(int in_status, const QByteArray &in_body)
 {
 	STest_Http_Response response;
@@ -270,20 +270,20 @@ STest_Http_Response AUsers_Api_Test::JSON_Response(int in_status, const QByteArr
 
 	return response;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray AUsers_Api_Test::User_With_Profile_Body()
 {
 	return "{\"id\":\"user-1\",\"name\":\"somename\",\"email\":\"user@example.com\","
 	       "\"created_at\":\"2026-09-20T12:00:00Z\","
 	       "\"profile\":{\"age\":31,\"gender\":\"male\",\"height\":179,\"weight\":74.5}}";
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray AUsers_Api_Test::User_Without_Profile_Body()
 {
 	return "{\"id\":\"user-1\",\"name\":\"somename\",\"email\":\"user@example.com\","
 	       "\"created_at\":\"2026-09-20T12:00:00Z\"}";
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(AUsers_Api_Test)
 

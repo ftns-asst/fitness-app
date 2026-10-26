@@ -61,7 +61,7 @@ Item {
         anchors.topMargin: Spacing.listGap
         clip: true
         color: Theme.surfaceMuted
-        height: Math.round(width * 0.75)
+        height: Math.round(width * 1.2)
         radius: Theme.radiusMd
 
         Image {

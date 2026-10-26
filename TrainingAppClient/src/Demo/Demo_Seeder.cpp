@@ -1,4 +1,4 @@
-#include "Demo/Demo_Seeder.h"
+﻿#include "Demo/Demo_Seeder.h"
 
 #include "Data/Program/Measurement_Repository.h"
 #include "Data/Program/Program_Repository.h"
@@ -19,7 +19,7 @@ namespace
 // ссылались бы на упражнения, которых нет ни в одном каталоге.
 // Содержит ли is_in — своя обёртка, потому что QList::contains в Qt 6
 // обобщён и в QStringList, и в QVector: одна функция на оба случая.
-bool Is_In(const int *in_values, int in_count, int in_value)
+static bool Is_In(const int *in_values, int in_count, int in_value)
 {
 	for (int i = 0; i < in_count; ++i)
 	{
@@ -108,31 +108,31 @@ const SDemo_Rule Demo_Rules[] = {
 };
 } // namespace
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 ADemo_Seeder::ADemo_Seeder(QObject *in_parent) : QObject(in_parent), Error_State(&DEMO_Seeder_Log())
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString ADemo_Seeder::Get_Last_Error() const
 {
 	return Error_State.Get_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString ADemo_Seeder::Program_Id() const
 {
 	return Program_Id_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ADemo_Seeder::Set_Last_Error(const QString &in_error)
 {
 	return Error_State.Set_Last_Error(in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ADemo_Seeder::Clear_Last_Error()
 {
 	Error_State.Clear_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ADemo_Seeder::Seed(AProgram_Repository *in_programs, ARule_Repository *in_rules, const QString &in_user_id,
                         AWorkout_Repository *in_workouts, AMeasurement_Repository *in_measurements)
 {
@@ -150,14 +150,14 @@ bool ADemo_Seeder::Seed(AProgram_Repository *in_programs, ARule_Repository *in_r
 	if (Has_Any_Program(in_programs, in_user_id))
 		return true;
 
-	if (Seed_Program(in_programs, in_user_id) == false || Seed_Structure(in_programs) == false ||
-	    Seed_Rules(in_rules) == false || Seed_Workouts(in_workouts, in_user_id) == false ||
-	    Seed_Checkins(in_rules) == false || Seed_Measurements(in_measurements, in_user_id) == false)
+	if (!Seed_Program(in_programs, in_user_id) || !Seed_Structure(in_programs) || !Seed_Rules(in_rules) ||
+	    !Seed_Workouts(in_workouts, in_user_id) || !Seed_Checkins(in_rules) ||
+	    !Seed_Measurements(in_measurements, in_user_id))
 		return false;
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Есть ли у пользователя хоть одна программа. Проверяется любая программа, а не
 // только демо: индекс programs_one_active_per_user допускает одну активную
 // программу на пользователя, и посев поверх уже созданной упал бы с UNIQUE.
@@ -169,10 +169,10 @@ bool ADemo_Seeder::Has_Any_Program(AProgram_Repository *in_programs, const QStri
 
 	// Отказ трактуем как «данные есть»: посеять поверх неизвестного состояния
 	// хуже, чем не посеять вовсе.
-	if (in_programs->Load_Programs(in_user_id, programs) == false)
+	if (!in_programs->Load_Programs(in_user_id, programs))
 		return true;
 
-	if (programs.isEmpty() == false)
+	if (!programs.isEmpty())
 	{
 		// Идентификатор запоминается: вызывающий должен знать, какую программу
 		// открывать, даже если посев был пропущен.
@@ -186,7 +186,7 @@ bool ADemo_Seeder::Has_Any_Program(AProgram_Repository *in_programs, const QStri
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ADemo_Seeder::Seed_Program(AProgram_Repository *in_programs, const QString &in_user_id)
 {
 	SProgram program;
@@ -207,8 +207,8 @@ bool ADemo_Seeder::Seed_Program(AProgram_Repository *in_programs, const QString 
 	program.Actual_Start_Date = program.Term.Start_Date;
 	program.Note = QString::fromUtf8(Demo_Program_Note);
 
-	if (in_programs->Insert_Program_Full(program, QVector<SGoal_Target>(), QVector<SProgram_Day>(),
-	                                     QVector<SDay_Exercise>(), QVector<SWeek_Slot>()) == false)
+	if (!in_programs->Insert_Program_Full(program, QVector<SGoal_Target>(), QVector<SProgram_Day>(),
+	                                      QVector<SDay_Exercise>(), QVector<SWeek_Slot>()))
 		return Set_Last_Error(in_programs->Get_Last_Error());
 
 	// Программа активируется после вставки структуры: Create_From_Scratch так же
@@ -217,7 +217,7 @@ bool ADemo_Seeder::Seed_Program(AProgram_Repository *in_programs, const QString 
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ADemo_Seeder::Seed_Structure(AProgram_Repository *in_programs)
 {
 	QVector<SProgram_Day> days;
@@ -304,16 +304,16 @@ bool ADemo_Seeder::Seed_Structure(AProgram_Repository *in_programs)
 		}
 	}
 
-	if (in_programs->Replace_Structure(Program_Id_Text, days, exercises, week_slots, ERevision_Reason::Days,
-	                                   QString::fromUtf8(Demo_Structure_Summary)) == false)
+	if (!in_programs->Replace_Structure(Program_Id_Text, days, exercises, week_slots, ERevision_Reason::Days,
+	                                    QString::fromUtf8(Demo_Structure_Summary)))
 		return Set_Last_Error(in_programs->Get_Last_Error());
 
-	if (in_programs->Change_State(Program_Id_Text, EProgram_State::Active) == false)
+	if (!in_programs->Change_State(Program_Id_Text, EProgram_State::Active))
 		return Set_Last_Error(in_programs->Get_Last_Error());
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Правила пишутся через ARule_Repository::Replace_Rules — тот же путь, что и
 // у редактора. Прямой вставкой сидер мог бы записать то, чего редактор не
 // создаст, и расхождение осталось бы незамеченным до первого запуска экрана.
@@ -347,12 +347,12 @@ bool ADemo_Seeder::Seed_Rules(ARule_Repository *in_rules)
 		rules.append(rule);
 	}
 
-	if (in_rules->Replace_Rules(Program_Id_Text, rules) == false)
+	if (!in_rules->Replace_Rules(Program_Id_Text, rules))
 		return Set_Last_Error(in_rules->Get_Last_Error());
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Дата демо-тренировки: отсчёт от сегодняшней, а не фиксированная строка.
 // Фиксированная дата через несколько недель оказалась бы в прошлом, и весь
 // набор тренировок — тоже: статистика показывала бы пустоту.
@@ -360,12 +360,12 @@ QString ADemo_Seeder::Recent_Date(int in_days_ago)
 {
 	return QDate::currentDate().addDays(-in_days_ago).toString("yyyy-MM-dd");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString ADemo_Seeder::Recent_Stamp(const QString &in_date, int in_hour)
 {
 	return in_date + QString("T%1:00:00Z").arg(in_hour, 2, 10, QChar('0'));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Завершённые тренировки нужны экрану статистики: без них он показывает
 // «Пока нет данных» и половина экрана остаётся непроверяемой. Подходы пишутся
 // вместе с сессиями — без них тоннаж и подходы остались бы нулевыми.
@@ -416,7 +416,7 @@ bool ADemo_Seeder::Seed_Workouts(AWorkout_Repository *in_workouts, const QString
 		// Пропущенный день отмечается как отменённая сессия, а не как
 		// завершённая: иначе процент выполнения не отличал бы «не делал» от
 		// «делал».
-		if (planned == false)
+		if (!planned)
 		{
 			session.State = EWorkout_State::Cancelled;
 			session.Deviation = EDeviation::MovedDay;
@@ -431,12 +431,12 @@ bool ADemo_Seeder::Seed_Workouts(AWorkout_Repository *in_workouts, const QString
 			session.State = EWorkout_State::Completed;
 		}
 
-		if (in_workouts->Insert_Session(session) == false)
+		if (!in_workouts->Insert_Session(session))
 			return Set_Last_Error(in_workouts->Get_Last_Error());
 
 		// Внеплановых тренировок посев не делает: иначе adherence считал бы
 		// лишние дни, а экран показывал бы их как часть программы.
-		if (scheduled == false)
+		if (!scheduled)
 			continue;
 
 		// Подходы силовой плитки: тоннаж и подходы на экране статистики
@@ -461,14 +461,14 @@ bool ADemo_Seeder::Seed_Workouts(AWorkout_Repository *in_workouts, const QString
 
 		for (int i = 0; i < sets.size(); ++i)
 		{
-			if (in_workouts->Save_Set(sets.at(i)) == false)
+			if (!in_workouts->Save_Set(sets.at(i)))
 				return Set_Last_Error(in_workouts->Get_Last_Error());
 		}
 	}
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Отметки правил за неделю. Без них экран «Правила» показывает процент «—» и
 // подпись «Отметок за это окно нет»: обычное состояние экрана оказывается
 // непроверяемым.
@@ -487,7 +487,7 @@ bool ADemo_Seeder::Seed_Checkins(ARule_Repository *in_rules)
 	const int total = int(sizeof(Demo_Rules) / sizeof(Demo_Rules[0]));
 	AsRule_Engine engine;
 
-	if (in_rules->Load_Rules(Program_Id_Text, rules) == false)
+	if (!in_rules->Load_Rules(Program_Id_Text, rules))
 		return Set_Last_Error(in_rules->Get_Last_Error());
 
 	for (int rule_index = 0; rule_index < rules.size(); ++rule_index)
@@ -529,7 +529,7 @@ bool ADemo_Seeder::Seed_Checkins(ARule_Repository *in_rules)
 			if (offset == 3)
 				continue;
 
-			if (checkin_value >= 0 && engine.Evaluate_Value(rule, checkin_value, state) == false)
+			if (checkin_value >= 0 && !engine.Evaluate_Value(rule, checkin_value, state))
 				return Set_Last_Error(engine.Get_Last_Error());
 
 			// Правило без значения в пресете отмечается «выполнено»: измерить
@@ -539,14 +539,14 @@ bool ADemo_Seeder::Seed_Checkins(ARule_Repository *in_rules)
 			checkin.Value = checkin_value;
 			checkin.Has_Value = checkin_value >= 0;
 
-			if (in_rules->Save_Checkin(checkin) == false)
+			if (!in_rules->Save_Checkin(checkin))
 				return Set_Last_Error(in_rules->Get_Last_Error());
 		}
 	}
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Замеры тела: вес раз в неделю плюс обхваты в последний день. Без них метрика
 // «Тело, кг» остаётся прочерком, а блок изменения замеров пуст.
 //
@@ -588,7 +588,7 @@ bool ADemo_Seeder::Seed_Measurements(AMeasurement_Repository *in_measurements, c
 			measurement.Has_Thigh_Cm = true;
 		}
 
-		if (in_measurements->Save_Measurement(measurement) == false)
+		if (!in_measurements->Save_Measurement(measurement))
 			return Set_Last_Error(in_measurements->Get_Last_Error());
 	}
 

@@ -1,4 +1,4 @@
-#include "App/App_Logger.h"
+﻿#include "App/App_Logger.h"
 
 #include <QFile>
 #include <QLoggingCategory>
@@ -23,7 +23,7 @@ private:
 	static QString Backup_Path(const QTemporaryDir &in_directory);
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Logger_Test::writesMessagesToFileWithCategoryAndLevel()
 {
 	QTemporaryDir directory;
@@ -47,7 +47,7 @@ void AApp_Logger_Test::writesMessagesToFileWithCategoryAndLevel()
 
 	logger.Close();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Logger_Test::rotationMovesFullLogToBackup()
 {
 	QTemporaryDir directory;
@@ -70,14 +70,14 @@ void AApp_Logger_Test::rotationMovesFullLogToBackup()
 	current = Read_Whole_File(Log_Path(directory));
 	backup = Read_Whole_File(Backup_Path(directory));
 	QVERIFY(current.contains("rotation line 11"));
-	QVERIFY(current.contains("rotation line 0") == false);
-	QVERIFY(backup.isEmpty() == false);
+	QVERIFY(!current.contains("rotation line 0"));
+	QVERIFY(!backup.isEmpty());
 	QVERIFY(backup.contains("rotation line"));
-	QVERIFY(backup.contains("rotation line 11") == false);
+	QVERIFY(!backup.contains("rotation line 11"));
 
 	logger.Close();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AApp_Logger_Test::handlerRestoreStopsFileWriting()
 {
 	QTemporaryDir directory;
@@ -94,16 +94,16 @@ void AApp_Logger_Test::handlerRestoreStopsFileWriting()
 
 	content = Read_Whole_File(Log_Path(directory));
 	QVERIFY(content.contains("before restore"));
-	QVERIFY(content.contains("after restore") == false);
+	QVERIFY(!content.contains("after restore"));
 
 	logger.Close();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AApp_Logger_Test::Read_Whole_File(const QString &in_path)
 {
 	QFile file(in_path);
 
-	if (file.open(QIODevice::ReadOnly | QIODevice::Text) == false)
+	if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
 		return QString();
 
 	QString content = QString::fromUtf8(file.readAll());
@@ -111,17 +111,17 @@ QString AApp_Logger_Test::Read_Whole_File(const QString &in_path)
 
 	return content;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AApp_Logger_Test::Log_Path(const QTemporaryDir &in_directory)
 {
 	return in_directory.filePath("logs/app.log");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AApp_Logger_Test::Backup_Path(const QTemporaryDir &in_directory)
 {
 	return in_directory.filePath("logs/app.1.log");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(AApp_Logger_Test)
 

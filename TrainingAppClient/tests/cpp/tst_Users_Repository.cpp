@@ -1,4 +1,4 @@
-#include "Data/Auth/Auth_Session.h"
+﻿#include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
@@ -36,7 +36,7 @@ private:
 	static void Close_Inspection_Database(QSqlDatabase &in_database);
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Repository_Test::getUserPersistsUserAndProfileCache()
 {
 	ATest_Http_Server server;
@@ -73,8 +73,8 @@ void AUsers_Repository_Test::getUserPersistsUserAndProfileCache()
 	user = qvariant_cast<SUsers_User>(arguments.at(1));
 	from_cache = arguments.at(2).toBool();
 	error = qvariant_cast<AApi_Error>(arguments.at(3));
-	QVERIFY(error.Is_Error() == false);
-	QVERIFY(from_cache == false);
+	QVERIFY(!error.Is_Error());
+	QVERIFY(!from_cache);
 	QCOMPARE(user.ID, QString("user-1"));
 	QVERIFY(user.Has_Profile);
 
@@ -94,7 +94,7 @@ void AUsers_Repository_Test::getUserPersistsUserAndProfileCache()
 	QCOMPARE(query.value(3).toDouble(), 74.5);
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Repository_Test::getUserWithoutProfileLeavesProfileCacheEmpty()
 {
 	ATest_Http_Server server;
@@ -127,7 +127,7 @@ void AUsers_Repository_Test::getUserWithoutProfileLeavesProfileCacheEmpty()
 
 	arguments = spy.takeFirst();
 	user = qvariant_cast<SUsers_User>(arguments.at(1));
-	QVERIFY(user.Has_Profile == false);
+	QVERIFY(!user.Has_Profile);
 
 	inspection = Open_Inspection_Database(path, "inspect_no_profile");
 	query = QSqlQuery(inspection);
@@ -136,7 +136,7 @@ void AUsers_Repository_Test::getUserWithoutProfileLeavesProfileCacheEmpty()
 	QCOMPARE(query.value(0).toInt(), 0);
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Repository_Test::networkFailureFallsBackToCacheWithOfflineMarker()
 {
 	ATest_Http_Server server;
@@ -191,7 +191,7 @@ void AUsers_Repository_Test::networkFailureFallsBackToCacheWithOfflineMarker()
 	QCOMPARE(error.Key(), QString("timeout"));
 	QCOMPARE(server.Request_Count(), 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Repository_Test::networkFailureWithoutCacheReportsError()
 {
 	ATest_Http_Server server;
@@ -231,10 +231,10 @@ void AUsers_Repository_Test::networkFailureWithoutCacheReportsError()
 	from_cache = arguments.at(2).toBool();
 	error = qvariant_cast<AApi_Error>(arguments.at(3));
 	QCOMPARE(error.Key(), QString("timeout"));
-	QVERIFY(from_cache == false);
+	QVERIFY(!from_cache);
 	QVERIFY(user.ID.isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Repository_Test::cachedUserAvailableWithoutNetwork()
 {
 	ATest_Http_Server server;
@@ -271,7 +271,7 @@ void AUsers_Repository_Test::cachedUserAvailableWithoutNetwork()
 	QCOMPARE(cached_user.Profile.Weight_Kg, 74.5);
 	QCOMPARE(server.Request_Count(), 1);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Repository_Test::localProfileSaveWritesDbAndOutbox()
 {
 	QTemporaryDir directory;
@@ -323,7 +323,7 @@ void AUsers_Repository_Test::localProfileSaveWritesDbAndOutbox()
 	QCOMPARE(query.value(1).toInt(), 5);
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Repository_Test::localProfileLoadReturnsSavedFields()
 {
 	QTemporaryDir directory;
@@ -340,7 +340,7 @@ void AUsers_Repository_Test::localProfileLoadReturnsSavedFields()
 	QVERIFY(database.Open(path));
 
 	// Нет сохранённых локальных параметров — не ошибка, полей нет.
-	QVERIFY(repository.Load_Local_Profile("user-1", level, goal, workouts_per_week) == false);
+	QVERIFY(!repository.Load_Local_Profile("user-1", level, goal, workouts_per_week));
 
 	QVERIFY(repository.Save_Local_Profile("user-1", "beginner", "lose_weight", 3, status));
 	QVERIFY(repository.Load_Local_Profile("user-1", level, goal, workouts_per_week));
@@ -348,7 +348,7 @@ void AUsers_Repository_Test::localProfileLoadReturnsSavedFields()
 	QCOMPARE(goal, QString("lose_weight"));
 	QCOMPARE(workouts_per_week, 3);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Response AUsers_Repository_Test::JSON_Response(int in_status, const QByteArray &in_body)
 {
 	STest_Http_Response response;
@@ -359,20 +359,20 @@ STest_Http_Response AUsers_Repository_Test::JSON_Response(int in_status, const Q
 
 	return response;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray AUsers_Repository_Test::User_With_Profile_Body()
 {
 	return "{\"id\":\"user-1\",\"name\":\"somename\",\"email\":\"user@example.com\","
 	       "\"created_at\":\"2026-09-20T12:00:00Z\","
 	       "\"profile\":{\"age\":31,\"gender\":\"male\",\"height\":179,\"weight\":74.5}}";
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray AUsers_Repository_Test::User_Without_Profile_Body()
 {
 	return "{\"id\":\"user-1\",\"name\":\"somename\",\"email\":\"user@example.com\","
 	       "\"created_at\":\"2026-09-20T12:00:00Z\"}";
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QSqlDatabase AUsers_Repository_Test::Open_Inspection_Database(const QString &in_path, const QString &in_name)
 {
 	QSqlDatabase database;
@@ -383,7 +383,7 @@ QSqlDatabase AUsers_Repository_Test::Open_Inspection_Database(const QString &in_
 
 	return database;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Repository_Test::Close_Inspection_Database(QSqlDatabase &in_database)
 {
 	QString name;
@@ -393,14 +393,14 @@ void AUsers_Repository_Test::Close_Inspection_Database(QSqlDatabase &in_database
 	in_database = QSqlDatabase();
 	QSqlDatabase::removeDatabase(name);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Результат авторасчёта КБЖУ (миграция v6): числа живут в profile_local, потому
 // что главная показывает их без вызова домена, а экран расчёта по ним понимает,
 // что расчёт уже делали. Записываются они отдельным upsert'ом: строка профиля
 // принадлежит нескольким потребителям, и общий upsert затирал бы чужие поля.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Repository_Test::macroResultRoundTripsThroughProfileLocal()
 {
 	QTemporaryDir directory;
@@ -421,7 +421,7 @@ void AUsers_Repository_Test::macroResultRoundTripsThroughProfileLocal()
 	QVERIFY(database.Open(path));
 
 	// До расчёта — не ошибка и не нули: «ещё не считали».
-	QVERIFY(repository.Load_Macro_Result("user-1", loaded, calculated_at) == false);
+	QVERIFY(!repository.Load_Macro_Result("user-1", loaded, calculated_at));
 	QVERIFY(calculated_at.isEmpty());
 
 	saved.Bmr_Kcal = 1700;
@@ -438,7 +438,7 @@ void AUsers_Repository_Test::macroResultRoundTripsThroughProfileLocal()
 	QCOMPARE(loaded.Protein_G, 132.0);
 	QCOMPARE(loaded.Fat_G, 56.0);
 	QCOMPARE(loaded.Carbs_G, 210.0);
-	QVERIFY(calculated_at.isEmpty() == false);
+	QVERIFY(!calculated_at.isEmpty());
 
 	// Параметры расчёта пишутся своим upsert'ом и не стирают числа.
 	QVERIFY(repository.Save_Macro_Params("user-1", "1994-05-17", "moderate"));
@@ -459,7 +459,7 @@ void AUsers_Repository_Test::macroResultRoundTripsThroughProfileLocal()
 	QCOMPARE(query.value(1).toDouble(), 1900.0);
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QTEST_MAIN(AUsers_Repository_Test)
 
 #include "tst_Users_Repository.moc"

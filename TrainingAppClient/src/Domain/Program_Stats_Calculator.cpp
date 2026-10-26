@@ -1,4 +1,4 @@
-#include "Domain/Program_Stats_Calculator.h"
+﻿#include "Domain/Program_Stats_Calculator.h"
 
 #include "Domain/Progress_Support.h"
 #include "Domain/Rule_Engine.h"
@@ -11,15 +11,15 @@
 
 Q_LOGGING_CATEGORY(PROGRAM_Stats_Calculator_Log, "trainingapp.program.progress")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Допуск значения цели: вес и часы измеряются с шагом 0,5, поэтому «достигнуто»
 // и «удержано» определяются в пределах половины шага.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static const double Goal_Value_Tolerance = 0.5;
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Значение обхвата по ключу замера: пара «значение + Has_».
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static bool Measurement_Read_Key(const SBody_Measurement &in_measurement, EMeasurement_Key in_key, double &out_value)
 {
 	switch (in_key)
@@ -53,9 +53,9 @@ static bool Measurement_Read_Key(const SBody_Measurement &in_measurement, EMeasu
 		return false;
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Текущий рабочий вес упражнения по уже посчитанной силе (§5.1).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static bool Lookup_Strength(const SProgram_Stats &in_stats, const QString &in_exercise_id, double &out_value)
 {
 	for (int i = 0; i < in_stats.Exercise_Strength.size(); ++i)
@@ -64,7 +64,7 @@ static bool Lookup_Strength(const SProgram_Stats &in_stats, const QString &in_ex
 
 		if (strength.Exercise_Id != in_exercise_id)
 			continue;
-		if (strength.Has_Working_Weight_Kg == false)
+		if (!strength.Has_Working_Weight_Kg)
 			return false;
 
 		out_value = strength.Working_Weight_Kg;
@@ -74,13 +74,13 @@ static bool Lookup_Strength(const SProgram_Stats &in_stats, const QString &in_ex
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Текущее значение обхвата: последнее измерение ключа (§5.1).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static bool Lookup_Delta_Latest(const SProgram_Stats &in_stats, EMeasurement_Key in_key, bool in_has_key,
                                 double &out_value)
 {
-	if (in_has_key == false)
+	if (!in_has_key)
 		return false;
 
 	for (int i = 0; i < in_stats.Measurement_Deltas.size(); ++i)
@@ -90,7 +90,7 @@ static bool Lookup_Delta_Latest(const SProgram_Stats &in_stats, EMeasurement_Key
 		if (delta.Key != in_key)
 			continue;
 
-		if (delta.Has_Latest_Cm == false)
+		if (!delta.Has_Latest_Cm)
 			return false;
 
 		out_value = delta.Latest_Cm;
@@ -100,10 +100,10 @@ static bool Lookup_Delta_Latest(const SProgram_Stats &in_stats, EMeasurement_Key
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Прогресс измеримой цели в процентах (§5.2). false — знаменатель нулевой
 // (старт совпадает с целью), процент посчитать нельзя.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static bool Goal_Progress_Percent(EGoal_Direction in_direction, double in_start, double in_target, double in_current,
                                   double &out_percent)
 {
@@ -135,9 +135,9 @@ static bool Goal_Progress_Percent(EGoal_Direction in_direction, double in_start,
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Достижение цели с учётом направления и допуска.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static bool Goal_Reached(EGoal_Direction in_direction, double in_start, double in_target, double in_current)
 {
 	switch (in_direction)
@@ -152,10 +152,10 @@ static bool Goal_Reached(EGoal_Direction in_direction, double in_start, double i
 		return std::fabs(in_current - in_start) <= Goal_Value_Tolerance;
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Окно программы: от фактического старта (или планового) до min(сегодня,
 // плановый конец срока). Открытый срок заканчивается «сегодня» (§3.3, §5.5).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static bool Resolve_Window(const SProgress_Facts &in_facts, QDate &out_start, QDate &out_end)
 {
 	QString start_text = in_facts.Program.Actual_Start_Date;
@@ -169,7 +169,7 @@ static bool Resolve_Window(const SProgress_Facts &in_facts, QDate &out_start, QD
 
 	start = QDate::fromString(start_text, Qt::ISODate);
 
-	if (start.isValid() == false || today.isValid() == false)
+	if (!start.isValid() || !today.isValid())
 		return false;
 
 	out_start = start;
@@ -177,10 +177,10 @@ static bool Resolve_Window(const SProgress_Facts &in_facts, QDate &out_start, QD
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Число слотов, ожидаемых программой за неделю: тренировка или опциональный
 // день (§5.1 plannedSessions; дни отдыха в знаменатель не входят, §5.5).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static int Slots_Per_Week(const QVector<SWeek_Slot> &in_schedule)
 {
 	int count = 0;
@@ -193,10 +193,10 @@ static int Slots_Per_Week(const QVector<SWeek_Slot> &in_schedule)
 
 	return count;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Правило верхней границы RPE, если программа его задаёт. Нарушение считается
 // через движок правил (W6), а не сравнением «на глаз».
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static const SProgram_Rule *Find_Max_Rpe_Rule(const QVector<SProgram_Rule> &in_rules)
 {
 	const SProgram_Rule *found = 0;
@@ -210,17 +210,17 @@ static const SProgram_Rule *Find_Max_Rpe_Rule(const QVector<SProgram_Rule> &in_r
 
 	return found;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Неделя выполнена полностью: выполнено не меньше, чем запланировано.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static bool Week_Met(const SWeek_Aggregate &in_week)
 {
 	return in_week.Has_Adherence_Percent && in_week.Adherence_Percent >= 100;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Подходы тренировки. Собираются один раз на сессию: и объём, и нагрузка, и
 // проверка правила читают один и тот же список.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static void Collect_Session_Sets(const SProgress_Facts &in_facts, const QString &in_session_id,
                                  QVector<SSet_Log> &out_sets)
 {
@@ -230,18 +230,18 @@ static void Collect_Session_Sets(const SProgress_Facts &in_facts, const QString 
 			out_sets.append(in_facts.Sets.at(i));
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Правило проверяет себя по фактам тренировок (§3.6).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static bool Is_Computed_Rule(const SProgram_Rule &in_rule)
 {
 	return in_rule.Check_Source == ERule_Check_Source::ComputedFromSets ||
 	       in_rule.Check_Source == ERule_Check_Source::ComputedFromSessions;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Отметка правила за дату уже есть: сохранённая запись пользователя имеет
 // приоритет над расчётной и не перезаписывается (§3.7).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static bool Has_Checkin(const QVector<SRule_Checkin> &in_checkins, const QString &in_rule_id, const QString &in_date)
 {
 	for (int i = 0; i < in_checkins.size(); ++i)
@@ -252,35 +252,35 @@ static bool Has_Checkin(const QVector<SRule_Checkin> &in_checkins, const QString
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AsProgram_Stats_Calculator
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsProgram_Stats_Calculator::AsProgram_Stats_Calculator() : Error_State(&PROGRAM_Stats_Calculator_Log())
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AsProgram_Stats_Calculator::Get_Last_Error() const
 {
 	return Error_State.Get_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Stats_Calculator::Set_Last_Error(const QString &in_error)
 {
 	return Error_State.Set_Last_Error(in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Clear_Last_Error()
 {
 	Error_State.Clear_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Stats_Calculator::Prepare(const SProgress_Facts &in_facts, QDate &out_start, QDate &out_end,
                                          int &out_slots_per_week, int &out_weeks_in_window)
 {
 	if (in_facts.Program.ID.isEmpty())
 		return Set_Last_Error("Статистика требует программу с id");
 
-	if (Resolve_Window(in_facts, out_start, out_end) == false)
+	if (!Resolve_Window(in_facts, out_start, out_end))
 		return Set_Last_Error("Статистика требует корректные даты старта программы и «сегодня»");
 
 	out_slots_per_week = Slots_Per_Week(in_facts.Schedule);
@@ -291,7 +291,7 @@ bool AsProgram_Stats_Calculator::Prepare(const SProgress_Facts &in_facts, QDate 
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Stats_Calculator::Compute(const SProgress_Facts &in_facts, SProgram_Stats &out_stats)
 {
 	QDate start;
@@ -302,7 +302,7 @@ bool AsProgram_Stats_Calculator::Compute(const SProgress_Facts &in_facts, SProgr
 	Clear_Last_Error();
 	out_stats = SProgram_Stats();
 
-	if (Prepare(in_facts, start, end, slots_per_week, weeks_in_window) == false)
+	if (!Prepare(in_facts, start, end, slots_per_week, weeks_in_window))
 		return false;
 
 	out_stats.Program_Id = in_facts.Program.ID;
@@ -321,7 +321,7 @@ bool AsProgram_Stats_Calculator::Compute(const SProgress_Facts &in_facts, SProgr
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Stats_Calculator::Recompute_Week(const SProgress_Facts &in_facts, int in_week_index,
                                                 SProgram_Stats &in_out_stats)
 {
@@ -334,7 +334,7 @@ bool AsProgram_Stats_Calculator::Recompute_Week(const SProgress_Facts &in_facts,
 
 	Clear_Last_Error();
 
-	if (Prepare(in_facts, start, end, slots_per_week, weeks_in_window) == false)
+	if (!Prepare(in_facts, start, end, slots_per_week, weeks_in_window))
 		return false;
 
 	if (in_out_stats.Program_Id != in_facts.Program.ID)
@@ -363,7 +363,7 @@ bool AsProgram_Stats_Calculator::Recompute_Week(const SProgress_Facts &in_facts,
 	return true;
 }
 // Недельный срез: план (слоты недели), факт (сессии недели), объём и нагрузка.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Fill_Week(const SProgress_Facts &in_facts, const QDate &in_start, const QDate &in_end,
                                            int in_slots_per_week, int in_week_index, SWeek_Aggregate &out_week) const
 {
@@ -386,7 +386,7 @@ void AsProgram_Stats_Calculator::Fill_Week(const SProgress_Facts &in_facts, cons
 
 		// Номер недели проверяет принадлежность к срезу, а окно — что тренировка
 		// уже состоялась: сессия будущей недели в статистику не попадает.
-		if (In_Window(date, in_start, in_end) == false)
+		if (!In_Window(date, in_start, in_end))
 			continue;
 
 		Accumulate_Session(in_facts, rpe_rule, session, out_week);
@@ -398,7 +398,7 @@ void AsProgram_Stats_Calculator::Fill_Week(const SProgress_Facts &in_facts, cons
 		out_week.Has_Adherence_Percent = true;
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Accumulate_Session(const SProgress_Facts &in_facts, const SProgram_Rule *in_rpe_rule,
                                                     const SWorkout_Session &in_session,
                                                     SWeek_Aggregate &in_out_week) const
@@ -434,7 +434,7 @@ void AsProgram_Stats_Calculator::Accumulate_Session(const SProgress_Facts &in_fa
 	    checkin.State == ECheckin_State::Failed)
 		++in_out_week.Rpe_Violations;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Accumulate_Set(const SSet_Log &in_set, SWeek_Aggregate &in_out_week) const
 {
 	if (Set_Counts_In_Volume(in_set))
@@ -444,7 +444,7 @@ void AsProgram_Stats_Calculator::Accumulate_Set(const SSet_Log &in_set, SWeek_Ag
 		in_out_week.Reps_Count += in_set.Reps;
 	}
 
-	if (in_set.Has_Rpe == false || in_set.Is_Warmup)
+	if (!in_set.Has_Rpe || in_set.Is_Warmup)
 		return;
 
 	in_out_week.Rpe_Sum += in_set.Rpe;
@@ -456,10 +456,10 @@ void AsProgram_Stats_Calculator::Accumulate_Set(const SSet_Log &in_set, SWeek_Ag
 	in_out_week.Max_Rpe = in_set.Rpe;
 	in_out_week.Has_Max_Rpe = true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Итоговые метрики выводятся только из массива недель: так инкрементальный
 // пересчёт одной недели и полный пересчёт дают одинаковый результат (§5.4).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Derive_Totals(SProgram_Stats &in_out_stats) const
 {
 	double rpe_sum = 0;
@@ -484,7 +484,7 @@ void AsProgram_Stats_Calculator::Derive_Totals(SProgram_Stats &in_out_stats) con
 	in_out_stats.Adherence_Percent = in_out_stats.Completed_Sessions * 100.0 / in_out_stats.Planned_Sessions;
 	in_out_stats.Has_Adherence_Percent = true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Reset_Totals(SProgram_Stats &in_out_stats) const
 {
 	in_out_stats.Planned_Sessions = 0;
@@ -505,7 +505,7 @@ void AsProgram_Stats_Calculator::Reset_Totals(SProgram_Stats &in_out_stats) cons
 	in_out_stats.Longest_Streak_Weeks = 0;
 	in_out_stats.Current_Streak_Weeks = 0;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Sum_Week_Volume(const SWeek_Aggregate &in_week, SProgram_Stats &in_out_stats,
                                                  double &in_out_rpe_sum, int &in_out_rpe_count) const
 {
@@ -524,16 +524,16 @@ void AsProgram_Stats_Calculator::Sum_Week_Volume(const SWeek_Aggregate &in_week,
 	in_out_rpe_sum += in_week.Rpe_Sum;
 	in_out_rpe_count += in_week.Rpe_Count;
 
-	if (in_week.Has_Max_Rpe == false || (in_out_stats.Has_Max_Rpe && in_week.Max_Rpe <= in_out_stats.Max_Rpe))
+	if (!in_week.Has_Max_Rpe || (in_out_stats.Has_Max_Rpe && in_week.Max_Rpe <= in_out_stats.Max_Rpe))
 		return;
 
 	in_out_stats.Max_Rpe = in_week.Max_Rpe;
 	in_out_stats.Has_Max_Rpe = true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Серии недель подряд: неделя засчитана, если её adherence ≥ 100 %.
 // Текущая серия — непрерывный хвост в конце окна, поэтому считается наоборот.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Track_Streaks(const QVector<SWeek_Aggregate> &in_weeks,
                                                SProgram_Stats &in_out_stats) const
 {
@@ -542,7 +542,7 @@ void AsProgram_Stats_Calculator::Track_Streaks(const QVector<SWeek_Aggregate> &i
 
 	for (int i = 0; i < in_weeks.size(); ++i)
 	{
-		if (Week_Met(in_weeks.at(i)) == false)
+		if (!Week_Met(in_weeks.at(i)))
 		{
 			current = 0;
 
@@ -560,7 +560,7 @@ void AsProgram_Stats_Calculator::Track_Streaks(const QVector<SWeek_Aggregate> &i
 
 	for (int i = in_weeks.size() - 1; i >= 0; --i)
 	{
-		if (Week_Met(in_weeks.at(i)) == false)
+		if (!Week_Met(in_weeks.at(i)))
 			break;
 
 		++current;
@@ -568,11 +568,11 @@ void AsProgram_Stats_Calculator::Track_Streaks(const QVector<SWeek_Aggregate> &i
 
 	in_out_stats.Current_Streak_Weeks = current;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Части статистики, не привязанные к неделе. Векторы пересобираются целиком:
 // функции идемпотентны и одинаково работают при полном и инкрементальном
 // пересчёте (§5.4).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Finish_Progress(const SProgress_Facts &in_facts, const QDate &in_start,
                                                  const QDate &in_end, SProgram_Stats &in_out_stats) const
 {
@@ -590,10 +590,10 @@ void AsProgram_Stats_Calculator::Finish_Progress(const SProgress_Facts &in_facts
 	Collect_Computed_Checkins(in_facts, checkins);
 	Collect_Rule_Stats(in_facts.Rules, checkins, in_out_stats);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Силовые показатели и границы данных: рабочий вес и e1RM по упражнениям за
 // окно программы. Порядок упражнений — по первому появлению в фактах.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Collect_Strength(const SProgress_Facts &in_facts, const QDate &in_start,
                                                   const QDate &in_end, SProgram_Stats &in_out_stats) const
 {
@@ -606,7 +606,7 @@ void AsProgram_Stats_Calculator::Collect_Strength(const SProgress_Facts &in_fact
 		const SWorkout_Session &session = in_facts.Sessions.at(i);
 		QDate date = QDate::fromString(Session_Date(session), Qt::ISODate);
 
-		if (session.State != EWorkout_State::Completed || In_Window(date, in_start, in_end) == false)
+		if (session.State != EWorkout_State::Completed || !In_Window(date, in_start, in_end))
 			continue;
 
 		data_range.Add(date.toString("yyyy-MM-dd"), 0);
@@ -615,10 +615,10 @@ void AsProgram_Stats_Calculator::Collect_Strength(const SProgress_Facts &in_fact
 		{
 			const SSet_Log &set = in_facts.Sets.at(j);
 
-			if (set.Session_Id != session.ID || Set_Counts_In_Volume(set) == false || set.Exercise_Id.isEmpty())
+			if (set.Session_Id != session.ID || !Set_Counts_In_Volume(set) || set.Exercise_Id.isEmpty())
 				continue;
 
-			if (strengths.contains(set.Exercise_Id) == false)
+			if (!strengths.contains(set.Exercise_Id))
 			{
 				SExercise_Strength empty;
 
@@ -630,13 +630,13 @@ void AsProgram_Stats_Calculator::Collect_Strength(const SProgress_Facts &in_fact
 			SExercise_Strength &strength = strengths[set.Exercise_Id];
 
 			// Рабочий вес — максимум за период; e1RM — максимум оценки.
-			if (strength.Has_Working_Weight_Kg == false || set.Weight_Kg > strength.Working_Weight_Kg)
+			if (!strength.Has_Working_Weight_Kg || set.Weight_Kg > strength.Working_Weight_Kg)
 			{
 				strength.Working_Weight_Kg = set.Weight_Kg;
 				strength.Has_Working_Weight_Kg = true;
 			}
 
-			if (strength.Has_E1rm_Kg == false || E1rm(set) > strength.E1rm_Kg)
+			if (!strength.Has_E1rm_Kg || E1rm(set) > strength.E1rm_Kg)
 			{
 				strength.E1rm_Kg = E1rm(set);
 				strength.Has_E1rm_Kg = true;
@@ -650,9 +650,9 @@ void AsProgram_Stats_Calculator::Collect_Strength(const SProgress_Facts &in_fact
 	in_out_stats.Data_Range_From = data_range.First_Date;
 	in_out_stats.Data_Range_To = data_range.Last_Date;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Вес тела на границах окна и дельты обхватов по каждому ключу замера.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Collect_Measurements(const SProgress_Facts &in_facts, const QDate &in_start,
                                                       const QDate &in_end, SProgram_Stats &in_out_stats) const
 {
@@ -664,7 +664,7 @@ void AsProgram_Stats_Calculator::Collect_Measurements(const SProgress_Facts &in_
 		const SBody_Measurement &measurement = in_facts.Measurements.at(i);
 		QDate date = QDate::fromString(measurement.Date, Qt::ISODate);
 
-		if (In_Window(date, in_start, in_end) == false)
+		if (!In_Window(date, in_start, in_end))
 			continue;
 
 		window_measurements.append(measurement);
@@ -687,16 +687,16 @@ void AsProgram_Stats_Calculator::Collect_Measurements(const SProgress_Facts &in_
 
 	Collect_Measurement_Deltas(window_measurements, in_out_stats);
 
-	if (weight.Has_Both() == false)
+	if (!weight.Has_Both())
 		return;
 
 	in_out_stats.Body_Weight_Delta_Kg = weight.Delta();
 	in_out_stats.Has_Body_Weight_Delta_Kg = true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Дельта обхвата «старт → последнее измерение» для каждого ключа (§5.1).
 // Ключ без данных остаётся в списке с пустыми флагами — UI покажет «нет данных».
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Collect_Measurement_Deltas(const QVector<SBody_Measurement> &in_measurements,
                                                             SProgram_Stats &in_out_stats) const
 {
@@ -710,7 +710,7 @@ void AsProgram_Stats_Calculator::Collect_Measurement_Deltas(const QVector<SBody_
 		{
 			double value = 0;
 
-			if (Measurement_Read_Key(in_measurements.at(i), measurement_key, value) == false)
+			if (!Measurement_Read_Key(in_measurements.at(i), measurement_key, value))
 				continue;
 
 			extremes.Add(in_measurements.at(i).Date, value);
@@ -739,9 +739,9 @@ void AsProgram_Stats_Calculator::Collect_Measurement_Deltas(const QVector<SBody_
 		in_out_stats.Measurement_Deltas.append(delta);
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Прогресс целей: текущее значение метрики, процент и отметка достижения.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Collect_Goals(const SProgress_Facts &in_facts, SProgram_Stats &in_out_stats) const
 {
 	for (int i = 0; i < in_facts.Goal_Targets.size(); ++i)
@@ -775,7 +775,7 @@ void AsProgram_Stats_Calculator::Collect_Goals(const SProgress_Facts &in_facts, 
 		in_out_stats.Goal_Progress.append(progress);
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Apply_Goal_Progress(const SGoal_Target &in_target, double in_current,
                                                      SGoal_Progress &in_out_progress) const
 {
@@ -790,17 +790,17 @@ void AsProgram_Stats_Calculator::Apply_Goal_Progress(const SGoal_Target &in_targ
 	in_out_progress.Is_Achieved =
 	    Goal_Reached(in_target.Direction, in_target.Start_Value, in_target.Target_Value, in_current);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Текущее значение цели по её метрике. Метрики без данных дают false — на
 // экране это «нет данных», а не ноль (§5.5).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Stats_Calculator::Read_Goal_Current(const SGoal_Target &in_target, const SProgram_Stats &in_stats,
                                                    double &out_value) const
 {
 	switch (in_target.Metric)
 	{
 	case EGoal_Metric::BodyWeightKg:
-		if (in_stats.Has_Body_Weight_Latest_Kg == false)
+		if (!in_stats.Has_Body_Weight_Latest_Kg)
 			return false;
 
 		out_value = in_stats.Body_Weight_Latest_Kg;
@@ -833,12 +833,12 @@ bool AsProgram_Stats_Calculator::Read_Goal_Current(const SGoal_Target &in_target
 		return false;
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SMeasurement_Delta delta;
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Сводка правил и средние значения метрик (белок, сон, вода, шаги).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Collect_Rule_Stats(const QVector<SProgram_Rule> &in_rules,
                                                     const QVector<SRule_Checkin> &in_checkins,
                                                     SProgram_Stats &in_out_stats) const
@@ -858,7 +858,7 @@ void AsProgram_Stats_Calculator::Collect_Rule_Stats(const QVector<SProgram_Rule>
 		SRule_Stat_Row row;
 		SRule_Stats stats;
 
-		if (engine.Compute_Rule_Stats(rule, in_checkins, stats) == false)
+		if (!engine.Compute_Rule_Stats(rule, in_checkins, stats))
 			continue;
 
 		row.Rule_Id = rule.ID;
@@ -873,7 +873,7 @@ void AsProgram_Stats_Calculator::Collect_Rule_Stats(const QVector<SProgram_Rule>
 	}
 
 	// Норма белка «на кг» — от последнего веса тела (§5.1).
-	if (in_out_stats.Has_Average_Protein_Grams_Per_Day == false || in_out_stats.Has_Body_Weight_Latest_Kg == false ||
+	if (!in_out_stats.Has_Average_Protein_Grams_Per_Day || !in_out_stats.Has_Body_Weight_Latest_Kg ||
 	    in_out_stats.Body_Weight_Latest_Kg <= 0)
 		return;
 
@@ -881,10 +881,10 @@ void AsProgram_Stats_Calculator::Collect_Rule_Stats(const QVector<SProgram_Rule>
 	    in_out_stats.Average_Protein_Grams_Per_Day / in_out_stats.Body_Weight_Latest_Kg;
 	in_out_stats.Has_Average_Protein_Per_Kg = true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Среднее по метрике правила попадает в отдельный счётчик программы. Метрики
 // без своего счётчика (например, custom) учитываются только в ruleStats[].
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Apply_Average_Metric(const SProgram_Rule &in_rule, double in_average,
                                                       SProgram_Stats &in_out_stats) const
 {
@@ -918,11 +918,11 @@ void AsProgram_Stats_Calculator::Apply_Average_Metric(const SProgram_Rule &in_ru
 		break;
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Расчётные правила проверяют себя сами (§3.6): к сохранённым отметкам
 // добавляются авто-отметки из фактов тренировок, иначе в статистике они
 // выглядели бы «без данных».
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Stats_Calculator::Collect_Computed_Checkins(const SProgress_Facts &in_facts,
                                                            QVector<SRule_Checkin> &in_out_checkins) const
 {
@@ -932,7 +932,7 @@ void AsProgram_Stats_Calculator::Collect_Computed_Checkins(const SProgress_Facts
 	{
 		const SProgram_Rule &rule = in_facts.Rules.at(i);
 
-		if (Is_Computed_Rule(rule) == false)
+		if (!Is_Computed_Rule(rule))
 			continue;
 
 		for (int j = 0; j < in_facts.Sessions.size(); ++j)
@@ -950,9 +950,9 @@ void AsProgram_Stats_Calculator::Collect_Computed_Checkins(const SProgress_Facts
 			    false)
 				continue;
 
-			if (Has_Checkin(in_out_checkins, rule.ID, checkin.Date) == false)
+			if (!Has_Checkin(in_out_checkins, rule.ID, checkin.Date))
 				in_out_checkins.append(checkin);
 		}
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

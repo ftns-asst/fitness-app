@@ -1,4 +1,4 @@
-#include "Data/Auth/Token_Store.h"
+﻿#include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 
 #include <QDateTime>
@@ -18,7 +18,7 @@ private slots:
 	void rejectsIncompleteTokens();
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToken_Store_Test::initiallyHasNoTokens()
 {
 	QTemporaryDir directory;
@@ -29,14 +29,14 @@ void AToken_Store_Test::initiallyHasNoTokens()
 	QVERIFY(directory.isValid());
 	QVERIFY(database.Open(directory.filePath("cache.sqlite3")));
 
-	QVERIFY(store.Has_Tokens() == false);
-	QVERIFY(store.Load_Tokens(tokens) == false);
+	QVERIFY(!store.Has_Tokens());
+	QVERIFY(!store.Load_Tokens(tokens));
 	QVERIFY(tokens.User_ID.isEmpty());
 	QVERIFY(tokens.Access_Token.isEmpty());
 	QVERIFY(tokens.Refresh_Token.isEmpty());
 	QCOMPARE(store.Last_Error(), QString());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToken_Store_Test::saveAndLoadRoundTrip()
 {
 	QTemporaryDir directory;
@@ -61,7 +61,7 @@ void AToken_Store_Test::saveAndLoadRoundTrip()
 	QCOMPARE(tokens.Refresh_Expires_At, refresh_expiry);
 	QCOMPARE(store.Last_Error(), QString());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToken_Store_Test::saveReplacesPairOnRotation()
 {
 	QTemporaryDir directory;
@@ -85,7 +85,7 @@ void AToken_Store_Test::saveReplacesPairOnRotation()
 	QVERIFY(tokens.Access_Expires_At.isNull());
 	QVERIFY(tokens.Refresh_Expires_At.isNull());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToken_Store_Test::clearRemovesTokens()
 {
 	QTemporaryDir directory;
@@ -98,15 +98,15 @@ void AToken_Store_Test::clearRemovesTokens()
 	QVERIFY(store.Save_Tokens("user-1", "access-1", "refresh-1", QDateTime(), QDateTime()));
 
 	QVERIFY(store.Clear_Tokens());
-	QVERIFY(store.Has_Tokens() == false);
-	QVERIFY(store.Load_Tokens(tokens) == false);
+	QVERIFY(!store.Has_Tokens());
+	QVERIFY(!store.Load_Tokens(tokens));
 
 	// Повторная очистка результат не меняет.
 	QVERIFY(store.Clear_Tokens());
-	QVERIFY(store.Has_Tokens() == false);
+	QVERIFY(!store.Has_Tokens());
 	QCOMPARE(store.Last_Error(), QString());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToken_Store_Test::tokensPersistAcrossReopen()
 {
 	QTemporaryDir directory;
@@ -133,7 +133,7 @@ void AToken_Store_Test::tokensPersistAcrossReopen()
 	QCOMPARE(tokens.Access_Token, QString("persist-access"));
 	QCOMPARE(tokens.Refresh_Token, QString("persist-refresh"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AToken_Store_Test::rejectsIncompleteTokens()
 {
 	QTemporaryDir directory;
@@ -143,16 +143,16 @@ void AToken_Store_Test::rejectsIncompleteTokens()
 	QVERIFY(directory.isValid());
 	QVERIFY(database.Open(directory.filePath("cache.sqlite3")));
 
-	QVERIFY(store.Save_Tokens("", "access-1", "refresh-1", QDateTime(), QDateTime()) == false);
-	QVERIFY(store.Save_Tokens("user-1", "", "refresh-1", QDateTime(), QDateTime()) == false);
-	QVERIFY(store.Save_Tokens("user-1", "access-1", "", QDateTime(), QDateTime()) == false);
-	QVERIFY(store.Last_Error().isEmpty() == false);
-	QVERIFY(store.Has_Tokens() == false);
+	QVERIFY(!store.Save_Tokens("", "access-1", "refresh-1", QDateTime(), QDateTime()));
+	QVERIFY(!store.Save_Tokens("user-1", "", "refresh-1", QDateTime(), QDateTime()));
+	QVERIFY(!store.Save_Tokens("user-1", "access-1", "", QDateTime(), QDateTime()));
+	QVERIFY(!store.Last_Error().isEmpty());
+	QVERIFY(!store.Has_Tokens());
 
 	QVERIFY(store.Save_Tokens("user-1", "access-1", "refresh-1", QDateTime(), QDateTime()));
 	QVERIFY(store.Has_Tokens());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(AToken_Store_Test)
 

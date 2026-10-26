@@ -1,4 +1,4 @@
-#include "Presentation/Program_Stats_VM.h"
+﻿#include "Presentation/Program_Stats_VM.h"
 
 #include "Data/Program/Measurement_Repository.h"
 #include "Data/Program/Program_Repository.h"
@@ -12,7 +12,7 @@
 
 Q_LOGGING_CATEGORY(PROGRAM_STATS_VM_Log, "trainingapp.program.stats_vm")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Program_Stats::Avm_Program_Stats(AProgram_Repository *in_program_repository,
                                      AWorkout_Repository *in_workout_repository, ARule_Repository *in_rule_repository,
                                      AMeasurement_Repository *in_measurement_repository,
@@ -30,10 +30,28 @@ Avm_Program_Stats::Avm_Program_Stats(AProgram_Repository *in_program_repository,
 	Rule_Stats_Model->Set_Roles(Program_Rows::Rule_Stat_Roles());
 	Measurements_Model->Set_Roles(Program_Rows::Measurement_Roles());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Program_Stats::Set_Today(const QString &in_date)
 {
 	Today_Text = in_date;
+	Today_Is_Pinned = true;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Program_Stats::Refresh_Today()
+{
+	QString current;
+
+	if (Today_Is_Pinned)
+		return false;
+
+	current = QDate::currentDate().toString("yyyy-MM-dd");
+
+	if (current == Today_Text)
+		return false;
+
+	Today_Text = current;
+
+	return true;
 }
 // — QML-мост (camelCase) —
 // Обёртки отделены от методов предметной области: контракт экрана не должен
@@ -43,7 +61,7 @@ bool Avm_Program_Stats::refresh(const QString &in_program_id, const QString &in_
 	return Refresh(in_program_id, in_date_from, in_date_to);
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_date_from, const QString &in_date_to)
 {
 	SProgress_Facts facts;
@@ -51,6 +69,7 @@ bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_
 	QVector<SDay_Exercise> exercises;
 	QVector<SRule_Checkin> checkins;
 
+	Refresh_Today();
 	Clear_Stats();
 	Clear_Error();
 
@@ -65,8 +84,8 @@ bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_
 
 	// Структура программы нужна и для окна расчёта, и для adherence по
 	// расписанию (§5.2); дни и предписания статистике не требуются.
-	if (Program_Repository_Instance->Load_Program_Full(in_program_id, facts.Program, facts.Goal_Targets, days,
-	                                                   exercises, facts.Schedule) == false)
+	if (!Program_Repository_Instance->Load_Program_Full(in_program_id, facts.Program, facts.Goal_Targets, days,
+	                                                    exercises, facts.Schedule))
 	{
 		Set_Error();
 
@@ -102,8 +121,8 @@ bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_
 		}
 	}
 
-	if (Workout_Repository_Instance->Load_Program_Facts(facts.Program.User_Id, in_program_id, date_from, date_to,
-	                                                    facts.Sessions, facts.Sets) == false)
+	if (!Workout_Repository_Instance->Load_Program_Facts(facts.Program.User_Id, in_program_id, date_from, date_to,
+	                                                     facts.Sessions, facts.Sets))
 	{
 		Set_Error();
 
@@ -120,7 +139,7 @@ bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_
 	if (Measurement_Repository_Instance != 0)
 		Measurement_Repository_Instance->Load_Range(facts.Program.User_Id, date_from, date_to, facts.Measurements);
 
-	if (Calculator.Compute_Program_Stats(facts, Stats) == false)
+	if (!Calculator.Compute_Program_Stats(facts, Stats))
 	{
 		Set_Error();
 
@@ -149,7 +168,7 @@ bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Program_Stats::Clear_Stats()
 {
 	Stats = SProgram_Stats();
@@ -160,150 +179,150 @@ void Avm_Program_Stats::Clear_Stats()
 	Goal_Progress_Model->Set_Rows(QVector<QVariantMap>());
 	Measurements_Model->Set_Rows(QVector<QVariantMap>());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Program_Stats::Clear_Error()
 {
 	Error_Key_Text.clear();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Program_Stats::Set_Error()
 {
 	Error_Key_Text = "undefined_error";
 	qCInfo(PROGRAM_STATS_VM_Log).noquote() << "stats refresh failed";
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Stats::Has_Stats() const
 {
-	return Stats.Program_Id.isEmpty() == false;
+	return !Stats.Program_Id.isEmpty();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Program_Stats::adherencePercent() const
 {
 	return Stats.Adherence_Percent;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Stats::Has_Adherence_Percent() const
 {
 	return Stats.Has_Adherence_Percent;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int Avm_Program_Stats::plannedSessions() const
 {
 	return Stats.Planned_Sessions;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int Avm_Program_Stats::completedSessions() const
 {
 	return Stats.Completed_Sessions;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Program_Stats::tonnageKg() const
 {
 	return Stats.Tonnage_Kg;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int Avm_Program_Stats::setsCount() const
 {
 	return Stats.Sets_Count;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int Avm_Program_Stats::repsCount() const
 {
 	return Stats.Reps_Count;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Program_Stats::durationMinutes() const
 {
 	return Stats.Duration_Minutes;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Program_Stats::avgRpe() const
 {
 	return Stats.Average_Rpe;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Stats::Has_Average_Rpe() const
 {
 	return Stats.Has_Average_Rpe;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int Avm_Program_Stats::currentStreakWeeks() const
 {
 	return Stats.Current_Streak_Weeks;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int Avm_Program_Stats::longestStreakWeeks() const
 {
 	return Stats.Longest_Streak_Weeks;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Program_Stats::bodyWeightDeltaKg() const
 {
 	return Stats.Body_Weight_Delta_Kg;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Stats::Has_Body_Weight_Delta_Kg() const
 {
 	return Stats.Has_Body_Weight_Delta_Kg;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Program_Stats::ruleAdherencePercent() const
 {
 	return Stats.Rule_Adherence_Percent;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Stats::Has_Rule_Adherence_Percent() const
 {
 	return Stats.Has_Rule_Adherence_Percent;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Stats::goalAchieved() const
 {
 	return Stats.Goal_Achieved;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Program_Stats::dataRangeFrom() const
 {
 	return Stats.Data_Range_From;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Program_Stats::dataRangeTo() const
 {
 	return Stats.Data_Range_To;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Program_Stats::errorKey() const
 {
 	return Error_Key_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 const SProgram_Stats &Avm_Program_Stats::program_stats() const
 {
 	return Stats;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program_Stats::weeks() const
 {
 	return Weeks;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program_Stats::rule_stats() const
 {
 	return Rule_Stats_Model;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program_Stats::exercise_strength() const
 {
 	return Exercise_Strength_Model;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program_Stats::goal_progress() const
 {
 	return Goal_Progress_Model;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AList_Model *Avm_Program_Stats::measurements() const
 {
 	return Measurements_Model;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
