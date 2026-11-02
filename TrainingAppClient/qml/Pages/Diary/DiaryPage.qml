@@ -7,8 +7,17 @@ import TrainingAppClient
 PageScaffold {
     id: page
 
+    // Заголовок живёт в шапке каркаса — рядом с кнопкой профиля, как на
+    // остальных корневых экранах. Подпись — программа, к которой относятся
+    // отметки, чтобы не было второй строки с тем же названием в контенте.
+    caption: page.hasModel && page.viewModel.programTitle ? page.viewModel.programTitle : qsTr("Нет выбранной программы")
+    title: qsTr("Дневник")
+
     property var viewModel: typeof DiaryVM !== "undefined" ? DiaryVM : null
     property string programId: ""
+    // Дневник — корень вкладки: панель возврата нужна только когда экран
+    // открыт поверх (диагностика `--screen diary`).
+    property bool showBackBar: true
     readonly property bool hasModel: viewModel !== null && viewModel !== undefined
     readonly property alias valuePopup: numberPopup
     readonly property int numberPopupMaxWidth: 420
@@ -179,6 +188,12 @@ PageScaffold {
         if (visible)
             page.reload();
     }
+    // Смена программы приходит из обзора программы: дневник уже создан как
+    // вкладка, и onVisibleChanged не сработает, если он и так открыт.
+    onProgramIdChanged: {
+        if (page.visible)
+            page.reload();
+    }
     onDayCountChanged: Qt.callLater(page.refresh)
     Connections {
         target: page.viewModel
@@ -212,22 +227,8 @@ PageScaffold {
         BackBar {
             width: parent.width
             text: qsTr("Назад")
+            visible: page.showBackBar
             onClicked: page.backRequested()
-        }
-        Label {
-            width: parent.width
-            text: qsTr("Дневник")
-            font: Typography.screenTitle
-            color: Theme.textPrimary
-            wrapMode: Text.WordWrap
-        }
-        Label {
-            width: parent.width
-            objectName: "diaryProgramTitle"
-            text: page.hasModel && page.viewModel.programTitle ? page.viewModel.programTitle : qsTr("Нет выбранной программы")
-            font: Typography.caption
-            color: Theme.textSecondary
-            wrapMode: Text.WordWrap
         }
         DateField {
             id: datePicker

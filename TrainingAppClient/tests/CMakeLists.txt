@@ -476,8 +476,8 @@ foreach(tab_index RANGE 0 3)
     )
 endforeach()
 
-# Гостевой режим: вкладка «Профиль» доступна без сессии, вход открывается
-# кнопкой «Войти» (та же логика, что и у делегата вкладки).
+# Гостевой режим: экран «Профиль» открывается поверх вкладок кнопкой в шапке,
+# вход — кнопкой «Войти» внутри него.
 foreach(auth_viewport IN ITEMS 360 390 480 frame dark)
     set(guest_test_name "ui_smoke_profile_unauth_${auth_viewport}")
     add_test(
@@ -485,7 +485,7 @@ foreach(auth_viewport IN ITEMS 360 390 480 frame dark)
         COMMAND "${CMAKE_COMMAND}"
             "-DAPP_EXECUTABLE=$<TARGET_FILE:appTrainingAppClient>"
             "-DQT_RUNTIME_DIR=$<TARGET_FILE_DIR:Qt6::Core>"
-            "-DTAB_INDEX=3"
+            "-DSCREEN=profile"
             "-DVIEWPORT=${auth_viewport}"
             "-DUNAUTH=1"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/run_ui_smoke.cmake"

@@ -8,7 +8,7 @@ Item {
 
     property color iconColor: Theme.textSecondary
 
-    // today | plans | exercises | profile | settings | target | chevronDown
+    // today | diary | plans | exercises | profile | settings | target | chevronDown
     property string name: "today"
     property real strokeWidth: 2
 
@@ -17,11 +17,13 @@ Item {
 
     Item {
         anchors.centerIn: parent
-        width: 12
+        // Ширина коробки равна правому краю второго штриха: 6 + 8 = 14.
+        // При 12 аудит вёрстки фиксировал OVERFLOW-X, а сам шеврон был сдвинут.
+        width: 14
         height: 8
         visible: icon.name === "chevronDown"
         Rectangle {
-            x: 1
+            x: 2
             y: 2
             width: 8
             height: icon.strokeWidth
@@ -98,6 +100,53 @@ Item {
             height: 5
             radius: width / 2
             width: icon.strokeWidth
+        }
+    }
+
+    // — Дневник: блокнот с корешком и строками записи —
+    Item {
+        anchors.fill: parent
+        visible: icon.name === "diary"
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 3
+            border.color: icon.iconColor
+            border.width: icon.strokeWidth
+            color: "transparent"
+            radius: 3
+        }
+        // Корешок блокнота: вертикальная линия слева от строк.
+        Rectangle {
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 4
+            anchors.left: parent.left
+            anchors.leftMargin: 8
+            anchors.top: parent.top
+            anchors.topMargin: 4
+            color: icon.iconColor
+            width: icon.strokeWidth
+        }
+        // Строки записи: три разной длины, поэтому иконка не читается как список.
+        Column {
+            anchors.left: parent.left
+            anchors.leftMargin: 12
+            anchors.right: parent.right
+            anchors.rightMargin: 6
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 4
+
+            Repeater {
+                model: [1.0, 0.72, 0.86]
+
+                Rectangle {
+                    required property real modelData
+                    color: icon.iconColor
+                    height: icon.strokeWidth
+                    radius: height / 2
+                    width: parent.width * modelData
+                }
+            }
         }
     }
 

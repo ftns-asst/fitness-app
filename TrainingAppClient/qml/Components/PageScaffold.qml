@@ -16,6 +16,13 @@ Rectangle {
     property real bottomInset: 0
     property string caption: ""
     property bool showHeader: true
+    // Профиль больше не вкладка: его точка входа — круглая кнопка в шапке
+    // корневых экранов. Инициалы показываются, когда пользователь вошёл;
+    // у гостя остаётся нейтральная иконка, и «Войти» ждёт внутри профиля.
+    property string profileInitials: ""
+    property bool profileActionVisible: false
+
+    signal profileActionRequested()
     property bool pageActive: visible
     default property alias content: bodyColumn.data
     // Содержимое закреплённой нижней панели: страница задаёт его как
@@ -62,7 +69,7 @@ Rectangle {
 
     color: Theme.background
 
-    Column {
+    RowLayout {
         id: header
 
         anchors.left: parent.left
@@ -71,24 +78,69 @@ Rectangle {
         anchors.rightMargin: Spacing.screenPadding
         anchors.top: parent.top
         anchors.topMargin: scaffold.topInset + (header.visible ? Spacing.screenPadding : 0)
-        spacing: 4
-        // Пустая шапка (страница сама рисует заголовок) не занимает места.
-        visible: scaffold.showHeader && (scaffold.title.length > 0 || scaffold.caption.length > 0)
+        spacing: Spacing.itemGap
+        // Пустая шапка (страница сама рисует заголовок) не занимает места —
+        // кроме случая, когда в ней есть кнопка профиля.
+        visible: scaffold.showHeader && (scaffold.title.length > 0 || scaffold.caption.length > 0 || scaffold.profileActionVisible)
 
-        Label {
-            color: Theme.textPrimary
-            font: Typography.screenTitle
-            text: scaffold.title
-            width: parent.width
-            wrapMode: Text.WordWrap
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            spacing: 4
+
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textPrimary
+                font: Typography.screenTitle
+                text: scaffold.title
+                visible: text.length > 0
+                wrapMode: Text.WordWrap
+            }
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textSecondary
+                font: Typography.caption
+                text: scaffold.caption
+                visible: text.length > 0
+                wrapMode: Text.WordWrap
+            }
         }
-        Label {
-            color: Theme.textSecondary
-            font: Typography.caption
-            text: scaffold.caption
-            visible: text.length > 0
-            width: parent.width
-            wrapMode: Text.WordWrap
+
+        // Кнопка профиля: 44 dp область касания вокруг круга 34 dp, как требует
+        // минимальный размер цели на тач-платформах.
+        Item {
+            Layout.alignment: Qt.AlignTop
+            Layout.preferredHeight: Theme.touchMin
+            Layout.preferredWidth: Theme.touchMin
+            visible: scaffold.profileActionVisible
+
+            Accessible.name: qsTr("Профиль")
+            Accessible.role: Accessible.Button
+
+            Rectangle {
+                anchors.centerIn: parent
+                color: Theme.accentTint
+                height: 34
+                radius: height / 2
+                width: 34
+            }
+            Label {
+                anchors.centerIn: parent
+                color: Theme.accent
+                font: Typography.captionStrong
+                text: scaffold.profileInitials
+                visible: text.length > 0
+            }
+            AppIcon {
+                anchors.centerIn: parent
+                iconColor: Theme.accent
+                name: "profile"
+                visible: scaffold.profileInitials.length === 0
+            }
+            MouseArea {
+                anchors.fill: parent
+                onClicked: scaffold.profileActionRequested()
+            }
         }
     }
     // Панель действий: закреплена снизу и отделена от контента тонкой линией.

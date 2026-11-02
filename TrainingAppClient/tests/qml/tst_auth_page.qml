@@ -45,6 +45,14 @@ TestCase {
         return null;
     }
     function findProfile(host) {
+        verify(host !== null && host !== undefined);
+        // Профиль — экран поверх вкладок: он создаётся при открытии, поэтому
+        // сначала ждём завершения перехода, а потом ищем страницу.
+        tryCompare(host, "stackBusy", false);
+        tryVerify(function () {
+            return findByName(host, "profilePage") !== null;
+        });
+
         const profile = findByName(host, "profilePage");
 
         verify(profile !== null);
@@ -247,7 +255,9 @@ TestCase {
 
         clickNamed(profile, "profileLoginButton");
 
-        compare(requested, 3);
+        // Профиль открыт поверх вкладок: originTab = -1 — «вернуть на тот же
+        // экран после входа», а не переключить вкладку (её больше нет).
+        compare(requested, -1);
     }
     function test_profileShowsAvatarWhenAuthenticated() {
         MockApi.startDemoSession();
@@ -367,7 +377,7 @@ TestCase {
 
         AppShell {
             height: 812
-            initialTab: 3
+            initialProgramScreen: "profile"
             width: 390
         }
     }

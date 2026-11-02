@@ -51,6 +51,29 @@ Item {
     property var todayViewModel: TodayVM
     property var diaryViewModel: typeof DiaryVM !== "undefined" ? DiaryVM : null
 
+    // Инициалы для кнопки профиля в шапке корневых экранов: гостю достаётся
+    // нейтральная иконка, вошедшему — первые буквы имени. Данные приходят из
+    // AuthViewModel, поэтому в тестах дерева QML свойство безопасно пустое.
+    readonly property string profileInitials: {
+        const auth = shell.auth;
+
+        if (auth === undefined || auth === null || auth.authenticated !== true)
+            return "";
+
+        const user = auth.user;
+
+        if (user === undefined || user === null || typeof user.name !== "string")
+            return "";
+
+        const words = user.name.trim().split(/\s+/);
+
+        if (words.length === 0 || words[0].length === 0)
+            return "";
+        if (words.length === 1)
+            return words[0].substring(0, Math.min(2, words[0].length)).toUpperCase();
+        return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+    }
+
     // Отступы под safe area / status bar mock передаёт Main.qml.
     property real topInset: 0
 
@@ -153,10 +176,10 @@ Item {
     // живые переходы идут через open*-функции с их сайд-эффектами.
     function componentFor(name) {
         const map = {
-            "diary": diaryComponent,
             "exercise-detail": exerciseDetailComponent,
             "exercise-edit": exerciseEditorComponent,
             "macro-calculator": macroCalculatorComponent,
+            "profile": profileComponent,
             "program-catalog": programCatalogComponent,
             "program-day": programDayComponent,
             "program-edit": programEditorComponent,
@@ -436,43 +459,56 @@ Item {
             TodayPage {
                 pageActive: SwipeView.isCurrentItem && pages.depth === 1
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
+                profileActionVisible: true
+                profileInitials: shell.profileInitials
                 topInset: shell.topInset
                 viewModel: shell.todayViewModel
 
                 // День отдыха ведёт в обзор активной программы, а пустой
-                // главный экран — на вкладку «Планы», где программу создают.
-                onPlansRequested: shell.showTab(1)
+                // главный экран — на вкладку «Программы», где программу создают.
+                onPlansRequested: shell.showTab(2)
                 onProgramRequested: shell.openProgramOverview()
                 onDiaryRequested: shell.openDiary()
+                onProfileActionRequested: shell.openProfile()
 
                 // Тап по строке упражнения — его обзор: тот же вход, что и из
                 // каталога вкладки «Упражнения».
                 onExerciseOpenRequested: exerciseId => shell.openExerciseDetail(exerciseId)
             }
+            // Дневник — вкладка: у него собственный дом (даты, вес, заметки),
+            // а не кнопка внутри «Сегодня».
+            DiaryPage {
+                objectName: "diaryPage"
+                bottomInset: shell.bottomInset + Theme.tabBarHeight
+                profileActionVisible: true
+                profileInitials: shell.profileInitials
+                programId: shell.programId
+                showBackBar: false
+                topInset: shell.topInset
+                viewModel: shell.diaryViewModel
+
+                onProfileActionRequested: shell.openProfile()
+            }
             PlansPage {
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
+                profileActionVisible: true
+                profileInitials: shell.profileInitials
                 topInset: shell.topInset
                 viewModel: shell.plansViewModel
 
                 onMyProgramRequested: shell.openProgramCatalog()
+                onProfileActionRequested: shell.openProfile()
             }
             ExercisesPage {
                 pageActive: SwipeView.isCurrentItem && pages.depth === 1
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
+                profileActionVisible: true
+                profileInitials: shell.profileInitials
                 topInset: shell.topInset
 
                 onCreateOwnRequested: shell.pushPage(exerciseEditorComponent)
                 onOpenRequested: exerciseId => shell.openExerciseDetail(exerciseId)
-            }
-            ProfilePage {
-                auth: shell.auth
-                bottomInset: shell.bottomInset + Theme.tabBarHeight
-                sectionIndex: shell.profileSection
-                topInset: shell.topInset
-                viewModel: shell.profileViewModel
-
-                onLoginRequested: shell.authPageRequested(3)
-                onLogoutRequested: shell.auth.logout()
+                onProfileActionRequested: shell.openProfile()
             }
         }
     }
@@ -534,16 +570,22 @@ Item {
         shell.pushPage(programStatsComponent);
     }
 
+    // Дневник — вкладка, а не экран поверх: переход из программы задаёт
+    // контекст (`programId`) и переключает вкладку. Пустой id — активная
+    // программа или личные записи, если программы нет.
     function openDiary(id) {
-        if (pages.busy)
-            return;
-
         shell.programId = id === undefined ? "" : id;
+        shell.showTab(1);
+    }
+
+    // Профиль — настройки, поэтому он открывается поверх вкладок кнопкой в
+    // шапке, а не занимает одно из четырёх постоянных назначений.
+    function openProfile(sectionIndex) {
+        shell.profileSection = sectionIndex === undefined ? 0 : sectionIndex;
         shell.noteTabScreen({
-            name: "diary",
-            id: shell.programId
+            name: "profile"
         });
-        shell.pushPage(diaryComponent);
+        shell.pushPage(profileComponent);
     }
 
     // — Экран авторасчёта КБЖУ (спринт S7) —
@@ -603,8 +645,7 @@ Item {
     // инструменте ревью: это настройка пользователя. Именованный экран нужен,
     // чтобы блок проверялся аудитом вёрстки на всех компоновках.
     function openProfileSettings() {
-        profileSection = 2;
-        shell.showTab(3);
+        shell.openProfile(2);
     }
 
     // — Завершение сохранения программы —
@@ -651,6 +692,7 @@ Item {
         const map = {
             "diary": openDiary,
             "macro-calculator": openMacroCalculator,
+            "profile": openProfile,
             "profile-settings": openProfileSettings,
             "set-entry": openSetEntry,
             "exercise-edit": function () {
@@ -901,15 +943,19 @@ Item {
         }
     }
     Component {
-        id: diaryComponent
+        id: profileComponent
 
-        DiaryPage {
-            objectName: "diaryPage"
+        ProfilePage {
+            auth: shell.auth
             bottomInset: shell.pageBottomInset
+            sectionIndex: shell.profileSection
             topInset: shell.topInset
-            programId: shell.programId
-            viewModel: shell.diaryViewModel
+            viewModel: shell.profileViewModel
 
+            // Вход открывается поверх профиля; originTab = -1 означает
+            // «вернуть на тот же экран», а не переключить вкладку.
+            onLoginRequested: shell.authPageRequested(-1)
+            onLogoutRequested: shell.auth.logout()
             onBackRequested: shell.goBack()
         }
     }

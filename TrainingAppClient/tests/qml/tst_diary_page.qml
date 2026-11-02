@@ -75,7 +75,8 @@ TestCase {
     function test_loadsRequestedProgramAndShowsNormsAndSummary() {
         compare(stub.calls[0].join("|"), "reload|u1|p1");
         compare(stub.selectedDate, "2026-10-01");
-        compare(findChild(page, "diaryProgramTitle").text, "Сила 4 недели");
+        // Программа — подпись в шапке каркаса: строка не дублируется в контенте.
+        compare(page.caption, "Сила 4 недели");
         verify(findChild(page, "diaryValue_2026-10-01_protein").text.indexOf("≥ 180") >= 0);
         compare(findChild(page, "diarySummary_protein"), null);
         findChild(page, "diarySummaryToggle").clicked();

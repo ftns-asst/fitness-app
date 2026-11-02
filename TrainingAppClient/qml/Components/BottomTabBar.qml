@@ -9,8 +9,8 @@ Item {
 
     property real bottomInset: 0
     property int currentIndex: 0
-    readonly property var iconNames: ["today", "plans", "exercises", "profile"]
-    readonly property var titles: [qsTr("Сегодня"), qsTr("Планы"), qsTr("Упражнения"), qsTr("Профиль")]
+    readonly property var iconNames: ["today", "diary", "plans", "exercises"]
+    readonly property var titles: [qsTr("Сегодня"), qsTr("Дневник"), qsTr("Программы"), qsTr("Упражнения")]
 
     signal tabSelected(int index)
 

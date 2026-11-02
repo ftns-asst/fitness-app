@@ -46,6 +46,16 @@ PageScaffold {
     spacing: Spacing.listGap
     title: qsTr("Профиль")
 
+    // Профиль открывается поверх вкладок (аватар в шапке), поэтому возврат —
+    // кнопкой «Назад» и системным жестом, а не переключением вкладки.
+    signal backRequested
+
+    BackBar {
+        width: parent.width
+        text: qsTr("Назад")
+        onClicked: page.backRequested()
+    }
+
     // — Шапка: avatar с инициалами либо кнопка «Войти» для гостя (§4.9) —
     RowLayout {
         id: profileHeader

@@ -38,32 +38,42 @@
 
 Критерий: гейт зелёный, ветка создана, скриншоты в `build/before-*.png`.
 
-## 3. Фаза 1. Вкладки и профиль вне панели (1,5 дня)
+## 3. Фаза 1. Вкладки и профиль вне панели (1,5 дня) — **сделано**
 
 **Задача.** Панель: Сегодня · Дневник · Программы · Упражнения. Профиль
 переезжает в шапку (аватар) как pushed-экран.
 
 | Файл | Изменение |
 |---|---|
-| `qml/Components/BottomTabBar.qml` | `iconNames: ["today", "diary", "programs", "exercises"]`, `titles: ["Сегодня", "Дневник", "Программы", "Упражнения"]`; остальная геометрия (pill, safe area) не меняется |
-| `qml/Components/AppIcon.qml` | добавить имя `diary` (лист с линиями); `plans` остаётся для «Программ» |
-| `qml/AppShell.qml` | порядок в `SwipeView`: `TodayPage`, `DiaryPage`, `PlansPage`, `ExercisesPage`; `ProfilePage` уходит в новый `Component` с `BackBar` и `signal backRequested` |
-| `qml/AppShell.qml` | убрать литералы индексов: `showTab(1)` в `onPlansRequested` → `showTab(2)`; `openProfileSettings()` вместо `profileSection = 2; showTab(3)` → `pushPage(profileComponent)` с `sectionIndex: 2` |
-| `qml/Main.qml` | `authPageRequested(3)` → `authPageRequested(-1)` для профиля-экрана. Сейчас `openAuth(originTab)` (строка 154) кладёт значение в `authOriginTab`, а после закрытия формы строка 149 делает `activeTab = authOriginTab` — для профиля-origin это не должно трогать индекс `SwipeView`: `-1` означает «оставить текущий стек как есть», профиль остаётся открытым поверх вкладки |
-| `qml/Pages/Profile/ProfilePage.qml` | экран больше не корень вкладки: добавить `BackBar` и `signal backRequested`, чтобы закрываться кнопкой и системным жестом; сегменты удаляются в фазе 3 |
-| `qml/Pages/Today/TodayPage.qml` | `todayDiaryButton` больше не открывает дневник поверх, а переключает вкладку: `signal diaryTabRequested` |
+| `qml/Components/BottomTabBar.qml` | `iconNames: ["today", "diary", "plans", "exercises"]`, `titles: ["Сегодня", "Дневник", "Программы", "Упражнения"]`; геометрия (pill, safe area) не менялась |
+| `qml/Components/AppIcon.qml` | новое имя `diary` — блокнот с корешком и строками; заодно исправлен `chevronDown`: его коробка была 12 px при правом крае штриха 14, и аудит вёрстки годами ловил `OVERFLOW-X` |
+| `qml/Components/PageScaffold.qml` | шапка стала `RowLayout` с кнопкой профиля: круг 34 px в области касания 44 px; свойства `profileActionVisible`, `profileInitials`, сигнал `profileActionRequested` |
+| `qml/AppShell.qml` | порядок в `SwipeView`: `TodayPage`, `DiaryPage`, `PlansPage`, `ExercisesPage`; `ProfilePage` — отдельный `Component` поверх вкладок; `profileInitials` считается из `AuthViewModel` |
+| `qml/AppShell.qml` | литералы индексов убраны: `onPlansRequested` → `showTab(2)`, `openProfileSettings()` → `openProfile(2)`, `openDiary(id)` теперь переключает вкладку 1 вместо пуша |
+| `qml/Main.qml` | `closeAuth()` не трогает вкладку при `authOriginTab = -1` — вход из профиля возвращает на тот же экран |
+| `qml/Pages/Profile/ProfilePage.qml` | добавлены `BackBar` и `signal backRequested` |
+| `qml/Pages/Diary/DiaryPage.qml` | `showBackBar` (корень вкладки — без панели возврата), `title` и `caption` перенесены в шапку каркаса, `onProgramIdChanged` перезагружает данные |
+| `tests/CMakeLists.txt` | гостевые смоуки профиля переведены с `TAB_INDEX=3` на `SCREEN=profile` |
 
 **Тесты.**
 
-- `tests/qml/tst_app_shell_tabs.qml`: тест `test_diaryFromTodayAndBack` (строка
-  ~204) переписать на «тап по вкладке 1 → `DiaryPage` в корне»; тесты свайпов
-  (`currentTab` 1/2/3) — проверить, что индексы соответствуют новым экранам;
-  добавить тест «профиль открывается аватаром и закрывается назад».
-- Новый `tests/qml/tst_profile_screen.qml`: профиль без сегментов, «Назад»
-  возвращает на вкладку, из которой пришли.
+- `tests/qml/tst_app_shell_tabs.qml`: `test_diaryDiagnosticRoute` и
+  `test_diaryFromTodayAndBack` переписаны на «дневник = вкладка 1»;
+  `test_diaryActiveProgramRestoredAfterSpecificOtherTab` и
+  `test_diaryOverviewKeepsProgramAndRestoresTabHistory` заменены на
+  `test_diaryKeepsProgramContextAcrossTabs`; свайп-тест переведён на индекс 3
+  (упражнения). Добавлены `test_tabBarShowsFourSections` и
+  `test_profileOpensFromHeaderAndReturns`.
+- `tests/qml/tst_auth_page.qml`: `findProfile` ждёт завершения перехода (профиль
+  создаётся при открытии), `profileShellComponent` открывается через
+  `initialProgramScreen: "profile"`, ожидание сигнала входа — `-1`.
+- `tests/qml/tst_diary_page.qml`: программа проверяется по `page.caption`
+  (шапка каркаса) вместо удалённого ярлыка в контенте.
 
-**Критерий.** Панель из четырёх назначений; профиль не занимает вкладку; «назад»
-с профиля возвращает на исходную вкладку; гейт зелёный.
+**Результат.** Гейт 134/134. Проверено снимками: панель «Сегодня · Дневник ·
+Программы · Упражнения», иконка дневника отличается от списка программ, аватар
+в правом углу шапки на всех четырёх экранах, профиль открывается поверх и
+возвращает «Назад» на исходную вкладку.
 
 ## 4. Фаза 2. Дневник как самостоятельный раздел (2 дня)
 

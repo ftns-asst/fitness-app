@@ -181,26 +181,30 @@ TestCase {
         compare(shell.stackBusy, false);
     }
     function test_horizontalFilterScrollDoesNotChangeTab() {
-        shell.showTab(2);
+        shell.showTab(3);
         const view = findChild(shell, "mainSwipeView");
         view.currentItem.viewModel = swipeCatalog;
-        tryVerify(() => Math.abs(view.contentItem.contentX - 2 * view.width) < 1);
+        tryVerify(() => Math.abs(view.contentItem.contentX - 3 * view.width) < 1);
         waitForRendering(view);
         const chips = findChild(view.currentItem, "muscleGroupChips");
         verify(chips !== null);
         const flick = chips.children[0];
         mouseDrag(chips, chips.width - 25, chips.height / 2, -220, 0);
         tryVerify(() => flick.contentX > 0);
-        compare(shell.currentTab, 2);
+        compare(shell.currentTab, 3);
     }
+    // Дневник — вкладка, а не экран поверх: диагностический переход приводит
+    // на неё же и не увеличивает глубину стека.
     function test_diaryDiagnosticRoute() {
         shell.openProgramScreen("diary");
         tryCompare(shell, "stackBusy", false);
-        compare(shell.pushedDepth, 2);
-        compare(shell.topItem.objectName, "diaryPage");
+        compare(shell.pushedDepth, 1);
+        compare(shell.currentTab, 1);
     }
 
-    function test_diaryFromTodayAndBack() {
+    // Кнопка «Дневник» в шапке отметок больше не открывает экран поверх,
+    // а переключает на вкладку с историей по датам.
+    function test_diaryFromTodayOpensTab() {
         const button = findChild(shell, "todayDiaryButton");
         verify(button !== null);
         const header = findChild(shell, "todayCheckinsHeader");
@@ -209,43 +213,56 @@ TestCase {
         compare(button.text, "Дневник");
         button.clicked();
         tryCompare(shell, "stackBusy", false);
-        compare(shell.topItem.objectName, "diaryPage");
-        compare(shell.topItem.programId, "");
+        compare(shell.currentTab, 1);
+        compare(shell.pushedDepth, 1);
+        verify(findChild(shell, "mainSwipeView").currentItem.objectName === "diaryPage");
+    }
+
+    // Контекст программы у дневника сохраняется при переключении вкладок:
+    // вкладка живёт всё время, поэтому ей достаточно собственного свойства.
+    function test_diaryKeepsProgramContextAcrossTabs() {
+        shell.openDiary("other-tab-program");
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.currentTab, 1);
+        shell.showTab(0);
+        tryCompare(shell, "stackBusy", false);
+        shell.showTab(1);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.currentTab, 1);
+        compare(shell.pushedDepth, 1);
+        compare(findChild(shell, "mainSwipeView").currentItem.programId, "other-tab-program");
+    }
+
+    // Панель — четыре назначения; профиль вышел из неё.
+    function test_tabBarShowsFourSections() {
+        const bar = findTabBar(shell);
+
+        verify(bar !== null);
+        compare(bar.iconNames.length, 4);
+        compare(bar.titles[0], "Сегодня");
+        compare(bar.titles[1], "Дневник");
+        compare(bar.titles[2], "Программы");
+        compare(bar.titles[3], "Упражнения");
+        verify(bar.iconNames.indexOf("profile") < 0, "профиль больше не вкладка");
+        verify(bar.iconNames.indexOf("diary") >= 0, "у дневника своя иконка");
+    }
+
+    // Профиль — экран поверх вкладок: вход кнопкой в шапке, выход «Назад»,
+    // активная вкладка при этом не меняется.
+    function test_profileOpensFromHeaderAndReturns() {
+        const view = findChild(shell, "mainSwipeView");
+        const tabBefore = shell.currentTab;
+
+        view.currentItem.profileActionRequested();
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 2);
+        compare(shell.topItem.objectName, "profilePage");
+        compare(shell.currentTab, tabBefore);
+
         shell.goBack();
         tryCompare(shell, "stackBusy", false);
         compare(shell.pushedDepth, 1);
-    }
-
-    function test_diaryActiveProgramRestoredAfterSpecificOtherTab() {
-        shell.openDiary();
-        tryCompare(shell, "stackBusy", false);
-        shell.showTab(1);
-        tryCompare(shell, "stackBusy", false);
-        shell.openProgramOverview("other-tab-program");
-        tryCompare(shell, "stackBusy", false);
-        shell.showTab(0);
-        tryCompare(shell, "stackBusy", false);
-        compare(shell.topItem.objectName, "diaryPage");
-        compare(shell.topItem.programId, "");
-    }
-
-    function test_diaryOverviewKeepsProgramAndRestoresTabHistory() {
-        shell.openProgramOverview("diary-test-program");
-        tryCompare(shell, "stackBusy", false);
-        shell.topItem.diaryRequested();
-        tryCompare(shell, "stackBusy", false);
-        compare(shell.topItem.objectName, "diaryPage");
-        compare(shell.topItem.programId, "diary-test-program");
-        shell.showTab(1);
-        tryCompare(shell, "stackBusy", false);
-        shell.showTab(0);
-        tryCompare(shell, "stackBusy", false);
-        compare(shell.pushedDepth, 3);
-        compare(shell.topItem.objectName, "diaryPage");
-        compare(shell.topItem.programId, "diary-test-program");
-        shell.goBack();
-        tryCompare(shell, "stackBusy", false);
-        verify(shell.topItem instanceof ProgramOverviewPage);
+        compare(shell.currentTab, tabBefore);
     }
 
     // Тап по вкладке с pushed-экрана закрывает поток и открывает раздел.
