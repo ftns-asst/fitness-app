@@ -43,7 +43,7 @@ Column {
                     // транслюцентная accentTint: Pill лежит на surface, и
                     // смешанный цвет даёт тот же тон без ставки на альфу,
                     // которая на некоторых Android-сборках терялась при
-                    // композитинге (см. HeroCard).
+                    // композитинге (см. Theme.accentSurface).
                     border.color: optionButton.active ? Theme.accent : Theme.border
                     border.width: optionButton.active ? 2 : Theme.borderWidth
                     color: optionButton.down || optionButton.hovered ? Theme.accentTint : optionButton.active ? Theme.accentSurface : Theme.surfaceMuted
