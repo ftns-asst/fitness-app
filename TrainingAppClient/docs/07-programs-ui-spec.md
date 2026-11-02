@@ -240,10 +240,12 @@ ProgramRulesPage / ProgramStatsPage: только BackBar «Назад».
 | `RulePresetTile` | `title`, `categoryTitle`, `categoryColor`, `isAdded`, `canAdd`, `clicked` | плитка витрины каталога (`.preset`): surface, min-height 44, название captionStrong и категория с цветной точкой; добавленная — приглушённой заливкой и без нажатия. Пунктирной рамки макета нет: у `Rectangle` нет стиля рамки (`border-style`), а рисовать пунктир линиями дороже, чем сказать то же цветом | витрина правил на экране выбора |
 
 Прочие общие компоненты, не используемые в модуле (зафиксировано, чтобы не
-изобретать повторно): `HeroCard`, `FilterChips`, `RegularityHeatmap`,
+изобретать повторно): `FilterChips`, `RegularityHeatmap`,
 `RatingBadge`, `RecordRow`, `ExerciseRow`, `CatalogExerciseRow`, `BottomTabBar`,
 `AppIcon`, `AppCard`-кнопки-хелперы. `AppNumberField` не используется вовсе:
-поля с «−/+» заменены ползунками `WeightRuler`/`RepsWheel` (S8).
+поля с «−/+» заменены ползунками `WeightRuler`/`RepsWheel` (S8). `HeroCard`
+удалён в фазе 5 переделки интерфейса: hero главной — блок без карточки на
+градиентной подложке (`PageScaffold.heroBackground`).
 
 ## 5. Экраны: зоны, элементы, состояния, тексты
 
