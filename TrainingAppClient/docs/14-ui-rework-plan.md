@@ -135,29 +135,38 @@
 (`appearanceCard`), из-за чего блок стал ненаходимым для теста — переопределение
 убрано.
 
-## 6. Фаза 4. Программы и обзор с сегментами (2,5 дня)
+## 6. Фаза 4. Программы и обзор с сегментами (2,5 дня) — **сделано**
 
 **Задача.** «Планы» становятся «Программами» с двумя сегментами; обзор программы
 перестаёт быть набором из четырёх кнопок одинакового веса.
 
 | Файл | Изменение |
 |---|---|
-| `qml/Pages/Plans/PlansPage.qml` → `qml/Pages/Programs/ProgramsPage.qml` | `SegmentedControl` «Мои / Шаблоны». «Мои»: карточка активной программы с прогрессом срока, список остальных со статусом, строка «Новая программа». «Шаблоны»: карточки `PlansViewModel.plans` с явной подписью «демонстрационные, копирование — следующий этап». Промо-опрос подбора (`Demo.notify("Опрос подбора плана")`) с первого экрана удаляется |
-| `qml/Pages/Program/ProgramOverviewPage.qml` | шапка: `BackBar` + действие «Изменить»; под ней `SegmentedControl` «Состав / Прогресс / Правила» |
-| `qml/Pages/Program/ProgramStatsPage.qml`, `ProgramRulesPage.qml` | получают свойство `embedded: false`: при `true` не рисуют свой `BackBar` и не заводят второй стек — их содержимое показывается внутри сегментов обзора |
-| `qml/AppShell.qml` | переходы `statsRequested`/`rulesRequested` больше не нужны для штатного пути (остаются для `--screen` диагностики) |
+| `qml/Pages/Programs/ProgramsPage.qml` (новый) | вкладка «Программы»: `SegmentedControl` «Мои / Шаблоны». «Мои» — реальные программы из `Avm_Program_Catalog` тремя группами (активная, черновики и пауза, завершённые) через `CatalogProgramRow`, строка «Создать программу» и честное пояснение про паузу и завершение. «Шаблоны» — карточки `PlansViewModel.plans` с явной подписью «демонстрационные, копирование — следующий этап» |
+| `qml/Pages/Plans/PlansPage.qml` | удалён: промо-опрос подбора и список, где половина карточек были заглушками, больше не нужны |
+| `qml/Pages/Program/ProgramCatalogPage.qml` | удалён: свои программы показывает вкладка «Программы», отдельный экран дублировал её содержимое |
+| `qml/Pages/Program/ProgramOverviewPage.qml` | перестроен: корень — `Item` с закреплённой шапкой (возврат, название, единственное действие «Изменить») и сегментами «Состав / Прогресс / Правила»; содержимое сегмента грузит `Loader`, поэтому в кадре всегда ровно одна прокручиваемая страница |
+| `qml/Pages/Program/ProgramStatsPage.qml`, `ProgramRulesPage.qml` | свойство `embedded`: при `true` не рисуют `BackBar` и заголовок — их держит обзор; страницы переиспользуются и в диагностике `--screen`, и внутри сегментов |
+| `qml/AppShell.qml` | вкладка 2 — `ProgramsPage` с сигналами `createRequested`/`openRequested`/`editRequested`/`statsRequested`; `openProgramCatalog()` переключает вкладку вместо пуша; `programCatalogComponent` и его запись в `componentFor` удалены |
+| `CMakeLists.txt` | `qml/Pages/Plans/PlansPage.qml` → `qml/Pages/Programs/ProgramsPage.qml`, строка `ProgramCatalogPage.qml` удалена |
 
 **Тесты.**
 
-- `tests/qml/tst_app_shell_tabs.qml`: тесты, которые ходят «обзор → статистика →
-  назад» (строки ~299–380), переводятся на сегменты; количество шагов стека
-  уменьшается — ожидания по `depth` обновить.
-- Новый `tests/qml/tst_program_segments.qml`: переключение сегментов не создаёт
-  новых записей в стеке и сохраняет выбранную программу.
-- `tests/cpp/tst_Program_Stats_VM.cpp`, `tst_Program_Rules_VM.cpp` не меняются.
+- `tests/qml/tst_app_shell_tabs.qml`: `openProgramCatalog()` в тестах цепочек
+  заменён на `openProgramOverview()` (каталог больше не экран), ожидание
+  `ProgramCatalogPage` — на `ProgramOverviewPage`. Добавлены
+  `test_programsTabHasTwoSegments`, `test_programOverviewSegmentsDoNotGrowStack`
+  (переключение сегментов не меняет `pushedDepth`) и
+  `test_programCatalogOpensProgramsTab`.
+- `tests/cpp/tst_Program_Stats_VM.cpp`, `tst_Program_Rules_VM.cpp` не менялись.
 
-**Критерий.** Из обзора программы нет четырёх равнозначных кнопок; статистика и
-правила открываются внутри обзора; шаблоны честно помечены.
+**Результат.** Гейт 134/134. Из обзора программы исчезли четыре равнозначные
+кнопки: статистика и правила открываются внутри сегментов, настройка — одно
+действие в шапке. Две ошибки, найденные аудитом вёрстки по пути:
+`ColumnLayout` обнуляет ширину скрытого элемента (карточка пустого каталога
+получала `ZERO-WIDTH`) — разметка переведена на обычные `Column` с явной
+шириной; удаление `ProgramCatalogPage` потребовало переписать тесты цепочек,
+которые использовали каталог как корень стека.
 
 ## 7. Фаза 5. Главный экран по макету 13 (1,5 дня)
 
