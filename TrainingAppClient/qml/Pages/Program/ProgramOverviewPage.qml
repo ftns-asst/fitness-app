@@ -124,7 +124,7 @@ Item {
                     Layout.fillWidth: true
                     color: Theme.textPrimary
                     elide: Text.ElideRight
-                    font: Typography.screenTitle
+                    font: Typography.largeTitle
                     objectName: "programOverviewTitle"
                     text: page.hasProgram ? page.viewModel.title : qsTr("Моя программа")
                 }

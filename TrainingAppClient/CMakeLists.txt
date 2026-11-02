@@ -247,7 +247,6 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/FilterChips.qml
         qml/Components/FormChoice.qml
         qml/Components/FpsOverlay.qml
-        qml/Components/HeroCard.qml
         qml/Components/LineChartCard.qml
         qml/Components/MeasurementChangeMap.qml
         qml/Components/MeasurementTrendRow.qml

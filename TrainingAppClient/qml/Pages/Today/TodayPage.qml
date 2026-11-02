@@ -37,7 +37,11 @@ PageScaffold {
     readonly property bool hasModel: page.viewModel !== undefined && page.viewModel !== null
 
     caption: page.weekdayLabel()
-    title: page.dayTitleText()
+    // Заголовок «Сегодня» крупной шапкой: верх экрана заполнен, а название
+    // программы и день стоят в hero — так же, как в макете 13.
+    heroBackground: true
+    largeTitle: true
+    title: qsTr("Сегодня")
 
     // Загрузка идёт при создании и при каждом показе: у страницы вкладки
     // onVisibleChanged не срабатывает при первом открытии, а данные должны быть
@@ -123,32 +127,127 @@ PageScaffold {
             }
         }
     }
-    // — Hero card (§4.2): CTA внутри карточки, а не в прокручиваемом списке —
-    HeroCard {
-        badgesText: page.heroBadges()
-        // Кнопка «Начать тренировку» у дня отдыха обещала бы работу, которой
-        // нет, поэтому у неё другое действие.
-        ctaText: page.hasModel && page.viewModel.isRestDay ? qsTr("Открыть программу") : qsTr("Начать тренировку")
-        summaryText: page.heroSummary()
-        weekIndex: page.hasModel ? page.viewModel.currentWeek : 0
-        weeksTotal: page.hasModel ? page.viewModel.weeksTotal : 0
-        width: parent.width
+    // — Hero: программа, день, срок и главное действие —
+    // Карточки-обёртки нет: фон под шапкой и первым блоком — переход акцента в
+    // поверхность (PageScaffold.heroBackground), поэтому содержимое стоит прямо
+    // на нём. Так же сделано в макете 13 и в 12-app.
+    Column {
+        id: hero
+
+        objectName: "todayHero"
+        spacing: Spacing.itemGap
         visible: page.hasModel && page.viewModel.hasProgram
+        width: parent.width
 
-        // День отдыха: «Открыть программу» ведёт в обзор активной программы.
-        // Тренировочный день — этап D2: запись подходов ещё не реализована, и
-        // кнопка честно сообщает об этом вместо молчаливого нажатия.
-        onStartClicked: {
-            if (page.hasModel && page.viewModel.isRestDay) {
-                page.programRequested();
+        Row {
+            spacing: Spacing.itemGap
+            width: parent.width
 
-                return;
+            Label {
+                color: Theme.accent
+                elide: Text.ElideRight
+                font: Typography.overline
+                text: page.heroOverline()
+                width: parent.width - pageLink.width - Spacing.itemGap
             }
+            AppButton {
+                id: pageLink
 
-            Demo.notify(qsTr("Запись тренировки — этап D2"));
+                compact: true
+                objectName: "todayProgramLink"
+                text: qsTr("Программа ›")
+                variant: AppButton.Ghost
+
+                onClicked: page.programRequested()
+            }
+        }
+        Label {
+            color: Theme.textPrimary
+            font: Typography.largeTitle
+            text: page.heroTitle()
+            width: parent.width
+            wrapMode: Text.WordWrap
+        }
+        Label {
+            color: Theme.textSecondary
+            font: Typography.body
+            text: page.heroSummary()
+            width: parent.width
+            wrapMode: Text.WordWrap
+        }
+
+        Label {
+            objectName: "todaySessionBadge"
+            color: Theme.accent
+            font: Typography.captionStrong
+            text: qsTr("✓ Тренировка записана")
+            visible: page.hasModel && page.viewModel.sessionCompleted === true
+            width: parent.width
+        }
+
+        // Срок программы: «День N из M» и полоса прогресса. Это протяжённость
+        // программы, а не выполнение тренировок — подпись говорит об этом прямо.
+        Column {
+            id: termBlock
+
+            objectName: "todayTerm"
+            spacing: 4
+            visible: page.weeksTotal() > 0
+            width: parent.width
+
+            RowLayout {
+                spacing: 0
+                width: parent.width
+
+                Label {
+                    Layout.fillWidth: true
+                    color: Theme.textSecondary
+                    font: Typography.caption
+                    text: qsTr("День %1 из %2").arg(page.passedDays()).arg(page.totalDays())
+                }
+                Label {
+                    Layout.alignment: Qt.AlignRight
+                    color: Theme.textSecondary
+                    font: Typography.caption
+                    text: qsTr("Осталось %1").arg(page.leftDays())
+                }
+            }
+            Rectangle {
+                color: Theme.surfaceMuted
+                height: 6
+                radius: 3
+                width: parent.width
+
+                Rectangle {
+                    color: Theme.accent
+                    height: parent.height
+                    radius: parent.radius
+                    width: parent.width * page.termProgress()
+                }
+            }
+        }
+
+        AppButton {
+            objectName: "todayStartButton"
+            text: page.hasModel && page.viewModel.isRestDay ? qsTr("Открыть программу") : qsTr("Начать тренировку")
+            variant: AppButton.Primary
+            width: parent.width
+
+            // День отдыха ведёт в обзор программы; тренировочный день — этап D2:
+            // запись подходов ещё не реализована, и кнопка честно сообщает об этом.
+            onClicked: {
+                if (page.hasModel && page.viewModel.isRestDay) {
+                    page.programRequested();
+
+                    return;
+                }
+
+                Demo.notify(qsTr("Запись тренировки — этап D2"));
+            }
         }
     }
     Label {
+        objectName: "todayPlanTitle"
         color: Theme.textSecondary
         font: Typography.captionStrong
         text: qsTr("План на сегодня")
@@ -156,6 +255,7 @@ PageScaffold {
         width: parent.width
     }
     AppCard {
+        objectName: "todayPlan"
         paddingHorizontal: 0
         paddingVertical: Spacing.itemGap
         spacing: 0
@@ -237,6 +337,46 @@ PageScaffold {
         onClicked: page.plansRequested()
     }
 
+    // — «В фокусе»: вес и расписание замеров без ввода —
+    // Ввод веса и обхватов живёт в дневнике: два места записи одного факта
+    // расходились, и непонятно было, какое из них главное. Здесь только
+    // чтение и переход туда, где значение действительно меняется.
+    RowLayout {
+        id: focusRow
+
+        objectName: "todayFocus"
+        spacing: Spacing.itemGap
+        visible: page.hasModel && page.viewModel.hasProgram
+        width: parent.width
+
+        MetricCard {
+            Layout.fillWidth: true
+            deltaText: page.focusWeightHint()
+            deltaKind: page.viewModel.hasMeasurement ? "neutral" : "neutral"
+            highlight: page.viewModel.hasMeasurement
+            label: qsTr("Вес сегодня")
+            objectName: "todayFocusWeight"
+            valueText: page.focusWeightText()
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: page.diaryRequested()
+            }
+        }
+        MetricCard {
+            Layout.fillWidth: true
+            deltaText: page.measurementHint()
+            highlight: false
+            label: qsTr("Замеры по плану")
+            objectName: "todayFocusMeasurements"
+            valueText: page.measurementIsDue() ? qsTr("Пора") : qsTr("По графику")
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: page.diaryRequested()
+            }
+        }
+    }
     // — Правила дня плитками: по две в строке, отметка одним касанием —
     // Раньше были два вертикальных списка («Отметки дня» и «Правила на сегодня»), строки которых
     // дублировали друг друга. Теперь одна сетка: тап по плитке ставит/снимает «выполнено»;
@@ -343,46 +483,6 @@ PageScaffold {
         onValueSaved: (ruleId, value) => page.saveRuleValue(ruleId, value)
     }
 
-    // — «В фокусе»: вес и расписание замеров без ввода —
-    // Ввод веса и обхватов живёт в дневнике: два места записи одного факта
-    // расходились, и непонятно было, какое из них главное. Здесь только
-    // чтение и переход туда, где значение действительно меняется.
-    RowLayout {
-        id: focusRow
-
-        objectName: "todayFocus"
-        spacing: Spacing.itemGap
-        visible: page.hasModel && page.viewModel.hasProgram
-        width: parent.width
-
-        MetricCard {
-            Layout.fillWidth: true
-            deltaText: page.focusWeightHint()
-            deltaKind: page.viewModel.hasMeasurement ? "neutral" : "neutral"
-            highlight: page.viewModel.hasMeasurement
-            label: qsTr("Вес сегодня")
-            objectName: "todayFocusWeight"
-            valueText: page.focusWeightText()
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: page.diaryRequested()
-            }
-        }
-        MetricCard {
-            Layout.fillWidth: true
-            deltaText: page.measurementHint()
-            highlight: false
-            label: qsTr("Замеры по плану")
-            objectName: "todayFocusMeasurements"
-            valueText: page.measurementIsDue() ? qsTr("Пора") : qsTr("По графику")
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: page.diaryRequested()
-            }
-        }
-    }
 
     // Имена дней недели в ISO-порядке 1…7 (§3.4): номер приходит из C++, а
     // название переводит разметка.
@@ -558,17 +658,55 @@ PageScaffold {
     }
 
 
-    // Заголовок главной — название программы, а не вид дня: вид дня относится
-    // к плану, а не к тому, чем является приложение.
-    function dayTitleText() {
-        if (page.viewModel === undefined || page.viewModel === null || page.viewModel.hasProgram === false)
-            return qsTr("Сегодня");
+    // Подпись hero: программа и её срок — то, что человек выбрал сам.
+    function heroOverline() {
+        if (!page.hasModel || page.viewModel.hasProgram === false)
+            return "";
 
-        return page.viewModel.programTitle;
+        const weeks = page.weeksTotal();
+
+        return weeks > 0 ? qsTr("%1 · %2 недель").arg(page.viewModel.programTitle).arg(weeks) : page.viewModel.programTitle;
     }
 
-    // Подпись заголовка — дата и день недели: без неё «Сила 8 недель» не даёт
-    // понять, какой это день.
+    // Крупный заголовок hero: что это за день.
+    function heroTitle() {
+        if (!page.hasModel || page.viewModel.hasProgram === false)
+            return qsTr("Сегодня");
+
+        const title = page.viewModel.dayTitle;
+        const kind = page.dayKindText();
+
+        return title !== undefined && title !== null && String(title).length > 0 ? title : kind;
+    }
+
+    function weeksTotal() {
+        return page.hasModel ? page.viewModel.weeksTotal : 0;
+    }
+
+    // Срок считается в неделях: дни внутри недели модель не отдаёт отдельно,
+    // поэтому прогресс — «сколько недель программы прошло».
+    function totalDays() {
+        return page.weeksTotal() * 7;
+    }
+
+    function passedDays() {
+        const week = page.hasModel ? page.viewModel.currentWeek : 0;
+
+        return Math.max(0, Math.min(page.totalDays(), week * 7));
+    }
+
+    function leftDays() {
+        return Math.max(0, page.totalDays() - page.passedDays());
+    }
+
+    function termProgress() {
+        const total = page.totalDays();
+
+        return total > 0 ? Math.max(0, Math.min(1, page.passedDays() / total)) : 0;
+    }
+
+    // Подпись заголовка — дата и день недели: без неё «Сегодня» не даёт понять,
+    // какой это день программы.
     function weekdayLabel() {
         if (page.viewModel === undefined || page.viewModel === null)
             return "";
@@ -577,21 +715,6 @@ PageScaffold {
         const name = index >= 0 && index < page.weekdayNames.length ? page.weekdayNames[index] : "";
 
         return name.length > 0 ? name + " · " + page.viewModel.today : page.viewModel.today;
-    }
-
-    // Бейджи hero: цель программы, вид дня и отметка о завершённой тренировке.
-    // Отметка важна: повторно начать записанный день — ошибка пользователя, а
-    // экран обязан её предотвращать подписью (§5.5).
-    function heroBadges() {
-        if (page.viewModel === undefined || page.viewModel === null || page.viewModel.hasProgram === false)
-            return "";
-
-        const badges = [page.goalText(), page.dayKindText()];
-
-        if (page.viewModel.sessionCompleted)
-            badges.push(qsTr("Тренировка записана"));
-
-        return badges.join(" · ");
     }
 
     // Сводка дня: сколько упражнений и сколько минут. В дне без упражнений
@@ -631,20 +754,6 @@ PageScaffold {
         const key = page.viewModel.dayKindName;
 
         return names[key] !== undefined ? names[key] : "";
-    }
-
-    // Цель программы: значение приходит строкой из enum, разметка переводит его
-    // в подпись.
-    function goalText() {
-        const goals = {
-            strength: qsTr("Сила"),
-            fatLoss: qsTr("Похудение"),
-            muscle: qsTr("Масса"),
-            maintain: qsTr("Поддержание")
-        };
-        const key = page.viewModel.goal;
-
-        return goals[key] !== undefined ? goals[key] : qsTr("Программа");
     }
 
     // Подходы и повторы одной строкой. Пустое предписание не показывается

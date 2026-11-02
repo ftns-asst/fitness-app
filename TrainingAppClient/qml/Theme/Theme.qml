@@ -77,6 +77,17 @@ QtObject {
     // Мягкая линия акцента — рамка тонированной карточки, читается на обоих фонах.
     readonly property color accentSurfaceLine: mixIntoSurface(accent, darkMode ? 0.55 : 0.45)
 
+    // — Переход акцента в поверхность (главный экран, макеты 12-app и 13) —
+    // Ступени смешаны с фоном страницы (Theme.background), а не с surface:
+    // последняя ступень должна совпасть с фоном, иначе на границе градиента
+    // видна полоса. Непрозрачные цвета — по той же причине, что и accentSurface.
+    function mixIntoBackground(top, ratio) {
+        return Qt.rgba(top.r * ratio + background.r * (1 - ratio), top.g * ratio + background.g * (1 - ratio), top.b * ratio + background.b * (1 - ratio), 1.0);
+    }
+    readonly property color heroGradientTop: mixIntoBackground(accent, darkMode ? 0.34 : 0.30)
+    readonly property color heroGradientMid: mixIntoBackground(accent, darkMode ? 0.20 : 0.16)
+    readonly property color heroGradientSoft: mixIntoBackground(accent, darkMode ? 0.10 : 0.06)
+
     readonly property color negative: darkMode ? "#F87171" : "#DC2626"
 
     // — Семантика —

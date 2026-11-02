@@ -57,6 +57,13 @@ QtObject {
         pixelSize: 17,
         weight: Font.DemiBold
     })
+    // Крупный заголовок шапки (макет 13): на главной и в обзоре программы он
+    // 28 px, как app-header в 12-app, — заголовок заполняет верх экрана.
+    readonly property font largeTitle: Qt.font({
+        family: fontFamily,
+        pixelSize: 28,
+        weight: Font.Bold
+    })
     readonly property font tabLabel: Qt.font({
         family: fontFamilyMedium,
         pixelSize: 11,

@@ -16,6 +16,9 @@ Rectangle {
     property real bottomInset: 0
     property string caption: ""
     property bool showHeader: true
+    // Крупная шапка и переход акцента в поверхность: главный экран по макету 13.
+    property bool largeTitle: false
+    property bool heroBackground: false
     // Профиль больше не вкладка: его точка входа — круглая кнопка в шапке
     // корневых экранов. Инициалы показываются, когда пользователь вошёл;
     // у гостя остаётся нейтральная иконка, и «Войти» ждёт внутри профиля.
@@ -69,6 +72,37 @@ Rectangle {
 
     color: Theme.background
 
+    // — Переход акцента в поверхность (макет 13) —
+    // Рисуется первым ребёнком, поэтому лежит под шапкой и контентом: карточки
+    // и текст остаются на своём месте, а верх экрана получает цвет программы.
+    Rectangle {
+        objectName: "heroBackgroundGradient"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: Math.min(parent.height * 0.66, 470)
+        visible: scaffold.heroBackground
+
+        gradient: Gradient {
+            GradientStop {
+                color: Theme.heroGradientTop
+                position: 0.0
+            }
+            GradientStop {
+                color: Theme.heroGradientMid
+                position: 0.3
+            }
+            GradientStop {
+                color: Theme.heroGradientSoft
+                position: 0.64
+            }
+            GradientStop {
+                color: Theme.background
+                position: 1.0
+            }
+        }
+    }
+
     RowLayout {
         id: header
 
@@ -91,7 +125,7 @@ Rectangle {
             Label {
                 Layout.fillWidth: true
                 color: Theme.textPrimary
-                font: Typography.screenTitle
+                font: scaffold.largeTitle ? Typography.largeTitle : Typography.screenTitle
                 text: scaffold.title
                 visible: text.length > 0
                 wrapMode: Text.WordWrap
