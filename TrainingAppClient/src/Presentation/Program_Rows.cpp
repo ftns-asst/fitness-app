@@ -230,7 +230,8 @@ QStringList Checkin_Roles()
 //-------------------------------------------------------------------------------------------------------------
 QStringList Measurement_Roles()
 {
-	return QStringList{"id", "date", "weightKg", "chestCm", "waistCm", "hipCm", "armCm", "thighCm"};
+	return QStringList{"id",    "date",    "weightKg", "chestCm",     "waistCm",  "hipCm",
+	                   "armCm", "thighCm", "bellyCm",  "shouldersCm", "calvesCm", "neckCm"};
 }
 //-------------------------------------------------------------------------------------------------------------
 QStringList Catalog_Program_Roles()
@@ -536,6 +537,129 @@ QVector<QVariantMap> Build_Measurements(const QVector<SBody_Measurement> &in_mea
 		row.insert("hipCm", Optional_Number(measurement.Hip_Cm, measurement.Has_Hip_Cm));
 		row.insert("armCm", Optional_Number(measurement.Arm_Cm, measurement.Has_Arm_Cm));
 		row.insert("thighCm", Optional_Number(measurement.Thigh_Cm, measurement.Has_Thigh_Cm));
+		row.insert("bellyCm", Optional_Number(measurement.Belly_Cm, measurement.Has_Belly_Cm));
+		row.insert("shouldersCm", Optional_Number(measurement.Shoulders_Cm, measurement.Has_Shoulders_Cm));
+		row.insert("calvesCm", Optional_Number(measurement.Calves_Cm, measurement.Has_Calves_Cm));
+		row.insert("neckCm", Optional_Number(measurement.Neck_Cm, measurement.Has_Neck_Cm));
+		rows.append(row);
+	}
+
+	return rows;
+}
+//-------------------------------------------------------------------------------------------------------------
+QStringList Trend_Roles()
+{
+	return QStringList{"param",        "points",     "startDate",   "start",         "latestDate", "latest",   "delta",
+	                   "deltaPercent", "daysPassed", "ratePerWeek", "forecastAtEnd", "trend",      "favorable"};
+}
+//-------------------------------------------------------------------------------------------------------------
+QVector<QVariantMap> Build_Trends(const QVector<SMeasurement_Trend> &in_trends)
+{
+	QVector<QVariantMap> rows;
+
+	for (int i = 0; i < in_trends.size(); ++i)
+	{
+		const SMeasurement_Trend &trend = in_trends.at(i);
+		QVariantMap row;
+
+		if (trend.Points == 0)
+			continue;
+
+		row.insert("param", AMeasurement_Trend::To_String(trend.Param));
+		row.insert("points", trend.Points);
+		row.insert("startDate", trend.Start_Date);
+		row.insert("start", Optional_Number(trend.Start, trend.Has_Start));
+		row.insert("latestDate", trend.Latest_Date);
+		row.insert("latest", Optional_Number(trend.Latest, trend.Has_Latest));
+		row.insert("delta", Optional_Number(trend.Delta, trend.Has_Delta));
+		row.insert("deltaPercent", Optional_Number(trend.Delta_Percent, trend.Has_Delta_Percent));
+		row.insert("daysPassed", trend.Days_Passed);
+		row.insert("ratePerWeek", Optional_Number(trend.Rate_Per_Week, trend.Has_Rate));
+		row.insert("forecastAtEnd", Optional_Number(trend.Forecast_At_End, trend.Has_Forecast));
+		row.insert("trend", AMeasurement_Trend::To_String(trend.Trend));
+		// null — цели нет или динамика неизвестна; true/false — к цели или от неё.
+		row.insert("favorable", trend.Has_Favorable ? QVariant(trend.Is_Favorable) : Null_Variant());
+		rows.append(row);
+	}
+
+	return rows;
+}
+//-------------------------------------------------------------------------------------------------------------
+QStringList Weight_Point_Roles()
+{
+	return QStringList{"date", "weightKg", "average7Kg", "averagePoints"};
+}
+//-------------------------------------------------------------------------------------------------------------
+QVector<QVariantMap> Build_Weight_Series(const QVector<SWeight_Point> &in_points)
+{
+	QVector<QVariantMap> rows;
+
+	for (int i = 0; i < in_points.size(); ++i)
+	{
+		QVariantMap row;
+
+		row.insert("date", in_points.at(i).Date);
+		row.insert("weightKg", in_points.at(i).Weight_Kg);
+		row.insert("average7Kg", in_points.at(i).Average_7_Kg);
+		row.insert("averagePoints", in_points.at(i).Average_Points);
+		rows.append(row);
+	}
+
+	return rows;
+}
+//-------------------------------------------------------------------------------------------------------------
+QStringList Change_Row_Roles()
+{
+	return QStringList{"date", "cells"};
+}
+//-------------------------------------------------------------------------------------------------------------
+QVector<QVariantMap> Build_Change_Map(const QVector<SChange_Row> &in_rows)
+{
+	QVector<QVariantMap> rows;
+	const int param_count = (int)EMeasurement_Param::Max;
+	QVector<double> start_peak(param_count);
+	QVector<double> previous_peak(param_count);
+
+	// Тон ячейки — доля изменения от наибольшего по модулю в её столбце: у
+	// каждого параметра свой масштаб (килограммы и сантиметры не сравнимы), и
+	// общий максимум обесцветил бы все обхваты рядом с весом.
+	for (int i = 0; i < in_rows.size(); ++i)
+	{
+		for (int p = 0; p < param_count; ++p)
+		{
+			if (in_rows.at(i).From_Start.at(p).Has_Value)
+				start_peak[p] = qMax(start_peak.at(p), qAbs(in_rows.at(i).From_Start.at(p).Value));
+
+			if (in_rows.at(i).From_Previous.at(p).Has_Value)
+				previous_peak[p] = qMax(previous_peak.at(p), qAbs(in_rows.at(i).From_Previous.at(p).Value));
+		}
+	}
+
+	for (int i = 0; i < in_rows.size(); ++i)
+	{
+		const SChange_Row &source = in_rows.at(i);
+		QVariantList cells;
+		QVariantMap row;
+
+		for (int p = 0; p < param_count; ++p)
+		{
+			const SChange_Cell &from_start = source.From_Start.at(p);
+			const SChange_Cell &from_previous = source.From_Previous.at(p);
+			QVariantMap cell;
+
+			cell.insert("param", AMeasurement_Trend::To_String((EMeasurement_Param)p));
+			cell.insert("fromStart", Optional_Number(from_start.Value, from_start.Has_Value));
+			cell.insert("fromPrevious", Optional_Number(from_previous.Value, from_previous.Has_Value));
+			cell.insert("startIntensity",
+			            from_start.Has_Value && start_peak.at(p) > 0 ? qAbs(from_start.Value) / start_peak.at(p) : 0.0);
+			cell.insert("previousIntensity", from_previous.Has_Value && previous_peak.at(p) > 0
+			                                     ? qAbs(from_previous.Value) / previous_peak.at(p)
+			                                     : 0.0);
+			cells.append(cell);
+		}
+
+		row.insert("date", source.Date);
+		row.insert("cells", cells);
 		rows.append(row);
 	}
 

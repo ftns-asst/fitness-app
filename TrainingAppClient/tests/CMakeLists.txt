@@ -16,6 +16,7 @@ set(SINGLETON_QML_NAMES
     ApiErrorText
     AuthViewModel
     ExerciseTexts
+    MeasurementTexts
     BackRouter
     Demo
     MockApi
@@ -188,6 +189,29 @@ qt_add_executable(tst_Macro_Calculator
 )
 target_link_libraries(tst_Macro_Calculator PRIVATE TrainingAppCore Qt6::Test)
 add_test(NAME macro_calculator COMMAND tst_Macro_Calculator)
+
+# Расписание замеров тела (T1): чистые функции дат.
+qt_add_executable(tst_Measurement_Schedule
+    cpp/tst_Measurement_Schedule.cpp
+)
+target_link_libraries(tst_Measurement_Schedule PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME measurement_schedule COMMAND tst_Measurement_Schedule)
+set_tests_properties(measurement_schedule PROPERTIES TIMEOUT 20)
+
+# Динамика тела (T2): тенденция, темп, прогноз, среднее за 7 дней, карта изменений.
+qt_add_executable(tst_Measurement_Trend
+    cpp/tst_Measurement_Trend.cpp
+)
+target_link_libraries(tst_Measurement_Trend PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME measurement_trend COMMAND tst_Measurement_Trend)
+set_tests_properties(measurement_trend PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Day_Note_Repository
+    cpp/tst_Day_Note_Repository.cpp
+)
+target_link_libraries(tst_Day_Note_Repository PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME day_note_repository COMMAND tst_Day_Note_Repository)
+set_tests_properties(day_note_repository PROPERTIES TIMEOUT 20)
 set_tests_properties(macro_calculator PROPERTIES TIMEOUT 20)
 
 qt_add_executable(tst_Macro_VM
@@ -283,10 +307,10 @@ set_tests_properties(exercises_repository PROPERTIES
 qt_add_executable(tst_Exercises_VM
     cpp/tst_Exercises_VM.cpp
 )
-target_link_libraries(tst_Exercises_VM PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
-add_test(NAME exercises_vm COMMAND tst_Exercises_VM)
+target_link_libraries(tst_Exercises_VM PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test Qt6::Quick)
+add_test(NAME exercises_vm COMMAND tst_Exercises_VM -o -,txt)
 set_tests_properties(exercises_vm PROPERTIES
-    TIMEOUT 30
+    TIMEOUT 60
     ENVIRONMENT "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
 )
 
@@ -393,7 +417,7 @@ endforeach()
 # компоновках проекта, включая тёмную и обрамлённую.
 # profile-settings — раздел «Параметры» профиля: в нём блок «Оформление», и без
 # именованного экрана он не попадал бы в аудит вёрстки ни на одной компоновке.
-foreach(program_screen IN ITEMS program-catalog program-overview program-edit program-rules program-rules-picker program-stats program-day macro-calculator set-entry profile-settings exercises exercise-detail)
+foreach(program_screen IN ITEMS diary program-catalog program-overview program-edit program-rules program-rules-picker program-stats program-day macro-calculator set-entry profile-settings exercises exercise-detail)
     foreach(program_viewport IN ITEMS 360 390 480 frame dark)
         set(program_test_name "ui_smoke_${program_screen}_${program_viewport}")
         add_test(
@@ -426,6 +450,7 @@ add_test(
         -input "${CMAKE_CURRENT_SOURCE_DIR}/qml"
         -import "${MOCK_IMPORT_ROOT}"
         -platform offscreen
+        -o -,txt
 )
 
 set_tests_properties(qml_tests PROPERTIES
@@ -488,3 +513,13 @@ foreach(auth_viewport IN ITEMS 360 390 480 frame dark)
         TIMEOUT 20
     )
 endforeach()
+
+qt_add_executable(tst_Diary_VM cpp/tst_Diary_VM.cpp)
+target_link_libraries(tst_Diary_VM PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME diary_vm COMMAND tst_Diary_VM)
+set_tests_properties(diary_vm PROPERTIES TIMEOUT 30)
+
+qt_add_executable(tst_Diary_Calculator cpp/tst_Diary_Calculator.cpp)
+target_link_libraries(tst_Diary_Calculator PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME diary_calculator COMMAND tst_Diary_Calculator)
+set_tests_properties(diary_calculator PROPERTIES TIMEOUT 30)

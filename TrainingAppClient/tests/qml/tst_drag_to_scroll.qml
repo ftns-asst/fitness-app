@@ -119,6 +119,38 @@ TestCase {
     // Колесо мыши прокручивает страницу плавно: тик задаёт анимированную цель,
     // а не мгновенный прыжок contentY — прыжки читались как «запаздывание» и
     // рвали прокрутку на ступеньки.
+    function test_pixelWheelRespondsImmediatelyAndStopsPendingAnimation() {
+        const window = createTemporaryObject(sideAreaComponent, testCase);
+        window.show();
+        waitForRendering(window.flickable);
+        window.catcher.wheelBy(-120);
+        window.catcher.wheelPixels(-30);
+        compare(window.flickable.contentY, 30);
+        wait(300);
+        compare(window.flickable.contentY, 30);
+    }
+    function test_switchingTargetCancelsPendingWheelAnimation() {
+        const first = createTemporaryObject(sideAreaComponent, testCase);
+        const second = createTemporaryObject(sideAreaComponent, testCase);
+        first.show();
+        waitForRendering(first.flickable);
+        first.catcher.wheelBy(-120);
+        first.catcher.target = second.flickable;
+        wait(300);
+        compare(second.flickable.contentY, 0);
+    }
+    function test_gridHeaderRemainsReachableThroughBackgroundScroll() {
+        const window = createTemporaryObject(gridAreaComponent, testCase);
+        window.show();
+        waitForRendering(window.grid);
+        window.grid.positionViewAtBeginning();
+        const start = window.grid.contentY;
+        window.catcher.wheelPixels(50);
+        compare(window.grid.contentY, start);
+        window.catcher.wheelPixels(-150);
+        window.catcher.wheelPixels(150);
+        compare(window.grid.contentY, start);
+    }
     function test_wheelScrollsPage() {
         const window = createTemporaryObject(sideAreaComponent, testCase);
 
@@ -206,6 +238,37 @@ TestCase {
             height: 100
             target: null
             width: 100
+        }
+    }
+    Component {
+        id: gridAreaComponent
+        Window {
+            width: 800
+            height: 812
+            property alias grid: grid
+            property alias catcher: catcher
+            DragToScroll {
+                id: catcher
+                anchors.fill: parent
+                target: grid
+            }
+            GridView {
+                id: grid
+                width: 320
+                height: 812
+                anchors.horizontalCenter: parent.horizontalCenter
+                model: 100
+                cellHeight: 44
+                cellWidth: 160
+                header: Rectangle {
+                    width: 320
+                    height: 100
+                }
+                delegate: Rectangle {
+                    width: 160
+                    height: 44
+                }
+            }
         }
     }
 }

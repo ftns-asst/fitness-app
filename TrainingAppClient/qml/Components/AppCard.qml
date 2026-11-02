@@ -53,6 +53,19 @@ Item {
     Rectangle {
         anchors.fill: parent
         border.color: card.borderColor
+
+        Behavior on border.color {
+            ColorAnimation {
+                duration: Theme.pressFeedbackDuration
+                easing.type: Easing.OutCubic
+            }
+        }
+        Behavior on color {
+            ColorAnimation {
+                duration: Theme.pressFeedbackDuration
+                easing.type: Easing.OutCubic
+            }
+        }
         border.width: Theme.borderWidth
         color: card.surfaceColor
         radius: card.cornerRadius

@@ -6,8 +6,11 @@
 #include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
 #include "Presentation/Auth_VM.h"
+#include "Presentation/Diary_VM.h"
 
+#include <QPointer>
 #include <QSettings>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -16,6 +19,7 @@ class AApp_Context_Test : public QObject
 	Q_OBJECT
 
 private slots:
+	void initTestCase();
 	void defaultUrlIsUsed();
 	void environmentOverridesDefault();
 	void settingsOverrideEnvironment();
@@ -28,6 +32,12 @@ private slots:
 	void reinitializeReplacesWholeStack();
 };
 
+//-------------------------------------------------------------------------------------------------------------
+void AApp_Context_Test::initTestCase()
+{
+	// Контекст тестируется на отдельной базе, не на пользовательском профиле.
+	QStandardPaths::setTestModeEnabled(true);
+}
 //-------------------------------------------------------------------------------------------------------------
 void AApp_Context_Test::defaultUrlIsUsed()
 {
@@ -55,6 +65,8 @@ void AApp_Context_Test::defaultUrlIsUsed()
 	QVERIFY(!context.Auth_Repository()->Has_Local_Session());
 	QVERIFY(context.Users_Repository() != 0);
 	QVERIFY(context.Auth_Bridge() != 0);
+	QVERIFY(context.Diary_VM() != 0);
+	QCOMPARE(context.Diary_VM()->parent(), (QObject *)&context);
 }
 //-------------------------------------------------------------------------------------------------------------
 void AApp_Context_Test::environmentOverridesDefault()
@@ -167,9 +179,12 @@ void AApp_Context_Test::reinitializeReplacesWholeStack()
 	QVERIFY(directory.isValid());
 	QVERIFY(context.Initialize({"app"}, settings, QByteArray()));
 	children_after_first = context.children().size();
+	QPointer<Avm_Diary> old_diary(context.Diary_VM());
 
 	QVERIFY(context.Initialize({"app"}, settings, QByteArray()));
 	QCOMPARE(context.children().size(), children_after_first);
+	QVERIFY(old_diary.isNull());
+	QVERIFY(context.Diary_VM() != 0);
 	QVERIFY(context.SQL_Database()->Is_Open());
 	QVERIFY(context.Program_Catalog_VM() != 0);
 	QVERIFY(context.Exercises_VM() != 0);

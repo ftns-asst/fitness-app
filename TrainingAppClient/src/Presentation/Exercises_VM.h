@@ -97,7 +97,11 @@ private:
 	QVector<QVariantMap> Accumulated_Rows;
 	int Page_Size;
 	int Next_Offset = 0;
+	int Request_Offset = 0;
+	// Повторно читаем уже загруженную глубину, не укорачивая видимый список.
+	int Refresh_Row_Count = 0;
 	int Current_Request_Id = 0;
+	bool Selection_Changed = true;
 	bool Has_All_Rows = false;
 	bool Loading_Flag = false;
 	bool From_Cache_Flag = false;

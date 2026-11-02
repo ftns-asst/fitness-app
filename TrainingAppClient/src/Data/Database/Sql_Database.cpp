@@ -194,6 +194,21 @@ bool AsSql_Database::Migrate()
 		return false;
 	}
 
+	// v10 — замеры тела: четыре новых обхвата и шаг расписания замеров.
+	if (version < 10 && (!Migrate_Schema_V9_To_V10() || !Write_Schema_Version(10)))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
+	if (version < 11 && (!Migrate_Schema_V10_To_V11() || !Write_Schema_Version(11)))
+	{
+		Database_Handle->rollback();
+
+		return false;
+	}
+
 	// Каталог упражнений проверяется при каждом открытии, а не только при
 	// создании схемы: базы, созданные до появления каталога, остались бы с
 	// пустой exercises, и создание любой программы молча отвергалось бы FK.
@@ -261,7 +276,12 @@ int AsSql_Database::Get_Current_Schema_Version()
 	// закрепилась бы в программе. CHECK пересоздаётся (v7 to v8) с переносом строк.
 	// v9 — локальные фото техники упражнений (спринт U5/U6): таблица
 	// exercise_photos хранит имя файла по id упражнения, сам файл — в app data.
-	return 9;
+	// v10 — трекер тела (фаза T, спринт T1): ещё четыре обхвата в замере тела
+	// (живот, плечи, икры, шея), шаг замеров программы в днях и новые ключи
+	// замера в целях. CHECK ключа не ALTER'ится, поэтому goal_targets
+	// пересоздаётся с переносом строк (приём v7 to v8).
+	// v11 — заметки дневника: отдельная запись на пользователя и дату (T3).
+	return 11;
 }
 //-------------------------------------------------------------------------------------------------------------
 bool AsSql_Database::Ensure_Directory(const QString &in_path)
@@ -576,6 +596,88 @@ bool AsSql_Database::Migrate_Schema_V8_To_V9()
 		return Set_Last_Error(QString("Не удалось создать exercise_photos: %1").arg(query.lastError().text()));
 
 	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+// DDL goal_targets. Живёт в функции по той же причине, что и program_rules:
+// список допустимых ключей замера (CHECK) меняется вместе с EMeasurement_Key,
+// и копия определения в миграции разошлась бы с боевой.
+// Имя подставляется конкатенацией, а не через arg() (см. Create_Program_Rules_Table).
+bool AsSql_Database::Create_Goal_Targets_Table(const QString &in_name)
+{
+	const QString sql =
+	    QString("CREATE TABLE IF NOT EXISTS ") + in_name +
+	    QString(" (id TEXT PRIMARY KEY NOT NULL, "
+	            "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, "
+	            "metric TEXT NOT NULL CHECK (metric IN ('bodyWeightKg', 'workingWeightKg', 'bodyFatPercent', "
+	            "'measurementCm', 'workoutsPerWeek', 'tonnagePerWeekKg', 'repsAtWeight')), "
+	            "exercise_id TEXT REFERENCES exercises(id) ON DELETE SET NULL, "
+	            "measurement_key TEXT CHECK (measurement_key IS NULL OR measurement_key IN ('chest', 'waist', 'hip', "
+	            "'arm', 'thigh', 'belly', 'shoulders', 'calves', 'neck')), "
+	            "unit TEXT NOT NULL CHECK (unit IN ('kg', 'percent', 'cm', 'count', 'timesPerWeek')), "
+	            "start_value REAL, target_value REAL NOT NULL, target_weight_kg REAL, target_reps INTEGER, "
+	            "direction TEXT NOT NULL CHECK (direction IN ('increase', 'decrease', 'maintain')), "
+	            "target_date TEXT, "
+	            "state TEXT NOT NULL DEFAULT 'active' CHECK (state IN ('active', 'achieved', 'dropped')))");
+
+	return Execute_SQL(sql);
+}
+//-------------------------------------------------------------------------------------------------------------
+// Миграция v9 → v10 (спринт T1, трекер тела).
+//
+// Столбцы замера и шага расписания только добавляются: данные не трогаются.
+// goal_targets пересоздаётся ради нового списка ключей замера; строки
+// переносятся все, без фильтра — допустимые значения только расширяются.
+// Повторный запуск безопасен: столбцы добавляются при отсутствии, а резервная
+// таблица перед созданием удаляется.
+//-------------------------------------------------------------------------------------------------------------
+bool AsSql_Database::Migrate_Schema_V9_To_V10()
+{
+	const QString backup_name = QString("goal_targets_v9_backup");
+	const QString columns = QString("id, program_id, metric, exercise_id, measurement_key, unit, start_value, "
+	                                "target_value, target_weight_kg, target_reps, direction, target_date, state");
+
+	if (!Add_Column_If_Missing("body_measurements", "belly_cm", "REAL") ||
+	    !Add_Column_If_Missing("body_measurements", "shoulders_cm", "REAL") ||
+	    !Add_Column_If_Missing("body_measurements", "calves_cm", "REAL") ||
+	    !Add_Column_If_Missing("body_measurements", "neck_cm", "REAL"))
+		return false;
+
+	// Шаг расписания замеров, по умолчанию раз в 3 дня (FR-T7). Значение
+	// ограничено 1…30 днями: нулевой шаг зациклил бы расчёт дат.
+	if (!Add_Column_If_Missing("programs", "measurement_interval_days",
+	                           "INTEGER NOT NULL DEFAULT 3 CHECK (measurement_interval_days BETWEEN 1 AND 30)"))
+		return false;
+
+	if (!Execute_SQL(QString("DROP TABLE IF EXISTS %1").arg(backup_name)))
+		return false;
+
+	if (!Create_Goal_Targets_Table(backup_name))
+		return false;
+
+	if (!Execute_SQL(QString("INSERT INTO %1 (%2) SELECT %2 FROM goal_targets").arg(backup_name, columns)))
+		return false;
+
+	if (!Execute_SQL("DROP TABLE goal_targets"))
+		return false;
+
+	if (!Create_Goal_Targets_Table(QString("goal_targets")))
+		return false;
+
+	if (!Execute_SQL(QString("INSERT INTO goal_targets (%2) SELECT %2 FROM %1").arg(backup_name, columns)))
+		return false;
+
+	if (!Execute_SQL(QString("DROP TABLE %1").arg(backup_name)))
+		return false;
+
+	// Индекс принадлежит таблице и исчез вместе с ней.
+	return Execute_SQL("CREATE INDEX IF NOT EXISTS goal_targets_program_idx ON goal_targets(program_id)");
+}
+//-------------------------------------------------------------------------------------------------------------
+bool AsSql_Database::Migrate_Schema_V10_To_V11()
+{
+	return Execute_SQL("CREATE TABLE IF NOT EXISTS day_notes (user_id TEXT NOT NULL, date TEXT NOT NULL, note TEXT "
+	                   "NOT NULL, PRIMARY KEY (user_id, date))") &&
+	       Execute_SQL("CREATE INDEX IF NOT EXISTS day_notes_user_date_idx ON day_notes(user_id, date)");
 }
 //-------------------------------------------------------------------------------------------------------------
 // Повторный ALTER падает, поэтому столбец добавляется только при его отсутствии.

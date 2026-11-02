@@ -19,6 +19,8 @@ Item {
 
     property string value: ""
     property string label: ""
+    // Использовать общий календарь с собственной кнопкой вызова (например, период дневника).
+    property bool pickerOnly: false
     readonly property bool expanded: picker.visible
 
     // Год и месяц, показываемые календарём.
@@ -29,7 +31,7 @@ Item {
 
     // Две строки: подпись сверху, значение с кнопкой снизу. Высота задана
     // явно, потому что у Item нет содержимого для расчёта implicitHeight.
-    implicitHeight: 72
+    implicitHeight: pickerOnly ? 0 : 72
     implicitWidth: 240
 
     readonly property int cellSize: Math.floor((width - Spacing.listGap * 6) / 7)
@@ -40,6 +42,7 @@ Item {
 
     // — Поле: подпись, значение и кнопка раскрытия —
     Rectangle {
+        visible: !field.pickerOnly
         anchors.fill: parent
         border.color: field.expanded ? Theme.accent : Theme.border
         border.width: Theme.borderWidth
@@ -49,6 +52,7 @@ Item {
     // Подпись стоит над значением, а не слева: в строку на 360 px подпись,
     // дата и кнопка не помещались и обрезали друг друга.
     ColumnLayout {
+        visible: !field.pickerOnly
         anchors.fill: parent
         anchors.leftMargin: Spacing.listGap
         anchors.rightMargin: Spacing.listGap
@@ -91,10 +95,12 @@ Item {
     }
 
     // — Календарь: месяц, дни недели, сетка чисел —
-    Popup {
+    SwipePopup {
         id: picker
+        dragHandle: calendarGrip
+        restingY: field.pickerOnly ? Theme.buttonSecondary + Spacing.itemGap * 2 : field.height + Spacing.itemGap
 
-        y: field.height + Spacing.itemGap
+        onAboutToShow: calendarGrip.reset()
         width: field.width
         padding: Spacing.listGap
 
@@ -105,6 +111,12 @@ Item {
             radius: Theme.radiusLg
         }
         contentItem: ColumnLayout {
+            SwipeDismissHandle {
+                id: calendarGrip
+                Layout.fillWidth: true
+                objectName: "calendarSwipeGrip"
+                onDismissed: field.closePicker()
+            }
             spacing: Spacing.itemGap
 
             // Навигация по календарю: верхняя строка — год, нижняя — месяц.
@@ -217,6 +229,13 @@ Item {
                         variant: field.value === dayCell.iso ? AppButton.Primary : AppButton.Secondary
                     }
                 }
+            }
+            AppButton {
+                Layout.fillWidth: true
+                objectName: "dateCloseButton"
+                text: qsTr("Закрыть календарь")
+                variant: AppButton.Secondary
+                onClicked: field.closePicker()
             }
         }
     }

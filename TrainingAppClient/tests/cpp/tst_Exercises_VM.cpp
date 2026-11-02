@@ -6,6 +6,10 @@
 #include "Presentation/Exercises_VM.h"
 #include "Support/Test_Http_Server.h"
 
+#include <QQmlComponent>
+#include <QQmlContext>
+#include <QQmlEngine>
+#include <QQuickItem>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -28,11 +32,20 @@ private slots:
 	void filterChangeResetsOffset();
 	void shortPageEndsPagination();
 	void offlineShowsCacheWithMarker();
+	void paginationPreservesRowsAndPosition();
+	void unchangedReloadPreservesLoadedPages();
+	void offlinePaginationReplacesAndFiltersSnapshot();
+	void gridPositionSurvivesPaginationAndReload();
+	void failedPaginationKeepsRowsAndRetriesOffset();
+	void stalePageCannotOverwriteNewSelection();
+	void cachedDepthSurvivesInitialRefresh_data();
+	void cachedDepthSurvivesInitialRefresh();
 
 private:
 	static STest_Http_Response JSON_Response(int in_status, const QByteArray &in_body);
 	static QByteArray Two_Exercise_Body();
 	static QByteArray Fifty_Exercise_Body();
+	static QByteArray Catalog_Page(int in_offset, int in_count);
 	// page_size — размер страницы пагинации (продакшен 50, тесты меньше).
 	void Make_VM(ATest_Http_Server &in_server, QTemporaryDir &out_dir, int in_page_size, Avm_Exercises *&out_vm);
 };
@@ -130,8 +143,15 @@ void Avm_Exercises_Test::rolesMatchMockContract()
 	QCOMPARE(row.value("muscleGroups").toStringList(), QStringList({"chest"}));
 
 	// Свойства-справочники для чипов заполняются отдельными запросами.
-	server.Enqueue_Response(JSON_Response(200, QByteArray("[\"chest\",\"biceps\"]")));
-	server.Enqueue_Response(JSON_Response(200, QByteArray("[\"barbell\"]")));
+	// Два запроса параллельны: очередь ответов нельзя привязывать к порядку отправки.
+	connect(&server, &ATest_Http_Server::requestReceived, &server,
+	        [&server]()
+	        {
+		        const QByteArray target = server.Request_At(server.Request_Count() - 1).Target;
+		        server.Enqueue_Response(JSON_Response(200, target.contains("/muscle-groups")
+		                                                       ? QByteArray("[\"chest\",\"biceps\"]")
+		                                                       : QByteArray("[\"barbell\"]")));
+	        });
 	vm->loadCatalogs();
 
 	QTRY_COMPARE_WITH_TIMEOUT(vm->Muscle_Groups(), QStringList({"chest", "biceps"}), 5000);
@@ -264,6 +284,275 @@ void Avm_Exercises_Test::offlineShowsCacheWithMarker()
 	QVERIFY(has_local_catalog_row);
 }
 //-------------------------------------------------------------------------------------------------------------
+
+void Avm_Exercises_Test::paginationPreservesRowsAndPosition()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	Avm_Exercises *vm = 0;
+	Make_VM(server, directory, 2, vm);
+	server.Enqueue_Response(JSON_Response(200, Two_Exercise_Body()));
+	QVERIFY(vm->reload());
+	QTRY_VERIFY(!vm->Is_Loading());
+	AList_Model *model = vm->exercise_list();
+	QPersistentModelIndex anchor(model->index(1));
+	QSignalSpy resets(model, &AList_Model::modelReset);
+	QSignalSpy inserts(model, &AList_Model::rowsInserted);
+	QSignalSpy counts(model, &AList_Model::countChanged);
+	bool reentrant_load = false;
+	connect(model, &AList_Model::rowsInserted, vm, [vm, &reentrant_load]() { reentrant_load = vm->loadMore(); });
+	const QByteArray more = Two_Exercise_Body().replace("aaaaaaaa", "cccccccc").replace("bbbbbbbb", "dddddddd");
+	server.Enqueue_Response(JSON_Response(200, more));
+	QVERIFY(vm->loadMore());
+	QTRY_VERIFY(!vm->Is_Loading());
+
+	QCOMPARE(resets.count(), 0);
+	QCOMPARE(model->Row_Count(), 4);
+	QCOMPARE(inserts.count(), 1);
+	QCOMPARE(inserts.at(0).at(1).toInt(), 2);
+	QCOMPARE(inserts.at(0).at(2).toInt(), 3);
+	QCOMPARE(counts.count(), 1);
+	QVERIFY(!reentrant_load);
+	QVERIFY(anchor.isValid());
+	QCOMPARE(anchor.row(), 1);
+	QCOMPARE(anchor.data(Qt::UserRole + 1).toString(), QString("bbbbbbbb-1111-2222-3333-444444444444"));
+
+	server.Enqueue_Response(JSON_Response(200, QByteArray("[]")));
+	QVERIFY(vm->loadMore());
+	QTRY_VERIFY(!vm->Is_Loading());
+	QCOMPARE(resets.count(), 0);
+	QCOMPARE(inserts.count(), 1);
+	QCOMPARE(counts.count(), 1);
+	QVERIFY(!vm->Can_Load_More());
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Exercises_Test::unchangedReloadPreservesLoadedPages()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	Avm_Exercises *vm = 0;
+	Make_VM(server, directory, 2, vm);
+	const QByteArray more = Two_Exercise_Body().replace("aaaaaaaa", "cccccccc").replace("bbbbbbbb", "dddddddd");
+	server.Enqueue_Response(JSON_Response(200, Two_Exercise_Body()));
+	QVERIFY(vm->reload());
+	QTRY_VERIFY(!vm->Is_Loading());
+	server.Enqueue_Response(JSON_Response(200, more));
+	QVERIFY(vm->loadMore());
+	QTRY_VERIFY(!vm->Is_Loading());
+	AList_Model *model = vm->exercise_list();
+	QPersistentModelIndex anchor(model->index(3));
+	QSignalSpy resets(model, &AList_Model::modelReset);
+	QSignalSpy counts(model, &AList_Model::countChanged);
+	QSignalSpy changes(model, &AList_Model::dataChanged);
+
+	server.Enqueue_Response(JSON_Response(200, Two_Exercise_Body()));
+	server.Enqueue_Response(JSON_Response(200, more));
+	QVERIFY(vm->reload());
+	QCOMPARE(resets.count(), 0);
+	QCOMPARE(model->Row_Count(), 4);
+	QTRY_VERIFY(!vm->Is_Loading());
+	QCOMPARE(server.Request_Count(), 4);
+	QVERIFY(server.Request_At(3).Target.contains("offset=2"));
+	QCOMPARE(model->Row_Count(), 4);
+	QCOMPARE(resets.count(), 0);
+	QCOMPARE(counts.count(), 0);
+	QCOMPARE(changes.count(), 0);
+	QVERIFY(anchor.isValid());
+	QCOMPARE(anchor.row(), 3);
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Exercises_Test::offlinePaginationReplacesAndFiltersSnapshot()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	Avm_Exercises *vm = 0;
+	Make_VM(server, directory, 2, vm);
+	server.Enqueue_Response(JSON_Response(200, Two_Exercise_Body()));
+	QVERIFY(vm->setMuscleGroups({"chest"}));
+	QTRY_VERIFY(!vm->Is_Loading());
+	server.Stop();
+	QVERIFY(vm->loadMore());
+	QTRY_VERIFY(!vm->Is_Loading());
+
+	QVERIFY(vm->Is_From_Cache());
+	QVERIFY(!vm->Can_Load_More());
+	QStringList ids;
+	for (int i = 0; i < vm->exercise_list()->Row_Count(); ++i)
+	{
+		const QVariantMap row = vm->exercise_list()->get(i);
+		QVERIFY(row.value("muscleGroups").toStringList().contains("chest"));
+		QVERIFY(!ids.contains(row.value("id").toString()));
+		ids.append(row.value("id").toString());
+	}
+	QVERIFY(ids.contains("aaaaaaaa-1111-2222-3333-444444444444"));
+	QSignalSpy resets(vm->exercise_list(), &AList_Model::modelReset);
+	QSignalSpy counts(vm->exercise_list(), &AList_Model::countChanged);
+	QVERIFY(vm->reload());
+	QTRY_VERIFY(!vm->Is_Loading());
+	QCOMPARE(resets.count(), 0);
+	QCOMPARE(counts.count(), 0);
+}
+
+void Avm_Exercises_Test::gridPositionSurvivesPaginationAndReload()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	Avm_Exercises *vm = 0;
+	Make_VM(server, directory, 50, vm);
+	server.Enqueue_Response(JSON_Response(200, Fifty_Exercise_Body()));
+	QVERIFY(vm->reload());
+	QTRY_VERIFY(!vm->Is_Loading());
+
+	QQmlEngine engine;
+	engine.rootContext()->setContextProperty("catalogModel", vm->exercise_list());
+	QQmlComponent component(&engine);
+	component.setData("import QtQuick\n"
+	                  "GridView { width: 200; height: 100; cellWidth: 100; cellHeight: 50;"
+	                  "model: catalogModel; delegate: Rectangle { width: 100; height: 50 } }",
+	                  QUrl());
+	QObject *grid = component.create();
+	QVERIFY2(grid != 0, qPrintable(component.errorString()));
+	grid->setParent(&engine);
+	QVERIFY(QMetaObject::invokeMethod(grid, "forceLayout"));
+	grid->setProperty("contentY", 650.0);
+	const double position = grid->property("contentY").toDouble();
+	QCOMPARE(position, 650.0);
+
+	const QByteArray more = Fifty_Exercise_Body().replace("\"10", "\"20");
+	server.Enqueue_Response(JSON_Response(200, more));
+	QVERIFY(vm->loadMore());
+	QTRY_VERIFY(!vm->Is_Loading());
+	QVERIFY(QMetaObject::invokeMethod(grid, "forceLayout"));
+	QCOMPARE(grid->property("count").toInt(), 100);
+	QCOMPARE(grid->property("contentY").toDouble(), position);
+
+	server.Enqueue_Response(JSON_Response(200, Fifty_Exercise_Body()));
+	server.Enqueue_Response(JSON_Response(200, more));
+	QVERIFY(vm->reload());
+	QCOMPARE(grid->property("contentY").toDouble(), position);
+	QTRY_VERIFY(!vm->Is_Loading());
+	QVERIFY(QMetaObject::invokeMethod(grid, "forceLayout"));
+	QCOMPARE(grid->property("count").toInt(), 100);
+	QCOMPARE(grid->property("contentY").toDouble(), position);
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Exercises_Test::failedPaginationKeepsRowsAndRetriesOffset()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	Avm_Exercises *vm = 0;
+	Make_VM(server, directory, 2, vm);
+	server.Enqueue_Response(JSON_Response(200, Two_Exercise_Body()));
+	QVERIFY(vm->reload());
+	QTRY_VERIFY(!vm->Is_Loading());
+	QSignalSpy resets(vm->exercise_list(), &AList_Model::modelReset);
+	server.Enqueue_Response(JSON_Response(500, "{\"key\":\"undefined_error\"}"));
+	QVERIFY(vm->loadMore());
+	QTRY_VERIFY(!vm->Is_Loading());
+	QVERIFY(!vm->Error_Key().isEmpty());
+	QCOMPARE(vm->exercise_list()->Row_Count(), 2);
+	QCOMPARE(resets.count(), 0);
+	server.Enqueue_Response(JSON_Response(200, "[]"));
+	QVERIFY(vm->loadMore());
+	QTRY_VERIFY(!vm->Is_Loading());
+	QVERIFY(server.Request_At(2).Target.contains("offset=2"));
+	QCOMPARE(vm->exercise_list()->Row_Count(), 2);
+	QVERIFY(vm->Error_Key().isEmpty());
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Exercises_Test::stalePageCannotOverwriteNewSelection()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	Avm_Exercises *vm = 0;
+	Make_VM(server, directory, 2, vm);
+	server.Enqueue_Response(JSON_Response(200, Two_Exercise_Body()));
+	QVERIFY(vm->reload());
+	QTRY_VERIFY(!vm->Is_Loading());
+	STest_Http_Response delayed = JSON_Response(200, Two_Exercise_Body());
+	delayed.Delay_Ms = 200;
+	server.Enqueue_Response(delayed);
+	QVERIFY(vm->loadMore());
+	QTRY_COMPARE(server.Request_Count(), 2);
+	server.Enqueue_Response(JSON_Response(200, "[]"));
+	QVERIFY(vm->setMuscleGroups({"missing-group"}));
+	QCOMPARE(vm->exercise_list()->Row_Count(), 0);
+	QTRY_VERIFY(!vm->Is_Loading());
+	QTest::qWait(250);
+	QCOMPARE(vm->exercise_list()->Row_Count(), 0);
+	QVERIFY(!vm->Can_Load_More());
+}
+
+QByteArray Avm_Exercises_Test::Catalog_Page(int in_offset, int in_count)
+{
+	QByteArray body("[");
+	for (int i = in_offset; i < in_offset + in_count; ++i)
+	{
+		if (i > in_offset)
+			body += ',';
+		body += QString("{\"id\":\"scroll-%1\",\"name\":\"Scroll %1\",\"muscle_groups\":[\"scroll-test\"],"
+		                "\"equipment\":[],\"created_at\":\"2026-10-01T10:00:00Z\"}")
+		            .arg(i, 4, 10, QChar('0'))
+		            .toUtf8();
+	}
+	return body + ']';
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Exercises_Test::cachedDepthSurvivesInitialRefresh_data()
+{
+	QTest::addColumn<bool>("fail_first");
+	QTest::newRow("initial-refresh") << false;
+	QTest::newRow("retry-after-cache-error") << true;
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Exercises_Test::cachedDepthSurvivesInitialRefresh()
+{
+	QFETCH(bool, fail_first);
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	Avm_Exercises *seed_vm = 0;
+	Make_VM(server, directory, 50, seed_vm);
+	server.Enqueue_Response(JSON_Response(200, Catalog_Page(0, 200)));
+	QVERIFY(seed_vm->reload());
+	QTRY_VERIFY(!seed_vm->Is_Loading());
+	AExercises_Repository *repository = server.findChild<AExercises_Repository *>();
+	QVERIFY(repository != 0);
+	Avm_Exercises vm(repository, 50);
+	if (fail_first)
+		server.Enqueue_Response(JSON_Response(500, "{\"key\":\"undefined_error\"}"));
+	for (int i = 0; i < 4; ++i)
+	{
+		STest_Http_Response response = JSON_Response(200, Catalog_Page(i * 50, 50));
+		response.Delay_Ms = 50;
+		server.Enqueue_Response(response);
+	}
+	QVERIFY(vm.setMuscleGroups({"scroll-test"}));
+	AList_Model *model = vm.exercise_list();
+	QCOMPARE(model->Row_Count(), 200);
+	QVERIFY(vm.Is_From_Cache());
+	QPersistentModelIndex anchor(model->index(150));
+	QSignalSpy resets(model, &AList_Model::modelReset);
+	QSignalSpy removes(model, &AList_Model::rowsRemoved);
+	if (fail_first)
+	{
+		QTRY_VERIFY(!vm.Is_Loading());
+		QVERIFY(!vm.Error_Key().isEmpty());
+		QCOMPARE(model->Row_Count(), 200);
+		QVERIFY(vm.Is_From_Cache());
+		QCOMPARE(resets.count(), 0);
+		QVERIFY(anchor.isValid());
+		QVERIFY(vm.loadMore());
+	}
+	QTRY_VERIFY(!vm.Is_Loading());
+	QCOMPARE(model->Row_Count(), 200);
+	QCOMPARE(server.Request_Count(), fail_first ? 6 : 5);
+	QCOMPARE(resets.count(), 0);
+	QCOMPARE(removes.count(), 0);
+	QVERIFY(anchor.isValid());
+	QCOMPARE(anchor.row(), 150);
+	QVERIFY(vm.Error_Key().isEmpty());
+	QVERIFY(!vm.Is_From_Cache());
+}
 
 QTEST_MAIN(Avm_Exercises_Test)
 #include "tst_Exercises_VM.moc"

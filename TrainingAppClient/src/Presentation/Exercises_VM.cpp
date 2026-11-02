@@ -93,13 +93,17 @@ bool Avm_Exercises::Start_Load(int in_offset)
 {
 	int request_id;
 
-	if (Repository_Instance == 0 || (Loading_Flag && in_offset > 0))
+	if (Repository_Instance == 0)
 		return false;
 
-	// Отложенный показ кэша: строки каталога появляются сразу, сетевой ответ
-	// заменяет их, когда придёт (офлайн — это же строки и останутся).
-	if (in_offset == 0)
+	// Кэш нужен при открытии и смене фильтров. При обновлении той же выборки
+	// оставляем видимые строки: кэш может иметь другой порядок и локальные id.
+	if (in_offset == 0 && (Selection_Changed || Exercise_List->Row_Count() == 0))
 		Show_Cache();
+	// Кэш мог сразу показать больше одной страницы. Первая полная страница
+	// сервера не должна обрезать уже видимую глубину (в том числе после отказа).
+	if (in_offset == 0)
+		Refresh_Row_Count = qMax(Refresh_Row_Count, Exercise_List->Row_Count());
 
 	// Отмена не нужна: устаревший ответ игнорируется по идентификатору, а
 	// загрузка страницы (offset > 0) не мешает новому reload — их ответы
@@ -113,6 +117,8 @@ bool Avm_Exercises::Start_Load(int in_offset)
 	// Ответы устаревших запросов игнорируются по идентификатору: reload на
 	// фоне летящего loadMore не должен склеивать страницы разных выборок.
 	Current_Request_Id = request_id;
+	Request_Offset = in_offset;
+	Selection_Changed = false;
 	Loading_Flag = true;
 	emit stateChanged();
 
@@ -121,6 +127,10 @@ bool Avm_Exercises::Start_Load(int in_offset)
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises::reload()
 {
+	Debounce_Timer->stop();
+	Refresh_Row_Count = Selection_Changed ? 0 : Next_Offset;
+	if (Selection_Changed)
+		Next_Offset = 0;
 	Accumulated_Rows.clear();
 	Has_All_Rows = false;
 
@@ -129,7 +139,7 @@ bool Avm_Exercises::reload()
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises::loadMore()
 {
-	if (!Can_Load_More())
+	if (Loading_Flag || !Can_Load_More())
 		return false;
 
 	return Start_Load(Next_Offset);
@@ -141,6 +151,7 @@ void Avm_Exercises::setQuery(const QString &in_query)
 		return;
 
 	Query_Text = in_query;
+	Selection_Changed = true;
 
 	// Окно debounce перезапускается каждым символом: запрос уходит один —
 	// по последнему слову.
@@ -153,6 +164,7 @@ bool Avm_Exercises::setMuscleGroups(const QStringList &in_groups)
 		return false;
 
 	Muscle_Group_Filter = in_groups;
+	Selection_Changed = true;
 
 	return reload();
 }
@@ -163,6 +175,7 @@ bool Avm_Exercises::setEquipments(const QStringList &in_equipments)
 		return false;
 
 	Equipment_Filter = in_equipments;
+	Selection_Changed = true;
 
 	return reload();
 }
@@ -239,10 +252,9 @@ void Avm_Exercises::Show_Cache()
 		rows.append(Row_Data(cached.at(i)));
 	}
 
-	// Пустую выборку фильтра показом не затираем: пусть остаётся то, что было
-	// (офлайн-ветка репозитория всё равно перечитает кэш целиком).
-	if (!rows.isEmpty())
-		Exercise_List->Set_Rows(rows);
+	// Пустая выборка тоже заменяет список: старый фильтр не должен оставаться.
+	Exercise_List->Update_Rows(rows, "id");
+	From_Cache_Flag = true;
 }
 //-------------------------------------------------------------------------------------------------------------
 // Фильтры кэша — те же, что уходят серверу: поиск по названию без учёта
@@ -285,6 +297,8 @@ bool Avm_Exercises::resetFilters()
 	Query_Text.clear();
 	Muscle_Group_Filter.clear();
 	Equipment_Filter.clear();
+	Debounce_Timer->stop();
+	Selection_Changed = Selection_Changed || had_filters;
 
 	return had_filters;
 }
@@ -295,35 +309,79 @@ void Avm_Exercises::on_List_Finished(int in_request_id, const QVector<SExercises
 	if (in_request_id != Current_Request_Id)
 		return;
 
-	Loading_Flag = false;
 	Error_Key_Text = in_error.Is_Error() ? in_error.Key() : QString();
 
 	if (!in_error.Is_Error())
 	{
-		From_Cache_Flag = in_from_cache;
+		QVector<QVariantMap> rows;
+		rows.reserve(in_items.size());
 
-		// Дозагрузка дописывает страницы к накопленным; перезагрузка заменяет.
 		for (int i = 0; i < in_items.size(); ++i)
-			Accumulated_Rows.append(Row_Data(in_items.at(i)));
+		{
+			// Офлайн-ответ репозитория — весь каталог, без серверных фильтров.
+			if (!in_from_cache || Matches_Filters(in_items.at(i)))
+				rows.append(Row_Data(in_items.at(i)));
+		}
 
-		Next_Offset = Accumulated_Rows.size();
-		Has_All_Rows = in_items.size() < Page_Size;
-		Exercise_List->Set_Rows(Accumulated_Rows);
+		Has_All_Rows = in_from_cache || in_items.size() < Page_Size;
+
+		if (in_from_cache)
+		{
+			Exercise_List->Update_Rows(rows, "id");
+			Next_Offset = 0;
+		}
+		else if (Request_Offset == 0 || Refresh_Row_Count > 0)
+		{
+			// Сохраняем глубину только для той же последовательности id.
+			// База офлайн и иной серверный порядок — уже другая выборка.
+			if (Request_Offset == 0)
+			{
+				const int common_count = qMin(rows.size(), Exercise_List->Row_Count());
+				for (int i = 0; i < common_count; ++i)
+				{
+					if (rows.at(i).value("id") != Exercise_List->get(i).value("id"))
+					{
+						Refresh_Row_Count = 0;
+						break;
+					}
+				}
+			}
+			Accumulated_Rows.append(rows);
+			// Читаем обычными страницами: глубина каталога не ограничена limit API.
+			if (!Has_All_Rows && Accumulated_Rows.size() < Refresh_Row_Count && Start_Load(Accumulated_Rows.size()))
+				return;
+
+			Next_Offset = Accumulated_Rows.size();
+			Exercise_List->Update_Rows(Accumulated_Rows, "id");
+		}
+		else
+		{
+			Exercise_List->Append_Rows(rows);
+			Next_Offset = Request_Offset + in_items.size();
+		}
+
+		From_Cache_Flag = in_from_cache;
+		Accumulated_Rows.clear();
+		Refresh_Row_Count = 0;
 	}
 	else
 	{
-		// Сервер ответил ошибкой (транспортный сбой репозиторий уже закрыл
-		// кэшем — сюда попадают HTTP-отказы). Список не очищаем: после
-		// долгой «Загрузки…» окно выбора и вкладка каталога оставались бы
-		// пустыми, хотя кэш и базовый каталог никуда не делись. Показываем
-		// кэш/базу, ошибку выводит подпись состояния.
+		// HTTP-отказ: список не очищаем. Транспортный сбой репозиторий
+		// закрывает кэшем; здесь ошибку выводит подпись состояния.
 		Accumulated_Rows.clear();
-		Next_Offset = 0;
-		Has_All_Rows = false;
-		From_Cache_Flag = true;
-		Show_Cache();
+		Refresh_Row_Count = 0;
+		// Ошибка дозагрузки/обновления не меняет видимые строки и offset:
+		// повтор запрашивает ту же страницу, а не добавляет к ней весь кэш.
+		if (Exercise_List->Row_Count() == 0)
+		{
+			From_Cache_Flag = true;
+			Show_Cache();
+		}
 	}
 
+	// Сигналы модели могут вызвать автодогрузку QML синхронно. Открываем её
+	// только после согласования строк и Next_Offset.
+	Loading_Flag = false;
 	emit stateChanged();
 }
 //-------------------------------------------------------------------------------------------------------------

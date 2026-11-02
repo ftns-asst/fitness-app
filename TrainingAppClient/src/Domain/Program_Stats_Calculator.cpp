@@ -22,36 +22,7 @@ static const double Goal_Value_Tolerance = 0.5;
 //-------------------------------------------------------------------------------------------------------------
 static bool Measurement_Read_Key(const SBody_Measurement &in_measurement, EMeasurement_Key in_key, double &out_value)
 {
-	switch (in_key)
-	{
-	case EMeasurement_Key::Chest:
-		out_value = in_measurement.Chest_Cm;
-
-		return in_measurement.Has_Chest_Cm;
-
-	case EMeasurement_Key::Waist:
-		out_value = in_measurement.Waist_Cm;
-
-		return in_measurement.Has_Waist_Cm;
-
-	case EMeasurement_Key::Hip:
-		out_value = in_measurement.Hip_Cm;
-
-		return in_measurement.Has_Hip_Cm;
-
-	case EMeasurement_Key::Arm:
-		out_value = in_measurement.Arm_Cm;
-
-		return in_measurement.Has_Arm_Cm;
-
-	case EMeasurement_Key::Thigh:
-		out_value = in_measurement.Thigh_Cm;
-
-		return in_measurement.Has_Thigh_Cm;
-
-	default:
-		return false;
-	}
+	return Get_Measurement_Value(in_measurement, in_key, out_value);
 }
 //-------------------------------------------------------------------------------------------------------------
 // Текущий рабочий вес упражнения по уже посчитанной силе (§5.1).

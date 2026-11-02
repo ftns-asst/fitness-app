@@ -48,6 +48,9 @@ private slots:
 	void goalTargetsMapProgress();
 	void checkinsMapStateAndValue();
 	void measurementsNullMissingFields();
+	void trendsSkipParametersWithoutData();
+	void weightSeriesCarriesAverage();
+	void changeMapShadesByColumnPeak();
 	void summariesMarkBestProgram();
 
 private:
@@ -536,6 +539,123 @@ void AProgram_Rows_Test::measurementsNullMissingFields()
 
 	QCOMPARE(Role_Of(0, "weightKg").toDouble(), 78.4);
 	QVERIFY(Role_Of(0, "waistCm").isNull());
+}
+//-------------------------------------------------------------------------------------------------------------
+// Параметр без замеров в таблицу динамики не попадает, а незаданные числа —
+// null: «нет данных» и «ноль» на экране различаются.
+//-------------------------------------------------------------------------------------------------------------
+void AProgram_Rows_Test::trendsSkipParametersWithoutData()
+{
+	QVector<SBody_Measurement> measurements;
+	SBody_Measurement first;
+	SBody_Measurement second;
+
+	first.Date = "2026-10-01";
+	first.Weight_Kg = 89.0;
+	first.Has_Weight_Kg = true;
+	Set_Measurement_Value(first, EMeasurement_Key::Neck, 40.0);
+	second.Date = "2026-10-07";
+	second.Weight_Kg = 87.1;
+	second.Has_Weight_Kg = true;
+	measurements << first << second;
+
+	model.Set_Roles(Program_Rows::Trend_Roles());
+	model.Set_Rows(Program_Rows::Build_Trends(
+	    AMeasurement_Trend::Compute_Trends(measurements, "2026-10-28", QVector<SGoal_Target>())));
+
+	// Вес с двумя точками и шея с одной; остальные восемь параметров пропущены.
+	QCOMPARE(model.Row_Count(), 2);
+	QCOMPARE(Role_Of(0, "param").toString(), QString("weight"));
+	QCOMPARE(Role_Of(0, "points").toInt(), 2);
+	QCOMPARE(Role_Of(0, "trend").toString(), QString("down"));
+	QCOMPARE(Role_Of(0, "delta").toDouble(), 87.1 - 89.0);
+	QVERIFY(!Role_Of(0, "forecastAtEnd").isNull());
+	// Цели нет — оценки «к цели или от неё» тоже нет.
+	QVERIFY(Role_Of(0, "favorable").isNull());
+
+	QCOMPARE(Role_Of(1, "param").toString(), QString("neck"));
+	QCOMPARE(Role_Of(1, "start").toDouble(), 40.0);
+	QVERIFY(Role_Of(1, "delta").isNull());
+	QVERIFY(Role_Of(1, "ratePerWeek").isNull());
+	QVERIFY(Role_Of(1, "forecastAtEnd").isNull());
+	QCOMPARE(Role_Of(1, "trend").toString(), QString("unknown"));
+}
+//-------------------------------------------------------------------------------------------------------------
+void AProgram_Rows_Test::weightSeriesCarriesAverage()
+{
+	QVector<SBody_Measurement> measurements;
+	SBody_Measurement measurement;
+
+	measurement.Has_Weight_Kg = true;
+	measurement.Date = "2026-10-01";
+	measurement.Weight_Kg = 89.0;
+	measurements << measurement;
+	measurement.Date = "2026-10-04";
+	measurement.Weight_Kg = 88.2;
+	measurements << measurement;
+
+	model.Set_Roles(Program_Rows::Weight_Point_Roles());
+	model.Set_Rows(Program_Rows::Build_Weight_Series(AMeasurement_Trend::Weight_Series(measurements)));
+
+	QCOMPARE(model.Row_Count(), 2);
+	QCOMPARE(Role_Of(1, "date").toString(), QString("2026-10-04"));
+	QCOMPARE(Role_Of(1, "weightKg").toDouble(), 88.2);
+	QCOMPARE(Role_Of(1, "average7Kg").toDouble(), (89.0 + 88.2) / 2.0);
+	QCOMPARE(Role_Of(1, "averagePoints").toInt(), 2);
+}
+//-------------------------------------------------------------------------------------------------------------
+// Тон ячейки — доля изменения от наибольшего по модулю в столбце: у веса и
+// обхватов разные единицы, и общий максимум обесцветил бы обхваты.
+//-------------------------------------------------------------------------------------------------------------
+void AProgram_Rows_Test::changeMapShadesByColumnPeak()
+{
+	QVector<SBody_Measurement> measurements;
+	SBody_Measurement measurement;
+	QVariantList cells;
+	QVariantMap cell;
+
+	measurement.Has_Weight_Kg = true;
+	measurement.Date = "2026-10-01";
+	measurement.Weight_Kg = 90.0;
+	Set_Measurement_Value(measurement, EMeasurement_Key::Waist, 100.0);
+	measurements << measurement;
+	measurement.Date = "2026-10-04";
+	measurement.Weight_Kg = 88.0;
+	Set_Measurement_Value(measurement, EMeasurement_Key::Waist, 99.0);
+	measurements << measurement;
+	measurement.Date = "2026-10-07";
+	measurement.Weight_Kg = 87.0;
+	Set_Measurement_Value(measurement, EMeasurement_Key::Waist, 96.0);
+	measurements << measurement;
+
+	model.Set_Roles(Program_Rows::Change_Row_Roles());
+	model.Set_Rows(Program_Rows::Build_Change_Map(AMeasurement_Trend::Change_Map(measurements)));
+
+	QCOMPARE(model.Row_Count(), 3);
+	QCOMPARE(Role_Of(2, "date").toString(), QString("2026-10-07"));
+
+	// Вес: к старту −2 и −3, пик по модулю 3 → тон 2/3 и 1.
+	cells = Role_Of(1, "cells").toList();
+	QCOMPARE(cells.size(), (int)EMeasurement_Param::Max);
+	cell = cells.at((int)EMeasurement_Param::Weight).toMap();
+	QCOMPARE(cell.value("fromStart").toDouble(), -2.0);
+	QCOMPARE(cell.value("startIntensity").toDouble(), 2.0 / 3.0);
+	cell = Role_Of(2, "cells").toList().at((int)EMeasurement_Param::Weight).toMap();
+	QCOMPARE(cell.value("startIntensity").toDouble(), 1.0);
+
+	// Талия: к старту −1 и −4, пик 4 → тон 1/4 и 1 — свой масштаб столбца.
+	cell = cells.at((int)EMeasurement_Param::Waist).toMap();
+	QCOMPARE(cell.value("startIntensity").toDouble(), 0.25);
+
+	// Первое измерение: к предыдущему сравнивать не с чем — null и нулевой тон.
+	cell = Role_Of(0, "cells").toList().at((int)EMeasurement_Param::Weight).toMap();
+	QVERIFY(!cell.value("fromPrevious").isValid() || cell.value("fromPrevious").isNull());
+	QCOMPARE(cell.value("previousIntensity").toDouble(), 0.0);
+
+	// Параметр без замеров: ячейка пуста везде.
+	cell = cells.at((int)EMeasurement_Param::Chest).toMap();
+	QVERIFY(!cell.value("fromStart").isValid() || cell.value("fromStart").isNull());
+	QCOMPARE(cell.value("startIntensity").toDouble(), 0.0);
 }
 //-------------------------------------------------------------------------------------------------------------
 void AProgram_Rows_Test::summariesMarkBestProgram()

@@ -66,6 +66,7 @@ public:
 	// от внутреннего стиля имён C++ (§2 CODE_STYLE). Подробности — в .cpp.
 	Q_INVOKABLE bool reload(const QString &in_user_id, const QString &in_program_id = QString());
 	Q_INVOKABLE void selectDay(const QString &in_program_day_id);
+	Q_INVOKABLE bool activate(const QString &in_user_id);
 
 	// Перечитывает активную программу пользователя. Отсутствие программы —
 	// не сбой чтения, но ошибка для UI: errorKey заполняется, модели пусты.

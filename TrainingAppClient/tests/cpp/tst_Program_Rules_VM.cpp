@@ -26,6 +26,9 @@ class AProgram_Rules_VM_Test : public QObject
 private slots:
 	void initTestCase();
 	void reloadWithoutActiveProgramFails();
+	void selectedProgramContext();
+	void invalidSelectionClearsContext();
+	void selectedProgramWritePolicy();
 	void reloadLoadsRulesWithUnknownTodayState();
 	void manualCheckinAppearsInTodayState();
 	void savesManualCheckinWithValueAndNote();
@@ -447,6 +450,60 @@ void AProgram_Rules_VM_Test::generateRulesFromMacroRequiresCalculatedMacro()
 }
 //-------------------------------------------------------------------------------------------------------------
 
+void AProgram_Rules_VM_Test::selectedProgramContext()
+{
+	Seed_User("selected");
+	QVERIFY(Program_Repository->Change_State("p_selected", EProgram_State::Paused));
+	Seed_Program("u_selected", "p_selected_other");
+	Seed_Rules("p_selected_other");
+	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
+	vm.Set_Today("2026-10-05");
+	QVERIFY(vm.Reload("u_selected", "p_selected"));
+	QCOMPARE(vm.programId(), QString("p_selected"));
+	QCOMPARE(Row_By_Role(vm.rules(), 0, "ruleId").toString(), QString("p_selected_r_protein"));
+	QVERIFY(vm.Can_Edit_Rules());
+	QVERIFY(!vm.Can_Checkin());
+	Seed_Macro_Result("u_selected", 150, 70, 250, 2400);
+	QVERIFY(vm.Generate_Rules_From_Macro("u_selected"));
+	QCOMPARE(vm.programId(), QString("p_selected"));
+	QVERIFY(!vm.Save_Checkin("p_selected_r_protein", "done", 150, true, ""));
+	QVERIFY(vm.Reload("u_selected"));
+	QCOMPARE(vm.programId(), QString("p_selected_other"));
+}
+//-------------------------------------------------------------------------------------------------------------
+void AProgram_Rules_VM_Test::invalidSelectionClearsContext()
+{
+	Seed_User("invalid_selection");
+	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
+	QVERIFY(vm.Reload("u_invalid_selection"));
+	QVERIFY(!vm.Reload("another_user", "p_invalid_selection"));
+	QVERIFY(!vm.Has_Program());
+	QCOMPARE(vm.rules()->Row_Count(), 0);
+	QVERIFY(!vm.Can_Edit_Rules());
+	QVERIFY(!vm.Can_Checkin());
+	QVERIFY(!vm.Reload("u_invalid_selection", "missing_program"));
+	QVERIFY(!vm.Has_Program());
+}
+//-------------------------------------------------------------------------------------------------------------
+void AProgram_Rules_VM_Test::selectedProgramWritePolicy()
+{
+	Seed_User("write_policy");
+	Seed_Macro_Result("u_write_policy", 150, 70, 250, 2400);
+	Avm_Program_Rules vm(Program_Repository, Rule_Repository, Users_Repository);
+	vm.Set_Today("2026-10-05");
+	QVERIFY(vm.Reload("u_write_policy", "p_write_policy"));
+	QVERIFY(vm.Can_Checkin());
+	QVERIFY(vm.Save_Checkin("p_write_policy_r_protein", "done", 150, true, ""));
+	QVERIFY(Program_Repository->Change_State("p_write_policy", EProgram_State::Completed));
+	QVERIFY(!vm.Save_Checkin("p_write_policy_r_protein", "failed", 0, false, ""));
+	QVERIFY(!vm.Generate_Rules_From_Macro("u_write_policy"));
+	QVERIFY(vm.Reload("u_write_policy", "p_write_policy"));
+	QVERIFY(!vm.Can_Edit_Rules());
+	QVERIFY(!vm.Can_Checkin());
+	QCOMPARE(vm.checkinCount(), 1);
+	QCOMPARE(Row_By_Role(vm.rules(), 0, "todayState").toString(), QString("done"));
+}
+//-------------------------------------------------------------------------------------------------------------
 QTEST_GUILESS_MAIN(AProgram_Rules_VM_Test)
 #include "tst_Program_Rules_VM.moc"
 //-------------------------------------------------------------------------------------------------------------

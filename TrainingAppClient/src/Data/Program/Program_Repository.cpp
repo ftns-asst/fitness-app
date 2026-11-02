@@ -1,5 +1,7 @@
 ﻿#include "Data/Program/Program_Repository.h"
 
+#include "Domain/Measurement_Schedule.h"
+
 #include <QDate>
 #include <QDateTime>
 #include <QHash>
@@ -395,6 +397,57 @@ bool AProgram_Repository::Get_Active_Program_Id(const QString &in_user_id, QStri
 		return Set_Last_Error(QString("У пользователя %1 нет активной программы").arg(in_user_id));
 
 	out_program_id = query.value(0).toString();
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool AProgram_Repository::Get_Measurement_Interval(const QString &in_program_id, int &out_interval_days)
+{
+	QSqlQuery query(Connection());
+
+	Clear_Last_Error();
+	out_interval_days = AMeasurement_Schedule::Default_Interval_Days;
+
+	if (!Check_Open())
+		return false;
+
+	query.prepare("SELECT measurement_interval_days FROM programs WHERE id = ?");
+	query.addBindValue(in_program_id);
+
+	if (!query.exec())
+		return Set_Last_Error(QString("Не удалось прочитать шаг замеров: %1").arg(query.lastError().text()));
+
+	if (!query.next())
+		return Set_Last_Error(QString("Программа %1 не найдена").arg(in_program_id));
+
+	out_interval_days = query.value(0).toInt();
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool AProgram_Repository::Set_Measurement_Interval(const QString &in_program_id, int in_interval_days)
+{
+	QSqlQuery query(Connection());
+
+	Clear_Last_Error();
+
+	if (!Check_Open())
+		return false;
+
+	if (!AMeasurement_Schedule::Is_Valid_Interval(in_interval_days))
+		return Set_Last_Error(QString("Шаг замеров должен быть от %1 до %2 дней")
+		                          .arg(AMeasurement_Schedule::Min_Interval_Days)
+		                          .arg(AMeasurement_Schedule::Max_Interval_Days));
+
+	query.prepare("UPDATE programs SET measurement_interval_days = ? WHERE id = ?");
+	query.addBindValue(in_interval_days);
+	query.addBindValue(in_program_id);
+
+	if (!query.exec())
+		return Set_Last_Error(QString("Не удалось сохранить шаг замеров: %1").arg(query.lastError().text()));
+
+	if (query.numRowsAffected() != 1)
+		return Set_Last_Error(QString("Программа %1 не найдена").arg(in_program_id));
 
 	return true;
 }

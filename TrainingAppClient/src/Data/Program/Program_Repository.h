@@ -46,6 +46,11 @@ public:
 	                       QVector<SProgram_Day> &out_days, QVector<SDay_Exercise> &out_exercises,
 	                       QVector<SWeek_Slot> &out_slots);
 	bool Get_Active_Program_Id(const QString &in_user_id, QString &out_program_id);
+	// Шаг расписания замеров программы в днях (FR-T7, схема v10). Это
+	// настройка, а не структура плана: версия программы не растёт, а прежние
+	// программы получают значение по умолчанию (3 дня).
+	bool Get_Measurement_Interval(const QString &in_program_id, int &out_interval_days);
+	bool Set_Measurement_Interval(const QString &in_program_id, int in_interval_days);
 	// Список всех программ пользователя (каталог, срез S1). Отличие от
 	// Load_Program: отсутствие строк — не ошибка, а пустой список. Каталог на
 	// первом запуске обязан звать создать программу, поэтому «нет ни одной

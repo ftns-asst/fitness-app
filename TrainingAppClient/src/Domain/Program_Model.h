@@ -116,6 +116,10 @@ enum class EMeasurement_Key : unsigned char
 	Hip,
 	Arm,
 	Thigh,
+	Belly,
+	Shoulders,
+	Calves,
+	Neck,
 	Max
 };
 
@@ -478,6 +482,17 @@ struct SRule_Checkin
 };
 
 //-------------------------------------------------------------------------------------------------------------
+// Заметка дня дневника (T3): один необязательный многострочный текст на дату
+// пользователя. Она не принадлежит правилу, поэтому не меняет его вердикт.
+//-------------------------------------------------------------------------------------------------------------
+struct SDay_Note
+{
+	QString User_Id;
+	QString Date;
+	QString Text;
+};
+
+//-------------------------------------------------------------------------------------------------------------
 // Замер тела (§3.8, инвариант 20 §4): отдельная таблица, одна запись на пару
 // (user, date); nullable-поля — пары «значение + Has_».
 //-------------------------------------------------------------------------------------------------------------
@@ -498,7 +513,26 @@ struct SBody_Measurement
 	bool Has_Arm_Cm = false;
 	double Thigh_Cm = -1;
 	bool Has_Thigh_Cm = false;
+	double Belly_Cm = -1;
+	bool Has_Belly_Cm = false;
+	double Shoulders_Cm = -1;
+	bool Has_Shoulders_Cm = false;
+	double Calves_Cm = -1;
+	bool Has_Calves_Cm = false;
+	double Neck_Cm = -1;
+	bool Has_Neck_Cm = false;
 };
+
+// Обхват по ключу замера: чтение отдаёт false, если значение не задано.
+// Запись помечает значение заданным. Вес в ключи не входит — он не обхват.
+bool Get_Measurement_Value(const SBody_Measurement &in_measurement, EMeasurement_Key in_key, double &out_value);
+void Set_Measurement_Value(SBody_Measurement &io_measurement, EMeasurement_Key in_key, double in_value);
+// Задан ли хоть один показатель замера, вес в том числе.
+bool Has_Any_Measurement_Value(const SBody_Measurement &in_measurement);
+
+// Обхваты для явно заданных мышц упражнений, без дублей, в порядке EMeasurement_Key.
+// Вес не входит; неизвестные группы и области без подходящего обхвата пропускаются.
+QStringList Measurement_Keys_For_Muscles(const QStringList &in_muscle_groups);
 
 //-------------------------------------------------------------------------------------------------------------
 // Сессия-факт тренировки (§3.8). Program_Id пустая — тренировка вне

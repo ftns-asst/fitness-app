@@ -76,7 +76,7 @@ PageScaffold {
     // Высота и вес подставляются из модели один раз. Дальше форма принадлежит
     // человеку: иначе пересчёт затирал бы правильный введённый вес замером.
     function initFromModel() {
-        if (!page.hasModel || page.viewModel.hasWeight)
+        if (!page.hasModel)
             return;
 
         if (page.viewModel.weightKg > 0)
@@ -87,6 +87,7 @@ PageScaffold {
 
         if (page.viewModel.hasBirthDate)
             page.birthDate = page.viewModel.birthDate;
+        page.isFemaleSelected = page.viewModel.isFemale === true;
 
         const level = page.viewModel.activityLevel;
 
@@ -183,8 +184,6 @@ PageScaffold {
     function calculate() {
         if (!page.hasModel)
             return;
-
-        page.initFromModel();
 
         const mode = page.modeIndex >= 0 && page.modeIndex < page.modes.length ? page.modes[page.modeIndex] : "maintain";
 

@@ -1,5 +1,6 @@
 ﻿#include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
+#include "Data/Exercises/Exercises_Repository.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Network/Http_Client.h"
 #include "Data/Program/Measurement_Repository.h"
@@ -39,9 +40,14 @@ private slots:
 	void measurementIsSavedOncePerDay();
 	void measurementWithoutValueIsRejected();
 	void measurementGoesToCurrentDayAfterMidnight();
+	void allTenParametersAreSavedFromMap();
+	void invalidMeasurementInputIsRejectedWhole();
+	void scheduleSaysTimeToMeasure();
+	void measurementIntervalIsEditable();
 	void pinnedDateIsNotOverwrittenByClock();
 	void reloadIfDayChangedFollowsClock();
 	void measurementIsReadableWithoutProgram();
+	void selectedMeasurementsFollowWholeProgramAndClearOnUserChange();
 	void checkinUpdatesRuleStateOnce();
 	void measurementInvalidatesStatsCache();
 	void checkinInvalidatesStatsCache();
@@ -440,13 +446,14 @@ void AToday_VM_Test::measurementIsSavedOncePerDay()
 	vm.Set_Today("2026-10-05");
 	QVERIFY(vm.Load("u_meas_once"));
 
-	QVERIFY(vm.saveMeasurement(82.5, true, 104, true, 86, true, 98, true, 37.5, true, 58, true));
+	QVERIFY(vm.saveMeasurement(
+	    QVariantMap{{"weight", 82.5}, {"chest", 104}, {"waist", 86}, {"hip", 98}, {"arm", 37.5}, {"thigh", 58}}));
 	QVERIFY(vm.Has_Measurement());
 	QCOMPARE(vm.weightKg(), 82.5);
 
 	// Второй ввод за тот же день обновляет запись, а не создаёт вторую: пара
 	// (user, date) уникальна, и без слияния форма наслаивала бы дубли.
-	QVERIFY(vm.saveMeasurement(82.3, true, -1, false, -1, false, -1, false, -1, false, -1, false));
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 82.3}}));
 	QCOMPARE(vm.weightKg(), 82.3);
 	// Обхваты утренней записи пережили вечерний ввод только веса.
 	QCOMPARE(vm.chestCm(), 104.0);
@@ -472,13 +479,13 @@ void AToday_VM_Test::measurementGoesToCurrentDayAfterMidnight()
 
 	vm.Set_Today("2020-01-01");
 	QVERIFY(vm.Load("u_meas_midnight"));
-	QVERIFY(vm.saveMeasurement(80.0, true, -1, false, -1, false, -1, false, -1, false, -1, false));
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 80.0}}));
 	QVERIFY(Measurement_Repository->Find_Measurement("u_meas_midnight", "2020-01-01", stored));
 	QCOMPARE(stored.Weight_Kg, 80.0);
 
 	// Прошли сутки: часы снова главные.
 	vm.Follow_Clock();
-	QVERIFY(vm.saveMeasurement(79.0, true, -1, false, -1, false, -1, false, -1, false, -1, false));
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 79.0}}));
 
 	QCOMPARE(vm.today(), current);
 	QVERIFY(Measurement_Repository->Find_Measurement("u_meas_midnight", current, stored));
@@ -496,7 +503,7 @@ void AToday_VM_Test::pinnedDateIsNotOverwrittenByClock()
 
 	vm.Set_Today("2020-02-02");
 	QVERIFY(vm.Load("u_meas_pinned"));
-	QVERIFY(vm.saveMeasurement(75.0, true, -1, false, -1, false, -1, false, -1, false, -1, false));
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 75.0}}));
 
 	QCOMPARE(vm.today(), QString("2020-02-02"));
 	QVERIFY(!vm.reloadIfDayChanged("u_meas_pinned"));
@@ -511,7 +518,7 @@ void AToday_VM_Test::reloadIfDayChangedFollowsClock()
 
 	vm.Set_Today("2020-03-03");
 	QVERIFY(vm.Load("u_meas_reload"));
-	QVERIFY(vm.saveMeasurement(70.0, true, -1, false, -1, false, -1, false, -1, false, -1, false));
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 70.0}}));
 	QVERIFY(vm.Has_Measurement());
 
 	vm.Follow_Clock();
@@ -527,6 +534,134 @@ void AToday_VM_Test::reloadIfDayChangedFollowsClock()
 	QVERIFY(!vm.reloadIfDayChanged("u_meas_reload"));
 }
 //-------------------------------------------------------------------------------------------------------------
+// Форма отдаёт карту: ключ есть — показатель измерен, ключа нет — «не измерял».
+//-------------------------------------------------------------------------------------------------------------
+void AToday_VM_Test::allTenParametersAreSavedFromMap()
+{
+	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
+	             Users_Repository);
+	QVariantMap saved;
+
+	vm.Set_Today("2026-10-06");
+	QVERIFY(vm.Load("u_ten_map"));
+
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 89.0},
+	                                       {"waist", 99.0},
+	                                       {"belly", 104.0},
+	                                       {"arm", 36.0},
+	                                       {"shoulders", 118.0},
+	                                       {"chest", 107.0},
+	                                       {"hip", 110.0},
+	                                       {"thigh", 62.0},
+	                                       {"calves", 41.0},
+	                                       {"neck", 40.0}}));
+
+	saved = vm.measurementValues();
+	QCOMPARE(saved.size(), 10);
+	QCOMPARE(saved.value("belly").toDouble(), 104.0);
+	QCOMPARE(saved.value("neck").toDouble(), 40.0);
+
+	// Вечером только вес: остальные девять не обнуляются и не пропадают.
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 88.6}}));
+	saved = vm.measurementValues();
+	QCOMPARE(saved.size(), 10);
+	QCOMPARE(saved.value("weight").toDouble(), 88.6);
+	QCOMPARE(saved.value("shoulders").toDouble(), 118.0);
+}
+//-------------------------------------------------------------------------------------------------------------
+void AToday_VM_Test::invalidMeasurementInputIsRejectedWhole()
+{
+	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
+	             Users_Repository);
+
+	vm.Set_Today("2026-10-06");
+	QVERIFY(vm.Load("u_bad_map"));
+
+	// Неизвестный ключ отвергает запись целиком: хороший вес рядом не сохраняется.
+	QVERIFY(!vm.saveMeasurement(QVariantMap{{"weight", 80.0}, {"elbow", 30.0}}));
+	QCOMPARE(vm.errorKey(), QString("invalid_measurement_key"));
+	QVERIFY(!vm.Has_Measurement());
+
+	QVERIFY(!vm.saveMeasurement(QVariantMap{{"weight", "восемьдесят"}}));
+	QCOMPARE(vm.errorKey(), QString("invalid_measurement_value"));
+	QVERIFY(!vm.Has_Measurement());
+
+	// Обхват не больше нуля отвергает репозиторий.
+	QVERIFY(!vm.saveMeasurement(QVariantMap{{"neck", 0.0}}));
+	QVERIFY(!vm.Has_Measurement());
+}
+//-------------------------------------------------------------------------------------------------------------
+// Программа с 28 днями, старт 28.09, шаг по умолчанию 3 дня: точки 28.09,
+// 01.10, 04.10, 07.10 … 25.10 (FR-T7).
+//-------------------------------------------------------------------------------------------------------------
+void AToday_VM_Test::scheduleSaysTimeToMeasure()
+{
+	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
+	             Users_Repository);
+
+	Seed_Program("u_sched", "p_sched");
+
+	// 5 октября: точка 4 октября наступила, замеров не было.
+	vm.Set_Today("2026-10-05");
+	QVERIFY(vm.Load("u_sched"));
+	QCOMPARE(vm.measurementIntervalDays(), 3);
+	QVERIFY(vm.measurementDue());
+	// Просроченная точка (4 октября) уже учтена флагом «пора», а ближайшая
+	// плановая дата впереди — 7 октября.
+	QCOMPARE(vm.nextMeasurementDate(), QString("2026-10-07"));
+
+	// Замер закрывает точку: ближайшая по-прежнему 7 октября.
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 90.0}}));
+	QVERIFY(!vm.measurementDue());
+	QCOMPARE(vm.nextMeasurementDate(), QString("2026-10-07"));
+
+	// 7 октября снова пора, а замер 5-го точку не закрывает.
+	vm.Set_Today("2026-10-07");
+	QVERIFY(vm.Load("u_sched"));
+	QVERIFY(vm.measurementDue());
+	QCOMPARE(vm.nextMeasurementDate(), QString("2026-10-07"));
+
+	// Последняя точка — финиш 25 октября, дальше расписания нет.
+	vm.Set_Today("2026-10-26");
+	QVERIFY(vm.Load("u_sched"));
+	QVERIFY(vm.measurementDue());
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 85.0}}));
+	QVERIFY(!vm.measurementDue());
+	QVERIFY(vm.nextMeasurementDate().isEmpty());
+}
+//-------------------------------------------------------------------------------------------------------------
+void AToday_VM_Test::measurementIntervalIsEditable()
+{
+	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
+	             Users_Repository);
+
+	Seed_Program("u_interval", "p_interval");
+	vm.Set_Today("2026-10-05");
+	QVERIFY(vm.Load("u_interval"));
+
+	QVERIFY(vm.setMeasurementInterval(7));
+	QCOMPARE(vm.measurementIntervalDays(), 7);
+	QVERIFY(vm.measurementDue());
+
+	// Значение пережило перезагрузку: оно в базе, а не в памяти модели.
+	QVERIFY(vm.Load("u_interval"));
+	QCOMPARE(vm.measurementIntervalDays(), 7);
+
+	QVERIFY(!vm.setMeasurementInterval(0));
+	QCOMPARE(vm.errorKey(), QString("invalid_measurement_interval"));
+	QVERIFY(!vm.setMeasurementInterval(31));
+	QCOMPARE(vm.measurementIntervalDays(), 7);
+
+	// Без активной программы шаг некому хранить.
+	Avm_Today empty(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
+	                Users_Repository);
+
+	empty.Set_Today("2026-10-05");
+	QVERIFY(empty.Load("u_without_program"));
+	QVERIFY(!empty.setMeasurementInterval(5));
+	QCOMPARE(empty.errorKey(), QString("no_active_program"));
+}
+//-------------------------------------------------------------------------------------------------------------
 void AToday_VM_Test::measurementWithoutValueIsRejected()
 {
 	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
@@ -538,7 +673,7 @@ void AToday_VM_Test::measurementWithoutValueIsRejected()
 	// Пустая форма — не ошибка ввода и не запись: показывать пользователю
 	// сообщение об ошибке после нажатия «Сохранить» без единого числа значило бы
 	// ругаться на то, что он и не вводил.
-	QVERIFY(!vm.saveMeasurement(-1, false, -1, false, -1, false, -1, false, -1, false, -1, false));
+	QVERIFY(!vm.saveMeasurement(QVariantMap()));
 	QVERIFY(!vm.Has_Measurement());
 }
 //-------------------------------------------------------------------------------------------------------------
@@ -553,8 +688,35 @@ void AToday_VM_Test::measurementIsReadableWithoutProgram()
 	// (таблица замеров от программы не зависит, инвариант 20 §4).
 	QVERIFY(vm.Load("u_solo"));
 	QVERIFY(!vm.Has_Program());
-	QVERIFY(vm.saveMeasurement(70.0, true, -1, false, -1, false, -1, false, -1, false, -1, false));
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 70.0}}));
 	QVERIFY(vm.Has_Measurement());
+	QCOMPARE(vm.weightKg(), 70.0);
+}
+//-------------------------------------------------------------------------------------------------------------
+void AToday_VM_Test::selectedMeasurementsFollowWholeProgramAndClearOnUserChange()
+{
+	AExercises_Repository exercises(0, 0, &Database);
+	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
+	             Users_Repository);
+	QSqlQuery query(Database.Sql_Connection());
+
+	QVERIFY(exercises.Ensure_Offline_Base());
+	Seed_Program("u_fields", "p_fields");
+	QVERIFY(query.exec("UPDATE program_day_exercises SET exercise_id='builtin-squat' "
+	                   "WHERE program_day_id IN (SELECT id FROM program_days WHERE program_id='p_fields')"));
+	vm.Set_Today("2026-10-08"); // День отдыха: обхваты всё равно берутся из всей программы.
+	QVERIFY(vm.Load("u_fields"));
+	QCOMPARE(vm.property("selectedMeasurementKeys").toStringList(), QStringList({"hip", "thigh"}));
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 80.0}, {"neck", 38.0}}));
+	QVERIFY(query.exec("UPDATE program_day_exercises SET exercise_id='builtin-bench-press' "
+	                   "WHERE program_day_id IN (SELECT id FROM program_days WHERE program_id='p_fields')"));
+	QVERIFY(vm.Load("u_fields"));
+	QCOMPARE(vm.property("selectedMeasurementKeys").toStringList(), QStringList({"chest", "arm", "shoulders"}));
+	QCOMPARE(vm.measurementValues().value("neck").toDouble(), 38.0);
+	QCOMPARE(vm.weightKg(), 80.0);
+	QVERIFY(vm.Load("u_no_fields"));
+	QVERIFY(vm.property("selectedMeasurementKeys").toStringList().isEmpty());
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 70.0}}));
 	QCOMPARE(vm.weightKg(), 70.0);
 }
 //-------------------------------------------------------------------------------------------------------------
@@ -600,7 +762,7 @@ void AToday_VM_Test::measurementInvalidatesStatsCache()
 
 	vm.Set_Today("2026-10-05");
 	QVERIFY(vm.Load("u_meas_cache"));
-	QVERIFY(vm.saveMeasurement(82.5, true, -1, false, -1, false, -1, false, -1, false, -1, false));
+	QVERIFY(vm.saveMeasurement(QVariantMap{{"weight", 82.5}}));
 
 	// Новый замер делает прежние числа статистики недействительными (§5.4):
 	// экран статистики не должен продолжать показывать вес, которого нет.

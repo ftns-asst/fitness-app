@@ -221,9 +221,10 @@ TestCase {
         waitForRendering(window.page);
 
         const hint = testCase.findByName(window.page, "goalEmptyHint");
+        window.page.showSection(2);
 
         verify(hint !== null, "нет подписи пустого списка целей");
-        compare(hint.visible, true);
+        tryCompare(hint, "visible", true);
         compare(testCase.findByName(window.page, "goalSectionCount").text, "0");
     }
     // Направление цели читается значком: ↓ снижение (акцентом, как в макете),

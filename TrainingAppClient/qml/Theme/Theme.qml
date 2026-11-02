@@ -41,6 +41,11 @@ QtObject {
     // откатили: мгновенный цвет читался как мигание, а не отклик; плавность
     // перехода и есть «отзывчивость», наряду с честным скроллом.
     readonly property int pressFeedbackDuration: 120
+    readonly property int pressScaleDuration: 90
+    readonly property int selectionDuration: 160
+    readonly property int popupEnterDuration: 200
+    readonly property int popupExitDuration: 120
+    readonly property int pageTransitionDuration: 200
 
     // — Физика прокрутки (PageScaffold) —
     //

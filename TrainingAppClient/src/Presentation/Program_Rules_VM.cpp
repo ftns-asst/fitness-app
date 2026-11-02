@@ -35,9 +35,9 @@ Avm_Program_Rules::Avm_Program_Rules(AProgram_Repository *in_program_repository,
 // — QML-мост (camelCase) —
 // Обёртки отделены от методов предметной области: контракт экрана не должен
 // повторять внутренний стиль имён (§2 CODE_STYLE) и зависеть от него.
-bool Avm_Program_Rules::reload(const QString &in_user_id)
+bool Avm_Program_Rules::reload(const QString &in_user_id, const QString &in_program_id)
 {
-	return Reload(in_user_id);
+	return Reload(in_user_id, in_program_id);
 }
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Rules::setPeriodDays(int in_days)
@@ -56,14 +56,15 @@ bool Avm_Program_Rules::generateRulesFromMacro(const QString &in_user_id)
 	return Generate_Rules_From_Macro(in_user_id);
 }
 //-------------------------------------------------------------------------------------------------------------
-bool Avm_Program_Rules::Reload(const QString &in_user_id)
+bool Avm_Program_Rules::Reload(const QString &in_user_id, const QString &in_program_id)
 {
 	Clear_Error();
 
-	if (!Load_Program_Id(in_user_id))
+	if (!Load_Program_Id(in_user_id, in_program_id))
 	{
 		Clear_All();
-		Set_Error("no_active_program");
+		Set_Error(in_program_id.isEmpty() ? "no_active_program" : "program_not_found");
+		emit changed();
 
 		return false;
 	}
@@ -110,12 +111,44 @@ bool Avm_Program_Rules::Reload(const QString &in_user_id)
 	return true;
 }
 //-------------------------------------------------------------------------------------------------------------
-bool Avm_Program_Rules::Load_Program_Id(const QString &in_user_id)
+bool Avm_Program_Rules::Can_Edit_Rules() const
 {
+	return Has_Program() && (Program_State == EProgram_State::Draft || Program_State == EProgram_State::Active ||
+	                         Program_State == EProgram_State::Paused);
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Program_Rules::Can_Checkin() const
+{
+	return Has_Program() && Program_State == EProgram_State::Active;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Program_Rules::Load_Program_Id(const QString &in_user_id, const QString &in_program_id)
+{
+	Program_Id_Text = in_program_id;
+	User_Id_Text = in_user_id;
+
 	if (Program_Repository_Instance == 0)
 		return false;
 
-	return Program_Repository_Instance->Get_Active_Program_Id(in_user_id, Program_Id_Text);
+	if (Program_Id_Text.isEmpty() &&
+	    !Program_Repository_Instance->Get_Active_Program_Id(in_user_id, Program_Id_Text))
+		return false;
+
+	return Refresh_Program_State();
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Program_Rules::Refresh_Program_State()
+{
+	SProgram program;
+
+	if (Program_Repository_Instance == 0 || Program_Id_Text.isEmpty() ||
+	    !Program_Repository_Instance->Load_Program(Program_Id_Text, program) ||
+	    program.User_Id != User_Id_Text)
+		return false;
+
+	Program_State = program.State;
+
+	return true;
 }
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Rules::Set_Period_Days(int in_days)
@@ -161,6 +194,14 @@ bool Avm_Program_Rules::Save_Checkin(const QString &in_rule_id, const QString &i
 	SRule_Checkin checkin;
 
 	Clear_Error();
+
+	if (!Refresh_Program_State() || !Can_Checkin())
+	{
+		Set_Error("program_not_active");
+		emit changed();
+
+		return false;
+	}
 
 	if (!From_String(in_state, state) || state == ECheckin_State::Unknown)
 	{
@@ -219,6 +260,14 @@ bool Avm_Program_Rules::Generate_Rules_From_Macro(const QString &in_user_id)
 
 	Clear_Error();
 
+	if (in_user_id != User_Id_Text || !Refresh_Program_State() || !Can_Edit_Rules())
+	{
+		Set_Error("program_read_only");
+		emit changed();
+
+		return false;
+	}
+
 	if (Users_Repository_Instance == 0 ||
 	    !Users_Repository_Instance->Load_Macro_Result(in_user_id, macro, calculated_at) || macro.Calories_Kcal <= 0)
 	{
@@ -228,7 +277,7 @@ bool Avm_Program_Rules::Generate_Rules_From_Macro(const QString &in_user_id)
 		return false;
 	}
 
-	// Генерация привязана к активной программе: правила живут в ней.
+	// Генерация привязана к выбранной программе.
 	if (Program_Id_Text.isEmpty())
 	{
 		Set_Error("no_active_program");
@@ -336,6 +385,8 @@ bool Avm_Program_Rules::Generate_Rules_From_Macro(const QString &in_user_id)
 void Avm_Program_Rules::Clear_All()
 {
 	Program_Id_Text.clear();
+	User_Id_Text.clear();
+	Program_State = EProgram_State::Draft;
 	Loaded_Rules.clear();
 	Loaded_Checkins.clear();
 	Rules->Set_Rows(QVector<QVariantMap>());

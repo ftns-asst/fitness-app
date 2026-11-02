@@ -69,6 +69,18 @@ TestCase {
         pickedSpy.clear();
     }
     // Поле показывает месяц выбранной даты: это точка отсчёта для обеих стрелок.
+    function test_explicitClosePreservesDate() {
+        const window = createTemporaryObject(dateFieldInWindowComponent, testCase);
+        window.show();
+        field = window.field;
+        field.value = "2026-10-15";
+        field.openPicker();
+        const close = findByName(window.contentItem, "dateCloseButton");
+        verify(close !== null);
+        close.clicked();
+        tryCompare(field, "expanded", false);
+        compare(field.value, "2026-10-15");
+    }
     function test_calendarOpensOnSelectedDate() {
         field.value = "2026-11-02";
 
@@ -170,7 +182,7 @@ TestCase {
 
         compare(pickedSpy.count, 1);
         compare(pickedSpy.signalArguments[0][0], "2026-11-15");
-        compare(field.expanded, false);
+        tryCompare(field, "expanded", false);
     }
 
     height: 812

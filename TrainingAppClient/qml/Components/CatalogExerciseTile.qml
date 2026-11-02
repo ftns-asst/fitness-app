@@ -19,20 +19,12 @@ Item {
     // Подпись резервирует две строки: плитки в строке и сетке одной высоты.
     implicitHeight: imageBox.height + titleLabel.height + Spacing.listGap * 2 + Spacing.itemGap
     implicitWidth: 150
-    // Отклик на касание и мягкое появление плитки при построении списка.
-    opacity: 0
+    // Отклик на касание без задержки видимости при построении списка.
     scale: area.pressed ? 0.97 : 1.0
 
     Behavior on scale {
         NumberAnimation {
-            duration: 90
-            easing.type: Easing.OutCubic
-        }
-    }
-    Component.onCompleted: opacity = 1
-    Behavior on opacity {
-        NumberAnimation {
-            duration: 220
+            duration: Theme.pressScaleDuration
             easing.type: Easing.OutCubic
         }
     }
@@ -41,10 +33,11 @@ Item {
         anchors.fill: parent
         Behavior on border.color {
             ColorAnimation {
-                duration: 140
+                duration: Theme.pressFeedbackDuration
+                easing.type: Easing.OutCubic
             }
         }
-        border.color: tile.selected ? Theme.accent : Theme.border
+        border.color: tile.selected ? Theme.accent : area.containsMouse ? Theme.accentSurfaceLine : Theme.border
         border.width: tile.selected ? 2 : Theme.borderWidth
         color: Theme.surface
         radius: Theme.radiusLg
@@ -105,6 +98,8 @@ Item {
     }
     MouseArea {
         id: area
+
+        hoverEnabled: !Theme.touchPlatform
 
         objectName: "tileArea"
         anchors.fill: parent

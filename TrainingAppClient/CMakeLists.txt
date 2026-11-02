@@ -24,6 +24,10 @@ qt_add_executable(appTrainingAppClient
 # Presentation наполняются в следующих issues, зависимости Network/Sql уже
 # фиксируют границу инфраструктурного слоя.
 add_library(TrainingAppCore STATIC
+    src/Domain/Diary_Calculator.h
+    src/Domain/Diary_Calculator.cpp
+    src/Presentation/Diary_VM.h
+    src/Presentation/Diary_VM.cpp
     src/Presentation/List_Model.h
     src/Presentation/List_Model.cpp
     src/Presentation/Program_Rows.h
@@ -53,7 +57,11 @@ add_library(TrainingAppCore STATIC
     src/Domain/Program_Model.h
     src/Domain/Program_Model.cpp
     src/Domain/Program_Service.h
+    src/Domain/Measurement_Schedule.h
+    src/Domain/Measurement_Trend.h
     src/Domain/Program_Service.cpp
+    src/Domain/Measurement_Schedule.cpp
+    src/Domain/Measurement_Trend.cpp
     src/Domain/Rule_Engine.h
     src/Domain/Rule_Engine.cpp
     src/Domain/Workout_Logger.h
@@ -73,6 +81,8 @@ add_library(TrainingAppCore STATIC
     src/Domain/Program_Stats_Calculator.cpp
     src/Data/Program/Program_Repository_Base.h
     src/Data/Program/Program_Repository_Base.cpp
+    src/Data/Program/Day_Note_Repository.h
+    src/Data/Program/Day_Note_Repository.cpp
     src/Data/Program/Workout_Repository.h
     src/Data/Program/Workout_Repository.cpp
     src/Data/Program/Program_Repository.h
@@ -155,6 +165,7 @@ set_source_files_properties(
     qml/Mock/MockTokenStore.qml
     qml/Presentation/AuthViewModel.qml
     qml/Presentation/ExerciseTexts.qml
+    qml/Presentation/MeasurementTexts.qml
     qml/Presentation/PlansViewModel.qml
     qml/Presentation/ProfileViewModel.qml
     qml/Components/BackRouter.qml
@@ -169,6 +180,7 @@ qt_add_qml_module(appTrainingAppClient
         src/Presentation/Program_Qml.h
         src/Presentation/Program_Qml.cpp
     QML_FILES
+        qml/Pages/Diary/DiaryPage.qml
         qml/Pages/Program/ProgramCatalogPage.qml
     qml/Pages/Program/ProgramOverviewPage.qml
         qml/Pages/Program/ProgramEditPage.qml
@@ -182,6 +194,9 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/BackBar.qml
         qml/Components/DateField.qml
         qml/Components/DragToScroll.qml
+        qml/Components/SwipeDismissHandle.qml
+        qml/Components/SwipePopup.qml
+        qml/Components/EdgeBackGesture.qml
         qml/Components/AppComboBox.qml
     qml/Components/AppNumberField.qml
     qml/Components/CatalogProgramRow.qml
@@ -206,12 +221,15 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Presentation/AuthFormController.qml
         qml/Presentation/AuthViewModel.qml
         qml/Presentation/ExerciseTexts.qml
+        qml/Presentation/MeasurementTexts.qml
         qml/Presentation/PlansViewModel.qml
         qml/Presentation/ProfileViewModel.qml
 
         # UI components
         qml/Components/AppButton.qml
         qml/Components/AppCard.qml
+        qml/Components/DisclosureCard.qml
+        qml/Components/ProgramWeekStrip.qml
         qml/Components/AppIcon.qml
         qml/Components/AppTextField.qml
         qml/Components/AppTextArea.qml
@@ -232,6 +250,8 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/FpsOverlay.qml
         qml/Components/HeroCard.qml
         qml/Components/LineChartCard.qml
+        qml/Components/MeasurementChangeMap.qml
+        qml/Components/MeasurementTrendRow.qml
         qml/Components/MetricCard.qml
         qml/Components/MetricTile.qml
         qml/Components/NutritionPlanCard.qml

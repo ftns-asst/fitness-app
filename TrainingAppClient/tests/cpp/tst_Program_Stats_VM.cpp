@@ -23,6 +23,8 @@ private slots:
 	void writesCacheOnRefresh();
 	void refreshWithoutProgramFails();
 	void refreshEmitsChanged();
+	void bodyDynamicsFollowsMeasurements();
+	void bodyDynamicsIsEmptyWithoutMeasurements();
 
 private:
 	void Seed_Exercise();
@@ -231,6 +233,71 @@ void AProgram_Stats_VM_Test::refreshEmitsChanged()
 	QVERIFY(vm.Refresh("p1"));
 	QCOMPARE(spy.count(), 1);
 }
+//-------------------------------------------------------------------------------------------------------------
+// Динамика тела (T2). Программа p1: 28.09 — 11.10 (две недели), замеры раз в
+// три дня; прогноз — продолжение прямой от последнего замера до финиша.
+//-------------------------------------------------------------------------------------------------------------
+void AProgram_Stats_VM_Test::bodyDynamicsFollowsMeasurements()
+{
+	Avm_Program_Stats vm(Program_Repository, Workout_Repository, Rule_Repository, Measurement_Repository,
+	                     Stats_Repository, this);
+	const double weights[] = {89.0, 88.2, 87.1};
+	const double waists[] = {100.0, 99.0, 98.0};
+	const QString dates[] = {"2026-09-28", "2026-10-01", "2026-10-04"};
+	QStringList selected_keys;
+
+	// Программа приседаний выбирает бедро; историческая талия должна остаться в динамике.
+	QVERIFY(Measurement_Repository->Load_Program_Measurement_Keys("p1", selected_keys));
+	QCOMPARE(selected_keys, QStringList({"thigh"}));
+
+	for (int i = 0; i < 3; ++i)
+	{
+		SBody_Measurement measurement;
+
+		measurement.User_Id = "u1";
+		measurement.Date = dates[i];
+		measurement.Weight_Kg = weights[i];
+		measurement.Has_Weight_Kg = true;
+		Set_Measurement_Value(measurement, EMeasurement_Key::Waist, waists[i]);
+		QVERIFY(Measurement_Repository->Save_Measurement(measurement));
+	}
+
+	vm.Set_Today("2026-10-05");
+	QVERIFY(vm.Refresh("p1"));
+
+	// Таблица: вес и талия; остальные восемь параметров замеров не имеют.
+	QCOMPARE(vm.trends()->Row_Count(), 2);
+	QCOMPARE(Row_By_Role(vm.trends(), 0, "param").toString(), QString("weight"));
+	QCOMPARE(Row_By_Role(vm.trends(), 0, "start").toDouble(), 89.0);
+	QCOMPARE(Row_By_Role(vm.trends(), 0, "latest").toDouble(), 87.1);
+	QCOMPARE(Row_By_Role(vm.trends(), 0, "ratePerWeek").toDouble(), -1.9 / 6.0 * 7.0);
+	// Финиш 11 октября, последний замер 4-го: 7 дней вперёд по тому же темпу.
+	QCOMPARE(Row_By_Role(vm.trends(), 0, "forecastAtEnd").toDouble(), 87.1 - 1.9 / 6.0 * 7.0);
+	QCOMPARE(Row_By_Role(vm.trends(), 1, "param").toString(), QString("waist"));
+
+	// График: три взвешивания; на последнем среднее окна 28.09–4.10 по трём точкам.
+	QCOMPARE(vm.weight_series()->Row_Count(), 3);
+	QCOMPARE(Row_By_Role(vm.weight_series(), 2, "average7Kg").toDouble(), (89.0 + 88.2 + 87.1) / 3.0);
+
+	QCOMPARE(vm.change_map()->Row_Count(), 3);
+}
+//-------------------------------------------------------------------------------------------------------------
+void AProgram_Stats_VM_Test::bodyDynamicsIsEmptyWithoutMeasurements()
+{
+	Avm_Program_Stats vm(Program_Repository, Workout_Repository, Rule_Repository, Measurement_Repository,
+	                     Stats_Repository, this);
+
+	// Окно после последнего замера соседнего теста: замеров в нём нет, экран
+	// получает пустые модели, а не ошибку.
+	vm.Set_Today("2026-10-11");
+	QVERIFY(vm.Refresh("p1", "2026-10-08", "2026-10-11"));
+	QVERIFY(vm.errorKey().isEmpty());
+
+	QCOMPARE(vm.trends()->Row_Count(), 0);
+	QCOMPARE(vm.weight_series()->Row_Count(), 0);
+	QCOMPARE(vm.change_map()->Row_Count(), 0);
+}
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_GUILESS_MAIN(AProgram_Stats_VM_Test)
 #include "tst_Program_Stats_VM.moc"

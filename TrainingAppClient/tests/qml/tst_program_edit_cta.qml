@@ -12,6 +12,7 @@ import TrainingAppClient 1.0
 // открыть обзор созданной программы или вернуться назад.
 TestCase {
     id: testCase
+    visible: true
 
     property var page: null
 
@@ -50,6 +51,10 @@ TestCase {
         programEditStub.startDate = "";
         programEditStub.title = "";
         programEditStub.previousProgramPaused = false;
+        programEditStub.errorKey = "";
+        programEditStub.goal = 0;
+        programEditStub.hasDraft = false;
+        programEditStub.weeks = 0;
         createdSpy.clear();
 
         page = createTemporaryObject(programEditPageComponent, testCase);
@@ -67,6 +72,90 @@ TestCase {
         compare(page.editing, false);
         compare(page.title, "Новая программа");
         compare(button.text, "Создать программу");
+    }
+    function test_cardsAndSaveAreVisibleFromOverview() {
+        compare(page.sectionIndex, -1);
+        for (const name of ["programEditBasics", "programEditWeek", "programEditGoals", "programEditRules"]) {
+            const card = testCase.findByName(page, name);
+            verify(card !== null, name);
+            verify(card.visible, name);
+            compare(card.expanded, false);
+        }
+        verify(testCase.findByName(page, "programEditPrimaryButton").visible);
+    }
+    function test_onlyOneCardExpandsAndDraftIsRetained() {
+        programEditStub.title = "Моя программа";
+        const basics = testCase.findByName(page, "programEditBasics");
+        const rules = testCase.findByName(page, "programEditRules");
+        page.showSection(0);
+        compare(basics.expanded, true);
+        page.showSection(3);
+        compare(basics.expanded, false);
+        compare(rules.expanded, true);
+        page.showSection(-1);
+        compare(rules.expanded, false);
+        compare(programEditStub.title, "Моя программа");
+        verify(testCase.findByName(page, "programEditPrimaryButton").visible);
+    }
+    function test_failedCreationRevealsRequiredCard() {
+        programEditStub.createResult = false;
+        programEditStub.errorKey = "goal_required";
+        page.create();
+        compare(page.sectionIndex, 2);
+        verify(testCase.findByName(page, "programEditGoals").expanded);
+        compare(createdSpy.count, 0);
+        programEditStub.errorKey = "empty_training_day";
+        page.create();
+        compare(page.sectionIndex, 1);
+        programEditStub.errorKey = "invalid_start_date";
+        page.create();
+        compare(page.sectionIndex, 0);
+    }
+    function test_directionUsesExistingViewModel() {
+        page.showSection(0);
+        const selector = testCase.findByName(page, "programDirectionSelector");
+        verify(selector !== null);
+        selector.currentIndex = 2;
+        selector.activated(2);
+        compare(programEditStub.goal, 2);
+        programEditStub.goal = 4;
+        compare(selector.currentIndex, 4);
+    }
+    function test_recommendationKeepsTextWhenClosed() {
+        page.showSection(3);
+        const popup = page.recommendationPopupItem;
+        popup.open();
+        tryCompare(popup, "opened", true);
+        const title = testCase.findByName(popup.contentItem, "programAdviceTitle");
+        const text = testCase.findByName(popup.contentItem, "programAdviceText");
+        title.text = "Восстановление";
+        text.text = "Оставлять время на отдых";
+        popup.close();
+        tryCompare(popup, "visible", false);
+        page.showSection(0);
+        page.showSection(3);
+        popup.open();
+        tryCompare(popup, "opened", true);
+        compare(title.text, "Восстановление");
+        compare(text.text, "Оставлять время на отдых");
+        popup.close();
+    }
+    function test_unsetTermGetsDefaultsWithoutOverwritingDraft() {
+        programEditStub.hasDraft = true;
+        page.initialiseUnsetFields();
+        compare(programEditStub.weeks, 8);
+        compare(programEditStub.startDate, Qt.formatDate(new Date(), Qt.ISODate));
+        programEditStub.weeks = 12;
+        programEditStub.startDate = "2027-02-01";
+        page.initialiseUnsetFields();
+        compare(programEditStub.weeks, 12);
+        compare(programEditStub.startDate, "2027-02-01");
+        page.programId = "p_existing";
+        programEditStub.weeks = 0;
+        programEditStub.startDate = "";
+        page.initialiseUnsetFields();
+        compare(programEditStub.weeks, 0);
+        compare(programEditStub.startDate, "");
     }
     function test_editingModeShowsSaveLabels() {
         // Состояние «страница открыта с идентификатором» задаётся свойствами, а
@@ -134,6 +223,15 @@ TestCase {
         compare(createdSpy.count, 1);
         compare(createdSpy.signalArguments[0][0], "p_edit");
         compare(createdSpy.signalArguments[0][1], true);
+        compare(programEditStub.lastActivate, false);
+    }
+    function test_savedDraftCanBeActivated() {
+        programEditStub.programId = "p_draft";
+        page.programId = "p_draft";
+        programEditStub.isDraft = true;
+        page.create();
+        compare(programEditStub.lastActivate, true);
+        programEditStub.isDraft = false;
     }
     // Отказ сохранения не должен выглядеть как успех: экран остаётся на месте,
     // а сообщения о сохранении нет — иначе пользователь ушёл бы с экрана, не
@@ -175,11 +273,14 @@ TestCase {
         id: programEditStub
 
         property bool canCreate: false
+        property int goal: 0
         property int createCalls: 0
         property bool createResult: true
         property string errorDetail: ""
         property string errorKey: ""
         property bool hasDraft: false
+        property bool isDraft: false
+        property bool lastActivate: false
         property bool previousProgramPaused: false
         property string programId: ""
         property string startDate: ""
@@ -193,6 +294,7 @@ TestCase {
         signal changed
 
         function create(activate) {
+            lastActivate = activate;
             createCalls += 1;
 
             if (createResult === false)
@@ -228,6 +330,9 @@ TestCase {
 
         function setWeeks(value) {
             weeks = value;
+        }
+        function setGoal(value) {
+            goal = value;
         }
     }
 }

@@ -9,6 +9,8 @@ TestCase {
 
     function cleanup() {
         createdObject = null;
+        todayStub.selectedMeasurementKeys = [];
+        todayStub.savedMeasurementPayload = ({});
         MockApi.reset();
     }
     function test_appShellCreatesProductionTree() {
@@ -73,6 +75,12 @@ TestCase {
         createdObject.setMeasurementValue("weight", 82.4);
         verify(createdObject.measurementDirty === true);
         compare(createdObject.measurementValue("weight"), 82.4);
+        findChild(createdObject, "todayMeasurementsToggle").clicked();
+        verify(!createdObject.measurementsOpen);
+        findChild(createdObject, "todayMeasurementsToggle").clicked();
+        verify(createdObject.measurementsOpen);
+        compare(createdObject.measurementValue("weight"), 82.4);
+        verify(createdObject.measurementDirty);
         verify(createdObject.measurementFilled.weight === true);
 
         // Обновление модели (его эмитит и отметка правила) не имеет права
@@ -92,6 +100,27 @@ TestCase {
         createdObject.setMeasurementValue("arm", 0);
         verify(createdObject.measurementFilled.arm === true);
         compare(createdObject.measurementValue("arm"), 0);
+    }
+
+    function test_todayOnlyShowsAndSubmitsSelectedCircumferences() {
+        todayStub.selectedMeasurementKeys = ["hip", "thigh"];
+        createdObject = createTemporaryObject(todayPageComponent, testCase);
+        verify(createdObject !== null);
+        compare(createdObject.girthFields.map(field => field.key).join(","), "hip,thigh");
+        createdObject.setMeasurementValue("neck", 38);
+        createdObject.setMeasurementValue("thigh", 58);
+        createdObject.setMeasurementValue("weight", 80);
+        createdObject.saveMeasurements();
+        compare(todayStub.savedMeasurementPayload.weight, 80);
+        compare(todayStub.savedMeasurementPayload.thigh, 58);
+        verify(todayStub.savedMeasurementPayload.neck === undefined);
+        todayStub.selectedMeasurementKeys = ["arm"];
+        compare(createdObject.girthFields.map(field => field.key).join(","), "arm");
+        todayStub.selectedMeasurementKeys = [];
+        compare(createdObject.girthFields.length, 0);
+        createdObject.setMeasurementValue("weight", 79);
+        createdObject.saveMeasurements();
+        compare(Object.keys(todayStub.savedMeasurementPayload).join(","), "weight");
     }
 
     name: "QmlObjectSmoke"
@@ -163,6 +192,8 @@ TestCase {
 
         property var exercises: ListModel {}
         property var rules: ListModel {}
+        property var selectedMeasurementKeys: []
+        property var savedMeasurementPayload: ({})
 
         function get(row) {
             return {};
@@ -175,7 +206,12 @@ TestCase {
             return true;
         }
 
-        function saveMeasurement(weight, hasWeight, chest, hasChest, waist, hasWaist, hip, hasHip, arm, hasArm, thigh, hasThigh) {
+        function saveMeasurement(values) {
+            savedMeasurementPayload = values;
+            return true;
+        }
+
+        function setMeasurementInterval(days) {
             return true;
         }
 

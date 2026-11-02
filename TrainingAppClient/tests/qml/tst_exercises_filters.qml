@@ -25,6 +25,7 @@ TestCase {
         property bool fromCache: false
         property string errorKey: ""
         property bool canLoadMore: false
+        property int loadMoreCalls: 0
         property var lastGroups: []
         property var lastEquipments: []
 
@@ -32,6 +33,8 @@ TestCase {
             return true;
         }
         function loadMore() {
+            ++loadMoreCalls;
+            loading = true;
             return true;
         }
         function setQuery(q) {
@@ -57,6 +60,11 @@ TestCase {
     }
 
     function init() {
+        catalogStub.equipments = ["barbell", "dumbbell"];
+        emptyList.clear();
+        catalogStub.canLoadMore = false;
+        catalogStub.loading = false;
+        catalogStub.loadMoreCalls = 0;
         catalogStub.lastGroups = [];
         catalogStub.lastEquipments = [];
         page = createTemporaryObject(pageComponent, testCase, {
@@ -72,6 +80,58 @@ TestCase {
         return found;
     }
 
+    function countTiles(item) {
+        let count = item instanceof CatalogExerciseTile ? 1 : 0;
+        for (const child of item.children)
+            count += countTiles(child);
+        return count;
+    }
+    function test_asyncFiltersDoNotHideSearch() {
+        catalogStub.equipments = [];
+        page.parent = testCase.Window.window.contentItem;
+        for (let i = 0; i < 100; ++i)
+            emptyList.append({
+                id: "exercise_" + i,
+                title: "Упражнение " + i,
+                photoUrl: ""
+            });
+        waitForRendering(page);
+        const grid = page.pageFlickable;
+        grid.positionViewAtBeginning();
+        const search = findChild(page, "exerciseSearchInput");
+        verify(search.mapToItem(grid, 0, 0).y >= -1);
+        catalogStub.equipments = ["barbell", "dumbbell"];
+        wait(50);
+        verify(search.mapToItem(grid, 0, 0).y >= -1, "загрузка фильтров не должна прятать поиск");
+    }
+    function test_largeCatalogRecyclesTilesAndKeepsNavigation() {
+        page.parent = testCase.Window.window.contentItem;
+        for (let i = 0; i < 500; ++i)
+            emptyList.append({
+                id: "exercise_" + i,
+                title: "Упражнение " + i,
+                photoUrl: ""
+            });
+        waitForRendering(page);
+        const grid = page.pageFlickable;
+        compare(grid.count, 500);
+        const search = findChild(page, "exerciseSearchInput");
+        verify(search !== null);
+        verify(search.mapToItem(grid, 0, 0).y >= -1, "поиск должен быть виден при открытии каталога");
+        verify(countTiles(page) < 50);
+        grid.positionViewAtIndex(480, GridView.Beginning);
+        tryVerify(() => grid.itemAtIndex(480) !== null);
+        const spy = Qt.createQmlObject('import QtTest; SignalSpy {}', testCase);
+        spy.target = page;
+        spy.signalName = "openRequested";
+        grid.itemAtIndex(480).children[0].clicked();
+        compare(spy.signalArguments[0][0], "exercise_480");
+        verify(countTiles(page) < 50);
+        spy.destroy();
+        catalogStub.canLoadMore = true;
+        grid.positionViewAtEnd();
+        tryCompare(catalogStub, "loadMoreCalls", 1);
+    }
     function test_groupsAreMultiSelect() {
         const chips = chipsNamed("muscleGroupChips");
 

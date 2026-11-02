@@ -12,23 +12,118 @@ import TrainingAppClient
 PageScaffold {
     id: page
 
-    // Каталог упражнений на этом этапе минимален: полный каталог наполняется
-    // в фазе B (issue 23), поэтому здесь два упражнения-заглушки.
-    readonly property var exerciseOptions: [
-        {
-            id: "ex_squat",
-            title: qsTr("Присед")
-        },
-        {
-            id: "ex_bench",
-            title: qsTr("Жим лёжа")
-        }
-    ]
-    readonly property var weekdayNames: [qsTr("Пн"), qsTr("Вт"), qsTr("Ср"), qsTr("Чт"), qsTr("Пт"), qsTr("Сб"), qsTr("Вс")]
     property var viewModel: ProgramEditVM
     // Программа для правки. Пусто — создание новой; каталог и обзор передают
     // идентификатор существующей (срез S2).
     property string programId: ""
+    property int sectionIndex: -1
+    readonly property var recommendationPopupItem: advicePopup
+    property int summaryRevision: 0
+    readonly property int programGoal: page.viewModel !== undefined && page.viewModel !== null && page.viewModel.goal !== undefined ? page.viewModel.goal : 2
+    readonly property bool requiresGoal: programGoal === 0 || programGoal === 1 || programGoal === 3
+    readonly property int ruleCount: page.hasProgram ? page.viewModel.rules.count : 0
+    readonly property int errorSection: page.sectionForError(page.errorKey)
+    readonly property var directionOptions: [
+        {
+            id: 0,
+            title: qsTr("Сила")
+        },
+        {
+            id: 1,
+            title: qsTr("Набор массы")
+        },
+        {
+            id: 2,
+            title: qsTr("Общая форма")
+        },
+        {
+            id: 3,
+            title: qsTr("Снижение веса")
+        },
+        {
+            id: 4,
+            title: qsTr("Выносливость")
+        }
+    ]
+
+    spacing: Spacing.itemGap
+    showHeader: false
+
+    function showSection(index) {
+        sectionIndex = Math.max(-1, Math.min(3, index));
+    }
+    function toggleSection(index) {
+        showSection(sectionIndex === index ? -1 : index);
+    }
+    function collapseSection() {
+        showSection(-1);
+        boundsTimer.restart();
+    }
+    function sectionForError(key) {
+        if (key === "goal_required")
+            return 2;
+        if (key === "empty_training_day")
+            return 1;
+        if (["invalid_start_date", "invalid_term", "invalid_draft", "title"].indexOf(key) >= 0)
+            return 0;
+        if (["rule_title_required", "rule_advice_text_required", "rule_target_required", "text"].indexOf(key) >= 0)
+            return 3;
+        return -1;
+    }
+    function goalSummaryText(revision) {
+        if (page.goalCount === 0)
+            return page.requiresGoal ? qsTr("Добавьте измеримый результат") : qsTr("Можно добавить позже");
+        const goal = page.viewModel.goal_targets.get(0);
+        return page.goalCardText(goal.metric, goal.targetValue);
+    }
+    function ruleSummaryText(revision) {
+        if (page.ruleCount === 0)
+            return qsTr("Показатели для дневника и рекомендации");
+        return page.viewModel.rules.get(0).displayText + (page.ruleCount > 1 ? qsTr(" · ещё %1").arg(page.ruleCount - 1) : "");
+    }
+
+    // get() не создаёт привязку к данным строки; сводки обновляет сигнал VM.
+    Connections {
+        target: page.viewModel !== undefined ? page.viewModel : null
+        ignoreUnknownSignals: true
+        function onChanged() {
+            ++page.summaryRevision;
+        }
+    }
+    Timer {
+        id: boundsTimer
+        interval: Theme.pageTransitionDuration
+        onTriggered: page.pageFlickable.returnToBounds()
+    }
+    Timer {
+        id: errorRevealTimer
+        interval: Theme.pageTransitionDuration
+        onTriggered: {
+            const cards = [basicsCard, weekCard, goalsCard, rulesCard];
+            const card = cards[page.sectionIndex];
+            if (card === undefined)
+                return;
+            const flick = page.pageFlickable;
+            const top = card.mapToItem(flick.contentItem, 0, 0).y - Spacing.itemGap;
+            const maximum = Math.max(flick.originY, flick.originY + flick.contentHeight - flick.height);
+            revealScroll.to = Math.max(flick.originY, Math.min(maximum, top));
+            revealScroll.restart();
+        }
+    }
+    NumberAnimation {
+        id: revealScroll
+        target: page.pageFlickable
+        property: "contentY"
+        duration: Theme.pageTransitionDuration
+        easing.type: Easing.OutCubic
+    }
+    Connections {
+        target: page.pageFlickable
+        function onDraggingChanged() {
+            if (page.pageFlickable.dragging)
+                revealScroll.stop();
+        }
+    }
     // Панель возврата обязательна: экраны программы открыты поверх вкладок, где
     // таб-бара нет.
     BackBar {
@@ -37,8 +132,15 @@ PageScaffold {
         text: qsTr("Назад")
         visible: true
     }
+    Label {
+        width: parent.width
+        text: page.title
+        font: Typography.screenTitle
+        color: Theme.textPrimary
+        wrapMode: Text.WordWrap
+    }
 
-    caption: qsTr("%1 тренировочных дней").arg(page.trainingDays)
+    caption: ""
     // Признак режима — идентификатор, с которым открыт экран. Заголовок и кнопка
     // зависят от него: на экране правки «Создать программу» читалось как «будет
     // создана вторая», хотя программа уже есть.
@@ -82,6 +184,7 @@ PageScaffold {
         page.adviceTitle = "";
         page.adviceText = "";
         page.clearAdvice();
+        advicePopup.close();
     }
 
     function clearAdvice() {
@@ -95,6 +198,15 @@ PageScaffold {
     // экранах, и любое другое значение делало программу невидимой.
     function currentUserId() {
         return typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
+    }
+
+    function initialiseUnsetFields() {
+        if (page.editing || !page.hasProgram)
+            return;
+        if (page.viewModel.weeks < 1)
+            page.viewModel.setWeeks(8);
+        if (page.viewModel.startDate.length === 0)
+            page.viewModel.setStartDate(Qt.formatDate(new Date(), Qt.ISODate));
     }
 
     function reset() {
@@ -118,11 +230,21 @@ PageScaffold {
             page.viewModel.resumeDraft(page.currentUserId());
         else
             page.viewModel.reset(page.currentUserId());
+        page.initialiseUnsetFields();
     }
 
-    AppCard {
+    DisclosureCard {
+        id: basicsCard
+        objectName: "programEditBasics"
         width: parent.width
-        ColumnLayout {
+        title: qsTr("Параметры")
+        summary: (page.editingTitle.length > 0 ? page.editingTitle : qsTr("Без названия")) + " · " + page.weeks + " " + qsTr("нед.")
+        iconName: "settings"
+        expanded: page.sectionIndex === 0
+        errorText: page.errorSection === 0 ? page.errorText() : ""
+        onToggleRequested: page.toggleSection(0)
+        onDoneRequested: page.collapseSection()
+        body: ColumnLayout {
             // Внутри AppCard ширину задаёт родитель, а не Layout: содержимое
             // карточки лежит в обычной Column, где Layout-свойства не работают.
             width: parent.width
@@ -131,7 +253,7 @@ PageScaffold {
             AppTextField {
                 Layout.fillWidth: true
                 label: qsTr("Название программы")
-                onTextChanged: page.viewModel.setTitle(text)
+                onUserEdited: page.viewModel.setTitle(text)
                 text: page.hasProgram ? page.viewModel.title : ""
             }
             DateField {
@@ -144,10 +266,25 @@ PageScaffold {
             }
             Label {
                 Layout.fillWidth: true
-                color: Theme.textSecondary
+                text: qsTr("Направление")
                 font: Typography.caption
-                text: qsTr("Срок программы")
-                wrapMode: Text.WordWrap
+                color: Theme.textSecondary
+            }
+            AppComboBox {
+                id: programDirection
+                objectName: "programDirectionSelector"
+                Layout.fillWidth: true
+                model: page.directionOptions
+                onActivated: {
+                    if (page.viewModel !== undefined && page.viewModel !== null)
+                        page.viewModel.setGoal(Number(currentValue));
+                }
+            }
+            Binding {
+                target: programDirection
+                property: "currentIndex"
+                value: page.programGoal
+                restoreMode: Binding.RestoreBindingOrValue
             }
             // Срок задаётся ползунком (решение из `docs/mockups-programs/README.md`,
             // «Срок программы — ползунок, а не кнопки 4/8/12/16»): кнопки оставляли
@@ -206,349 +343,381 @@ PageScaffold {
             }
         }
     }
-    // — Расписание недели: семь плиток в одну линию —
-    Label {
-        color: Theme.textMuted
-        font: Typography.sectionTitle
-        text: qsTr("Расписание недели")
-    }
-    Label {
-        color: Theme.textMuted
-        font: Typography.caption
-        // Подсказка ведёт прямо к следующему действию, а не пересказывает
-        // то, что уже видно на карте.
-        text: qsTr("Нажмите на день, чтобы настроить его упражнения")
+    DisclosureCard {
+        id: weekCard
+        objectName: "programEditWeek"
         width: parent.width
-        wrapMode: Text.WordWrap
-    }
-    Row {
-        // Ряд из семи плиток в одну линию, а не сетка: неделя помещается целиком
-        // и читается слева направо, как календарь, а сетка 2/3 колонки заставляла
-        // искать день глазами (§3.4).
-        id: weekMap
-
-        width: parent.width
-        spacing: Spacing.itemGap
-
-        Repeater {
-            model: page.hasProgram ? page.viewModel.program_days : []
-
-            delegate: DayTile {
-                // Роли берутся через model.имя, а не через обязательные свойства:
-                // объявление required для AList_Model не срабатывает, делегат не
-                // создаётся, и неделя остаётся пустой.
-                readonly property bool isRestDay: model.kind === "rest"
-
-                countText: countFor(model.kind, model.exerciseCount)
-                height: heightTall
-                isEmptyDay: isRestDay === false && model.exerciseCount === 0
-                onClicked: page.dayRequested(model.weekday, page.kindValue(model.kind))
+        title: qsTr("Моя неделя")
+        summary: page.trainingDays > 0 ? qsTr("Тренировочных дней: %1 · отдыха: %2").arg(page.trainingDays).arg(7 - page.trainingDays) : qsTr("Все дни — отдых")
+        iconName: "today"
+        expanded: page.sectionIndex === 1
+        errorText: page.errorSection === 1 ? page.errorText() : ""
+        onToggleRequested: page.toggleSection(1)
+        onDoneRequested: page.collapseSection()
+        preview: ProgramWeekStrip {
+            width: parent.width
+            daysModel: page.hasProgram ? page.viewModel.program_days : null
+            onDayRequested: (weekday, kind) => page.dayRequested(weekday, kind)
+        }
+        body: Column {
+            width: parent.width
+            spacing: Spacing.itemGap
+            ProgramWeekStrip {
+                width: parent.width
                 showCount: true
-                tileKind: model.kind
-                weekdayName: page.weekdayNames[model.weekday - 1]
-                // Ширина — от ширины страницы: ширина самого ряда на момент
-                // создания делегата ещё не посчитана.
-                width: widthFor(page.width)
+                daysModel: page.hasProgram ? page.viewModel.program_days : null
+                onDayRequested: (weekday, kind) => page.dayRequested(weekday, kind)
+            }
+            WeekLegend {
+                width: parent.width
             }
         }
     }
-    // — Цели —
-    // Цели вводятся на создании, а не после: без измеримой цели программу нельзя
-    // активировать (инвариант 8), и пользователь упирался в ошибку в самом конце.
-    //
-    // Заголовок с числом целей — из макета (`03-edit.html`, `.section-count`):
-    // после нажатия «Добавить» счётчик и новая карточка остаются единственным
-    // видимым откликом на действие, и именно по ним видно, что цель добавилась.
     RowLayout {
-        spacing: Spacing.itemGap
         width: parent.width
-
         Label {
-            color: Theme.textMuted
-            font: Typography.sectionTitle
-            text: qsTr("Цели")
-        }
-        Label {
-            objectName: "goalSectionCount"
-            color: Theme.textMuted
-            font: Typography.captionStrong
-            text: String(page.goalCount)
-        }
-        Item {
             Layout.fillWidth: true
+            text: qsTr("Результат и привычки")
+            font: Typography.caption
+            color: Theme.textSecondary
+        }
+        Label {
+            text: page.requiresGoal ? (page.goalCount > 0 ? qsTr("Цель задана") : qsTr("Нужна цель")) : qsTr("По желанию")
+            font: Typography.caption
+            color: page.requiresGoal && page.goalCount === 0 ? Theme.accent : Theme.textMuted
         }
     }
-    // Пустое состояние — из макета: пустой список без подписи читается как
-    // «список не загрузился», а не как «цели ещё не заданы».
-    Label {
-        objectName: "goalEmptyHint"
-        color: Theme.textMuted
-        font: Typography.caption
-        text: qsTr("Цели пока не заданы")
-        visible: page.goalCount === 0
+    DisclosureCard {
+        id: goalsCard
+        objectName: "programEditGoals"
         width: parent.width
-        wrapMode: Text.WordWrap
-    }
-    ColumnLayout {
-        id: goalList
-
-        width: parent.width
-        spacing: Spacing.itemGap
-
-        Repeater {
-            model: page.hasProgram ? page.viewModel.goal_targets : []
-
-            delegate: AppCard {
-                id: goalRow
-
-                // Роли строки цели (`programGoalTargets`, `02-program-model.md`
-                // §7). `displayText` у цели нет: подпись собирает экран, потому
-                // что имя метрики переводится вместе с приложением, — а делегат
-                // с обязательной ролью, которой модель не отдаёт, не рисовал
-                // ничего, и добавленная цель пропадала из виду.
-                required property string direction
-                required property int index
-                required property string metric
-                required property real targetValue
-
-                Layout.fillWidth: true
-                borderColor: Theme.borderSubtle
-
-                RowLayout {
-                    width: parent.width
-                    spacing: Spacing.listGap
-
-                    // Значок направления — из макета (`.dir`): «↓» на акцентной
-                    // подложке, «↑» и «=» на нейтральной. Слова «снизить» и
-                    // «повысить» в строке списка не помещались рядом с целью.
-                    Rectangle {
-                        Layout.preferredHeight: 24
-                        Layout.preferredWidth: 24
-                        color: page.goalDirectionHighlighted(goalRow.direction) ? Theme.accentTint : Theme.surfaceMuted
-                        radius: 8
-
-                        Label {
-                            anchors.centerIn: parent
-                            color: page.goalDirectionHighlighted(goalRow.direction) ? Theme.accent : Theme.textSecondary
-                            font: Typography.captionStrong
-                            text: page.goalDirectionArrow(goalRow.direction)
-                        }
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 0
-                        objectName: "goalCardText"
-                        color: Theme.textPrimary
-                        font: Typography.bodyStrong
-                        text: page.goalCardText(goalRow.metric, goalRow.targetValue)
-                        wrapMode: Text.WordWrap
-                    }
-                    AppButton {
-                        // Цель обязана удаляться: ошибочно выбранную метрику
-                        // иначе не исправить, и активация была бы заблокирована.
-                        Layout.minimumWidth: 0
-                        onClicked: page.viewModel.removeTarget(goalRow.index)
-                        padding: Spacing.itemGap
-                        text: qsTr("Убрать")
-                        variant: AppButton.Secondary
-                    }
-                }
-            }
-        }
-    }
-    AppCard {
-        width: parent.width
-
-        ColumnLayout {
+        title: qsTr("Цели")
+        summary: page.goalSummaryText(page.summaryRevision)
+        badgeText: String(page.goalCount)
+        badgeObjectName: "goalSectionCount"
+        iconName: "target"
+        expanded: page.sectionIndex === 2
+        errorText: page.errorSection === 2 ? page.errorText() : ""
+        onToggleRequested: page.toggleSection(2)
+        onDoneRequested: page.collapseSection()
+        body: Column {
             width: parent.width
             spacing: Spacing.itemGap
-
             Label {
-                Layout.fillWidth: true
+                objectName: "goalEmptyHint"
                 color: Theme.textMuted
                 font: Typography.caption
-                text: qsTr("Добавить цель")
-            }
-            AppComboBox {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                // Метрика доезжает до модели только обработчиком: без него в форме
-                // всегда оставалась первая метрика списка («Вес тела»), и цель
-                // создавалась не та, что показана на экране.
-                model: page.goalMetricOptions
-                // Список метрик — пары «название/код» (`value`), а не роли `id`,
-                // которые AppComboBox берёт по умолчанию.
-                valueRole: "value"
-
-                onActivated: page.setGoalMetric(Number(currentValue))
-            }
-            // Направление цели — сегментированный выбор, как в макете
-            // (`03-edit.html`, `.seg`): «Снизить» и «Повысить» взаимоисключающие,
-            // и активное направление обязано читаться без нажатия. Две
-            // равноправные вторичные кнопки не показывали, что выбрано, а цель
-            // создавали сразу по нажатию — до того, как выбрано значение.
-            SegmentedControl {
-                Layout.fillWidth: true
-                currentIndex: page.goalDirections.indexOf(page.goalDirection)
-                items: page.goalDirectionItems
-                // Тест-хук: id компонента снаружи не виден, и элемент находится
-                // по objectName — так же, как страницы в тестах.
-                objectName: "goalDirectionSelector"
-
-                onSelected: function (index) {
-                    page.goalDirection = page.goalDirections[index];
-                }
-            }
-            // Целевое значение — подпись и число в одной строке над шкалой
-            // (`.slider-head` в макете), а не отдельной подписью слева от ползунка:
-            // в строке на двоих шкала получала половину карточки и читалась сжатой
-            // полоской у правого края.
-            //
-            // Набирать значение кнопками по 0,5 кг невозможно: от 80 до 70 кг это
-            // двадцать нажатий «−».
-            WeightRuler {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                // Границы, шаг, единица и разрядность — из метрики
-                // (`goalMetricOptions`): у веса тела 50–130 кг и шаг 0,5, как в
-                // макете 03-edit.html; у тоннажа недели — килограммы тысячами.
-                // Прежняя нейтральная шкала 50–300 оставляла недостижимой половину
-                // метрик, а её шаг 0,5 кг отстоял на 0,6 px, и метки сливались в
-                // серую полосу. Узкий осмысленный диапазон и есть то, что в макете
-                // называется «ощущением масштаба»: ползунок показывает, где цель
-                // стоит относительно текущего значения метрики.
-                from: page.goalOption.from
-                // Тест-хук: элемент находится по objectName (см. выше).
-                objectName: "goalRuler"
-                step: page.goalOption.step
-                // Подпись поля: в макете она стоит слева от числа, над шкалой.
-                title: qsTr("Целевое значение")
-                to: page.goalOption.to
-                unit: page.goalOption.unit
-                value: page.goalTargetValue
-                valueDecimals: page.goalOption.decimals
-
-                onEdited: function (newValue) {
-                    page.goalTargetValue = newValue;
-                }
-            }
-            // Добавление — отдельное действие (в макете `button.btn.primary`
-            // «Добавить»): направление и значение сначала выбирают, потом
-            // добавляют, и случайное касание цели не создаёт.
-            AppButton {
-                Layout.fillWidth: true
-                text: qsTr("Добавить")
-                variant: AppButton.Primary
-
-                onClicked: page.addGoal(page.goalDirection)
-            }
-        }
-    }
-    // — Правила —
-    // Правила набираются до создания программы: они и есть «что соблюдать»,
-    // а проверяются по отметкам уже во время выполнения (§3.6).
-    Label {
-        color: Theme.textMuted
-        font: Typography.sectionTitle
-        text: qsTr("Правила")
-    }
-    ColumnLayout {
-        id: ruleList
-
-        width: parent.width
-        spacing: Spacing.itemGap
-
-        Repeater {
-            model: page.hasProgram ? page.viewModel.rules : []
-
-            delegate: AppCard {
-                id: ruleRow
-
-                required property string displayText
-                required property int index
-
-                Layout.fillWidth: true
-                borderColor: Theme.borderSubtle
-
-                RowLayout {
-                    width: parent.width
-                    spacing: Spacing.itemGap
-
-                    Label {
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 0
-                        color: Theme.textPrimary
-                        font: Typography.body
-                        text: ruleRow.displayText
-                        wrapMode: Text.WordWrap
-                    }
-                    AppButton {
-                        // Правило обязано удаляться: опечатку в названии иначе не
-                        // исправить, и программа осталась бы с мусором.
-                        Layout.minimumWidth: 0
-                        onClicked: page.viewModel.removeRule(ruleRow.index)
-                        padding: Spacing.itemGap
-                        text: qsTr("Убрать")
-                        variant: AppButton.Secondary
-                    }
-                }
-            }
-        }
-    }
-    AppCard {
-        width: parent.width
-
-        ColumnLayout {
-            width: parent.width
-            spacing: Spacing.itemGap
-
-            Label {
-                Layout.fillWidth: true
-                color: Theme.textMuted
-                font: Typography.caption
-                text: qsTr("Каталог правил")
-            }
-            Label {
-                Layout.fillWidth: true
-                color: Theme.textSecondary
-                font: Typography.body
-                text: qsTr("Белок, сон, шаги и другие типовые проверки — одним нажатием.")
+                text: qsTr("Цели пока не заданы")
+                visible: page.goalCount === 0
+                width: parent.width
                 wrapMode: Text.WordWrap
             }
-            // Нормы из расчёта КБЖУ: кнопка всегда открывает экран расчёта,
-            // где виден сохранённый результат прошлого расчёта и есть кнопка
-            // «Создать правила в программе». Так расчёт не потеряется между
-            // экранами: пользователь попадает на него одним нажатием.
-            AppButton {
-                Layout.fillWidth: true
-                onClicked: page.macroRequested()
-                text: qsTr("Создать правила из расчёта")
-                variant: AppButton.Primary
+            ColumnLayout {
+                id: goalList
+
+                width: parent.width
+                spacing: Spacing.itemGap
+
+                Repeater {
+                    model: page.hasProgram ? page.viewModel.goal_targets : []
+
+                    delegate: AppCard {
+                        id: goalRow
+
+                        // Роли строки цели (`programGoalTargets`, `02-program-model.md`
+                        // §7). `displayText` у цели нет: подпись собирает экран, потому
+                        // что имя метрики переводится вместе с приложением, — а делегат
+                        // с обязательной ролью, которой модель не отдаёт, не рисовал
+                        // ничего, и добавленная цель пропадала из виду.
+                        required property string direction
+                        required property int index
+                        required property string metric
+                        required property real targetValue
+
+                        Layout.fillWidth: true
+                        borderColor: Theme.borderSubtle
+
+                        RowLayout {
+                            width: parent.width
+                            spacing: Spacing.listGap
+
+                            // Значок направления — из макета (`.dir`): «↓» на акцентной
+                            // подложке, «↑» и «=» на нейтральной. Слова «снизить» и
+                            // «повысить» в строке списка не помещались рядом с целью.
+                            Rectangle {
+                                Layout.preferredHeight: 24
+                                Layout.preferredWidth: 24
+                                color: page.goalDirectionHighlighted(goalRow.direction) ? Theme.accentTint : Theme.surfaceMuted
+                                radius: 8
+
+                                Label {
+                                    anchors.centerIn: parent
+                                    color: page.goalDirectionHighlighted(goalRow.direction) ? Theme.accent : Theme.textSecondary
+                                    font: Typography.captionStrong
+                                    text: page.goalDirectionArrow(goalRow.direction)
+                                }
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                objectName: "goalCardText"
+                                color: Theme.textPrimary
+                                font: Typography.bodyStrong
+                                text: page.goalCardText(goalRow.metric, goalRow.targetValue)
+                                wrapMode: Text.WordWrap
+                            }
+                            AppButton {
+                                // Цель обязана удаляться: ошибочно выбранную метрику
+                                // иначе не исправить, и активация была бы заблокирована.
+                                Layout.minimumWidth: 0
+                                onClicked: page.viewModel.removeTarget(goalRow.index)
+                                padding: Spacing.itemGap
+                                text: qsTr("Убрать")
+                                variant: AppButton.Secondary
+                            }
+                        }
+                    }
+                }
             }
-            // Вход в отдельный экран, а не ряд пресетов здесь: с фильтром по
-            // категориям и формой своего правила каталог не помещается в блок
-            // рядом с неделей и всегда показывал бы часть пресетов.
-            AppButton {
-                Layout.fillWidth: true
-                onClicked: page.rulesPickerRequested()
-                text: qsTr("Выбрать правила")
-                variant: AppButton.Secondary
+            ColumnLayout {
+                width: parent.width
+                spacing: Spacing.itemGap
+
+                Label {
+                    Layout.fillWidth: true
+                    color: Theme.textMuted
+                    font: Typography.caption
+                    text: qsTr("Добавить цель")
+                }
+                AppComboBox {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    // Метрика доезжает до модели только обработчиком: без него в форме
+                    // всегда оставалась первая метрика списка («Вес тела»), и цель
+                    // создавалась не та, что показана на экране.
+                    model: page.goalMetricOptions
+                    // Список метрик — пары «название/код» (`value`), а не роли `id`,
+                    // которые AppComboBox берёт по умолчанию.
+                    valueRole: "value"
+
+                    onActivated: page.setGoalMetric(Number(currentValue))
+                }
+                // Направление цели — сегментированный выбор, как в макете
+                // (`03-edit.html`, `.seg`): «Снизить» и «Повысить» взаимоисключающие,
+                // и активное направление обязано читаться без нажатия. Две
+                // равноправные вторичные кнопки не показывали, что выбрано, а цель
+                // создавали сразу по нажатию — до того, как выбрано значение.
+                SegmentedControl {
+                    Layout.fillWidth: true
+                    currentIndex: page.goalDirections.indexOf(page.goalDirection)
+                    items: page.goalDirectionItems
+                    // Тест-хук: id компонента снаружи не виден, и элемент находится
+                    // по objectName — так же, как страницы в тестах.
+                    objectName: "goalDirectionSelector"
+
+                    onSelected: function (index) {
+                        page.goalDirection = page.goalDirections[index];
+                    }
+                }
+                // Целевое значение — подпись и число в одной строке над шкалой
+                // (`.slider-head` в макете), а не отдельной подписью слева от ползунка:
+                // в строке на двоих шкала получала половину карточки и читалась сжатой
+                // полоской у правого края.
+                //
+                // Набирать значение кнопками по 0,5 кг невозможно: от 80 до 70 кг это
+                // двадцать нажатий «−».
+                WeightRuler {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    // Границы, шаг, единица и разрядность — из метрики
+                    // (`goalMetricOptions`): у веса тела 50–130 кг и шаг 0,5, как в
+                    // макете 03-edit.html; у тоннажа недели — килограммы тысячами.
+                    // Прежняя нейтральная шкала 50–300 оставляла недостижимой половину
+                    // метрик, а её шаг 0,5 кг отстоял на 0,6 px, и метки сливались в
+                    // серую полосу. Узкий осмысленный диапазон и есть то, что в макете
+                    // называется «ощущением масштаба»: ползунок показывает, где цель
+                    // стоит относительно текущего значения метрики.
+                    from: page.goalOption.from
+                    // Тест-хук: элемент находится по objectName (см. выше).
+                    objectName: "goalRuler"
+                    step: page.goalOption.step
+                    // Подпись поля: в макете она стоит слева от числа, над шкалой.
+                    title: qsTr("Целевое значение")
+                    to: page.goalOption.to
+                    unit: page.goalOption.unit
+                    value: page.goalTargetValue
+                    valueDecimals: page.goalOption.decimals
+
+                    onEdited: function (newValue) {
+                        page.goalTargetValue = newValue;
+                    }
+                }
+                // Добавление — отдельное действие (в макете `button.btn.primary`
+                // «Добавить»): направление и значение сначала выбирают, потом
+                // добавляют, и случайное касание цели не создаёт.
+                AppButton {
+                    Layout.fillWidth: true
+                    text: qsTr("Добавить")
+                    variant: AppButton.Primary
+
+                    onClicked: page.addGoal(page.goalDirection)
+                }
             }
         }
     }
-    AppCard {
+    DisclosureCard {
+        id: rulesCard
+        objectName: "programEditRules"
         width: parent.width
+        title: qsTr("Правила")
+        summary: page.ruleSummaryText(page.summaryRevision)
+        badgeText: page.ruleCount > 0 ? String(page.ruleCount) : ""
+        iconName: "plans"
+        expanded: page.sectionIndex === 3
+        errorText: page.errorSection === 3 ? page.errorText() : ""
+        onToggleRequested: page.toggleSection(3)
+        onDoneRequested: page.collapseSection()
+        body: Column {
+            width: parent.width
+            spacing: Spacing.itemGap
+            ColumnLayout {
+                id: ruleList
 
-        ColumnLayout {
+                width: parent.width
+                spacing: Spacing.itemGap
+
+                Repeater {
+                    model: page.hasProgram ? page.viewModel.rules : []
+
+                    delegate: AppCard {
+                        id: ruleRow
+
+                        required property string displayText
+                        required property int index
+
+                        Layout.fillWidth: true
+                        borderColor: Theme.borderSubtle
+
+                        RowLayout {
+                            width: parent.width
+                            spacing: Spacing.itemGap
+
+                            Label {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                color: Theme.textPrimary
+                                font: Typography.body
+                                text: ruleRow.displayText
+                                wrapMode: Text.WordWrap
+                            }
+                            AppButton {
+                                // Правило обязано удаляться: опечатку в названии иначе не
+                                // исправить, и программа осталась бы с мусором.
+                                Layout.minimumWidth: 0
+                                onClicked: page.viewModel.removeRule(ruleRow.index)
+                                padding: Spacing.itemGap
+                                text: qsTr("Убрать")
+                                variant: AppButton.Secondary
+                            }
+                        }
+                    }
+                }
+            }
+            ColumnLayout {
+                width: parent.width
+                spacing: Spacing.itemGap
+
+                Label {
+                    Layout.fillWidth: true
+                    color: Theme.textMuted
+                    font: Typography.caption
+                    text: qsTr("Каталог правил")
+                }
+                Label {
+                    Layout.fillWidth: true
+                    color: Theme.textSecondary
+                    font: Typography.body
+                    text: qsTr("Белок, сон, шаги и другие типовые проверки — одним нажатием.")
+                    wrapMode: Text.WordWrap
+                }
+                // Нормы из расчёта КБЖУ: кнопка всегда открывает экран расчёта,
+                // где виден сохранённый результат прошлого расчёта и есть кнопка
+                // «Создать правила в программе». Так расчёт не потеряется между
+                // экранами: пользователь попадает на него одним нажатием.
+                AppButton {
+                    Layout.fillWidth: true
+                    onClicked: page.macroRequested()
+                    text: qsTr("Из расчёта питания")
+                    variant: AppButton.Primary
+                }
+                // Вход в отдельный экран, а не ряд пресетов здесь: с фильтром по
+                // категориям и формой своего правила каталог не помещается в блок
+                // рядом с неделей и всегда показывал бы часть пресетов.
+                AppButton {
+                    Layout.fillWidth: true
+                    onClicked: page.rulesPickerRequested()
+                    text: qsTr("Выбрать правила")
+                    variant: AppButton.Secondary
+                }
+            }
+            AppButton {
+                width: parent.width
+                objectName: "programAdviceButton"
+                text: qsTr("Своя рекомендация")
+                variant: AppButton.Secondary
+                onClicked: advicePopup.open()
+            }
+        }
+    }
+    AppButton {
+        width: parent.width
+        visible: page.hasSavedDraft
+        text: qsTr("Удалить черновик")
+        variant: AppButton.Ghost
+        onClicked: page.deleteDraft()
+    }
+    SwipePopup {
+        id: advicePopup
+        parent: Overlay.overlay
+        dragHandle: adviceGrip
+        width: parent !== null ? Math.min(480, parent.width - Spacing.screenPadding * 2) : 360
+        height: Math.min(implicitHeight, parent !== null ? parent.height - Spacing.screenPadding * 2 : implicitHeight)
+        modal: true
+        dim: true
+        padding: Spacing.listGap
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        background: Rectangle {
+            color: Theme.surface
+            radius: Theme.radiusLg
+            border.color: Theme.border
+            border.width: Theme.borderWidth
+        }
+        contentItem: ColumnLayout {
             width: parent.width
             spacing: Spacing.itemGap
 
-            Label {
+            SwipeDismissHandle {
+                id: adviceGrip
                 Layout.fillWidth: true
-                color: Theme.textMuted
-                font: Typography.caption
-                text: qsTr("Своя рекомендация")
+                onDismissed: advicePopup.close()
             }
+            RowLayout {
+                Layout.fillWidth: true
+                Label {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    text: qsTr("Своя рекомендация")
+                    font: Typography.sectionTitle
+                    color: Theme.textPrimary
+                    wrapMode: Text.WordWrap
+                }
+                AppButton {
+                    text: qsTr("Закрыть")
+                    variant: AppButton.Secondary
+                    onClicked: advicePopup.close()
+                }
+            }
+
             // Рекомендация отвечает на вопрос «что делать», а не «сколько»:
             // цели у неё нет, вместо неё текст. Поэтому здесь два текстовых
             // поля, а не строка чисел с единицами (§3.6).
@@ -558,18 +727,20 @@ PageScaffold {
             // делается через clearAdvice().
             AppTextField {
                 id: adviceTitleField
+                objectName: "programAdviceTitle"
 
                 Layout.fillWidth: true
-                errorText: page.adviceErrorField === "title" ? page.adviceErrorText : ""
+                errorText: (page.adviceErrorField === "title" || page.adviceErrorField === "rule_title_required") ? page.adviceErrorText : ""
                 label: qsTr("Название")
                 onUserEdited: page.adviceTitle = text
                 placeholderText: qsTr("Например: не пить кофе после 16:00")
             }
             AppTextArea {
                 id: adviceTextField
+                objectName: "programAdviceText"
 
                 Layout.fillWidth: true
-                errorText: page.adviceErrorField === "text" ? page.adviceErrorText : ""
+                errorText: (page.adviceErrorField === "text" || page.adviceErrorField === "rule_advice_text_required") ? page.adviceErrorText : ""
                 helperText: qsTr("Совет, который нечем измерить")
                 label: qsTr("Текст совета")
                 onEdited: page.adviceText = text
@@ -583,67 +754,26 @@ PageScaffold {
             }
         }
     }
-    AppCard {
-        width: parent.width
-        visible: page.errorKey.length > 0
-
-        Label {
-            color: Theme.negative
-            font: Typography.body
-            text: page.errorText()
-            width: parent.width
-            wrapMode: Text.WordWrap
-        }
-    }
-    // Кнопка всегда активна и сама объясняет, чего не хватает. Раньше она
-    // была disabled при незаполненной форме, и нажатие просто ничего не
-    // делало — пользователь не понимал, что именно нужно дозаполнить.
-    //
-    // Кнопка закреплена внизу: она завершает работу с самым длинным экраном
-    // приложения (неделя, цели, правила, рекомендации), и искать её прокруткой
-    // до самого низа незачем. Каркас держит панель на экране и сам резервирует
-    // под неё место в прокрутке. Подпись зависит от режима: создание и правка —
-    // разные действия, и одна подпись на оба врала бы про одно из них.
     footer: ColumnLayout {
         spacing: Spacing.itemGap
-
         Label {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            // Подсказка живёт рядом с кнопкой, а не в потоке контента:
-            // объяснять нехватку полей имеет смысл там, где нажатие не
-            // сработает, иначе она остаётся внизу страницы, мимо кнопки.
-            color: Theme.negative
+            text: page.errorKey.length > 0 && page.errorSection < 0 ? page.errorText() : (page.trainingDays > 0 ? qsTr("%1 нед. · тренировочных дней: %2").arg(page.weeks).arg(page.trainingDays) : qsTr("Черновик программы"))
+            color: page.errorKey.length > 0 && page.errorSection < 0 ? Theme.negative : Theme.textSecondary
             font: Typography.caption
-            text: page.missingHint()
-            visible: page.canCreate === false
             wrapMode: Text.WordWrap
         }
         AppButton {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
             objectName: "programEditPrimaryButton"
-            onClicked: page.create()
             text: page.editing ? qsTr("Сохранить изменения") : qsTr("Создать программу")
             variant: AppButton.Primary
-        }
-        AppButton {
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-            // Удаление брошенного черновика. Второстепенное действие, поэтому
-            // оно ниже основной кнопки и во вторичном стиле: случайный тап
-            // по нему хуже лишнего сантиметра прокрутки.
-            objectName: "programEditDeleteDraftButton"
-            onClicked: page.deleteDraft()
-            text: qsTr("Удалить черновик")
-            variant: AppButton.Secondary
-            visible: page.hasSavedDraft
+            onClicked: page.create()
         }
     }
 
-    // Частые сроки — ярлыки быстрого ввода под ползунком, а не единственный
-    // способ задать срок (см. комментарий у `termRuler`). Диапазон задаёт шкала:
-    // 1…52 недели — ровно то, что допускает CHECK схемы (`weeks_total <= 52`).
     readonly property var weekOptions: [4, 8, 12, 16]
     readonly property int weeks: viewModel !== undefined && viewModel !== null ? viewModel.weeks : 0
     // Дата окончания — производная (`старт + срок − 1 день`, §3.3), считается в
@@ -860,18 +990,6 @@ PageScaffold {
         viewModel.setTarget(selectedGoalMetric, -1, false, goalTargetValue, direction);
     }
 
-    // Вид дня приходит из модели строкой, а экран дня ждёт число (§7).
-    function kindValue(kind) {
-        if (kind === "workout")
-            return 0;
-        if (kind === "cardio")
-            return 2;
-        if (kind === "mobility")
-            return 3;
-
-        return 1;
-    }
-
     // Запрос возврата: экран открыт поверх вкладок, где таб-бара нет.
     signal backRequested
     // Запрос открытия экрана выбора правил: сам переход делает оболочка, экран
@@ -888,16 +1006,6 @@ PageScaffold {
     // аргумент — «прежняя активная ушла в паузу» (§2.3): о смене активной
     // программы пользователь узнаёт из сообщения, а не догадывается по списку.
     signal created(string programId, bool wasEditing, bool previousPaused)
-
-    // Вид дня приходит в C++ числом (EDay_Kind), поэтому QML переводит его в
-    // строку один раз здесь, а не разматывает по всему экрану.
-    function setKind(weekday, kind) {
-        page.viewModel.setDayKind(weekday, kind === "workout" ? 0 : 1);
-    }
-
-    function addExercise(weekday) {
-        page.viewModel.addDayExercise(weekday, "ex_squat", 4, 5, 8, 100, true);
-    }
 
     // Удаление брошенного черновика: работа стирается из БД, форма очищается, и
     // экран продолжает жить как «Новая программа» — идти назад не обязательно.
@@ -917,10 +1025,17 @@ PageScaffold {
     }
 
     function create() {
-        // activate = true: сохранение из редактора сразу включает программу —
-        // отдельного шага «активировать» в потоке создания нет.
-        if (page.viewModel.create(true) === false)
+        // Создание и запуск черновика включают программу. Правка существующей
+        // программы сохраняет её состояние; активация доступна отдельно в обзоре.
+        if (page.viewModel === undefined || page.viewModel === null)
             return;
+        if (page.viewModel.create(!page.editing || page.viewModel.isDraft === true) === false) {
+            if (page.errorSection >= 0) {
+                page.showSection(page.errorSection);
+                errorRevealTimer.restart();
+            }
+            return;
+        }
 
         // Идентификатор берётся у ViewModel: у новой программы он появляется
         // только сейчас, и без него оболочка не знала бы, что открывать.

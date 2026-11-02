@@ -49,6 +49,7 @@ Item {
     property var plansViewModel: PlansViewModel
     property var profileViewModel: ProfileViewModel
     property var todayViewModel: TodayVM
+    property var diaryViewModel: typeof DiaryVM !== "undefined" ? DiaryVM : null
 
     // Отступы под safe area / status bar mock передаёт Main.qml.
     property real topInset: 0
@@ -68,7 +69,7 @@ Item {
     //
     // Экран в стеке деталей и текущая вкладка лежат в разных контейнерах:
     // у `pages` (StackView) текущий элемент — сам экран, а внутри вкладок это
-    // StackLayout, чьи дети и есть страницы в порядке вкладок.
+    // SwipeView, который отдаёт активную страницу свойством currentItem.
     readonly property var activeFlickable: {
         const top = pages.currentItem;
 
@@ -78,9 +79,9 @@ Item {
         if (pages.depth > 1)
             return top.pageFlickable !== undefined ? top.pageFlickable : null;
 
-        const tab = top.children !== undefined ? top.children[tabBar.currentIndex] : undefined;
+        const tab = top.currentItem !== undefined ? top.currentItem : null;
 
-        return tab !== undefined && tab.pageFlickable !== undefined ? tab.pageFlickable : null;
+        return tab !== null && tab !== undefined && tab.pageFlickable !== undefined ? tab.pageFlickable : null;
     }
 
     function showTab(index) {
@@ -152,6 +153,7 @@ Item {
     // живые переходы идут через open*-функции с их сайд-эффектами.
     function componentFor(name) {
         const map = {
+            "diary": diaryComponent,
             "exercise-detail": exerciseDetailComponent,
             "exercise-edit": exerciseEditorComponent,
             "macro-calculator": macroCalculatorComponent,
@@ -182,6 +184,11 @@ Item {
 
             if (entry.id !== undefined && entry.id !== null && entry.id !== "")
                 shell.programId = entry.id;
+
+            // Пустой id дневника означает активную программу: после посещения
+            // другой вкладки нельзя наследовать её конкретную программу.
+            if (entry.name === "diary" || entry.name === "program-rules" || entry.name === "program-stats")
+                shell.programId = entry.id || "";
 
             if (entry.name === "exercise-detail")
                 shell.exerciseDetailId = entry.exerciseId || "";
@@ -296,11 +303,77 @@ Item {
 
         anchors.fill: parent
         initialItem: tabsView
+        clip: true
+
+        pushEnter: Transition {
+            NumberAnimation {
+                property: "x"
+                from: pages.width
+                to: 0
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
+            }
+        }
+        pushExit: Transition {
+            NumberAnimation {
+                property: "x"
+                from: 0
+                to: -pages.width * 0.25
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
+            }
+        }
+        popEnter: Transition {
+            NumberAnimation {
+                property: "x"
+                from: -pages.width * 0.25
+                to: 0
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
+            }
+        }
+        popExit: Transition {
+            NumberAnimation {
+                property: "x"
+                from: 0
+                to: pages.width
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
+            }
+        }
+        replaceEnter: Transition {
+            NumberAnimation {
+                property: "opacity"
+                from: 0
+                to: 1
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
+            }
+        }
+        replaceExit: Transition {
+            NumberAnimation {
+                property: "opacity"
+                from: 1
+                to: 0
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
+            }
+        }
 
         // Переход закончился — стек снова принимает push: очередь отложенной
         // навигации разбирается здесь, потому что pushPage во время busy
         // отбрасывает команду молча.
         onBusyChanged: shell.flushPendingNavigation()
+    }
+    EdgeBackGesture {
+        objectName: "navigationBackEdge"
+        anchors.left: parent.left
+        anchors.top: parent.top
+        height: Math.max(0, shell.height - Theme.tabBarHeight - shell.bottomInset)
+        width: 24
+        z: 1
+        enabled: pages.depth > 1 && !pages.busy
+        onBackRequested: shell.goBack()
     }
     // Отложенное открытие окна выбора упражнения для снимка (--popup-shot):
     // стек должен закончить переход, чтобы currentItem был экраном дня.
@@ -349,10 +422,19 @@ Item {
     Component {
         id: tabsView
 
-        StackLayout {
+        SwipeView {
+            id: tabPages
+            objectName: "mainSwipeView"
+            interactive: pages.depth === 1 && !pages.busy
             currentIndex: tabBar.currentIndex
 
+            onCurrentIndexChanged: {
+                if (currentIndex >= 0 && currentIndex < count && currentIndex !== tabBar.currentIndex)
+                    shell.showTab(currentIndex);
+            }
+
             TodayPage {
+                pageActive: SwipeView.isCurrentItem && pages.depth === 1
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
                 topInset: shell.topInset
                 viewModel: shell.todayViewModel
@@ -361,6 +443,7 @@ Item {
                 // главный экран — на вкладку «Планы», где программу создают.
                 onPlansRequested: shell.showTab(1)
                 onProgramRequested: shell.openProgramOverview()
+                onDiaryRequested: shell.openDiary()
 
                 // Тап по строке упражнения — его обзор: тот же вход, что и из
                 // каталога вкладки «Упражнения».
@@ -374,6 +457,7 @@ Item {
                 onMyProgramRequested: shell.openProgramCatalog()
             }
             ExercisesPage {
+                pageActive: SwipeView.isCurrentItem && pages.depth === 1
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
                 topInset: shell.topInset
 
@@ -423,9 +507,11 @@ Item {
         shell.pushPage(programEditorComponent);
     }
 
-    function openProgramRules() {
+    function openProgramRules(id) {
+        shell.programId = id === undefined ? "" : id;
         shell.noteTabScreen({
-            name: "program-rules"
+            name: "program-rules",
+            id: shell.programId
         });
         shell.pushPage(programRulesComponent);
     }
@@ -446,6 +532,18 @@ Item {
             id: shell.programId
         });
         shell.pushPage(programStatsComponent);
+    }
+
+    function openDiary(id) {
+        if (pages.busy)
+            return;
+
+        shell.programId = id === undefined ? "" : id;
+        shell.noteTabScreen({
+            name: "diary",
+            id: shell.programId
+        });
+        shell.pushPage(diaryComponent);
     }
 
     // — Экран авторасчёта КБЖУ (спринт S7) —
@@ -551,6 +649,7 @@ Item {
     // восстановление состояния при возврате в приложение.
     function openProgramScreen(name) {
         const map = {
+            "diary": openDiary,
             "macro-calculator": openMacroCalculator,
             "profile-settings": openProfileSettings,
             "set-entry": openSetEntry,
@@ -725,8 +824,10 @@ Item {
             onEditRequested: function (programId) {
                 shell.openProgramEditor(programId);
             }
-            onRulesRequested: shell.openProgramRules()
-            onStatsRequested: shell.openProgramStats()
+            onRulesRequested: shell.openProgramRules(programId)
+            onStatsRequested: shell.openProgramStats(programId)
+            onDiaryRequested: shell.openDiary(programId)
+            onActivated: shell.todayViewModel.reload(AppContext.currentUserId)
         }
     }
     Component {
@@ -773,6 +874,7 @@ Item {
         ProgramRulesPage {
             bottomInset: shell.pageBottomInset
             topInset: shell.topInset
+            programId: shell.programId
 
             onBackRequested: shell.goBack()
         }
@@ -794,6 +896,19 @@ Item {
             bottomInset: shell.pageBottomInset
             topInset: shell.topInset
             programId: shell.programId
+
+            onBackRequested: shell.goBack()
+        }
+    }
+    Component {
+        id: diaryComponent
+
+        DiaryPage {
+            objectName: "diaryPage"
+            bottomInset: shell.pageBottomInset
+            topInset: shell.topInset
+            programId: shell.programId
+            viewModel: shell.diaryViewModel
 
             onBackRequested: shell.goBack()
         }

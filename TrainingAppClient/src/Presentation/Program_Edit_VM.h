@@ -48,6 +48,7 @@ class Avm_Program_Edit : public QObject
 	// create(). Экран редактирования обязан показывать семь дней недели и
 	// введённые значения по черновику, иначе до создания программы экран пуст.
 	Q_PROPERTY(bool hasDraft READ Has_Draft NOTIFY changed)
+	Q_PROPERTY(bool isDraft READ Is_Draft NOTIFY changed)
 	// Автосохранение мутаций в БД со статусом Draft. Выключено по умолчанию,
 	// чтобы тесты оставались детерминированными: экраны редактора включают
 	// его при открытии. Отзыв: «добавил упражнение, нажал назад — ничего не
@@ -234,6 +235,10 @@ public:
 	bool Has_Draft() const
 	{
 		return !Draft.User_Id.isEmpty();
+	}
+	bool Is_Draft() const
+	{
+		return Draft.State == EProgram_State::Draft;
 	}
 
 	bool canCreate() const;

@@ -38,6 +38,8 @@ class Avm_Program_Rules : public QObject
 
 	Q_PROPERTY(bool hasProgram READ Has_Program NOTIFY changed)
 	Q_PROPERTY(QString programId READ programId NOTIFY changed)
+	Q_PROPERTY(bool canEditRules READ Can_Edit_Rules NOTIFY changed)
+	Q_PROPERTY(bool canCheckin READ Can_Checkin NOTIFY changed)
 	Q_PROPERTY(QString errorKey READ errorKey NOTIFY changed)
 	Q_PROPERTY(QString today READ today NOTIFY changed)
 	// Границы окна отметок: экран рисует период подписью.
@@ -61,11 +63,10 @@ public:
 	Avm_Program_Rules(AProgram_Repository *in_program_repository, ARule_Repository *in_rule_repository,
 	                  AUsers_Repository *in_users_repository, QObject *in_parent = 0);
 
-	// Перечитывает правила активной программы и её отметки за период.
-	// Активной программы может не быть — это не сбой чтения, но UI обязан
+	// Пустой идентификатор программы выбирает активную программу пользователя.
 	// QML-мост: имена в нижнем регистре первой буквы, чтобы разметка не зависела
 	// от внутреннего стиля имён C++ (§2 CODE_STYLE). Подробности — в .cpp.
-	Q_INVOKABLE bool reload(const QString &in_user_id);
+	Q_INVOKABLE bool reload(const QString &in_user_id, const QString &in_program_id = QString());
 	Q_INVOKABLE bool setPeriodDays(int in_days);
 	Q_INVOKABLE bool saveCheckin(const QString &in_rule_id, const QString &in_state, double in_value, bool in_has_value,
 	                             const QString &in_note);
@@ -75,10 +76,11 @@ public:
 	// расчёту, а не копит дубликаты.
 	Q_INVOKABLE bool generateRulesFromMacro(const QString &in_user_id);
 
-	// Перечитывает правила активной программы и её отметки за период.
-	// Активной программы может не быть — это не сбой чтения, но UI обязан
-	// отличать состояние «нет программы» от ошибки (errorKey).
-	bool Reload(const QString &in_user_id);
+	// Читает выбранную программу пользователя; пустой id означает активную.
+	bool Reload(const QString &in_user_id, const QString &in_program_id = QString());
+	// Правила редактируются в draft/active/paused; отметки ставятся только в active.
+	bool Can_Edit_Rules() const;
+	bool Can_Checkin() const;
 
 	// Период отметок в днях. Допустимы 7, 30 и 90 (§5.1); другое значение
 	// отвергается, чтобы экран не показывал бессмысленные окна.
@@ -118,7 +120,8 @@ signals:
 
 private:
 	void Clear_All();
-	bool Load_Program_Id(const QString &in_user_id);
+	bool Load_Program_Id(const QString &in_user_id, const QString &in_program_id);
+	bool Refresh_Program_State();
 	bool Load_Rules();
 	bool Load_Checkins();
 	// today — фиксированная в тестах дата устройства (§5.5).
@@ -143,6 +146,8 @@ private:
 	AList_Model *Checkins;
 
 	QString Program_Id_Text;
+	QString User_Id_Text;
+	EProgram_State Program_State = EProgram_State::Draft;
 	QString Today_Text_Override;
 	QString Range_From_Text;
 	QString Range_To_Text;

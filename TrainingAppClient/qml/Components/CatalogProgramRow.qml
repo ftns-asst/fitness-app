@@ -26,6 +26,14 @@ AppCard {
     signal editRequested(string programId)
     signal statsRequested(string programId)
 
+    borderColor: openTap.pressed || hover.hovered ? Theme.accentSurfaceLine : Theme.border
+    surfaceColor: openTap.pressed ? Theme.surfaceMuted : Theme.surface
+
+    HoverHandler {
+        id: hover
+
+        enabled: !Theme.touchPlatform
+    }
     ColumnLayout {
         // Внутри AppCard ширину задаёт родитель, а не Layout: содержимое
         // карточки лежит в обычной Column, где Layout-свойства не работают.
@@ -78,6 +86,8 @@ AppCard {
         }
     }
     TapHandler {
+        id: openTap
+
         onTapped: row.openRequested(row.programId)
     }
     // Подпись вне TapHandler: иначе жест перехватывал бы нажатия кнопок.

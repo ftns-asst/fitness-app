@@ -21,6 +21,7 @@ PageScaffold {
     // и создают. Экран только сообщает намерение, путь выбирает каркас.
     signal plansRequested
     signal programRequested
+    signal diaryRequested
 
     // Строка упражнения на главном — самостоятельный объект: тап открывает
     // его обзор (спринт U6), а не молчит заглушкой. Экран сообщает намерение,
@@ -42,8 +43,8 @@ PageScaffold {
     // onVisibleChanged не срабатывает при первом открытии, а данные должны быть
     // актуальны и после смены дня.
     Component.onCompleted: page.reload()
-    onVisibleChanged: {
-        if (visible)
+    onPageActiveChanged: {
+        if (pageActive)
             page.reload();
     }
 
@@ -75,7 +76,7 @@ PageScaffold {
 
     Connections {
         function onStateChanged() {
-            if (Application.state === Qt.ApplicationActive)
+            if (page.pageActive && Application.state === Qt.ApplicationActive)
                 page.reloadIfDayChanged();
         }
 
@@ -87,7 +88,7 @@ PageScaffold {
     Timer {
         interval: 60000
         repeat: true
-        running: page.visible
+        running: page.pageActive
         onTriggered: page.reloadIfDayChanged()
     }
 
@@ -229,38 +230,52 @@ PageScaffold {
         }
     }
 
-    // — Два равноширинных secondary-действия (референс 2080). RowLayout вместо
-    // ручного расчёта ширины: кнопки честно делят строку на любой ширине —
-    RowLayout {
-        spacing: Spacing.itemGap
+    AppButton {
         width: parent.width
-
-        AppButton {
-            Layout.fillWidth: true
-            text: qsTr("Другой план")
-            variant: AppButton.Secondary
-
-            onClicked: Demo.notify(qsTr("Каталог планов — вкладка «Планы»"))
-        }
-        AppButton {
-            Layout.fillWidth: true
-            text: qsTr("История")
-            variant: AppButton.Secondary
-
-            onClicked: Demo.notify(qsTr("История — вкладка «Профиль», этап D4"))
-        }
+        text: qsTr("Другой план")
+        variant: AppButton.Secondary
+        onClicked: page.plansRequested()
     }
 
     // — Правила дня плитками: по две в строке, отметка одним касанием —
     // Раньше были два вертикальных списка («Отметки дня» и «Правила на сегодня»), строки которых
     // дублировали друг друга. Теперь одна сетка: тап по плитке ставит/снимает «выполнено»;
     // у рекомендации текстом отметки нет (§3.6), плитка информационная.
-    Label {
-        color: Theme.textSecondary
-        font: Typography.captionStrong
-        text: page.doneRuleCount + " / " + page.checkableRuleCount + " " + qsTr("правил выполнено")
-        visible: page.checkableRuleCount > 0
+    // Сегодня — быстрые отметки; дневник рядом с ними открывает историю по датам.
+    RowLayout {
+        objectName: "todayCheckinsHeader"
+        spacing: Spacing.listGap
+        visible: page.hasModel && page.viewModel.hasProgram
         width: parent.width
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            spacing: 2
+
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textPrimary
+                font: Typography.sectionTitle
+                text: qsTr("Отметки дня")
+                wrapMode: Text.WordWrap
+            }
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textSecondary
+                font: Typography.caption
+                text: page.doneRuleCount + " / " + page.checkableRuleCount + " " + qsTr("выполнено")
+                visible: page.checkableRuleCount > 0
+                wrapMode: Text.WordWrap
+            }
+        }
+        AppButton {
+            objectName: "todayDiaryButton"
+            text: qsTr("Дневник")
+            variant: AppButton.Ghost
+            onClicked: page.diaryRequested()
+            Accessible.description: qsTr("Дневник: отметки, вес и заметки за прошлые дни")
+        }
     }
     Flow {
         id: ruleFlow
@@ -329,16 +344,61 @@ PageScaffold {
     }
 
     // — Замеры: вес и обхваты за сегодня (спринт S6) —
-    Label {
-        color: Theme.textSecondary
-        font: Typography.captionStrong
-        text: qsTr("Замеры")
+    property bool measurementsOpen: true
+    RowLayout {
         width: parent.width
+        Label {
+            Layout.fillWidth: true
+            color: Theme.textSecondary
+            font: Typography.captionStrong
+            text: qsTr("Замеры")
+        }
+        AppButton {
+            objectName: "todayMeasurementsToggle"
+            text: page.measurementsOpen ? qsTr("Свернуть") : qsTr("Развернуть")
+            variant: AppButton.Ghost
+            onClicked: page.measurementsOpen = !page.measurementsOpen
+        }
     }
     AppCard {
+        objectName: "todayMeasurementsCard"
+        visible: page.measurementsOpen
         spacing: Spacing.itemGap
         width: parent.width
 
+        // Расписание замеров (FR-T7): «пора мерить» выделено цветом и текстом, а
+        // не только цветом, — состояние читается и без различения оттенков.
+        Rectangle {
+            color: page.measurementIsDue() ? Theme.warningTint : Theme.surfaceMuted
+            implicitHeight: measurementHintLabel.implicitHeight + Spacing.itemGap * 2
+            radius: Theme.radiusSm
+            visible: measurementHintLabel.text.length > 0
+            width: parent.width
+
+            Label {
+                id: measurementHintLabel
+
+                anchors.fill: parent
+                anchors.margins: Spacing.itemGap
+                color: Theme.textPrimary
+                font: Typography.captionStrong
+                text: page.measurementHint()
+                verticalAlignment: Text.AlignVCenter
+                wrapMode: Text.WordWrap
+            }
+        }
+        CompactStepper {
+            from: 1
+            label: qsTr("Мерить каждые, дней")
+            to: 30
+            value: page.hasModel && page.viewModel.measurementIntervalDays !== undefined ? page.viewModel.measurementIntervalDays : 3
+            visible: page.hasModel && page.viewModel.hasProgram === true
+            width: parent.width
+
+            onEdited: function (newValue) {
+                page.viewModel.setMeasurementInterval(newValue);
+            }
+        }
         Label {
             color: Theme.textMuted
             font: Typography.caption
@@ -372,43 +432,26 @@ PageScaffold {
                 page.setMeasurementValue("weight", newValue);
             }
         }
-        // Обхваты спрятаны: их пять, а измеряют их раз в месяц, поэтому
+        // Обхваты спрятаны: их девять, а измеряют их раз в несколько дней, поэтому
         // постоянно занимаемое ими место на главной было бы неоправданно.
         AppButton {
             text: page.girthsOpen ? qsTr("Скрыть обхваты") : qsTr("Обхваты")
             variant: AppButton.Secondary
+            visible: page.girthFields.length > 0
             width: parent.width
 
             onClicked: page.girthsOpen = !page.girthsOpen
         }
         ColumnLayout {
-            Layout.fillWidth: true
             spacing: Spacing.itemGap
-            visible: page.girthsOpen
+            visible: page.girthsOpen && page.girthFields.length > 0
+            // Ширина явно по родителю: карточка держит детей в обычной Column, где
+            // `Layout.fillWidth` не работает (CODE_STYLE §13), и без этого блок
+            // сжимался до implicitWidth — дорожки обхватов у́же дорожки веса.
+            width: parent.width
 
             Repeater {
-                model: [
-                    {
-                        key: "chest",
-                        label: qsTr("Грудь, см")
-                    },
-                    {
-                        key: "waist",
-                        label: qsTr("Талия, см")
-                    },
-                    {
-                        key: "hip",
-                        label: qsTr("Бёдра, см")
-                    },
-                    {
-                        key: "arm",
-                        label: qsTr("Бедро, см")
-                    },
-                    {
-                        key: "thigh",
-                        label: qsTr("Голень, см")
-                    }
-                ]
+                model: page.girthFields
 
                 delegate: WeightRuler {
                     id: girthField
@@ -416,13 +459,13 @@ PageScaffold {
                     required property var model
 
                     Layout.fillWidth: true
-                    // Диапазон 50–150 см покрывает любой обхват взрослого человека
-                    // и делает шкалу читаемой: на прежних 0–300 шаг 0,5 приходился на
-                    // 0,5 px, и метки сливались в сплошную полосу.
-                    from: 50
+                    // Диапазон свой у каждого обхвата (таблица girthFields): общие
+                    // 50–150 см не вмещали шею и бицепс, а на широкой шкале шаг 0,5
+                    // приходился бы на доли пикселя, и метки сливались бы в полосу.
+                    from: girthField.model.from
                     step: 0.5
-                    title: girthField.model.label
-                    to: 150
+                    title: qsTr("%1, см").arg(MeasurementTexts.title(girthField.model.key))
+                    to: girthField.model.to
                     unit: qsTr("см")
                     value: page.measurementValue(girthField.model.key)
                     valueDecimals: 1
@@ -447,9 +490,65 @@ PageScaffold {
     readonly property var weekdayNames: [qsTr("Понедельник"), qsTr("Вторник"), qsTr("Среда"), qsTr("Четверг"), qsTr("Пятница"), qsTr("Суббота"), qsTr("Воскресенье")]
 
     // — Состояние формы замеров —
-    // Обхваты раскрываются по требованию: измеряют их раз в месяц, а пять полей
-    // на главной занимали бы место каждый день.
-    property bool girthsOpen: false
+    // Обхваты раскрываются по требованию: девять полей на главной занимали бы
+    // место каждый день, а измеряют их по расписанию замеров. Аргумент
+    // --open-girths раскрывает форму сразу: аудит вёрстки (--diag) иначе не
+    // видел бы девять ползунков, скрытых за кнопкой.
+    property bool girthsOpen: Qt.application.arguments.indexOf("--open-girths") >= 0
+    // Девять обхватов в порядке книги-эталона (docs/09, FR-T5). Ключ совпадает с
+    // EMeasurement_Key в C++, подпись — из MeasurementTexts; диапазон шкалы — у
+    // каждого обхвата свой.
+    readonly property var selectedMeasurementKeys: page.hasModel && page.viewModel.selectedMeasurementKeys !== undefined ? page.viewModel.selectedMeasurementKeys : []
+    readonly property var girthFields: page.allGirthFields.filter(function (field) {
+        return page.selectedMeasurementKeys.indexOf(field.key) >= 0;
+    })
+    readonly property var allGirthFields: [
+        {
+            key: "waist",
+            from: 50,
+            to: 160
+        },
+        {
+            key: "belly",
+            from: 50,
+            to: 170
+        },
+        {
+            key: "arm",
+            from: 20,
+            to: 70
+        },
+        {
+            key: "shoulders",
+            from: 80,
+            to: 180
+        },
+        {
+            key: "chest",
+            from: 60,
+            to: 160
+        },
+        {
+            key: "hip",
+            from: 60,
+            to: 170
+        },
+        {
+            key: "thigh",
+            from: 30,
+            to: 100
+        },
+        {
+            key: "calves",
+            from: 20,
+            to: 70
+        },
+        {
+            key: "neck",
+            from: 25,
+            to: 60
+        }
+    ]
     // Значения полей формы и «было ли это поле задано» — двумя словами, а не
     // одним числом: пустой обхват — это «не измерял», а 0 см — измерение,
     // и запись без этого различия затирала бы прежнее значение (upsert).
@@ -610,27 +709,17 @@ PageScaffold {
         if (page.measurementDirty === true && force !== true)
             return;
 
-        const map = {
-            arm: "armCm",
-            chest: "chestCm",
-            hip: "hipCm",
-            thigh: "thighCm",
-            waist: "waistCm",
-            weight: "weightKg"
-        };
+        // Только заданные показатели: у незаданного обхвата ключа в карте нет, и
+        // показывать в поле значение значило бы выдумать измерение.
         const values = {};
         const filled = {};
 
-        for (const key in map) {
-            // Только заполненные поля: у незаданного обхвата значение -1, и
-            // показывать его в поле значило бы выдумать измерение.
-            if (page.viewModel.hasMeasurement) {
-                const raw = page.viewModel[map[key]];
+        if (page.viewModel.hasMeasurement) {
+            const stored = page.viewModel.measurementValues;
 
-                if (raw !== undefined && raw >= 0) {
-                    values[key] = raw;
-                    filled[key] = true;
-                }
+            for (const key in stored) {
+                values[key] = stored[key];
+                filled[key] = true;
             }
         }
 
@@ -641,19 +730,58 @@ PageScaffold {
         page.measurementDirty = false;
     }
 
+    function measurementIsDue() {
+        return page.hasModel && page.viewModel.measurementDue === true;
+    }
+
+    // «2026-10-07» → «7 октября»: дата приходит из C++ строкой ISO.
+    function formatShortDate(isoDate) {
+        const parts = String(isoDate).split("-");
+
+        return Qt.formatDate(new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])), "d MMMM");
+    }
+
+    // Подсказка расписания замеров: пора мерить сейчас либо дата ближайшего.
+    // Пустая строка — программы нет, и показывать нечего.
+    function measurementHint() {
+        if (!page.hasModel)
+            return "";
+
+        if (page.viewModel.measurementDue === true)
+            return qsTr("Пора мерить: замер по расписанию");
+
+        const next = page.viewModel.nextMeasurementDate;
+
+        if (next === undefined || next === null || String(next).length === 0)
+            return "";
+
+        return qsTr("Следующий замер — %1").arg(page.formatShortDate(next));
+    }
+
     function saveMeasurements() {
         if (page.viewModel === undefined || page.viewModel === null)
             return;
 
         const filled = page.measurementFilled;
         const values = page.measurementValues;
-        // Флаг и значение идут отдельными аргументами: незаполненное поле
-        // передаётся как «не задано», а не как ноль, иначе оно затирало бы
-        // значение, введённое ранее.
-        const saved = page.viewModel.saveMeasurement(values.weight !== undefined ? values.weight : -1, filled.weight === true, values.chest !== undefined ? values.chest : -1, filled.chest === true, values.waist !== undefined ? values.waist : -1, filled.waist === true, values.hip !== undefined ? values.hip : -1, filled.hip === true, values.arm !== undefined ? values.arm : -1, filled.arm === true, values.thigh !== undefined ? values.thigh : -1, filled.thigh === true);
+        // Уходят только заполненные поля: незаполненное передаётся отсутствием
+        // ключа («не измерял»), а не нулём, иначе оно затирало бы значение,
+        // введённое ранее.
+        const payload = {};
+
+        for (const key in filled) {
+            if (filled[key] === true && (key === "weight" || page.selectedMeasurementKeys.indexOf(key) >= 0))
+                payload[key] = values[key];
+        }
+
+        if (Object.keys(payload).length === 0) {
+            Demo.notify(qsTr("Заполните хотя бы одно поле"));
+            return;
+        }
+        const saved = page.viewModel.saveMeasurement(payload);
 
         if (saved === false) {
-            Demo.notify(qsTr("Заполните хотя бы одно поле"));
+            Demo.notify(qsTr("Не удалось сохранить замеры. Введённые значения сохранены в форме — повторите попытку."));
 
             return;
         }

@@ -42,6 +42,7 @@ Item {
 
                 readonly property bool active: bar.currentIndex === index
 
+                hoverEnabled: !Theme.touchPlatform
                 height: Theme.tabBarHeight
                 width: bar.width / 4
 
@@ -50,20 +51,21 @@ Item {
                         anchors.centerIn: parent
                         color: Theme.accentTint
                         height: 52
-                        opacity: tabButton.active ? 1.0 : 0.0
+                        opacity: tabButton.active || tabButton.pressed || tabButton.hovered ? 1.0 : 0.0
                         radius: Theme.radiusLg
                         scale: tabButton.active ? 1.0 : 0.85
-                        visible: tabButton.active
+                        visible: opacity > 0
                         width: parent.width - 24
 
                         Behavior on opacity {
                             NumberAnimation {
-                                duration: 160
+                                duration: Theme.selectionDuration
+                                easing.type: Easing.OutCubic
                             }
                         }
                         Behavior on scale {
                             NumberAnimation {
-                                duration: 160
+                                duration: Theme.selectionDuration
                                 easing.type: Easing.OutCubic
                             }
                         }

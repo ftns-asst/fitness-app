@@ -43,6 +43,7 @@ Item {
                     readonly property bool active: chips.selectedIndices !== null ? chips.selectedIndices.indexOf(index) >= 0 : chips.currentIndex === index
 
                     // Hit-area — Theme.touchMin, визуальная pill остаётся 36 dp.
+                    hoverEnabled: !Theme.touchPlatform
                     height: chips.height
                     width: chipLabel.implicitWidth + Spacing.screenPadding * 2
 
@@ -50,7 +51,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         border.color: Theme.border
                         border.width: chip.active ? 0 : Theme.borderWidth
-                        color: chip.active ? Theme.accent : Theme.surface
+                        color: chip.active ? (chip.down ? Theme.accentPressed : Theme.accent) : chip.down || chip.hovered ? Theme.surfaceMuted : Theme.surface
                         height: 36
                         radius: Theme.radiusLg
                         width: parent.width
@@ -66,6 +67,13 @@ Item {
                         id: chipLabel
 
                         color: chip.active ? Theme.accentForeground : Theme.textSecondary
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: Theme.pressFeedbackDuration
+                                easing.type: Easing.OutCubic
+                            }
+                        }
                         font: Typography.captionStrong
                         horizontalAlignment: Text.AlignHCenter
                         text: modelData

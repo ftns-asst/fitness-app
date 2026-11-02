@@ -53,6 +53,8 @@ TestCase {
         }
         function loadCatalogs() {
         }
+        function resetFilters() {
+        }
     }
 
     Component {
@@ -108,18 +110,33 @@ TestCase {
     }
 
     function init() {
-        page = createTemporaryObject(dayPageComponent, testCase);
+        page = createTemporaryObject(dayPageComponent, testCase, {
+            width: 360,
+            height: 640
+        });
         verify(page !== null);
         page.parent = testCase.Window.window.contentItem;
         wait(0);
     }
 
+    function test_openingDoesNotResetUserSelection() {
+        const popup = page.exercisePickerItem;
+        popup.catalog = catalogStub;
+        popup.open();
+        popup.expandedIndex = 0;
+        popup.pickedRepsMin = 9;
+        popup.pickedRepsMax = 12;
+        tryCompare(popup, "opened", true);
+        compare(popup.expandedIndex, 0);
+        compare(popup.pickedRepsMin, 9);
+        compare(popup.pickedRepsMax, 12);
+    }
     function test_rowsRender() {
         const popup = page.exercisePickerItem;
 
         popup.catalog = catalogStub;
         popup.open();
-        wait(200);
+        tryCompare(popup, "opened", true);
 
         verify(popup.visible, "окно не открылось");
         verify(popup.showList === true, "каталог не признан непустым");
@@ -148,7 +165,7 @@ TestCase {
 
         popup.catalog = catalogStub;
         popup.open();
-        wait(200);
+        tryCompare(popup, "opened", true);
 
         verify(popup.visible);
         verify(popup.expandedIndex === -1, "окно открылось с раскрытой строкой");
@@ -173,6 +190,77 @@ TestCase {
         compare(signalSpy.signalArguments[0][0], "builtin-squat", "picked: не тот id упражнения");
         compare(signalSpy.signalArguments[0][1], "Присед", "picked: не то название");
         compare(signalSpy.signalArguments[0][3], 4, "picked: не то число подходов по умолчанию");
+        compare(signalSpy.signalArguments[0][4], 5);
+        compare(signalSpy.signalArguments[0][5], 8);
+    }
+
+    function test_collapsingPrescriptionKeepsValues() {
+        const popup = page.exercisePickerItem;
+        popup.catalog = catalogStub;
+        popup.open();
+        tryCompare(popup, "opened", true);
+        const row = testCase.findByName(popup.contentItem, "exercisePickerRow");
+        row.children[0].clicked();
+        testCase.findByName(popup.contentItem, "exerciseRepsMin").edited(12);
+        testCase.findByName(popup.contentItem, "exercisePickerCollapse").clicked();
+        compare(popup.expandedIndex, -1);
+        row.children[0].clicked();
+        compare(popup.expandedIndex, 0);
+        compare(popup.pickedRepsMin, 12);
+        compare(popup.pickedRepsMax, 12);
+    }
+    function test_dragPrescriptionCollapsesOnlyParameters() {
+        const oldWidth = testCase.Window.window.width;
+        const oldHeight = testCase.Window.window.height;
+        testCase.Window.window.width = 390;
+        testCase.Window.window.height = 812;
+        const popup = page.exercisePickerItem;
+        popup.catalog = catalogStub;
+        popup.open();
+        tryCompare(popup, "opened", true);
+        const row = testCase.findByName(popup.contentItem, "exercisePickerRow");
+        row.children[0].clicked();
+        testCase.findByName(popup.contentItem, "exerciseRepsMin").edited(12);
+        wait(250);
+        const grip = testCase.findByName(popup.contentItem, "exercisePrescriptionGrip");
+        const surface = testCase.Window.window.contentItem;
+        const start = grip.mapToItem(surface, grip.width / 2, grip.height / 2);
+        mousePress(surface, start.x, start.y);
+        wait(150);
+        mouseMove(surface, start.x, start.y + 50, 30);
+        mouseMove(surface, start.x, start.y + 120, 30);
+        mouseRelease(surface, start.x, start.y + 120);
+        compare(popup.expandedIndex, -1);
+        verify(popup.visible);
+        row.children[0].clicked();
+        compare(popup.pickedRepsMin, 12);
+        compare(popup.pickedRepsMax, 12);
+        testCase.Window.window.width = oldWidth;
+        testCase.Window.window.height = oldHeight;
+    }
+    function test_repetitionControlsKeepRangeConsistent() {
+        const popup = page.exercisePickerItem;
+        popup.catalog = catalogStub;
+        popup.open();
+        tryCompare(popup, "opened", true);
+        popup.expandedIndex = 0;
+        const minimum = testCase.findByName(popup.contentItem, "exerciseRepsMin");
+        const maximum = testCase.findByName(popup.contentItem, "exerciseRepsMax");
+        minimum.edited(12);
+        compare(popup.pickedRepsMin, 12);
+        compare(popup.pickedRepsMax, 12);
+        maximum.edited(15);
+        compare(popup.pickedRepsMax, 15);
+        wait(250);
+        const addButton = testCase.findByName(popup.contentItem, "exercisePickerAdd");
+        verify(addButton.visible);
+        verify(addButton.mapToItem(popup.contentItem, 0, 0).y + addButton.height <= popup.contentItem.height + 1);
+        signalSpy.target = popup;
+        signalSpy.signalName = "picked";
+        signalSpy.clear();
+        testCase.findByName(popup.contentItem, "exercisePickerAdd").clicked();
+        compare(signalSpy.signalArguments[0][4], 12);
+        compare(signalSpy.signalArguments[0][5], 15);
     }
 
     SignalSpy {

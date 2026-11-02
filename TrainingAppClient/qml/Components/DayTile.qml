@@ -26,6 +26,14 @@ Item {
     property bool isActive: false
     signal clicked
 
+    scale: tap.pressed ? 0.97 : 1
+    Behavior on scale {
+        NumberAnimation {
+            duration: Theme.pressScaleDuration
+            easing.type: Easing.OutCubic
+        }
+    }
+
     readonly property bool isRest: tileKind === "rest"
 
     // — Геометрия плитки (§3.3) —
@@ -110,6 +118,7 @@ Item {
         width: tile.markWidth
     }
     TapHandler {
+        id: tap
         onTapped: tile.clicked()
     }
 

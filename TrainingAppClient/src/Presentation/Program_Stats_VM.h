@@ -64,6 +64,11 @@ class Avm_Program_Stats : public QObject
 	Q_PROPERTY(AList_Model *exercise_strength READ exercise_strength CONSTANT)
 	Q_PROPERTY(AList_Model *goal_progress READ goal_progress CONSTANT)
 	Q_PROPERTY(AList_Model *measurements READ measurements CONSTANT)
+	// Динамика тела (T2): таблица «старт → сейчас» по параметрам с замерами,
+	// серия веса для графика со средним за 7 дней и карта изменений по замерам.
+	Q_PROPERTY(AList_Model *trends READ trends CONSTANT)
+	Q_PROPERTY(AList_Model *weight_series READ weight_series CONSTANT)
+	Q_PROPERTY(AList_Model *change_map READ change_map CONSTANT)
 
 public:
 	Avm_Program_Stats(AProgram_Repository *in_program_repository, AWorkout_Repository *in_workout_repository,
@@ -113,6 +118,9 @@ public:
 	AList_Model *exercise_strength() const;
 	AList_Model *goal_progress() const;
 	AList_Model *measurements() const;
+	AList_Model *trends() const;
+	AList_Model *weight_series() const;
+	AList_Model *change_map() const;
 
 signals:
 	void changed();
@@ -136,6 +144,9 @@ private:
 	AList_Model *Exercise_Strength_Model;
 	AList_Model *Goal_Progress_Model;
 	AList_Model *Measurements_Model;
+	AList_Model *Trends_Model;
+	AList_Model *Weight_Series_Model;
+	AList_Model *Change_Map_Model;
 
 	QString Today_Text;
 	bool Today_Is_Pinned = false; // дата задана извне (тесты) и часами не обновляется

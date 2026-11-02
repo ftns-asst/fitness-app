@@ -211,6 +211,7 @@ bool Avm_Program_Edit::Copy_Day(int in_from_weekday, int in_to_weekday)
 		Draft_Exercises.append(copy);
 	}
 
+	Draft_Days[in_to_weekday - 1].Kind = Draft_Days.at(in_from_weekday - 1).Kind;
 	Reindex_Day_Exercises(from_id);
 	Refresh_Day_Model();
 	Refresh_Exercise_Model();

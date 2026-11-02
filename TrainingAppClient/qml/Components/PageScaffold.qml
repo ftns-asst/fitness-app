@@ -15,6 +15,8 @@ Rectangle {
 
     property real bottomInset: 0
     property string caption: ""
+    property bool showHeader: true
+    property bool pageActive: visible
     default property alias content: bodyColumn.data
     // Содержимое закреплённой нижней панели: страница задаёт его как
     // `footer: RowLayout { … }`, а каркас держит панель на экране при любой
@@ -24,7 +26,8 @@ Rectangle {
     // Прокручиваемая область экрана. Открыта наружу, чтобы жест по «пустой»
     // области вокруг контента на широком экране тоже листал страницу
     // (`qml/Components/DragToScroll.qml`).
-    readonly property alias pageFlickable: flick
+    property Component scrollViewComponent: null
+    readonly property var pageFlickable: scrollViewLoader.item !== null ? scrollViewLoader.item : flick
     property alias spacing: bodyColumn.spacing
     property string title: ""
     property real topInset: 0
@@ -70,7 +73,7 @@ Rectangle {
         anchors.topMargin: scaffold.topInset + (header.visible ? Spacing.screenPadding : 0)
         spacing: 4
         // Пустая шапка (страница сама рисует заголовок) не занимает места.
-        visible: scaffold.title.length > 0 || scaffold.caption.length > 0
+        visible: scaffold.showHeader && (scaffold.title.length > 0 || scaffold.caption.length > 0)
 
         Label {
             color: Theme.textPrimary
@@ -133,8 +136,15 @@ Rectangle {
             spacing: Spacing.itemGap
         }
     }
+    Loader {
+        id: scrollViewLoader
+        anchors.fill: flick
+        active: scaffold.scrollViewComponent !== null
+        sourceComponent: scaffold.scrollViewComponent
+    }
     Flickable {
         id: flick
+        visible: scaffold.scrollViewComponent === null
 
         ScrollIndicator.vertical: Theme.touchPlatform ? touchIndicator : null
         anchors.bottom: parent.bottom
@@ -147,8 +157,8 @@ Rectangle {
         anchors.leftMargin: Spacing.screenPadding
         anchors.right: parent.right
         anchors.rightMargin: Spacing.screenPadding
-        anchors.top: header.bottom
-        anchors.topMargin: header.visible ? Spacing.sectionGap : 0
+        anchors.top: header.visible ? header.bottom : parent.top
+        anchors.topMargin: header.visible ? Spacing.sectionGap : scaffold.topInset
         bottomMargin: Spacing.sectionGap
         boundsBehavior: scaffold.elasticScroll ? Flickable.DragAndOvershootBounds : Flickable.StopAtBounds
         clip: true

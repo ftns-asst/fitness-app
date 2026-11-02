@@ -31,7 +31,7 @@ Item {
         anchors.fill: parent
         border.color: tile.selected ? Theme.accent : "transparent"
         border.width: Theme.borderWidth
-        color: tile.selected ? Theme.accent : Theme.surfaceMuted
+        color: tile.selected ? (tap.pressed ? Theme.accentPressed : Theme.accent) : tap.pressed || hover.hovered ? Theme.accentTint : Theme.surfaceMuted
         radius: Theme.radiusMd
 
         Behavior on color {
@@ -68,7 +68,14 @@ Item {
             width: parent.width
         }
     }
+    HoverHandler {
+        id: hover
+
+        enabled: !Theme.touchPlatform
+    }
     TapHandler {
+        id: tap
+
         onTapped: tile.clicked()
     }
 }

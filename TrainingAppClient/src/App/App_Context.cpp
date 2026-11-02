@@ -18,6 +18,7 @@
 #include "Domain/Workout_Logger.h"
 #include "Presentation/Auth_Qml_Bridge.h"
 #include "Presentation/Auth_VM.h"
+#include "Presentation/Diary_VM.h"
 #include "Presentation/Exercises_Editor_VM.h"
 #include "Presentation/Exercises_One_VM.h"
 #include "Presentation/Exercises_VM.h"
@@ -255,6 +256,10 @@ void AsApp_Context::Create_Program_Stack()
 	Measurement_Repository_Instance = new AMeasurement_Repository(SQL_Database_Instance, this);
 	Stats_Repository_Instance = new AStats_Repository(SQL_Database_Instance, this);
 	Workout_Repository_Instance = new AWorkout_Repository(SQL_Database_Instance, this);
+	Day_Note_Repository_Instance = new ADay_Note_Repository(SQL_Database_Instance, this);
+	Diary_VM_Instance =
+	    new Avm_Diary(Program_Repository_Instance, Rule_Repository_Instance, Workout_Repository_Instance,
+	                  Measurement_Repository_Instance, Day_Note_Repository_Instance, Stats_Repository_Instance, this);
 
 	Program_Service_Instance = new AsProgram_Service(Program_Repository_Instance, this);
 	Workout_Logger_Instance = new AsWorkout_Logger(Workout_Repository_Instance, Program_Repository_Instance);
@@ -287,6 +292,8 @@ void AsApp_Context::Destroy_Stack()
 	Macro_VM_Instance = 0;
 	delete Macro_Calculator_Instance;
 	Macro_Calculator_Instance = 0;
+	delete Diary_VM_Instance;
+	Diary_VM_Instance = 0;
 	delete Today_VM_Instance;
 	Today_VM_Instance = 0;
 	delete Program_Catalog_VM_Instance;
@@ -303,6 +310,8 @@ void AsApp_Context::Destroy_Stack()
 	Workout_Logger_Instance = 0;
 	delete Program_Service_Instance;
 	Program_Service_Instance = 0;
+	delete Day_Note_Repository_Instance;
+	Day_Note_Repository_Instance = 0;
 	delete Workout_Repository_Instance;
 	Workout_Repository_Instance = 0;
 	delete Stats_Repository_Instance;
@@ -559,6 +568,11 @@ Avm_Exercises_Editor *AsApp_Context::Exercises_Editor_VM() const
 Avm_Exercises_One *AsApp_Context::Exercises_One_VM() const
 {
 	return Exercises_One_VM_Instance;
+}
+//-------------------------------------------------------------------------------------------------------------
+Avm_Diary *AsApp_Context::Diary_VM() const
+{
+	return Diary_VM_Instance;
 }
 //-------------------------------------------------------------------------------------------------------------
 Avm_Today *AsApp_Context::Today_VM() const

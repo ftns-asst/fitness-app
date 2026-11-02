@@ -45,6 +45,9 @@ TestCase {
         stub.hasProgram = true;
         stub.hasMacroResult = false;
         stub.generateCalls = [];
+        stub.reloadCalls = [];
+        stub.canEditRules = true;
+        stub.canCheckin = true;
 
         page = createTemporaryObject(rulesPageComponent, testCase);
 
@@ -92,6 +95,20 @@ TestCase {
 
     name: "ProgramRules"
 
+    function test_reloadCarriesSelectedProgram() {
+        page.programId = "selected-program";
+        page.reload();
+        compare(stub.reloadCalls[stub.reloadCalls.length - 1], "selected-program");
+    }
+
+    function test_lockedProgramCannotGenerateRules() {
+        stub.canEditRules = false;
+        const button = testCase.findByName(page, "macroRulesButton");
+        compare(button.enabled, false);
+        page.generateFromMacro();
+        compare(stub.generateCalls.length, 0);
+    }
+
     Component {
         id: rulesPageComponent
 
@@ -111,6 +128,8 @@ TestCase {
 
         property bool hasProgram: true
         property bool hasMacroResult: false
+        property bool canEditRules: true
+        property bool canCheckin: true
         property string errorKey: ""
         property string rangeFrom: ""
         property string rangeTo: ""
@@ -121,8 +140,10 @@ TestCase {
         property int checkinCount: 0
         property var rules: ruleStub
         property var generateCalls: []
+        property var reloadCalls: []
 
-        function reload(userId) {
+        function reload(userId, programId) {
+            stub.reloadCalls.push(programId);
             return true;
         }
 

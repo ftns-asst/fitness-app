@@ -1,5 +1,6 @@
 ﻿#include "Presentation/List_Model.h"
 
+#include <QAbstractItemModelTester>
 #include <QSignalSpy>
 #include <QtTest>
 
@@ -17,6 +18,9 @@ private slots:
 	void setRowsEmitsResetAndReplacesData();
 	void outOfRangeIndexIsInvalid();
 	void rowsPreservedAreCopied();
+	void unchangedRowsDoNotReset();
+	void appendAndUpdatePreserveIndexes();
+	void changedIdentityResets();
 
 private:
 	QVector<QVariantMap> Make_Rows();
@@ -120,6 +124,78 @@ void AList_Model_Test::rowsPreservedAreCopied()
 
 	// Модель держит собственную копию: правка исходного контейнера не влияет.
 	QCOMPARE(model.Data(0, Qt::UserRole + 2).toString(), QString("Сила"));
+}
+
+void AList_Model_Test::unchangedRowsDoNotReset()
+{
+	AList_Model model;
+	model.Set_Roles({"id", "title"});
+	model.Set_Rows(Make_Rows());
+	QPersistentModelIndex anchor(model.index(1));
+	QSignalSpy resets(&model, &AList_Model::modelReset);
+	QSignalSpy counts(&model, &AList_Model::countChanged);
+
+	model.Set_Rows(Make_Rows());
+
+	QCOMPARE(resets.count(), 0);
+	QCOMPARE(counts.count(), 0);
+	QVERIFY(anchor.isValid());
+	QCOMPARE(anchor.row(), 1);
+}
+
+void AList_Model_Test::appendAndUpdatePreserveIndexes()
+{
+	AList_Model model;
+	QAbstractItemModelTester tester(&model, QAbstractItemModelTester::FailureReportingMode::QtTest);
+	model.Set_Roles({"id", "title"});
+	model.Set_Rows(Make_Rows());
+	QPersistentModelIndex anchor(model.index(1));
+	QSignalSpy resets(&model, &AList_Model::modelReset);
+	QSignalSpy inserts(&model, &AList_Model::rowsInserted);
+	QSignalSpy removes(&model, &AList_Model::rowsRemoved);
+	QSignalSpy changes(&model, &AList_Model::dataChanged);
+	QSignalSpy counts(&model, &AList_Model::countChanged);
+	QVector<QVariantMap> page{{{"id", "p3"}, {"title", "Third"}}};
+	model.Append_Rows({});
+	model.Append_Rows(page);
+	page[0]["title"] = "External change";
+	QCOMPARE(model.get(2).value("title").toString(), QString("Third"));
+	QCOMPARE(inserts.count(), 1);
+	QCOMPARE(inserts.at(0).at(1).toInt(), 2);
+	QCOMPARE(inserts.at(0).at(2).toInt(), 2);
+	QVector<QVariantMap> rows = Make_Rows();
+	rows[1]["title"] = "Updated";
+	model.Update_Rows(rows, "id");
+	QCOMPARE(resets.count(), 0);
+	QCOMPARE(changes.count(), 1);
+	QCOMPARE(qvariant_cast<QModelIndex>(changes.at(0).at(0)).row(), 1);
+	QCOMPARE(removes.count(), 1);
+	QCOMPARE(counts.count(), 2);
+	QVERIFY(anchor.isValid());
+	QCOMPARE(anchor.row(), 1);
+	QCOMPARE(anchor.data(Qt::UserRole + 2).toString(), QString("Updated"));
+	model.Update_Rows(rows, "id");
+	QCOMPARE(changes.count(), 1);
+	QCOMPARE(counts.count(), 2);
+	model.Update_Rows({}, "id");
+	QCOMPARE(model.Row_Count(), 0);
+	QVERIFY(!anchor.isValid());
+	QCOMPARE(resets.count(), 0);
+}
+//-------------------------------------------------------------------------------------------------------------
+void AList_Model_Test::changedIdentityResets()
+{
+	AList_Model model;
+	model.Set_Roles({"id", "title"});
+	model.Set_Rows(Make_Rows());
+	QVector<QVariantMap> rows = Make_Rows();
+	rows.swapItemsAt(0, 1);
+	QSignalSpy resets(&model, &AList_Model::modelReset);
+	QSignalSpy counts(&model, &AList_Model::countChanged);
+	model.Update_Rows(rows, "id");
+	QCOMPARE(resets.count(), 1);
+	QCOMPARE(counts.count(), 0);
+	QCOMPARE(model.get(0).value("id").toString(), QString("p2"));
 }
 
 QTEST_GUILESS_MAIN(AList_Model_Test)

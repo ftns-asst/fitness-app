@@ -27,7 +27,7 @@ PageScaffold {
         visible: true
     }
 
-    caption: page.hasProgram ? qsTr("Активная программа") : qsTr("Активной программы пока нет")
+    caption: page.hasProgram ? (page.viewModel.state === "active" ? qsTr("Активная программа") : qsTr("Моя программа")) : qsTr("Активной программы пока нет")
     title: qsTr("Моя программа")
 
     readonly property bool hasProgram: page.viewModel !== undefined && page.viewModel !== null && page.viewModel.hasProgram
@@ -148,6 +148,8 @@ PageScaffold {
             delegate: DayTile {
                 // Роли берутся через model.имя: обязательные свойства для
                 // AList_Model не срабатывают, делегат не создаётся.
+                // В обзоре расписание информационное; настройка дня — в редакторе.
+                enabled: false
                 height: heightCompact
                 isActive: model.isToday
                 isToday: model.isToday
@@ -185,6 +187,13 @@ PageScaffold {
             text: qsTr("Статистика программы")
             variant: AppButton.Secondary
         }
+        AppButton {
+            Layout.fillWidth: true
+            objectName: "programDiaryButton"
+            onClicked: page.diaryRequested()
+            text: qsTr("Дневник")
+            variant: AppButton.Secondary
+        }
         // Кнопка настройки скрыта у завершённой и архивной программы: её
         // структуру менять нельзя (§3.1), и предложение привело бы к отказу.
         AppButton {
@@ -213,6 +222,23 @@ PageScaffold {
     signal editRequested(string programId)
     signal rulesRequested
     signal statsRequested
+    signal diaryRequested
+    signal activated
+
+    AppButton {
+        width: parent.width
+        visible: page.hasProgram && page.viewModel.state === "paused"
+        text: qsTr("Сделать активной")
+        variant: AppButton.Primary
+        onClicked: {
+            if (page.viewModel.activate(page.currentUserId())) {
+                Demo.notify(qsTr("Программа активирована. Предыдущая программа поставлена на паузу."));
+                page.activated();
+            } else {
+                Demo.notify(qsTr("Не удалось активировать программу"));
+            }
+        }
+    }
 
     // Перевод цели enum в подпись: значения приходят строкой (§7).
     function goalText() {

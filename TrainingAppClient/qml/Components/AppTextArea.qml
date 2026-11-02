@@ -60,10 +60,17 @@ Column {
         width: parent.width
 
         background: Rectangle {
-            border.color: area.errorText.length > 0 ? Theme.negative : input.activeFocus ? Theme.accent : Theme.border
+            border.color: area.errorText.length > 0 ? Theme.negative : input.activeFocus ? Theme.accent : input.hovered ? Theme.textMuted : Theme.border
             border.width: area.errorText.length > 0 || input.activeFocus ? 2 : Theme.borderWidth
             color: Theme.surfaceMuted
             radius: Theme.radiusMd
+
+            Behavior on border.color {
+                ColorAnimation {
+                    duration: Theme.pressFeedbackDuration
+                    easing.type: Easing.OutCubic
+                }
+            }
         }
 
         // Ширина прокручиваемого содержимого задаётся явно. По умолчанию
@@ -75,6 +82,7 @@ Column {
             id: input
 
             color: Theme.textPrimary
+            hoverEnabled: !Theme.touchPlatform
             font: Typography.body
             leftPadding: Spacing.cardPadding
             placeholderTextColor: Theme.textMuted

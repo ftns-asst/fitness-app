@@ -5,6 +5,8 @@
 #include "Data/Program/Rule_Repository.h"
 #include "Data/Program/Stats_Repository.h"
 #include "Data/Program/Workout_Repository.h"
+#include "Domain/Measurement_Schedule.h"
+#include "Domain/Measurement_Trend.h"
 #include "Presentation/Program_Rows.h"
 
 #include <QDate>
@@ -22,13 +24,17 @@ Avm_Program_Stats::Avm_Program_Stats(AProgram_Repository *in_program_repository,
       Measurement_Repository_Instance(in_measurement_repository), Stats_Repository_Instance(in_stats_repository),
       Weeks(new AList_Model(this)), Rule_Stats_Model(new AList_Model(this)),
       Exercise_Strength_Model(new AList_Model(this)), Goal_Progress_Model(new AList_Model(this)),
-      Measurements_Model(new AList_Model(this))
+      Measurements_Model(new AList_Model(this)), Trends_Model(new AList_Model(this)),
+      Weight_Series_Model(new AList_Model(this)), Change_Map_Model(new AList_Model(this))
 {
 	Today_Text = QDate::currentDate().toString("yyyy-MM-dd");
 
 	Weeks->Set_Roles(Program_Rows::Week_Aggregate_Roles());
 	Rule_Stats_Model->Set_Roles(Program_Rows::Rule_Stat_Roles());
 	Measurements_Model->Set_Roles(Program_Rows::Measurement_Roles());
+	Trends_Model->Set_Roles(Program_Rows::Trend_Roles());
+	Weight_Series_Model->Set_Roles(Program_Rows::Weight_Point_Roles());
+	Change_Map_Model->Set_Roles(Program_Rows::Change_Row_Roles());
 }
 //-------------------------------------------------------------------------------------------------------------
 void Avm_Program_Stats::Set_Today(const QString &in_date)
@@ -154,6 +160,14 @@ bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_
 	Goal_Progress_Model->Set_Rows(Program_Rows::Build_Goal_Progress(Stats.Goal_Progress));
 	Measurements_Model->Set_Rows(Program_Rows::Build_Measurements(facts.Measurements));
 
+	// Динамика тела — чистая функция от замеров окна программы, её финиша и
+	// целей: в кэш статистики не входит и пересчитывается при каждом обновлении.
+	Trends_Model->Set_Rows(Program_Rows::Build_Trends(AMeasurement_Trend::Compute_Trends(
+	    facts.Measurements, AMeasurement_Schedule::End_Date_Of(facts.Program), facts.Goal_Targets)));
+	Weight_Series_Model->Set_Rows(
+	    Program_Rows::Build_Weight_Series(AMeasurement_Trend::Weight_Series(facts.Measurements)));
+	Change_Map_Model->Set_Rows(Program_Rows::Build_Change_Map(AMeasurement_Trend::Change_Map(facts.Measurements)));
+
 	// Кэш — ускоритель отображения, не источник истины (§5.4): он пишется
 	// после успешного пересчёта и помечает ревизию структуры.
 	if (Stats_Repository_Instance != 0)
@@ -178,6 +192,9 @@ void Avm_Program_Stats::Clear_Stats()
 	Exercise_Strength_Model->Set_Rows(QVector<QVariantMap>());
 	Goal_Progress_Model->Set_Rows(QVector<QVariantMap>());
 	Measurements_Model->Set_Rows(QVector<QVariantMap>());
+	Trends_Model->Set_Rows(QVector<QVariantMap>());
+	Weight_Series_Model->Set_Rows(QVector<QVariantMap>());
+	Change_Map_Model->Set_Rows(QVector<QVariantMap>());
 }
 //-------------------------------------------------------------------------------------------------------------
 void Avm_Program_Stats::Clear_Error()
@@ -324,5 +341,20 @@ AList_Model *Avm_Program_Stats::goal_progress() const
 AList_Model *Avm_Program_Stats::measurements() const
 {
 	return Measurements_Model;
+}
+//-------------------------------------------------------------------------------------------------------------
+AList_Model *Avm_Program_Stats::trends() const
+{
+	return Trends_Model;
+}
+//-------------------------------------------------------------------------------------------------------------
+AList_Model *Avm_Program_Stats::weight_series() const
+{
+	return Weight_Series_Model;
+}
+//-------------------------------------------------------------------------------------------------------------
+AList_Model *Avm_Program_Stats::change_map() const
+{
+	return Change_Map_Model;
 }
 //-------------------------------------------------------------------------------------------------------------

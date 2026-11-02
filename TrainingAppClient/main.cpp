@@ -4,6 +4,7 @@
 #include "App/App_Logger.h"
 #include "Data/Exercises/Exercises_Repository.h"
 #include "Presentation/Auth_Qml_Bridge.h"
+#include "Presentation/Diary_VM.h"
 #include "Presentation/Exercises_Editor_VM.h"
 #include "Presentation/Exercises_One_VM.h"
 #include "Presentation/Exercises_VM.h"
@@ -143,6 +144,7 @@ int main(int argc, char *argv[])
 	// Главный экран «Сегодня» на данных (issue 27): C++-слой готов, разметка
 	// TodayPage переводится на него отдельным шагом.
 	engine.rootContext()->setContextProperty("TodayVM", (QObject *)app_context.Today_VM());
+	engine.rootContext()->setContextProperty("DiaryVM", (QObject *)app_context.Diary_VM());
 	// Экран «Рассчитать» КБЖУ (спринт S7): модель считает по формулам домена и
 	// хранит дату рождения и активность в profile_local (схема v5).
 	engine.rootContext()->setContextProperty("MacroVM", (QObject *)app_context.Macro_VM());

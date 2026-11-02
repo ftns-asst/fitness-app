@@ -14,8 +14,9 @@ import TrainingAppClient
 // Каталог приходит контекстным свойством ExercisesVM (Avm_Exercises); в
 // qmltestrunner его нет — typeof безопасен, окно откатывается в пустое
 // состояние.
-Popup {
+SwipePopup {
     id: picker
+    dragHandle: popupGrip
 
     // Каталог: контекстное свойство приложения или подменённая заглушка теста.
     property var catalog: typeof ExercisesVM !== "undefined" ? ExercisesVM : null
@@ -24,11 +25,18 @@ Popup {
     readonly property bool showList: picker.hasCatalog && picker.catalog.exercise_list.count > 0
     // Раскрытая строка: одна за раз, повторное нажатие сворачивает.
     property int expandedIndex: -1
+    onExpandedIndexChanged: {
+        if (expandedIndex >= 0)
+            prescriptionGrip.reset();
+    }
+    property string configuredExerciseId: ""
     // Значения раскрытой строки: подходы и вес по умолчанию — как на экране дня.
     property int pickedSets: 4
     property double pickedWeight: 40
+    property int pickedRepsMin: 5
+    property int pickedRepsMax: 8
 
-    signal picked(string exerciseId, string title, real weightKg, int sets)
+    signal picked(string exerciseId, string title, real weightKg, int sets, int repsMin, int repsMax)
 
     // Popup центрируется и размеряется относительно parentItem. Родителя
     // задаёт хостящий экран (ProgramDayPage — корень страницы): Popup,
@@ -42,44 +50,12 @@ Popup {
     width: picker.parent !== null ? Math.min(picker.parent.width - Spacing.screenPadding * 2, 560) : 360
     height: picker.parent !== null ? Math.min(picker.parent.height - Spacing.screenPadding * 2, 640) : 480
     x: picker.parent !== null ? Math.round((picker.parent.width - picker.width) / 2) : 0
-    y: picker.parent !== null ? Math.round((picker.parent.height - picker.height) / 2) : 0
     modal: true
     padding: Spacing.listGap
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     dim: true
 
-    // Окно выезжает снизу с проявлением, закрывается обратным движением:
-    // резкое появление поверх экрана читалось как сбой, а не как выбор.
-    enter: Transition {
-        NumberAnimation {
-            duration: 220
-            easing.type: Easing.OutCubic
-            from: 0
-            property: "opacity"
-            to: 1
-        }
-        NumberAnimation {
-            duration: 260
-            easing.type: Easing.OutCubic
-            from: 0.94
-            property: "scale"
-            to: 1
-        }
-    }
-    exit: Transition {
-        NumberAnimation {
-            duration: 140
-            easing.type: Easing.InCubic
-            property: "opacity"
-            to: 0
-        }
-        NumberAnimation {
-            duration: 140
-            easing.type: Easing.InCubic
-            property: "scale"
-            to: 0.96
-        }
-    }
+    // Закрытие продолжает траекторию перетаскивания вниз.
 
     background: Rectangle {
         border.color: Theme.border
@@ -88,7 +64,9 @@ Popup {
         radius: Theme.radiusLg
     }
 
-    onOpened: {
+    onAboutToShow: {
+        popupGrip.reset();
+        prescriptionGrip.reset();
         picker.expandedIndex = -1;
 
         if (picker.hasCatalog) {
@@ -115,6 +93,12 @@ Popup {
 
     contentItem: ColumnLayout {
         spacing: Spacing.itemGap
+        SwipeDismissHandle {
+            id: popupGrip
+            Layout.fillWidth: true
+            objectName: "exercisePickerGrip"
+            onDismissed: picker.close()
+        }
 
         // — Заголовок окна —
         RowLayout {
@@ -200,7 +184,7 @@ Popup {
             objectName: "exercisePickerList"
             Layout.fillHeight: true
             Layout.fillWidth: true
-            Layout.minimumHeight: 120
+            Layout.minimumHeight: addPanel.visible ? 48 : 120
             Layout.minimumWidth: 0
             cellHeight: tileSizer.implicitHeight + list.gap
             cellWidth: Math.floor(list.width / 2)
@@ -239,101 +223,162 @@ Popup {
                     onClicked: {
                         picker.expandedIndex = picker.expandedIndex === row.index ? -1 : row.index;
 
-                        if (picker.expandedIndex !== -1) {
+                        if (picker.expandedIndex !== -1 && picker.configuredExerciseId !== String(row.model.id)) {
+                            picker.configuredExerciseId = String(row.model.id);
                             // Значения по умолчанию — как на экране дня: выбор
                             // всегда начинается с честной заготовки, а не с прошлой.
                             picker.pickedSets = 4;
                             picker.pickedWeight = 40;
+                            picker.pickedRepsMin = 5;
+                            picker.pickedRepsMax = 8;
                         }
                     }
                 }
             }
         }
         // — Панель добавления: подходы, вес и «Добавить» для выбранной плитки —
-        ColumnLayout {
+        Item {
             id: addPanel
-
             readonly property bool hasSelection: picker.expandedIndex >= 0 && picker.showList && picker.expandedIndex < picker.catalog.exercise_list.count
-
-            // Разбор строки на примитивы: объект из ListModel.get() в var-свойстве ненадёжен.
-            readonly property string selectedId: addPanel.hasSelection ? String(picker.catalog.exercise_list.get(picker.expandedIndex).id) : ""
-            readonly property string selectedTitle: addPanel.hasSelection ? String(picker.catalog.exercise_list.get(picker.expandedIndex).title) : ""
-
+            readonly property string selectedId: hasSelection ? String(picker.catalog.exercise_list.get(picker.expandedIndex).id) : ""
+            readonly property string selectedTitle: hasSelection ? String(picker.catalog.exercise_list.get(picker.expandedIndex).title) : ""
+            property string displayTitle: ""
+            onSelectedTitleChanged: {
+                if (selectedTitle.length > 0)
+                    displayTitle = selectedTitle;
+            }
             Layout.fillWidth: true
-            // Панель выезжает и проявляется: выбор плитки виден по отклику, а не
-            // по резкому скачку высоты списка.
-            Layout.preferredHeight: addPanel.hasSelection ? addPanel.implicitHeight : 0
+            Layout.minimumHeight: 0
+            Layout.preferredHeight: hasSelection ? prescriptionBody.implicitHeight : 0
+            visible: Layout.preferredHeight > 0
             clip: true
-            opacity: addPanel.hasSelection ? 1 : 0
-            spacing: Spacing.itemGap
-            visible: opacity > 0.01
-
             Behavior on Layout.preferredHeight {
                 NumberAnimation {
-                    duration: 200
+                    duration: Theme.popupEnterDuration
                     easing.type: Easing.OutCubic
                 }
             }
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 160
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Theme.borderSubtle
-            }
-            Label {
-                Layout.fillWidth: true
-                color: Theme.textPrimary
-                elide: Text.ElideRight
-                font: Typography.bodyStrong
-                text: addPanel.selectedTitle
-            }
-            // Подходы и вес — крупные степперы: «−/+» под большой палец, удержание
-            // повторяет шаг. Вес шагает по 2,5 кг, как линейка на записи подхода.
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Spacing.listGap
-
-                CompactStepper {
+            ColumnLayout {
+                id: prescriptionBody
+                width: parent.width
+                height: implicitHeight
+                spacing: Spacing.itemGap
+                y: prescriptionGrip.offset
+                Rectangle {
                     Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    Layout.preferredWidth: 1
-                    from: 1
-                    label: qsTr("Подходы")
-                    step: 1
-                    to: 20
-                    value: picker.pickedSets
-
-                    onEdited: function (newValue) {
-                        picker.pickedSets = Math.round(newValue);
+                    Layout.preferredHeight: 1
+                    color: Theme.borderSubtle
+                }
+                Item {
+                    Layout.fillWidth: true
+                    implicitHeight: Theme.touchMin + Spacing.itemGap * 2
+                    SwipeDismissHandle {
+                        id: prescriptionGrip
+                        anchors.fill: parent
+                        objectName: "exercisePrescriptionGrip"
+                        accessibleName: qsTr("Свернуть параметры упражнения")
+                        onDismissed: picker.expandedIndex = -1
+                    }
+                    Label {
+                        anchors.left: parent.left
+                        anchors.right: collapseButton.left
+                        anchors.rightMargin: Spacing.itemGap
+                        anchors.verticalCenter: collapseButton.verticalCenter
+                        text: addPanel.displayTitle
+                        font: Typography.bodyStrong
+                        color: Theme.textPrimary
+                        elide: Text.ElideRight
+                    }
+                    AppButton {
+                        id: collapseButton
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        objectName: "exercisePickerCollapse"
+                        text: qsTr("Свернуть")
+                        variant: AppButton.Ghost
+                        onClicked: picker.expandedIndex = -1
                     }
                 }
-                CompactStepper {
+                // Подходы и вес — крупные степперы: «−/+» под большой палец, удержание
+                // повторяет шаг. Вес шагает по 2,5 кг, как линейка на записи подхода.
+                RowLayout {
                     Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    Layout.preferredWidth: 1
-                    decimals: 1
-                    from: 0
-                    label: qsTr("Вес, кг")
-                    step: 2.5
-                    to: 200
-                    value: picker.pickedWeight
+                    spacing: Spacing.listGap
 
-                    onEdited: function (newValue) {
-                        picker.pickedWeight = newValue;
+                    CompactStepper {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        Layout.preferredWidth: 1
+                        from: 1
+                        label: qsTr("Подходы")
+                        step: 1
+                        to: 20
+                        value: picker.pickedSets
+
+                        onEdited: function (newValue) {
+                            picker.pickedSets = Math.round(newValue);
+                        }
+                    }
+                    CompactStepper {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        Layout.preferredWidth: 1
+                        decimals: 1
+                        from: 0
+                        label: qsTr("Вес, кг")
+                        step: 2.5
+                        to: 200
+                        value: picker.pickedWeight
+
+                        onEdited: function (newValue) {
+                            picker.pickedWeight = newValue;
+                        }
                     }
                 }
-            }
-            AppButton {
-                Layout.fillWidth: true
-                objectName: "exercisePickerAdd"
-                onClicked: picker.picked(addPanel.selectedId, addPanel.selectedTitle, picker.pickedWeight, picker.pickedSets)
-                text: qsTr("Добавить в день")
-                variant: AppButton.Primary
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Spacing.listGap
+                    CompactStepper {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        Layout.preferredWidth: 1
+                        objectName: "exerciseRepsMin"
+                        label: qsTr("Повторы от")
+                        from: 1
+                        to: 1000
+                        value: picker.pickedRepsMin
+                        onEdited: function (value) {
+                            picker.pickedRepsMin = Math.round(value);
+                            picker.pickedRepsMax = Math.max(picker.pickedRepsMax, picker.pickedRepsMin);
+                        }
+                    }
+                    CompactStepper {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        Layout.preferredWidth: 1
+                        objectName: "exerciseRepsMax"
+                        label: qsTr("Повторы до")
+                        from: picker.pickedRepsMin
+                        to: 1000
+                        value: picker.pickedRepsMax
+                        onEdited: value => picker.pickedRepsMax = Math.round(value)
+                    }
+                }
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("Для точного числа повторений задайте одинаковые значения.")
+                    font: Typography.caption
+                    color: Theme.textSecondary
+                    wrapMode: Text.WordWrap
+                }
+                AppButton {
+                    Layout.fillWidth: true
+                    objectName: "exercisePickerAdd"
+                    enabled: addPanel.hasSelection && picker.pickedRepsMin > 0 && picker.pickedRepsMax >= picker.pickedRepsMin
+                    onClicked: picker.picked(addPanel.selectedId, addPanel.selectedTitle, picker.pickedWeight, picker.pickedSets, picker.pickedRepsMin, picker.pickedRepsMax)
+                    text: qsTr("Добавить в день")
+                    variant: AppButton.Primary
+                }
             }
         }
         // — Загрузка первой страницы —

@@ -41,6 +41,7 @@ Column {
         id: input
 
         activeFocusOnTab: true
+        hoverEnabled: !Theme.touchPlatform
         color: Theme.textPrimary
         font: Typography.body
         height: Theme.buttonPrimary
@@ -53,7 +54,7 @@ Column {
         width: parent.width
 
         background: Rectangle {
-            border.color: field.errorText.length > 0 ? Theme.negative : input.activeFocus ? Theme.accent : Theme.border
+            border.color: field.errorText.length > 0 ? Theme.negative : input.activeFocus ? Theme.accent : input.hovered ? Theme.textMuted : Theme.border
             border.width: field.errorText.length > 0 || input.activeFocus ? 2 : Theme.borderWidth
             color: Theme.surfaceMuted
             radius: Theme.radiusMd

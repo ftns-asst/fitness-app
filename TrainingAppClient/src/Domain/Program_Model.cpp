@@ -18,7 +18,8 @@ static const char *const Goal_Metric_Texts[] = {"bodyWeightKg",  "workingWeightK
                                                 "measurementCm", "workoutsPerWeek", "tonnagePerWeekKg",
                                                 "repsAtWeight"};
 static const char *const Goal_Unit_Texts[] = {"kg", "percent", "cm", "count", "timesPerWeek"};
-static const char *const Measurement_Key_Texts[] = {"chest", "waist", "hip", "arm", "thigh"};
+static const char *const Measurement_Key_Texts[] = {"chest", "waist",     "hip",    "arm", "thigh",
+                                                    "belly", "shoulders", "calves", "neck"};
 static const char *const Goal_Direction_Texts[] = {"increase", "decrease", "maintain"};
 static const char *const Rule_Check_Source_Texts[] = {"selfReport",           "computedFromSets", "computedFromProfile",
                                                       "computedFromSessions", "computedFromLog",  "mixed"};
@@ -391,6 +392,146 @@ bool From_String(const QString &in_text, EGoal_Target_State &out_value)
 	}
 
 	return false;
+}
+//-------------------------------------------------------------------------------------------------------------
+// Поля замера по ключу. Один switch на весь домен: добавление параметра
+// правится здесь, а не в каждой цепочке if у читателя и писателя.
+static bool Measurement_Slot(SBody_Measurement &io_measurement, EMeasurement_Key in_key, double *&out_value,
+                             bool *&out_has)
+{
+	switch (in_key)
+	{
+	case EMeasurement_Key::Chest:
+		out_value = &io_measurement.Chest_Cm;
+		out_has = &io_measurement.Has_Chest_Cm;
+
+		return true;
+
+	case EMeasurement_Key::Waist:
+		out_value = &io_measurement.Waist_Cm;
+		out_has = &io_measurement.Has_Waist_Cm;
+
+		return true;
+
+	case EMeasurement_Key::Hip:
+		out_value = &io_measurement.Hip_Cm;
+		out_has = &io_measurement.Has_Hip_Cm;
+
+		return true;
+
+	case EMeasurement_Key::Arm:
+		out_value = &io_measurement.Arm_Cm;
+		out_has = &io_measurement.Has_Arm_Cm;
+
+		return true;
+
+	case EMeasurement_Key::Thigh:
+		out_value = &io_measurement.Thigh_Cm;
+		out_has = &io_measurement.Has_Thigh_Cm;
+
+		return true;
+
+	case EMeasurement_Key::Belly:
+		out_value = &io_measurement.Belly_Cm;
+		out_has = &io_measurement.Has_Belly_Cm;
+
+		return true;
+
+	case EMeasurement_Key::Shoulders:
+		out_value = &io_measurement.Shoulders_Cm;
+		out_has = &io_measurement.Has_Shoulders_Cm;
+
+		return true;
+
+	case EMeasurement_Key::Calves:
+		out_value = &io_measurement.Calves_Cm;
+		out_has = &io_measurement.Has_Calves_Cm;
+
+		return true;
+
+	case EMeasurement_Key::Neck:
+		out_value = &io_measurement.Neck_Cm;
+		out_has = &io_measurement.Has_Neck_Cm;
+
+		return true;
+
+	default:
+		return false;
+	}
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Get_Measurement_Value(const SBody_Measurement &in_measurement, EMeasurement_Key in_key, double &out_value)
+{
+	SBody_Measurement copy = in_measurement;
+	double *value = 0;
+	bool *has = 0;
+
+	if (!Measurement_Slot(copy, in_key, value, has) || !*has)
+		return false;
+
+	out_value = *value;
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+void Set_Measurement_Value(SBody_Measurement &io_measurement, EMeasurement_Key in_key, double in_value)
+{
+	double *value = 0;
+	bool *has = 0;
+
+	if (!Measurement_Slot(io_measurement, in_key, value, has))
+		return;
+
+	*value = in_value;
+	*has = true;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Has_Any_Measurement_Value(const SBody_Measurement &in_measurement)
+{
+	double ignored;
+
+	if (in_measurement.Has_Weight_Kg)
+		return true;
+
+	for (int i = 0; i < (int)EMeasurement_Key::Max; ++i)
+	{
+		if (Get_Measurement_Value(in_measurement, (EMeasurement_Key)i, ignored))
+			return true;
+	}
+
+	return false;
+}
+//-------------------------------------------------------------------------------------------------------------
+QStringList Measurement_Keys_For_Muscles(const QStringList &in_muscle_groups)
+{
+	// Грудной обхват включает широчайшие и верх спины; плечевой — дельты и
+	// трапеции. Обхват руки — плечо, поэтому предплечья сюда не относятся.
+	// Для поясницы нет отдельного обхвата; шею по трапециям не предполагаем.
+	const QStringList muscles_by_key[] = {
+	    {"chest", "lats", "upper_back", "back"},                   // Chest (back — legacy exercise group)
+	    {"abs", "obliques"},                                       // Waist
+	    {"glutes"},                                                // Hip
+	    {"biceps", "triceps"},                                     // Arm
+	    {"quads", "hamstrings", "adductors", "abductors", "legs"}, // Thigh (legs — legacy)
+	    {"abs"},                                                   // Belly
+	    {"front_delts", "side_delts", "rear_delts", "traps"},      // Shoulders
+	    {"calves"},                                                // Calves
+	    {}};                                                       // Neck
+	QStringList keys;
+
+	for (int i = 0; i < (int)EMeasurement_Key::Max; ++i)
+	{
+		for (int j = 0; j < in_muscle_groups.size(); ++j)
+		{
+			if (muscles_by_key[i].contains(in_muscle_groups.at(j)))
+			{
+				keys.append(To_String((EMeasurement_Key)i));
+				break;
+			}
+		}
+	}
+
+	return keys;
 }
 //-------------------------------------------------------------------------------------------------------------
 QString To_String(EMeasurement_Key in_value)

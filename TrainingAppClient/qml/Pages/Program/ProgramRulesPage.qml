@@ -13,6 +13,7 @@ PageScaffold {
     id: page
 
     property var viewModel: ProgramRulesVM
+    property string programId: ""
     // Панель возврата обязательна: экраны программы открыты поверх вкладок, где
     // таб-бара нет.
     BackBar {
@@ -22,7 +23,7 @@ PageScaffold {
         visible: true
     }
 
-    caption: page.hasProgram ? qsTr("%1 · окно %2…%3").arg(page.today).arg(page.rangeFrom).arg(page.rangeTo) : qsTr("Нет активной программы")
+    caption: page.hasProgram ? qsTr("%1 · окно %2…%3").arg(page.today).arg(page.rangeFrom).arg(page.rangeTo) : page.programId.length > 0 ? qsTr("Программа недоступна") : qsTr("Нет активной программы")
     title: qsTr("Правила и отметки")
 
     readonly property bool hasProgram: page.viewModel !== undefined && page.viewModel !== null && page.viewModel.hasProgram
@@ -52,18 +53,17 @@ PageScaffold {
         if (page.viewModel === undefined || page.viewModel === null)
             return;
 
-        page.viewModel.reload(page.currentUserId());
+        page.viewModel.reload(page.currentUserId(), page.programId);
     }
 
     // Создание/обновление четырёх правил питания из сохранённого расчёта
     // КБЖУ. Успех узнаётся перечитыванием: правила появляются (или пересчитываются
     // по `code`) в списке ниже. Отказ — через errorKey того же ViewModel.
     function generateFromMacro() {
-        if (page.viewModel === undefined || page.viewModel === null)
+        if (page.viewModel === undefined || page.viewModel === null || !page.viewModel.canEditRules)
             return;
 
         page.viewModel.generateRulesFromMacro(page.currentUserId());
-        page.reload();
     }
 
     Label {
@@ -81,7 +81,7 @@ PageScaffold {
         color: Theme.textSecondary
         font: Typography.body
         horizontalAlignment: Text.AlignHCenter
-        text: qsTr("Создайте программу, чтобы вести правила и отметки.")
+        text: page.programId.length > 0 ? qsTr("Не удалось загрузить выбранную программу.") : qsTr("Создайте программу, чтобы вести правила и отметки.")
         visible: page.hasProgram === false
         width: parent.width
         wrapMode: Text.WordWrap
@@ -122,6 +122,7 @@ PageScaffold {
         visible: page.hasProgram
         onClicked: page.generateFromMacro()
         objectName: "macroRulesButton"
+        enabled: page.hasProgram && page.viewModel.canEditRules
         text: qsTr("Создать правила из расчёта")
         variant: AppButton.Secondary
         width: parent.width
@@ -328,6 +329,7 @@ PageScaffold {
                                 // Подпись — «Выполнено»/«Не выполнено»: без нулевого
                                 // минимума пара кнопок шире карточки на узком экране.
                                 Layout.minimumWidth: 0
+                                enabled: page.viewModel.canCheckin
                                 onClicked: page.save(ruleRow.row.ruleId, "done")
                                 text: qsTr("Выполнено")
                                 variant: ruleRow.isDone ? AppButton.Primary : AppButton.Secondary
@@ -335,6 +337,7 @@ PageScaffold {
                             AppButton {
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
+                                enabled: page.viewModel.canCheckin
                                 onClicked: page.save(ruleRow.row.ruleId, "failed")
                                 text: qsTr("Не выполнено")
                                 variant: ruleRow.row.todayState === "failed" ? AppButton.Primary : AppButton.Secondary
@@ -464,7 +467,7 @@ PageScaffold {
     }
 
     function save(ruleId, state) {
-        if (page.viewModel === undefined || page.viewModel === null)
+        if (page.viewModel === undefined || page.viewModel === null || !page.viewModel.canCheckin)
             return;
 
         page.viewModel.saveCheckin(ruleId, state, 0, false, "");

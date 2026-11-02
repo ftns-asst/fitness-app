@@ -20,7 +20,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: pressArea.pressed ? Theme.surfaceMuted : "transparent"
+        color: pressArea.pressed || pressArea.containsMouse ? Theme.surfaceMuted : "transparent"
         radius: Theme.radiusMd
 
         Behavior on color {
@@ -94,6 +94,8 @@ Item {
     }
     MouseArea {
         id: pressArea
+
+        hoverEnabled: !Theme.touchPlatform
 
         anchors.fill: parent
 

@@ -29,6 +29,20 @@ PageScaffold {
     // Запрос возврата: экраны программы открыты поверх вкладок, где таб-бара нет.
     signal backRequested
     readonly property bool hasData: page.viewModel !== undefined && page.viewModel !== null && page.viewModel.hasStats
+    // Версия данных: растёт при каждом обновлении модели. Функции, читающие списки
+    // моделей, получают её аргументом, иначе QML не знал бы, что список изменился.
+    property int dataRevision: 0
+    // Динамика тела есть, когда хотя бы у одного параметра есть замер.
+    readonly property bool hasDynamics: page.hasData && page.viewModel.trends !== undefined && page.viewModel.trends.count > 0
+    readonly property bool hasWeightChart: page.weightValues(page.dataRevision).length >= 2
+
+    Connections {
+        function onChanged() {
+            page.dataRevision += 1;
+        }
+
+        target: page.viewModel
+    }
 
     // Идентификатор программы для статистики. Пустой programId означает
     // «активная программа»: тогда он берётся из ProgramVM, который умеет её
@@ -146,6 +160,108 @@ PageScaffold {
         visible: page.hasData === false
         width: parent.width
         wrapMode: Text.WordWrap
+    }
+
+    // — Динамика тела (T2): график веса, таблица «старт → сейчас», карта изменений —
+    Label {
+        color: Theme.textMuted
+        font: Typography.sectionTitle
+        text: qsTr("Динамика тела")
+        visible: page.hasDynamics
+        width: parent.width
+    }
+    LineChartCard {
+        captionText: page.weightCaption(page.dataRevision)
+        title: qsTr("Вес, кг")
+        values: page.weightValues(page.dataRevision)
+        visible: page.hasWeightChart
+        width: parent.width
+    }
+    AppCard {
+        spacing: Spacing.itemGap
+        visible: page.hasDynamics
+        width: parent.width
+
+        Label {
+            color: Theme.textPrimary
+            font: Typography.bodyStrong
+            text: qsTr("Старт → сейчас")
+            width: parent.width
+        }
+        Repeater {
+            model: page.hasDynamics ? page.viewModel.trends : null
+
+            delegate: MeasurementTrendRow {
+                id: trendRow
+
+                required property var model
+
+                delta: trendRow.model.delta
+                deltaPercent: trendRow.model.deltaPercent
+                favorable: trendRow.model.favorable
+                forecastAtEnd: trendRow.model.forecastAtEnd
+                latest: trendRow.model.latest
+                param: trendRow.model.param
+                points: trendRow.model.points
+                ratePerWeek: trendRow.model.ratePerWeek
+                start: trendRow.model.start
+                trend: trendRow.model.trend
+                width: parent.width
+            }
+        }
+        Label {
+            color: Theme.textMuted
+            font: Typography.caption
+            text: qsTr("Прогноз — продолжение прямой по двум точкам: старту и последнему замеру. Это оценка, а не обещание.")
+            width: parent.width
+            wrapMode: Text.WordWrap
+        }
+    }
+    MeasurementChangeMap {
+        model: page.hasDynamics ? page.viewModel.change_map : null
+        visible: page.hasDynamics
+        width: parent.width
+    }
+    Label {
+        color: Theme.textSecondary
+        font: Typography.body
+        horizontalAlignment: Text.AlignHCenter
+        text: qsTr("Внесите первые замеры на экране «Сегодня» — здесь появятся график веса, темп и прогноз.")
+        visible: page.hasData && page.hasDynamics === false
+        width: parent.width
+        wrapMode: Text.WordWrap
+    }
+
+    // Значения веса для графика: по модели серии, а не по числовому индексу роли
+    // (см. chartValues). dataRevision — только зависимость привязки.
+    function weightValues(revision) {
+        const values = [];
+        const model = page.hasData && page.viewModel.weight_series !== undefined ? page.viewModel.weight_series : null;
+
+        if (model === null)
+            return values;
+
+        for (let i = 0; i < model.rowCount(); ++i) {
+            const row = model.get(i);
+
+            if (row !== undefined && row !== null && row.weightKg !== undefined)
+                values.push(Number(row.weightKg));
+        }
+
+        return values;
+    }
+
+    // Подпись под графиком: среднее за 7 дней по последнему взвешиванию и число
+    // взвешиваний в окне. Среднее сглаживает суточные колебания воды и еды.
+    function weightCaption(revision) {
+        const model = page.hasData && page.viewModel.weight_series !== undefined ? page.viewModel.weight_series : null;
+
+        if (model === null || model.rowCount() === 0)
+            return "";
+
+        const last = model.get(model.rowCount() - 1);
+
+        return qsTr("среднее за 7 дней: %1 кг (замеров: %2)").arg(Qt.locale().toString(Number(last.average7Kg), "f", 1)).arg(last.averagePoints);
     }
 
     // Точки графика — простой массив чисел: LineChartCard сам раскладывает их

@@ -37,11 +37,12 @@ Button {
     // Отзыв на нажатие (Material/iOS): на тач-платформах лёгкое «продавливание»
     // кнопки под пальцем с быстрым пружинным возвратом — нажатие видно сразу,
     // а не через анимацию цвета. На десктопе размер не меняется.
+    hoverEnabled: !Theme.touchPlatform
     scale: Theme.touchPlatform && pressed ? 0.97 : 1.0
 
     Behavior on scale {
         NumberAnimation {
-            duration: 90
+            duration: Theme.pressScaleDuration
             easing.type: Easing.OutCubic
         }
     }
@@ -51,12 +52,12 @@ Button {
         border.width: button.variant === AppButton.Secondary ? Theme.borderWidth : 0
         color: {
             if (button.variant === AppButton.Ghost)
-                return button.pressed ? Theme.surfaceMuted : "transparent";
+                return button.pressed ? Theme.surfaceMuted : button.hovered ? Theme.accentTint : "transparent";
 
             if (button.variant === AppButton.Secondary)
-                return button.pressed ? Theme.surfaceMuted : Theme.surface;
+                return button.pressed ? Theme.surfaceMuted : button.hovered ? Theme.accentSurface : Theme.surface;
 
-            return button.pressed ? Theme.accentPressed : Theme.accent;
+            return button.pressed || button.hovered ? Theme.accentPressed : Theme.accent;
         }
         opacity: button.enabled ? 1.0 : 0.45
         radius: button.variant === AppButton.Primary ? Theme.radiusLg : Theme.radiusMd

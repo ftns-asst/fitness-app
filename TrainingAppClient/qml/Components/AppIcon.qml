@@ -8,14 +8,57 @@ Item {
 
     property color iconColor: Theme.textSecondary
 
-    // today | plans | exercises | profile | settings
+    // today | plans | exercises | profile | settings | target | chevronDown
     property string name: "today"
     property real strokeWidth: 2
 
     height: 24
     width: 24
 
+    Item {
+        anchors.centerIn: parent
+        width: 12
+        height: 8
+        visible: icon.name === "chevronDown"
+        Rectangle {
+            x: 1
+            y: 2
+            width: 8
+            height: icon.strokeWidth
+            radius: height / 2
+            rotation: 45
+            color: icon.iconColor
+        }
+        Rectangle {
+            x: 6
+            y: 2
+            width: 8
+            height: icon.strokeWidth
+            radius: height / 2
+            rotation: -45
+            color: icon.iconColor
+        }
+    }
+
     // — Сегодня: календарь —
+    Item {
+        anchors.fill: parent
+        visible: icon.name === "target"
+        Repeater {
+            model: [20, 12, 4]
+            delegate: Rectangle {
+                required property int modelData
+                anchors.centerIn: parent
+                width: modelData
+                height: width
+                radius: width / 2
+                color: "transparent"
+                border.color: icon.iconColor
+                border.width: icon.strokeWidth
+            }
+        }
+    }
+
     Item {
         anchors.fill: parent
         visible: icon.name === "today"

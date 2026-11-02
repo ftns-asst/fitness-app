@@ -188,20 +188,12 @@ PageScaffold {
                 // Overlay.overlay, который при создании окна мог быть null.
                 parent: page
 
-                onPicked: function (exerciseId, title, weightKg, sets) {
-                    page.addExercise(exerciseId, sets, weightKg);
-                    exercisePicker.close();
+                onPicked: function (exerciseId, title, weightKg, sets, repsMin, repsMax) {
+                    if (page.addExercise(exerciseId, sets, weightKg, repsMin, repsMax))
+                        exercisePicker.close();
+                    else
+                        Demo.notify(qsTr("Не удалось добавить упражнение. Проверьте параметры и повторите."));
                 }
-            }
-            // Заготовка выбора готовой тренировки на день: каталога дней в
-            // модели пока нет (планы появятся в фазе B), поэтому кнопка
-            // только обозначает место. Она заведена сейчас, чтобы будущая
-            // функция не ломала вёрстку экрана.
-            AppButton {
-                Layout.fillWidth: true
-                onClicked: page.pickFromTemplates()
-                text: qsTr("Из готовых программ")
-                variant: AppButton.Secondary
             }
         }
     }
@@ -308,6 +300,7 @@ PageScaffold {
             // Копирование экономит время: семь дней настраиваются вручную, а
             // разница между соседними обычно мала.
             onClicked: page.copyFromPrevious()
+            enabled: page.weekday > 1
             padding: Spacing.itemGap
             text: qsTr("Из предыдущего")
             variant: AppButton.Secondary
@@ -323,15 +316,16 @@ PageScaffold {
     }
 
     function setKind(value) {
+        if (viewModel !== undefined && viewModel !== null && viewModel.setDayKind(weekday, value) === false) {
+            Demo.notify(qsTr("Не удалось изменить вид дня"));
+            return;
+        }
         kind = value;
-
-        if (viewModel !== undefined && viewModel !== null)
-            viewModel.setDayKind(weekday, value);
     }
 
-    function addExercise(exerciseId, setsCount, weightKg) {
+    function addExercise(exerciseId, setsCount, weightKg, repsMin, repsMax) {
         if (viewModel === undefined || viewModel === null)
-            return;
+            return false;
 
         // Значения по умолчанию — прежние заготовки экрана (тесты и быстрое
         // добавление без окна), выбор из окна передаёт их явно.
@@ -339,18 +333,14 @@ PageScaffold {
         const sets = setsCount !== undefined ? setsCount : page.setsCount;
         const weight = weightKg !== undefined ? weightKg : page.targetWeight;
 
-        viewModel.addDayExercise(weekday, id, sets, 5, 8, weight, weight > 0);
-    }
-
-    function pickFromTemplates() {
-        // Каталог готовых тренировок появится вместе с планами (issue 35):
-        // таблица plans/plan_days и чтение из репозитория. Пока выбирать
-        // нечего, и нажатие намеренно ничего не меняет.
+        const minimum = repsMin !== undefined ? repsMin : 5;
+        const maximum = repsMax !== undefined ? repsMax : 8;
+        return viewModel.addDayExercise(weekday, id, sets, minimum, maximum, weight, weight > 0);
     }
 
     function removeExercise(index) {
-        if (viewModel !== undefined && viewModel !== null)
-            viewModel.removeDayExercise(weekday, index);
+        if (viewModel !== undefined && viewModel !== null && viewModel.removeDayExercise(weekday, index) === false)
+            Demo.notify(qsTr("Не удалось удалить упражнение"));
     }
 
     function copyFromPrevious() {
@@ -359,7 +349,21 @@ PageScaffold {
         if (weekday <= 1 || viewModel === undefined || viewModel === null)
             return;
 
-        viewModel.copyDay(weekday - 1, weekday);
+        if (viewModel.copyDay(weekday - 1, weekday) === false) {
+            Demo.notify(qsTr("Не удалось скопировать день"));
+            return;
+        }
+        if (viewModel.program_days !== undefined) {
+            const kinds = {
+                workout: 0,
+                rest: 1,
+                cardio: 2,
+                mobility: 3
+            };
+            const copied = viewModel.program_days.get(weekday - 1);
+            if (copied && kinds[copied.kind] !== undefined)
+                page.kind = kinds[copied.kind];
+        }
     }
 
     // Название упражнения ищется в каталоге ExercisesVM по идентификатору: в
