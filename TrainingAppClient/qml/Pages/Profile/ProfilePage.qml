@@ -37,7 +37,6 @@ PageScaffold {
     readonly property bool avatarVisible: authenticated
     readonly property bool loginButtonVisible: !authenticated
     readonly property bool logoutButtonVisible: authenticated
-    property int sectionIndex: 0
 
     signal loginRequested
     signal logoutRequested
@@ -51,6 +50,7 @@ PageScaffold {
     signal backRequested
 
     BackBar {
+        objectName: "profileBackBar"
         width: parent.width
         text: qsTr("Назад")
         onClicked: page.backRequested()
@@ -118,117 +118,17 @@ PageScaffold {
             }
         }
     }
-    SegmentedControl {
-        items: [qsTr("Прогресс"), qsTr("История"), qsTr("Параметры")]
-        width: parent.width
 
-        onSelected: function (index) {
-            page.sectionIndex = index;
-        }
-    }
-
-    // — Прогресс: KPI (§4.6), график, heatmap регулярности, рекорды —
+    // — Настройки: параметры, оформление, аккаунт —
     Column {
         spacing: Spacing.listGap
-        visible: page.sectionIndex === 0
-        width: parent.width
-
-        Row {
-            spacing: Spacing.itemGap
-            width: parent.width
-
-            Repeater {
-                model: page.viewModel.kpi
-
-                delegate: MetricCard {
-                    deltaKind: modelData.deltaKind
-                    deltaText: modelData.deltaText
-                    highlight: index === 0
-                    label: modelData.label
-                    valueText: modelData.valueText
-                    width: (parent.width - Spacing.itemGap * 2) / 3
-                }
-            }
-        }
-        LineChartCard {
-            captionText: page.viewModel.chartCaption
-            title: qsTr("Динамика рабочего веса, кг")
-            values: page.viewModel.chartPoints
-            width: parent.width
-        }
-        RegularityHeatmap {
-            title: qsTr("Регулярность по неделям")
-            weeks: page.viewModel.heatmapWeeks
-            width: parent.width
-        }
-        Label {
-            color: Theme.textSecondary
-            font: Typography.captionStrong
-            text: qsTr("Личные рекорды")
-        }
-        AppCard {
-            paddingHorizontal: 0
-            paddingVertical: Spacing.itemGap
-            spacing: 0
-            width: parent.width
-
-            Repeater {
-                model: page.viewModel.records
-
-                delegate: RecordRow {
-                    dateText: modelData.dateText
-                    showDivider: index < page.viewModel.records.length - 1
-                    title: modelData.title
-                    valueText: modelData.valueText
-                    width: parent.width
-                }
-            }
-        }
-    }
-
-    // — История: фильтры по дате и упражнению появятся на этапе D4 —
-    Column {
-        spacing: Spacing.listGap
-        visible: page.sectionIndex === 1
-        width: parent.width
-
-        AppCard {
-            paddingHorizontal: 0
-            paddingVertical: Spacing.itemGap
-            spacing: 0
-            width: parent.width
-
-            Repeater {
-                model: page.viewModel.workoutHistory
-
-                delegate: ExerciseRow {
-                    setsText: modelData.dateText + " · " + modelData.durationText + " · " + modelData.tonnageText
-                    showDivider: index < page.viewModel.workoutHistory.length - 1
-                    title: modelData.title
-                    width: parent.width
-
-                    onClicked: Demo.notify(qsTr("Детали тренировки — этап D4"))
-                }
-            }
-        }
-        Label {
-            color: Theme.textMuted
-            font: Typography.caption
-            text: qsTr("Фильтры по периоду и упражнению — этап D4")
-            width: parent.width
-            wrapMode: Text.WordWrap
-        }
-    }
-
-    // — Параметры —
-    Column {
-        spacing: Spacing.listGap
-        visible: page.sectionIndex === 2
         width: parent.width
 
         // Оформление — первым блоком параметров: акцент и тема это настройка
         // пользователя, а не инструмент дизайн-ревью (§4.11, issue 32).
         AppearanceCard {
+            // objectName задан самим компонентом («appearanceCard»): переопределение
+            // стирало его контракт, и блок оформления становился ненаходимым.
             width: parent.width
         }
         AppCard {

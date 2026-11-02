@@ -62,65 +62,22 @@ TestCase {
         compare(createdObject.labelText(), "Нет отметки");
     }
 
-    function test_todayMeasurementFormKeepsUnsavedInput() {
+
+    // Ввод веса с главной убран: «В фокусе» только читает модель, а изменение
+    // живёт в дневнике — два места записи одного факта расходились.
+    function test_todayFocusReadsWeightWithoutInput() {
+        todayStub.hasMeasurement = true;
+        todayStub.weightKg = 82.4;
         createdObject = createTemporaryObject(todayPageComponent, testCase);
 
         verify(createdObject !== null);
+        compare(createdObject.focusWeightText(), "82,4 кг");
+        verify(findChild(createdObject, "todayFocusWeight") !== null);
+        verify(findChild(createdObject, "todayMeasurementsCard") === null, "формы замеров быть не должно");
+        verify(findChild(createdObject, "todayMeasurementsToggle") === null, "переключателя формы быть не должно");
 
-        // Замер, пришедший из базы, попадает в форму.
-        createdObject.syncMeasurementFromModel(true);
-        verify(createdObject.measurementDirty === false);
-
-        // Пользователь правит вес — форма становится «грязной».
-        createdObject.setMeasurementValue("weight", 82.4);
-        verify(createdObject.measurementDirty === true);
-        compare(createdObject.measurementValue("weight"), 82.4);
-        findChild(createdObject, "todayMeasurementsToggle").clicked();
-        verify(!createdObject.measurementsOpen);
-        findChild(createdObject, "todayMeasurementsToggle").clicked();
-        verify(createdObject.measurementsOpen);
-        compare(createdObject.measurementValue("weight"), 82.4);
-        verify(createdObject.measurementDirty);
-        verify(createdObject.measurementFilled.weight === true);
-
-        // Обновление модели (его эмитит и отметка правила) не имеет права
-        // стирать несохранённый ввод: без проверки набор полей исчезал бы на
-        // глазах у человека, который отметил сон и потерял введённый вес.
-        createdObject.syncMeasurementFromModel();
-        compare(createdObject.measurementValue("weight"), 82.4);
-
-        // Принудительная синхронизация (собственное сохранение) — приводит
-        // форму к базе и снимает «грязный» флаг.
-        createdObject.measurementDirty = false;
-        createdObject.syncMeasurementFromModel(true);
-        verify(createdObject.measurementDirty === false);
-
-        // Значение 0 — допустимое измерение, и поле считается заполненным:
-        // без этого запись молча ушла бы в «не измерял».
-        createdObject.setMeasurementValue("arm", 0);
-        verify(createdObject.measurementFilled.arm === true);
-        compare(createdObject.measurementValue("arm"), 0);
-    }
-
-    function test_todayOnlyShowsAndSubmitsSelectedCircumferences() {
-        todayStub.selectedMeasurementKeys = ["hip", "thigh"];
-        createdObject = createTemporaryObject(todayPageComponent, testCase);
-        verify(createdObject !== null);
-        compare(createdObject.girthFields.map(field => field.key).join(","), "hip,thigh");
-        createdObject.setMeasurementValue("neck", 38);
-        createdObject.setMeasurementValue("thigh", 58);
-        createdObject.setMeasurementValue("weight", 80);
-        createdObject.saveMeasurements();
-        compare(todayStub.savedMeasurementPayload.weight, 80);
-        compare(todayStub.savedMeasurementPayload.thigh, 58);
-        verify(todayStub.savedMeasurementPayload.neck === undefined);
-        todayStub.selectedMeasurementKeys = ["arm"];
-        compare(createdObject.girthFields.map(field => field.key).join(","), "arm");
-        todayStub.selectedMeasurementKeys = [];
-        compare(createdObject.girthFields.length, 0);
-        createdObject.setMeasurementValue("weight", 79);
-        createdObject.saveMeasurements();
-        compare(Object.keys(todayStub.savedMeasurementPayload).join(","), "weight");
+        todayStub.hasMeasurement = false;
+        compare(createdObject.focusWeightText(), "—");
     }
 
     name: "QmlObjectSmoke"

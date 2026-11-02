@@ -71,7 +71,7 @@ PageScaffold {
             return;
 
         if (page.viewModel.reloadIfDayChanged(page.currentUserId()))
-            page.syncMeasurementFromModel(true);
+            page.refreshCheckableRules();
     }
 
     Connections {
@@ -343,145 +343,44 @@ PageScaffold {
         onValueSaved: (ruleId, value) => page.saveRuleValue(ruleId, value)
     }
 
-    // — Замеры: вес и обхваты за сегодня (спринт S6) —
-    property bool measurementsOpen: true
+    // — «В фокусе»: вес и расписание замеров без ввода —
+    // Ввод веса и обхватов живёт в дневнике: два места записи одного факта
+    // расходились, и непонятно было, какое из них главное. Здесь только
+    // чтение и переход туда, где значение действительно меняется.
     RowLayout {
-        width: parent.width
-        Label {
-            Layout.fillWidth: true
-            color: Theme.textSecondary
-            font: Typography.captionStrong
-            text: qsTr("Замеры")
-        }
-        AppButton {
-            objectName: "todayMeasurementsToggle"
-            text: page.measurementsOpen ? qsTr("Свернуть") : qsTr("Развернуть")
-            variant: AppButton.Ghost
-            onClicked: page.measurementsOpen = !page.measurementsOpen
-        }
-    }
-    AppCard {
-        objectName: "todayMeasurementsCard"
-        visible: page.measurementsOpen
+        id: focusRow
+
+        objectName: "todayFocus"
         spacing: Spacing.itemGap
+        visible: page.hasModel && page.viewModel.hasProgram
         width: parent.width
 
-        // Расписание замеров (FR-T7): «пора мерить» выделено цветом и текстом, а
-        // не только цветом, — состояние читается и без различения оттенков.
-        Rectangle {
-            color: page.measurementIsDue() ? Theme.warningTint : Theme.surfaceMuted
-            implicitHeight: measurementHintLabel.implicitHeight + Spacing.itemGap * 2
-            radius: Theme.radiusSm
-            visible: measurementHintLabel.text.length > 0
-            width: parent.width
-
-            Label {
-                id: measurementHintLabel
-
-                anchors.fill: parent
-                anchors.margins: Spacing.itemGap
-                color: Theme.textPrimary
-                font: Typography.captionStrong
-                text: page.measurementHint()
-                verticalAlignment: Text.AlignVCenter
-                wrapMode: Text.WordWrap
-            }
-        }
-        CompactStepper {
-            from: 1
-            label: qsTr("Мерить каждые, дней")
-            to: 30
-            value: page.hasModel && page.viewModel.measurementIntervalDays !== undefined ? page.viewModel.measurementIntervalDays : 3
-            visible: page.hasModel && page.viewModel.hasProgram === true
-            width: parent.width
-
-            onEdited: function (newValue) {
-                page.viewModel.setMeasurementInterval(newValue);
-            }
-        }
-        Label {
-            color: Theme.textMuted
-            font: Typography.caption
-            text: qsTr("Вес и обхваты за сегодня. Повторный ввод обновляет запись, а не создаёт новую.")
-            width: parent.width
-            wrapMode: Text.WordWrap
-        }
-        // Замеры тела — ползунком: шаг 0,1 кг на диапазоне 0–300 кнопками набирался
-        // сотнями нажатий, а смена веса за день (плюс-минус килограмм от воды и
-        // еды) — это ровно тот случай, где нажатия и не нужны. Шаг 0,1 и диапазон
-        // 0–300 сохранены: измерение отличается от инвентаря на плитах, и здесь
-        // нужна десятая доля.
-        WeightRuler {
-            // Ширина — явно по родителю: карточка держит детей в обычной Column,
-            // где `Layout.fillWidth` не работает (см. PageScaffold.qml), и без
-            // привязки линейка брала свой implicitWidth — сжатая полоса слева.
-            width: parent.width
-            // Диапазон 35–200 кг вместо 0–300. На 300 делениях шаг 0,1
-            // приходился на 0,1 px: метки сливались в серую полосу, и вес нельзя
-            // было поставить пальцем. Для замеров шаг 0,1 сохранён — измерение
-            // отличается от инвентаря на плитах, и десятая доля тут нужна.
-            from: 35
-            step: 0.1
-            title: qsTr("Вес")
-            to: 200
-            unit: qsTr("кг")
-            value: page.measurementValue("weight")
-            valueDecimals: 1
-
-            onEdited: function (newValue) {
-                page.setMeasurementValue("weight", newValue);
-            }
-        }
-        // Обхваты спрятаны: их девять, а измеряют их раз в несколько дней, поэтому
-        // постоянно занимаемое ими место на главной было бы неоправданно.
-        AppButton {
-            text: page.girthsOpen ? qsTr("Скрыть обхваты") : qsTr("Обхваты")
-            variant: AppButton.Secondary
-            visible: page.girthFields.length > 0
-            width: parent.width
-
-            onClicked: page.girthsOpen = !page.girthsOpen
-        }
-        ColumnLayout {
-            spacing: Spacing.itemGap
-            visible: page.girthsOpen && page.girthFields.length > 0
-            // Ширина явно по родителю: карточка держит детей в обычной Column, где
-            // `Layout.fillWidth` не работает (CODE_STYLE §13), и без этого блок
-            // сжимался до implicitWidth — дорожки обхватов у́же дорожки веса.
-            width: parent.width
-
-            Repeater {
-                model: page.girthFields
-
-                delegate: WeightRuler {
-                    id: girthField
-
-                    required property var model
-
-                    Layout.fillWidth: true
-                    // Диапазон свой у каждого обхвата (таблица girthFields): общие
-                    // 50–150 см не вмещали шею и бицепс, а на широкой шкале шаг 0,5
-                    // приходился бы на доли пикселя, и метки сливались бы в полосу.
-                    from: girthField.model.from
-                    step: 0.5
-                    title: qsTr("%1, см").arg(MeasurementTexts.title(girthField.model.key))
-                    to: girthField.model.to
-                    unit: qsTr("см")
-                    value: page.measurementValue(girthField.model.key)
-                    valueDecimals: 1
-
-                    onEdited: function (newValue) {
-                        page.setMeasurementValue(girthField.model.key, newValue);
-                    }
-                }
-            }
-        }
-        AppButton {
+        MetricCard {
             Layout.fillWidth: true
-            text: qsTr("Сохранить замеры")
-            variant: AppButton.Primary
+            deltaText: page.focusWeightHint()
+            deltaKind: page.viewModel.hasMeasurement ? "neutral" : "neutral"
+            highlight: page.viewModel.hasMeasurement
+            label: qsTr("Вес сегодня")
+            objectName: "todayFocusWeight"
+            valueText: page.focusWeightText()
 
-            onClicked: page.saveMeasurements()
+            MouseArea {
+                anchors.fill: parent
+                onClicked: page.diaryRequested()
+            }
+        }
+        MetricCard {
+            Layout.fillWidth: true
+            deltaText: page.measurementHint()
+            highlight: false
+            label: qsTr("Замеры по плану")
+            objectName: "todayFocusMeasurements"
+            valueText: page.measurementIsDue() ? qsTr("Пора") : qsTr("По графику")
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: page.diaryRequested()
+            }
         }
     }
 
@@ -489,75 +388,6 @@ PageScaffold {
     // название переводит разметка.
     readonly property var weekdayNames: [qsTr("Понедельник"), qsTr("Вторник"), qsTr("Среда"), qsTr("Четверг"), qsTr("Пятница"), qsTr("Суббота"), qsTr("Воскресенье")]
 
-    // — Состояние формы замеров —
-    // Обхваты раскрываются по требованию: девять полей на главной занимали бы
-    // место каждый день, а измеряют их по расписанию замеров. Аргумент
-    // --open-girths раскрывает форму сразу: аудит вёрстки (--diag) иначе не
-    // видел бы девять ползунков, скрытых за кнопкой.
-    property bool girthsOpen: Qt.application.arguments.indexOf("--open-girths") >= 0
-    // Девять обхватов в порядке книги-эталона (docs/09, FR-T5). Ключ совпадает с
-    // EMeasurement_Key в C++, подпись — из MeasurementTexts; диапазон шкалы — у
-    // каждого обхвата свой.
-    readonly property var selectedMeasurementKeys: page.hasModel && page.viewModel.selectedMeasurementKeys !== undefined ? page.viewModel.selectedMeasurementKeys : []
-    readonly property var girthFields: page.allGirthFields.filter(function (field) {
-        return page.selectedMeasurementKeys.indexOf(field.key) >= 0;
-    })
-    readonly property var allGirthFields: [
-        {
-            key: "waist",
-            from: 50,
-            to: 160
-        },
-        {
-            key: "belly",
-            from: 50,
-            to: 170
-        },
-        {
-            key: "arm",
-            from: 20,
-            to: 70
-        },
-        {
-            key: "shoulders",
-            from: 80,
-            to: 180
-        },
-        {
-            key: "chest",
-            from: 60,
-            to: 160
-        },
-        {
-            key: "hip",
-            from: 60,
-            to: 170
-        },
-        {
-            key: "thigh",
-            from: 30,
-            to: 100
-        },
-        {
-            key: "calves",
-            from: 20,
-            to: 70
-        },
-        {
-            key: "neck",
-            from: 25,
-            to: 60
-        }
-    ]
-    // Значения полей формы и «было ли это поле задано» — двумя словами, а не
-    // одним числом: пустой обхват — это «не измерял», а 0 см — измерение,
-    // и запись без этого различия затирала бы прежнее значение (upsert).
-    property var measurementValues: ({})
-
-    // Есть ли несохранённый ввод. Без этого флага любое обновление модели
-    // перезаписывало бы форму данными из базы и стирало бы набранное.
-    property bool measurementDirty: false
-    property var measurementFilled: ({})
 
     // Сколько правил можно отметить вручную. Пересчитывается при изменении
     // модели: обращения к ней внутри функции QML не отслеживает, поэтому
@@ -578,7 +408,6 @@ PageScaffold {
 
     Connections {
         function onChanged() {
-            page.syncMeasurementFromModel();
             page.refreshCheckableRules();
         }
 
@@ -672,66 +501,36 @@ PageScaffold {
         return steps[unit] !== undefined ? steps[unit] : 1;
     }
 
-    function measurementValue(key) {
-        const values = page.measurementValues;
-
-        return values[key] !== undefined ? values[key] : 0;
-    }
-
-    function setMeasurementValue(key, newValue) {
-        const values = Object.assign({}, page.measurementValues);
-
-        values[key] = newValue;
-        page.measurementValues = values;
-
-        const filled = Object.assign({}, page.measurementFilled);
-
-        // Поле считается заполненным с первого нажатия «+»: значение 0 —
-        // допустимое измерение, и без этого флага запись молча ушла бы в
-        // «не измерял».
-        filled[key] = true;
-        page.measurementFilled = filled;
-        page.measurementDirty = true;
-    }
-
-    // Переносит сохранённый замер в форму.
-    //
-    // Только при первой загрузке и после собственного сохранения. Раньше
-    // функция вызывалась на каждое `changed` модели — а его эмитит и отметка
-    // правила, — и набор полей у человека исчезал на глазах: отметил «сон» и
-    // потерял только что введённый вес.
-    function syncMeasurementFromModel(force) {
-        if (page.viewModel === undefined || page.viewModel === null)
-            return;
-
-        // Несохранённый ввод — источник истины о форме: перезаписывать его
-        // данными из базы нельзя, пока пользователь его не подтвердил.
-        if (page.measurementDirty === true && force !== true)
-            return;
-
-        // Только заданные показатели: у незаданного обхвата ключа в карте нет, и
-        // показывать в поле значение значило бы выдумать измерение.
-        const values = {};
-        const filled = {};
-
-        if (page.viewModel.hasMeasurement) {
-            const stored = page.viewModel.measurementValues;
-
-            for (const key in stored) {
-                values[key] = stored[key];
-                filled[key] = true;
-            }
-        }
-
-        page.measurementValues = values;
-        page.measurementFilled = filled;
-        // Форма приведена к базе — ввод считается несохранённым только после
-        // того, как человек сам что-то поменяет.
-        page.measurementDirty = false;
-    }
-
     function measurementIsDue() {
         return page.hasModel && page.viewModel.measurementDue === true;
+    }
+
+    // — «В фокусе»: только чтение. Значения берутся из модели, ввод — в дневнике.
+    function focusWeightText() {
+        if (!page.hasModel || page.viewModel.hasMeasurement !== true)
+            return "—";
+
+        return page.formatDecimal(page.viewModel.weightKg) + " " + qsTr("кг");
+    }
+
+    function focusWeightHint() {
+        if (!page.hasModel)
+            return "";
+
+        if (page.viewModel.hasMeasurement !== true)
+            return qsTr("Нет замера — добавьте в дневнике");
+
+        return qsTr("Изменить — в дневнике");
+    }
+
+    // «82.4» → «82,4»: запятая как десятичный разделитель в русской локали.
+    function formatDecimal(value) {
+        const number = Number(value);
+
+        if (!isFinite(number))
+            return "—";
+
+        return String(Math.round(number * 10) / 10).replace(".", ",");
     }
 
     // «2026-10-07» → «7 октября»: дата приходит из C++ строкой ISO.
@@ -758,41 +557,6 @@ PageScaffold {
         return qsTr("Следующий замер — %1").arg(page.formatShortDate(next));
     }
 
-    function saveMeasurements() {
-        if (page.viewModel === undefined || page.viewModel === null)
-            return;
-
-        const filled = page.measurementFilled;
-        const values = page.measurementValues;
-        // Уходят только заполненные поля: незаполненное передаётся отсутствием
-        // ключа («не измерял»), а не нулём, иначе оно затирало бы значение,
-        // введённое ранее.
-        const payload = {};
-
-        for (const key in filled) {
-            if (filled[key] === true && (key === "weight" || page.selectedMeasurementKeys.indexOf(key) >= 0))
-                payload[key] = values[key];
-        }
-
-        if (Object.keys(payload).length === 0) {
-            Demo.notify(qsTr("Заполните хотя бы одно поле"));
-            return;
-        }
-        const saved = page.viewModel.saveMeasurement(payload);
-
-        if (saved === false) {
-            Demo.notify(qsTr("Не удалось сохранить замеры. Введённые значения сохранены в форме — повторите попытку."));
-
-            return;
-        }
-
-        // Модель эмитит `changed` и внутри saveMeasurement, но форма в этот
-        // момент ещё «грязная» и от синхронизации отказалась бы: сбросить её
-        // явно нужно, иначе значения остались бы только в памяти до перезахода.
-        page.measurementDirty = false;
-        page.syncMeasurementFromModel(true);
-        Demo.notify(qsTr("Замеры сохранены"));
-    }
 
     // Заголовок главной — название программы, а не вид дня: вид дня относится
     // к плану, а не к тому, чем является приложение.

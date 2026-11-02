@@ -237,7 +237,6 @@ TestCase {
         verify(profile.avatarVisible);
         verify(!profile.loginButtonVisible);
 
-        profile.sectionIndex = 2;
         clickNamed(profile, "profileLogoutButton");
 
         tryCompare(profile, "authenticated", false, 2000);

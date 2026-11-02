@@ -580,8 +580,7 @@ Item {
 
     // Профиль — настройки, поэтому он открывается поверх вкладок кнопкой в
     // шапке, а не занимает одно из четырёх постоянных назначений.
-    function openProfile(sectionIndex) {
-        shell.profileSection = sectionIndex === undefined ? 0 : sectionIndex;
+    function openProfile() {
         shell.noteTabScreen({
             name: "profile"
         });
@@ -645,7 +644,7 @@ Item {
     // инструменте ревью: это настройка пользователя. Именованный экран нужен,
     // чтобы блок проверялся аудитом вёрстки на всех компоновках.
     function openProfileSettings() {
-        shell.openProfile(2);
+        shell.openProfile();
     }
 
     // — Завершение сохранения программы —
@@ -680,11 +679,6 @@ Item {
         });
         pages.replace(pages.currentItem, programOverviewComponent);
     }
-
-    // Раздел «Профиля», который открывает именованный экран. «Параметры» нужны
-    // аудиту вёрстки: в них живёт блок «Оформление», и без такого экрана он не
-    // попадал бы в снимки и smoke-проверки.
-    property int profileSection: 0
 
     // Открытие экрана по имени: используется дизайн-ревью (--screen) и
     // восстановление состояния при возврате в приложение.
@@ -948,7 +942,6 @@ Item {
         ProfilePage {
             auth: shell.auth
             bottomInset: shell.pageBottomInset
-            sectionIndex: shell.profileSection
             topInset: shell.topInset
             viewModel: shell.profileViewModel
 

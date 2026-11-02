@@ -1,13 +1,9 @@
 pragma Singleton
 import QtQuick
 
-// Mock-backed presentation contract вкладки «Профиль».
+// Параметры профиля для экрана настроек. Аналитики здесь больше нет: прогресс
+// и история живут в программе и дневнике, где для них есть настоящие данные, а
+// не демонстрационные значения MockCatalog.
 QtObject {
-    readonly property string chartCaption: MockCatalog.chartCaption
-    readonly property var chartPoints: MockCatalog.chartPoints
-    readonly property var heatmapWeeks: MockCatalog.heatmapWeeks
-    readonly property var kpi: MockCatalog.kpi
     readonly property var profileParams: MockCatalog.profileParams
-    readonly property var records: MockCatalog.records
-    readonly property var workoutHistory: MockCatalog.workoutHistory
 }
