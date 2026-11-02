@@ -103,30 +103,37 @@
 записи за 12 недель, сохраняет вес и заметку, а блок правил честно объясняет,
 чего не хватает.
 
-## 5. Фаза 3. Убрать дубли (1,5 дня)
+## 5. Фаза 3. Убрать дубли (1,5 дня) — **сделано**
 
 **Задача.** Один владелец записи: вес и обхваты вводятся в дневнике, на главной —
 только чтение; в профиле нет демонстрационной аналитики.
 
 | Файл | Изменение |
 |---|---|
-| `qml/Pages/Today/TodayPage.qml` | удалить блок «Замеры» (строки ~345–490: `todayMeasurementsToggle`, `todayMeasurementsCard`, `WeightRuler`, обхваты) и заменить на read-only «В фокусе»: вес сегодня с дельтой за 7 дней, среднее за 7 дней, три плитки программы; ввод — переход в дневник |
-| `src/Presentation/Today_VM.h` | API измерений (`saveMeasurement`, `measurementValues`, `measurementDue`) помечается как используемое только дневником; удаление — отдельным шагом после фазы 2, чтобы не ломать `tst_Today_VM` в одной фазе с UI |
-| `qml/Pages/Profile/ProfilePage.qml` | удалить `SegmentedControl` и секции «Прогресс» (`MockCatalog.kpi`, `LineChartCard`, `RegularityHeatmap`, `records`) и «История»; остаются аккаунт, параметры, оформление, отдых по умолчанию, КБЖУ, данные/синхронизация, выход |
-| `qml/Presentation/ProfileViewModel.qml` | параметры профиля берутся из `Auth_VM`, а не из `MockCatalog`; мок-свойства удаляются |
-| `qml/Mock/MockCatalog.qml` | остаётся ради `tst_mock_contract.qml` и `tst_auth_page.qml`, но экраны его больше не используют |
+| `qml/Pages/Today/TodayPage.qml` | блок «Замеры» (переключатель, расписание, ползунок веса, девять обхватов, «Сохранить замеры») заменён на «В фокусе»: две `MetricCard` — «Вес сегодня» и «Замеры по плану»; тап открывает вкладку «Дневник» |
+| `qml/Pages/Today/TodayPage.qml` | удалены состояние формы (`measurementValues`, `measurementFilled`, `measurementDirty`, `girthsOpen`, `allGirthFields`) и функции `measurementValue`/`setMeasurementValue`/`saveMeasurements`/`syncMeasurementFromModel`; `reloadIfDayChanged` и `Connections.onChanged` теперь только пересчитывают отметки |
+| `src/Presentation/Today_VM.*` | без изменений: `saveMeasurement` и свойства измерений остаются для тестов и будущего экрана замеров; UI их больше не вызывает |
+| `qml/Pages/Profile/ProfilePage.qml` | удалены `SegmentedControl` и секции «Прогресс» (KPI, график, heatmap, рекорды) и «История»; остался один экран настроек, `sectionIndex` убран |
+| `qml/Presentation/ProfileViewModel.qml` | остался только `profileParams`; мок-свойства аналитики удалены |
+| `qml/AppShell.qml`, `qml/Main.qml` | `profileSection` и передача `sectionIndex` удалены, `openProfileSettings()` открывает профиль |
 
 **Тесты.**
 
-- `tests/qml/tst_qml_object_smoke.qml`: строки 71–85 проверяют форму замеров на
-  `TodayPage` — переписать на «В фокусе» (`objectName: "todayFocus"`), проверяя
-  значения и переход в дневник.
-- `tests/qml/tst_profile_screen.qml`: нет сегментов, нет `MockCatalog`-значений,
-  настройки на месте.
-- `tests/qml/tst_mock_contract.qml` не меняется — контракт мока остаётся.
+- `tests/qml/tst_qml_object_smoke.qml`: тест формы замеров заменён на
+  `test_todayFocusReadsWeightWithoutInput` — проверяет `focusWeightText()`,
+  наличие `todayFocusWeight` и отсутствие `todayMeasurementsCard`/`Toggle`.
+- `tests/qml/tst_appearance_settings.qml`: раздел больше не переключается —
+  блок оформления виден сразу; поиск через `findChild` (обход по визуальным
+  `children` не заходит в `contentItem` Flickable).
+- `tests/qml/tst_profile_screen.qml` (новый): «Назад» сообщает о закрытии,
+  сегментов и KPI нет, оформление на месте.
+- `tests/qml/tst_mock_contract.qml` не менялся: контракт `MockCatalog` остаётся.
 
-**Критерий.** В приложении нет двух мест ввода веса и двух источников аналитики;
-в профиле нет ни одного демонстрационного числа.
+**Результат.** Гейт 134/134. В приложении нет второго места ввода веса и второго
+источника аналитики; профиль — только настройки. Найденная по пути ошибка:
+переопределение `objectName` у `AppearanceCard` стирало его собственный контракт
+(`appearanceCard`), из-за чего блок стал ненаходимым для теста — переопределение
+убрано.
 
 ## 6. Фаза 4. Программы и обзор с сегментами (2,5 дня)
 
