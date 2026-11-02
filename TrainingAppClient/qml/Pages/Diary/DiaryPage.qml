@@ -7,10 +7,10 @@ import TrainingAppClient
 PageScaffold {
     id: page
 
-    // Заголовок живёт в шапке каркаса — рядом с кнопкой профиля, как на
-    // остальных корневых экранах. Подпись — программа, к которой относятся
-    // отметки; без программы подпись честно говорит, что это личные записи.
-    caption: page.hasProgram ? page.viewModel.programTitle : qsTr("Личные записи · без программы")
+    // Шапка по макету 13: подпись — выбранная дата («пн, 2 ноября»). Название
+    // программы стоит строкой над карточками: дата меняется от тапа к тапу, а
+    // программа — нет, и в подписи шапки она мигала бы вместе с днями.
+    caption: page.selectedDayCaption()
     title: qsTr("Дневник")
 
     property var viewModel: typeof DiaryVM !== "undefined" ? DiaryVM : null
@@ -25,13 +25,17 @@ PageScaffold {
     // эквивалентны рабочей программе.
     readonly property bool hasProgram: page.hasModel && page.viewModel.hasProgram !== false
     readonly property alias valuePopup: numberPopup
+    readonly property alias measurementsPopup: measurementPopup
     readonly property int numberPopupMaxWidth: 420
     property string activeDate: ""
     property int weekStart: 0
-    onWeekStartChanged: {
-        if (!daysStrip.moving)
-            daysStrip.positionViewAtIndex(weekStart, ListView.Beginning);
-    }
+    // Прокрутка полосы недель программная: `positionViewAtIndex` вызывается до
+    // того, как ListView посчитает contentWidth (модель-число меняется вместе с
+    // загрузкой), и остаётся без эффекта — полоса показывала первую неделю, пока
+    // выбранная дата была в последней. Смещение считается из ширины плитки и
+    // применяется после раскладки.
+    property bool stripAligned: false
+    onWeekStartChanged: Qt.callLater(page.alignStrip)
     property int revision: 0
     property bool summariesExpanded: false
     property var noteDrafts: ({})
@@ -39,10 +43,17 @@ PageScaffold {
     property bool dateJumpExpanded: false
     readonly property int dayCount: hasModel ? viewModel.days.count : 0
     readonly property int visibleDayCount: Math.max(0, Math.min(7, dayCount - weekStart))
-    readonly property var selectedDay: {
-        page.revision;
-        return page.dayAt(page.indexForDate(page.activeDate));
-    }
+    // Ширина плитки недели — целое число. Дробная ширина (было `(width - 12) / 7`)
+    // накапливала доли пикселя между делегатами, и последняя плитка вылезала за
+    // contentWidth списка на 2–3 px — аудит вёрстки (`--diag`) считает это
+    // дефектом OVERFLOW-X.
+    readonly property int stripTileWidth: Math.max(40, Math.floor((page.width - Spacing.screenPadding * 2 - 12) / 7))
+    onActiveDateChanged: page.refreshSelectedDay()
+    // Выбранный день — обычное свойство, а не привязка с чтением счётчика
+    // ревизии: биндинг с побочным чтением ловил «binding loop» (пересчёт совпадал
+    // с записью revision в refresh), Qt обрывал его, и карточка дня замирала на
+    // старых данных. Обновляет его refresh и смена активной даты.
+    property var selectedDay: null
     readonly property var verdicts: ({
             done: {
                 label: qsTr("✓ В норме"),
@@ -79,6 +90,14 @@ PageScaffold {
     }
     function currentUserId() {
         return typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
+    }
+    function refreshSelectedDay() {
+        // Сброс в null перед присваиванием: `days.get()` отдаёт тот же JS-объект
+        // после изменения роли, и повторное присваивание того же объекта QML не
+        // считает изменением — карточка дня оставалась на старом весе. Оба
+        // присваивания синхронны, поэтому промежуточного пустого кадра нет.
+        page.selectedDay = null;
+        page.selectedDay = page.dayAt(page.indexForDate(page.activeDate));
     }
     function dayAt(index) {
         return page.hasModel && index >= 0 && index < page.dayCount ? page.viewModel.days.get(index) : null;
@@ -119,6 +138,8 @@ PageScaffold {
             page.viewModel.openDay(page.activeDate);
         }
         page.weekStart = Math.min(page.weekStart, Math.max(0, Math.floor((page.dayCount - 1) / 7) * 7));
+        page.refreshSelectedDay();
+        Qt.callLater(page.alignStrip);
         if (!page.selectedDay || !page.selectedDay.editable)
             numberPopup.close();
         dayCard.syncNote();
@@ -162,6 +183,232 @@ PageScaffold {
     function dateTitle(date) {
         const value = Date.fromLocaleString(Qt.locale("en_US"), date, "yyyy-MM-dd");
         return isNaN(value.getTime()) ? date : value.toLocaleDateString(Qt.locale("ru_RU"), "dd MMM · ddd");
+    }
+    // Подпись шапки: «пн, 2 ноября» — как в макете 13. Точку после сокращённого
+    // дня недели убираем: в русской локали Qt пишет «пн.».
+    function selectedDayCaption() {
+        const value = Date.fromLocaleString(Qt.locale("en_US"), page.activeDate, "yyyy-MM-dd");
+        if (!page.activeDate || isNaN(value.getTime()))
+            return "";
+        return value.toLocaleDateString(Qt.locale("ru_RU"), "ddd, d MMMM").replace(".", "");
+    }
+    // Короткий день недели для плиток недели: «пн» + число под ним.
+    function shortWeekday(date) {
+        const value = Date.fromLocaleString(Qt.locale("en_US"), date, "yyyy-MM-dd");
+        return isNaN(value.getTime()) ? "" : value.toLocaleDateString(Qt.locale("ru_RU"), "ddd").replace(".", "");
+    }
+    function dayOfMonth(date) {
+        return date && date.length >= 10 ? date.substring(8, 10) : "";
+    }
+    // Чей это дневник: правила принадлежат программе, вес и заметка — человеку.
+    // Без программы строка говорит прямо, что записи личные.
+    function scopeText() {
+        return page.hasProgram ? qsTr("Программа: %1").arg(page.viewModel.programTitle) : qsTr("Личные записи · без программы");
+    }
+    // «82,4»: запятая как десятичный разделитель в русской локали.
+    function numberText(value) {
+        const number = Number(value);
+        if (value === null || value === undefined || value === "" || !isFinite(number))
+            return "—";
+        return String(Math.round(number * 10) / 10).replace(".", ",");
+    }
+    function weightText(day) {
+        return page.hasWeight(day) ? page.numberText(day.weight) + " " + qsTr("кг") : "—";
+    }
+    // Записан ли вес за день: одно условие для текста и для подсказки, иначе они
+    // могли разойтись («82 кг» рядом с «вес не записан»).
+    function hasWeight(day) {
+        return day !== null && day !== undefined && day.weight !== null && day.weight !== undefined && day.weight !== "";
+    }
+    function shortDate(isoDate) {
+        const value = Date.fromLocaleString(Qt.locale("en_US"), isoDate, "yyyy-MM-dd");
+        return isNaN(value.getTime()) ? isoDate : value.toLocaleDateString(Qt.locale("ru_RU"), "d MMMM");
+    }
+    // Дельта к весу неделю назад (роль delta7 считает C++). Показывается только
+    // когда известны оба замера: «за 7 дней» без второго значения обещало бы
+    // динамику, которой нет.
+    function deltaText(day) {
+        if (!day || day.delta7 === null || day.delta7 === undefined || day.delta7 === "")
+            return "";
+        const delta = Number(day.delta7);
+        if (!isFinite(delta))
+            return "";
+        if (Math.abs(delta) < 0.05)
+            return qsTr("без изменений за 7 дней");
+        return (delta < 0 ? "↓ " : "↑ ") + page.numberText(Math.abs(delta)) + " " + qsTr("за 7 дней");
+    }
+    // Тон дельты взят из макета: снижение веса — спокойное «хорошо», набор —
+    // предупреждение. Это подсказка, а не оценка цели: цель бывает и набор
+    // массы, поэтому цвет не красный.
+    function deltaColor(day) {
+        if (!day || day.delta7 === null || day.delta7 === undefined || day.delta7 === "")
+            return Theme.textMuted;
+        const delta = Number(day.delta7);
+        if (!isFinite(delta) || Math.abs(delta) < 0.05)
+            return Theme.textMuted;
+        return delta < 0 ? Theme.positive : Theme.warning;
+    }
+    function averageText(day) {
+        return day && page.displayValue(day.average7) !== "—" ? qsTr("Среднее за 7 дней · %1 кг").arg(page.numberText(day.average7)) : "";
+    }
+    // Подпись обхватов: последний замер, в котором они есть. Дата относится
+    // именно к обхватам — вес пишется чаще, и «измерены сегодня» для обхватов
+    // было бы неправдой.
+    function measurementCaption() {
+        if (!page.hasModel)
+            return "";
+        const last = page.viewModel.lastMeasurement;
+        if (last === undefined || last === null || last.date === undefined)
+            return qsTr("Обхваты не заполнены — их можно добавить к любому дню");
+        const parts = [];
+        const keys = page.viewModel.measurementKeys;
+        for (let i = 0; i < keys.length; ++i) {
+            const key = keys[i];
+            if (key === "weight" || last[key] === undefined || last[key] === null)
+                continue;
+            parts.push(MeasurementTexts.title(key).toLowerCase() + " " + page.numberText(last[key]));
+        }
+        if (parts.length === 0)
+            return qsTr("Обхваты не заполнены — их можно добавить к любому дню");
+        return qsTr("Обхваты: %1 см — измерены %2").arg(parts.join(" · ")).arg(page.shortDate(last.date));
+    }
+    function measurementActionText() {
+        const current = page.hasModel ? page.viewModel.selectedMeasurement : null;
+        return current !== null && current !== undefined && Object.keys(current).length > 0 ? qsTr("Изменить замеры") : qsTr("Добавить замеры");
+    }
+    // Строка истории: «Завершена · 55 мин · 12,4 т». Тоннаж — в тоннах, как в
+    // макете: 12400 кг читаются хуже, чем 12,4 т.
+    function sessionMeta(session) {
+        if (!session || session.title === undefined)
+            return "";
+        const parts = [page.sessionStateText(session.workoutState)];
+        if (Number(session.minutes) > 0)
+            parts.push(qsTr("%1 мин").arg(session.minutes));
+        if (Number(session.tonnage) > 0)
+            parts.push(qsTr("%1 т").arg(page.numberText(Number(session.tonnage) / 1000)));
+        return parts.join(" · ");
+    }
+    function sessionStateText(state) {
+        const labels = {
+            completed: qsTr("Завершена"),
+            cancelled: qsTr("Пропущена"),
+            draft: qsTr("Черновик")
+        };
+        return labels[state] !== undefined ? labels[state] : qsTr("Тренировка");
+    }
+    // «1 из 2» — сколько правил дня в норме. Счётчик идёт по тем же строкам,
+    // что и список под ним.
+    function ruleCountText(values) {
+        if (!values || values === null)
+            return "";
+        // Список правил приходит либо массивом (C++ List_Model), либо ListModel
+        // (подставная модель тестов): у массива длина — length, у ListModel —
+        // count, и обращение к несуществующей даёт undefined в подписи.
+        const total = values.count !== undefined ? values.count : values.length;
+        if (!total)
+            return "";
+        let done = 0;
+        for (let i = 0; i < total; ++i) {
+            const row = typeof values.get === "function" ? values.get(i) : values[i];
+            if (row !== undefined && row !== null && row.verdict === "done")
+                ++done;
+        }
+        return qsTr("%1 из %2").arg(done).arg(total);
+    }
+    function verdictBadge(verdict) {
+        const badges = {
+            done: {
+                label: qsTr("в норме"),
+                color: Theme.positive
+            },
+            failed: {
+                label: qsTr("мимо"),
+                color: Theme.negative
+            },
+            unknown: {
+                label: qsTr("нет значения"),
+                color: Theme.textMuted
+            }
+        };
+        return badges[verdict] !== undefined ? badges[verdict] : badges.unknown;
+    }
+    // Тренировка выбранной даты: пустая карта — занятия в этот день не было.
+    function selectedSessionHasData() {
+        const session = page.hasModel ? page.viewModel.selectedSession : null;
+        return session !== null && session !== undefined && session.title !== undefined;
+    }
+    function sessionTitle() {
+        const session = page.hasModel ? page.viewModel.selectedSession : null;
+        return session !== null && session !== undefined && session.title !== undefined ? session.title : "";
+    }
+    function sessionMetaText() {
+        const session = page.hasModel ? page.viewModel.selectedSession : null;
+        return page.sessionMeta(session);
+    }
+    // «28 окт.» — дата строки истории: год не нужен, окно дневника — месяцы.
+    function shortDay(isoDate) {
+        const value = Date.fromLocaleString(Qt.locale("en_US"), isoDate, "yyyy-MM-dd");
+        return isNaN(value.getTime()) ? isoDate : value.toLocaleDateString(Qt.locale("ru_RU"), "d MMM");
+    }
+    // Форма замеров: вес и обхваты одной карточкой (док 13, §2 — «где сохранять
+    // замеры» имеет один ответ). Значения выбранной даты подставляются в поля,
+    // чтобы «Изменить» показывало текущее, а не пустую форму.
+    function openMeasurements() {
+        if (!page.selectedDay || !page.selectedDay.editable)
+            return;
+        if (!page.openDay(page.activeDate, true))
+            return;
+        const current = page.hasModel ? page.viewModel.selectedMeasurement : null;
+        const keys = page.hasModel ? page.viewModel.measurementKeys : [];
+        const values = {};
+        for (let i = 0; i < keys.length; ++i) {
+            const value = current !== null && current !== undefined ? current[keys[i]] : undefined;
+            if (value !== undefined && value !== null)
+                values[keys[i]] = page.numberText(value);
+        }
+        measurementPopup.values = values;
+        measurementPopup.saveFailed = false;
+        measurementPopup.validationError = "";
+        measurementPopup.open();
+    }
+    // Сбор формы замеров: пустые поля не отправляются («не менялось»), мусор и
+    // отрицательные числа — ошибка, совсем пустая форма — тоже.
+    function saveMeasurements() {
+        const keys = page.hasModel ? page.viewModel.measurementKeys : [];
+        const values = {};
+        let invalid = false;
+        for (let i = 0; i < keys.length; ++i) {
+            const raw = measurementPopup.values[keys[i]];
+            const text = raw === undefined || raw === null ? "" : String(raw).trim();
+            if (text.length === 0)
+                continue;
+            if (!/^[0-9]+([.,][0-9]+)?$/.test(text)) {
+                invalid = true;
+                continue;
+            }
+            values[keys[i]] = Number(text.replace(",", "."));
+        }
+        if (invalid) {
+            measurementPopup.validationError = qsTr("Введите неотрицательное число");
+            return;
+        }
+        if (Object.keys(values).length === 0) {
+            measurementPopup.validationError = qsTr("Заполните хотя бы одно поле");
+            return;
+        }
+        measurementPopup.validationError = "";
+        if (!page.viewModel.saveMeasurements(values)) {
+            measurementPopup.saveFailed = true;
+            return;
+        }
+        measurementPopup.close();
+    }
+    function alignStrip() {
+        page.stripAligned = true;
+        daysStrip.contentX = Math.max(0, page.weekStart * (page.stripTileWidth + daysStrip.spacing));
+        Qt.callLater(function () {
+            page.stripAligned = false;
+        });
     }
     function openDay(date, editable) {
         const day = page.dayAt(page.indexForDate(date));
@@ -234,6 +481,24 @@ PageScaffold {
             text: qsTr("Назад")
             visible: page.showBackBar
             onClicked: page.backRequested()
+        }
+        // Подзаголовок и область — как `large-sub` в макете 13: экран сразу
+        // говорит, что здесь живёт, и чьи это правила.
+        Label {
+            objectName: "diarySubtitle"
+            width: parent.width
+            text: qsTr("Вес, отметки и заметки за дату. Будущие дни — только просмотр.")
+            font: Typography.body
+            color: Theme.textSecondary
+            wrapMode: Text.WordWrap
+        }
+        Label {
+            objectName: "diaryScope"
+            width: parent.width
+            text: page.hasModel ? page.scopeText() : ""
+            font: Typography.caption
+            color: page.hasProgram ? Theme.textMuted : Theme.warning
+            wrapMode: Text.WordWrap
         }
         DateField {
             id: datePicker
@@ -335,8 +600,12 @@ PageScaffold {
             spacing: 2
             model: page.dayCount
             onContentXChanged: {
-                if (moving)
-                    page.weekStart = Math.max(0, Math.floor(contentX / ((width + spacing) / 7) / 7) * 7);
+                // Пока смещение ставит страница (alignStrip), делим его обратно на
+                // недели нельзя: иначе weekStart перезапишется половинным сдвигом и
+                // полоса уедет на чужую неделю.
+                if (!moving || page.stripAligned)
+                    return;
+                page.weekStart = Math.max(0, Math.floor(contentX / ((width + spacing) / 7) / 7) * 7);
             }
             delegate: DayTile {
                 required property int index
@@ -344,9 +613,14 @@ PageScaffold {
                     page.revision;
                     return page.dayAt(index);
                 }
-                width: (historyContent.width - 12) / 7
+                width: page.stripTileWidth
                 objectName: "diaryDate_" + (day ? day.date : "")
-                weekdayName: day ? day.date.substring(8, 10) : ""
+                // «пн» сверху и число под ним — как чипы недели в макете 13.
+                // Раньше в плитке стояло только число, и дни недели приходилось
+                // считать в уме.
+                weekdayName: day ? page.shortWeekday(day.date) : ""
+                showCount: true
+                countText: day ? page.dayOfMonth(day.date) : ""
                 tileKind: "rest"
                 isActive: day !== null && day.date === page.activeDate
                 Accessible.name: day ? page.dateTitle(day.date) : ""
@@ -376,19 +650,43 @@ PageScaffold {
             color: Theme.textSecondary
             wrapMode: Text.WordWrap
         }
-        AppCard {
-            id: dayCard
+        // Название дня программы под неделей: чипы несут даты, а что за день внутри —
+        // говорит эта строка, чтобы до прокрутки было понятно, куда попал тап.
+        Label {
+            objectName: "diaryDayTitle"
             width: parent.width
-            visible: page.selectedDay !== null
-            objectName: "diaryDay_" + page.activeDate
-            elevated: false
+            visible: page.selectedDay !== null && page.selectedDay.dayTitle.length > 0
+            text: page.selectedDay !== null ? page.selectedDay.dayTitle : ""
+            font: Typography.sectionTitle
+            color: Theme.textPrimary
+            wrapMode: Text.WordWrap
+        }
+        Label {
+            objectName: "diaryReadOnlyPreview"
+            width: parent.width
+            visible: page.selectedDay !== null && !page.selectedDay.editable
+            text: qsTr("Будущий день · только просмотр")
+            font: Typography.caption
+            color: Theme.textMuted
+            wrapMode: Text.WordWrap
+        }
+        // День собран из блоков макета 13 (вес, правила, заметка) и держит одну
+        // подпись-обёртку: так видно, что содержимое относится к одной дате.
+        Column {
+            id: dayCard
+
             readonly property var day: page.selectedDay
             readonly property string dayDate: page.activeDate
             readonly property bool canEdit: day !== null && day.editable
-            property bool noteSaveFailed: false
-            property string noteDate: ""
-            property string savedNote: ""
             property bool editingNote: false
+            property string noteDate: ""
+            property bool noteSaveFailed: false
+            property string savedNote: ""
+            objectName: "diaryDay_" + page.activeDate
+            spacing: Spacing.sectionGap
+            visible: page.selectedDay !== null
+            width: parent.width
+
             function syncNote() {
                 if (!day)
                     return;
@@ -406,100 +704,203 @@ PageScaffold {
                     editingNote = false;
                 }
             }
-            Label {
-                width: parent.width
-                text: dayCard.day ? page.dateTitle(dayCard.dayDate) + " · " + dayCard.day.dayTitle : ""
-                font: Typography.sectionTitle
-                color: Theme.textPrimary
-                wrapMode: Text.WordWrap
-            }
-            Label {
-                width: parent.width
-                objectName: "diaryReadOnlyPreview"
-                visible: dayCard.day !== null && !dayCard.canEdit
-                text: qsTr("Будущий день · только просмотр")
-                font: Typography.caption
-                color: Theme.textMuted
-                wrapMode: Text.WordWrap
-            }
-            RowLayout {
-                width: parent.width
-                objectName: "diaryWeightSummary"
-                spacing: Spacing.listGap
+            // — Вес и обхваты: единственная точка записи замеров —
+            // Раньше вес вводился на «Сегодня», а дневник правил его же: два места
+            // одного факта. Теперь форма одна и живёт здесь (док 13, §2).
+            AppCard {
+                id: weightCard
 
-                MetricCard {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    objectName: "diaryWeightMetric"
-                    label: qsTr("Вес, кг")
-                    deltaText: qsTr("За день")
-                    valueText: dayCard.day ? page.displayValue(dayCard.day.weight) : "—"
-                }
-                MetricCard {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    label: qsTr("Среднее, кг")
-                    deltaText: qsTr("За 7 дней")
-                    valueText: dayCard.day ? page.displayValue(dayCard.day.average7) : "—"
-                }
-            }
-            Label {
+                objectName: "diaryWeightCard"
+                spacing: Spacing.listGap
                 width: parent.width
-                text: dayCard.day && dayCard.day.workoutDone ? qsTr("✓ Тренировка сделана") : qsTr("— Тренировка не отмечена")
-                font: Typography.caption
-                color: dayCard.day && dayCard.day.workoutDone ? Theme.positive : Theme.textMuted
-                wrapMode: Text.WordWrap
-            }
-            Label {
-                width: parent.width
-                text: qsTr("Ежедневные правила программы")
-                font: Typography.captionStrong
-                color: Theme.textSecondary
-                visible: dayValues.count > 0
-                wrapMode: Text.WordWrap
-            }
-            Repeater {
-                id: dayValues
-                model: dayCard.day ? dayCard.day.values : null
-                delegate: AppButton {
-                    id: valueButton
-                    readonly property var cell: typeof modelData !== "undefined" ? modelData : model
+
+                RowLayout {
+                    objectName: "diaryWeightSummary"
+                    spacing: Spacing.itemGap
                     width: parent.width
-                    implicitHeight: Math.max(Theme.buttonSecondary, contentItem.implicitHeight + topPadding + bottomPadding)
-                    objectName: "diaryValue_" + dayCard.dayDate + "_" + cell.ruleId
-                    enabled: dayCard.canEdit && cell.editable !== false
-                    text: cell.title + ": " + page.displayValue(cell.value) + (cell.unit ? " " + page.unitLabel(cell.unit) : "") + "\n" + qsTr("Норма: %1%2").arg(cell.target).arg(cell.unit ? " " + page.unitLabel(cell.unit) : "") + " · " + page.verdictFor(cell.verdict).label
-                    variant: AppButton.Ghost
-                    contentItem: Column {
-                        spacing: 4
-                        readonly property color color: page.verdictFor(valueButton.cell.verdict).color
-                        RowLayout {
+
+                    Column {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        spacing: 2
+
+                        Label {
                             width: parent.width
-                            spacing: Spacing.itemGap
+                            text: qsTr("Вес")
+                            font: Typography.overline
+                            color: Theme.textSecondary
+                        }
+                        RowLayout {
+                            spacing: Spacing.listGap
+                            width: parent.width
+
                             Label {
-                                Layout.fillWidth: true
-                                Layout.minimumWidth: 0
-                                text: valueButton.cell.title
-                                font: Typography.body
+                                objectName: "diaryWeightMetric"
+                                text: dayCard.day !== null ? page.weightText(dayCard.day) : "—"
+                                font: Typography.metric
+                                fontSizeMode: Text.HorizontalFit
+                                minimumPixelSize: 16
                                 color: Theme.textPrimary
-                                wrapMode: Text.WordWrap
                             }
                             Label {
-                                Layout.maximumWidth: parent.width * 0.5
-                                text: page.displayValue(valueButton.cell.value) + (valueButton.cell.unit ? " " + page.unitLabel(valueButton.cell.unit) : "")
-                                font: Typography.bodyStrong
-                                color: page.verdictFor(valueButton.cell.verdict).color
-                                horizontalAlignment: Text.AlignRight
-                                wrapMode: Text.WrapAnywhere
+                                Layout.alignment: Qt.AlignBottom
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                                objectName: "diaryWeightDelta"
+                                text: page.deltaText(dayCard.day)
+                                font: Typography.captionStrong
+                                color: page.deltaColor(dayCard.day)
+                                visible: text.length > 0
                             }
                         }
                         Label {
+                            objectName: "diaryWeightAverage"
                             width: parent.width
-                            text: qsTr("Норма: %1%2").arg(valueButton.cell.target).arg(valueButton.cell.unit ? " " + page.unitLabel(valueButton.cell.unit) : "") + " · " + page.verdictFor(valueButton.cell.verdict).label
+                            text: page.averageText(dayCard.day)
                             font: Typography.caption
-                            color: page.verdictFor(valueButton.cell.verdict).color
+                            color: Theme.textMuted
+                            visible: text.length > 0
                             wrapMode: Text.WordWrap
                         }
+                        // Прочерк без объяснения читается как поломка: подпись
+                        // говорит, что делать, и живёт в той же карточке, что и
+                        // кнопка ввода.
+                        Label {
+                            objectName: "diaryWeightHint"
+                            width: parent.width
+                            visible: dayCard.day !== null && !page.hasWeight(dayCard.day)
+                            text: qsTr("Вес за этот день не записан")
+                            font: Typography.caption
+                            color: Theme.textMuted
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                    AppButton {
+                        objectName: "diaryWeight_" + dayCard.dayDate
+                        Layout.alignment: Qt.AlignTop
+                        compact: true
+                        enabled: dayCard.canEdit
+                        text: qsTr("Изменить")
+                        variant: AppButton.Ghost
+                        onClicked: page.editNumber(dayCard.dayDate, dayCard.canEdit, null, true)
+                    }
+                }
+                Label {
+                    objectName: "diaryMeasurementsSummary"
+                    width: parent.width
+                    text: page.measurementCaption()
+                    font: Typography.caption
+                    color: Theme.textSecondary
+                    wrapMode: Text.WordWrap
+                }
+                AppButton {
+                    objectName: "diaryMeasurements_" + dayCard.dayDate
+                    width: parent.width
+                    enabled: dayCard.canEdit
+                    text: page.measurementActionText()
+                    variant: AppButton.Secondary
+                    onClicked: page.openMeasurements()
+                }
+            }
+            // — Правила программы: определение живёт в программе, факт — здесь —
+            // Строка на правило: название и цель слева, значение и вердикт справа.
+            // Тап открывает ввод числа за эту дату (макет 13, дневник).
+            Column {
+                objectName: "diaryRules"
+                spacing: Spacing.listGap
+                width: parent.width
+
+                RowLayout {
+                    objectName: "diaryRulesHeader"
+                    spacing: Spacing.itemGap
+                    width: parent.width
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("Правила программы")
+                        font: Typography.sectionTitle
+                        color: Theme.textPrimary
+                        wrapMode: Text.WordWrap
+                    }
+                    Label {
+                        objectName: "diaryRulesCounter"
+                        text: page.ruleCountText(dayCard.day !== null ? dayCard.day.values : null)
+                        font: Typography.caption
+                        color: Theme.textMuted
+                    }
+                }
+                Repeater {
+                    id: dayValues
+                    model: dayCard.day ? dayCard.day.values : null
+                    delegate: AppButton {
+                        id: valueButton
+                        readonly property var cell: typeof modelData !== "undefined" ? modelData : model
+                        readonly property var badge: page.verdictBadge(valueButton.cell.verdict)
+                        width: parent.width
+                        implicitHeight: Math.max(Theme.touchMin, contentItem.implicitHeight + topPadding + bottomPadding)
+                        objectName: "diaryValue_" + dayCard.dayDate + "_" + cell.ruleId
+                        enabled: dayCard.canEdit && cell.editable !== false
+                        text: cell.title + ": " + page.displayValue(cell.value) + (cell.unit ? " " + page.unitLabel(cell.unit) : "") + "\n" + qsTr("Норма: %1%2").arg(cell.target).arg(cell.unit ? " " + page.unitLabel(cell.unit) : "") + " · " + page.verdictFor(cell.verdict).label
+                        variant: AppButton.Ghost
+                    contentItem: Column {
+                        // Цвет вердикта наружу: подсветка значения и тест читают
+                        // одно свойство, а не разбирают строки подписей.
+                        readonly property color color: page.verdictFor(valueButton.cell.verdict).color
+                        spacing: 2
+
+                        RowLayout {
+                            spacing: Spacing.itemGap
+                            width: parent.width
+
+                            Column {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                spacing: 2
+
+                                Label {
+                                    width: parent.width
+                                    text: valueButton.cell.title
+                                    font: Typography.body
+                                    color: Theme.textPrimary
+                                    wrapMode: Text.WordWrap
+                                }
+                                Label {
+                                    width: parent.width
+                                    text: qsTr("цель %1%2").arg(valueButton.cell.target).arg(valueButton.cell.unit ? " " + page.unitLabel(valueButton.cell.unit) : "")
+                                    font: Typography.caption
+                                    color: Theme.textMuted
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                            Label {
+                                Layout.maximumWidth: parent.width * 0.4
+                                text: page.displayValue(valueButton.cell.value) + (valueButton.cell.unit ? " " + page.unitLabel(valueButton.cell.unit) : "")
+                                font: Typography.bodyStrong
+                                color: valueButton.badge.color
+                                horizontalAlignment: Text.AlignRight
+                                wrapMode: Text.WrapAnywhere
+                            }
+                            // Бейдж вердикта: «в норме / мимо / нет значения» — то же
+                            // слово, что в подписи строки, но читается с одного взгляда.
+                            Rectangle {
+                                Layout.alignment: Qt.AlignVCenter
+                                color: Theme.surfaceMuted
+                                implicitHeight: 20
+                                implicitWidth: badgeLabel.implicitWidth + Spacing.listGap
+                                radius: Theme.radiusSm
+
+                                Label {
+                                    id: badgeLabel
+
+                                    anchors.centerIn: parent
+                                    color: valueButton.badge.color
+                                    font: Typography.captionStrong
+                                    text: valueButton.badge.label
+                                }
+                            }
+                        }
+                        // Разделитель вместо отступа: строки правил идут подряд, и
+                        // линия отделяет один факт от другого дешевле карточки.
                         Rectangle {
                             width: parent.width
                             height: Theme.borderWidth
@@ -510,83 +911,261 @@ PageScaffold {
                 }
             }
             Label {
-                width: parent.width
-                objectName: "diaryRulesEmpty"
-                visible: dayValues.count === 0
-                text: page.hasProgram ? qsTr("В программе пока нет ежедневных числовых правил. Добавьте нужные показатели в разделе «Правила и отметки» программы.") : qsTr("Программы пока нет: вес и заметка сохраняются как личные записи. Отмечать правила можно после выбора программы — во вкладке «Программы».")
-                font: Typography.caption
-                color: Theme.textMuted
-                wrapMode: Text.WordWrap
-            }
-            AppButton {
-                width: parent.width
-                objectName: "diaryWeight_" + dayCard.dayDate
-                text: qsTr("Изменить вес")
-                variant: AppButton.Secondary
-                enabled: dayCard.canEdit
-                onClicked: page.editNumber(dayCard.dayDate, dayCard.canEdit, null, true)
-            }
-            Label {
-                width: parent.width
-                visible: !dayCard.editingNote
-                text: dayCard.day && dayCard.day.note.length > 0 ? dayCard.day.note : qsTr("Заметка дня пока не добавлена")
-                font: Typography.body
-                color: Theme.textSecondary
-                wrapMode: Text.WordWrap
-            }
-            AppButton {
-                width: parent.width
-                objectName: "diaryNoteEdit_" + dayCard.dayDate
-                visible: !dayCard.editingNote && dayCard.canEdit
-                text: noteInput.text !== dayCard.savedNote ? qsTr("Продолжить заметку") : dayCard.day && dayCard.day.note.length > 0 ? qsTr("Изменить заметку") : qsTr("Добавить заметку")
-                variant: AppButton.Secondary
-                onClicked: {
-                    dayCard.editingNote = true;
-                    noteInput.focusInput();
+                    width: parent.width
+                    objectName: "diaryRulesEmpty"
+                    visible: dayValues.count === 0
+                    text: page.hasProgram ? qsTr("В программе пока нет ежедневных числовых правил. Добавьте нужные показатели в разделе «Правила и отметки» программы.") : qsTr("Программы пока нет: вес и заметка сохраняются как личные записи. Отмечать правила можно после выбора программы — во вкладке «Программы».")
+                    font: Typography.caption
+                    color: Theme.textMuted
+                    wrapMode: Text.WordWrap
                 }
             }
-            AppTextArea {
-                id: noteInput
+            // — Заметка дня: отдельная карточка, как в макете 13 —
+            AppCard {
+                objectName: "diaryNoteCard"
+                spacing: Spacing.listGap
                 width: parent.width
-                visible: dayCard.editingNote
-                objectName: "diaryNote_" + dayCard.dayDate
-                enabled: dayCard.canEdit
-                placeholderText: qsTr("Заметка дня (необязательно)")
-            }
+
+                Label {
+                    width: parent.width
+                    text: qsTr("Заметка дня")
+                    font: Typography.overline
+                    color: Theme.textSecondary
+                }
+                Label {
+                    objectName: "diaryNotePreview"
+                    width: parent.width
+                    visible: !dayCard.editingNote
+                    text: dayCard.day && dayCard.day.note.length > 0 ? dayCard.day.note : qsTr("Заметка дня пока не добавлена")
+                    font: Typography.body
+                    color: Theme.textSecondary
+                    wrapMode: Text.WordWrap
+                }
             AppButton {
-                width: parent.width
-                objectName: "diaryNoteSave_" + dayCard.dayDate
-                visible: dayCard.editingNote
-                text: qsTr("Сохранить заметку")
-                variant: AppButton.Primary
-                enabled: dayCard.canEdit
-                onClicked: {
-                    if (!page.openDay(dayCard.dayDate, dayCard.canEdit))
-                        return;
-                    dayCard.noteSaveFailed = !page.viewModel.saveNote(noteInput.text);
-                    if (!dayCard.noteSaveFailed) {
-                        dayCard.savedNote = noteInput.text;
-                        delete page.noteDrafts[dayCard.dayDate];
-                        dayCard.editingNote = false;
+                    objectName: "diaryNoteEdit_" + dayCard.dayDate
+                    width: parent.width
+                    visible: !dayCard.editingNote && dayCard.canEdit
+                    text: noteInput.text !== dayCard.savedNote ? qsTr("Продолжить заметку") : dayCard.day && dayCard.day.note.length > 0 ? qsTr("Изменить заметку") : qsTr("Добавить заметку")
+                    variant: AppButton.Secondary
+                    onClicked: {
+                        dayCard.editingNote = true;
+                        noteInput.focusInput();
                     }
                 }
+                AppTextArea {
+                    id: noteInput
+                    width: parent.width
+                    visible: dayCard.editingNote
+                    objectName: "diaryNote_" + dayCard.dayDate
+                    enabled: dayCard.canEdit
+                    placeholderText: qsTr("Заметка дня (необязательно)")
+                }
+                AppButton {
+                    objectName: "diaryNoteSave_" + dayCard.dayDate
+                    width: parent.width
+                    visible: dayCard.editingNote
+                    text: qsTr("Сохранить заметку")
+                    variant: AppButton.Primary
+                    enabled: dayCard.canEdit
+                    onClicked: {
+                        if (!page.openDay(dayCard.dayDate, dayCard.canEdit))
+                            return;
+                        dayCard.noteSaveFailed = !page.viewModel.saveNote(noteInput.text);
+                        if (!dayCard.noteSaveFailed) {
+                            dayCard.savedNote = noteInput.text;
+                            delete page.noteDrafts[dayCard.dayDate];
+                            dayCard.editingNote = false;
+                        }
+                    }
+                }
+                AppButton {
+                    objectName: "diaryNoteCollapse_" + dayCard.dayDate
+                    width: parent.width
+                    visible: dayCard.editingNote
+                    text: qsTr("Свернуть заметку")
+                    variant: AppButton.Secondary
+                    onClicked: dayCard.editingNote = false
+                }
+                Label {
+                    objectName: "diaryNoteError_" + dayCard.dayDate
+                    width: parent.width
+                    visible: dayCard.noteSaveFailed
+                    text: qsTr("Не удалось сохранить заметку. Повторите попытку.")
+                    font: Typography.caption
+                    color: Theme.negative
+                    wrapMode: Text.WordWrap
+                }
             }
-            AppButton {
+            // — Тренировка дня: результат занятия этой даты —
+            // Источник — сессия из БД, а не отметка правила: дневник показывает
+            // факт (длительность, тоннаж), если тренировка была записана.
+            Column {
+                objectName: "diaryWorkout"
+                spacing: Spacing.listGap
                 width: parent.width
-                objectName: "diaryNoteCollapse_" + dayCard.dayDate
-                visible: dayCard.editingNote
-                text: qsTr("Свернуть заметку")
-                variant: AppButton.Secondary
-                onClicked: dayCard.editingNote = false
+
+                Label {
+                    width: parent.width
+                    text: qsTr("Тренировка дня")
+                    font: Typography.sectionTitle
+                    color: Theme.textPrimary
+                    wrapMode: Text.WordWrap
+                }
+                AppCard {
+                    spacing: Spacing.listGap
+                    visible: page.selectedSessionHasData()
+                    width: parent.width
+
+                    RowLayout {
+                        spacing: Spacing.itemGap
+                        width: parent.width
+
+                        Column {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            spacing: 2
+
+                            Label {
+                                objectName: "diarySessionTitle"
+                                width: parent.width
+                                text: page.sessionTitle()
+                                font: Typography.bodyStrong
+                                color: Theme.textPrimary
+                                wrapMode: Text.WordWrap
+                            }
+                            Label {
+                                objectName: "diarySessionMeta"
+                                width: parent.width
+                                text: page.sessionMetaText()
+                                font: Typography.caption
+                                color: Theme.textSecondary
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                        Rectangle {
+                            Layout.alignment: Qt.AlignVCenter
+                            color: Theme.accentSurface
+                            implicitHeight: 20
+                            implicitWidth: sessionBadge.implicitWidth + Spacing.listGap
+                            radius: Theme.radiusSm
+
+                            Label {
+                                id: sessionBadge
+
+                                anchors.centerIn: parent
+                                color: Theme.accent
+                                font: Typography.captionStrong
+                                text: qsTr("записана")
+                            }
+                        }
+                    }
+                }
+                Label {
+                    objectName: "diaryWorkoutEmpty"
+                    width: parent.width
+                    visible: !page.selectedSessionHasData()
+                    text: page.hasProgram ? qsTr("Тренировка за этот день не записана.") : qsTr("Тренировок пока нет: они появятся здесь после первой записанной тренировки.")
+                    font: Typography.caption
+                    color: Theme.textMuted
+                    wrapMode: Text.WordWrap
+                }
             }
-            Label {
+        }
+        // — Прошедшие тренировки: история занятий живёт в дневнике —
+        // Раньше она была блоком «История» в профиле, рядом с демонстрационной
+        // аналитикой: два источника правды об одном. Теперь история — там же, где
+        // даты, из которых она состоит (док 13, §2).
+        Column {
+            objectName: "diaryHistory"
+            spacing: Spacing.listGap
+            visible: page.hasModel && page.viewModel.sessions.count > 0
+            width: parent.width
+
+            RowLayout {
+                spacing: Spacing.itemGap
                 width: parent.width
-                objectName: "diaryNoteError_" + dayCard.dayDate
-                visible: dayCard.noteSaveFailed
-                text: qsTr("Не удалось сохранить заметку. Повторите попытку.")
-                font: Typography.caption
-                color: Theme.negative
-                wrapMode: Text.WordWrap
+
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("Прошедшие тренировки")
+                    font: Typography.sectionTitle
+                    color: Theme.textPrimary
+                    wrapMode: Text.WordWrap
+                }
+                Label {
+                    text: page.viewModel.sessions.count > 0 ? String(page.viewModel.sessions.count) : ""
+                    font: Typography.caption
+                    color: Theme.textMuted
+                }
+            }
+            AppCard {
+                paddingHorizontal: 0
+                paddingVertical: Spacing.listGap
+                spacing: 0
+                width: parent.width
+
+                Repeater {
+                    model: page.hasModel ? page.viewModel.sessions : null
+
+                    delegate: Item {
+                        required property int index
+                        required property string date
+                        required property string title
+                        // Имя не `state`: у Item оно уже есть (механизм состояний),
+                        // и объявление одноимённого свойства ломает его.
+                        required property string workoutState
+                        required property int minutes
+                        required property real tonnage
+
+                        height: Theme.touchMin
+                        width: parent.width
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: Spacing.cardPadding
+                            anchors.rightMargin: Spacing.cardPadding
+                            spacing: Spacing.listGap
+
+                            Column {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                spacing: 2
+
+                                Label {
+                                    objectName: "diaryHistoryTitle_" + index
+                                    width: parent.width
+                                    elide: Text.ElideRight
+                                    text: title
+                                    font: Typography.body
+                                    color: Theme.textPrimary
+                                }
+                                Label {
+                                    objectName: "diaryHistoryMeta_" + index
+                                    width: parent.width
+                                    elide: Text.ElideRight
+                                    text: page.shortDay(date) + " · " + page.sessionMeta({
+                                        title: title,
+                                        workoutState: workoutState,
+                                        minutes: minutes,
+                                        tonnage: tonnage
+                                    })
+                                    font: Typography.caption
+                                    color: Theme.textSecondary
+                                }
+                            }
+                        }
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            anchors.left: parent.left
+                            anchors.leftMargin: Spacing.cardPadding
+                            anchors.right: parent.right
+                            anchors.rightMargin: Spacing.cardPadding
+                            color: Theme.borderSubtle
+                            height: Theme.borderWidth
+                            visible: index < page.viewModel.sessions.count - 1
+                        }
+                    }
+                }
             }
         }
         AppButton {
@@ -745,6 +1324,161 @@ PageScaffold {
                 text: qsTr("Отмена")
                 variant: AppButton.Secondary
                 onClicked: numberPopup.close()
+            }
+        }
+    }
+
+    // Форма замеров дня: вес и обхваты одной карточкой. Раньше вес правился в
+    // дневнике, а обхваты — в форме на «Сегодня»; после переноса ввода на главной
+    // обхватам не осталось места, и «где сохранить замер» имел два ответа и ни
+    // одного полного. Теперь ответ один — здесь.
+    SwipePopup {
+        id: measurementPopup
+
+        // Окно обязано иметь ручку перетаскивания: SwipePopup объявляет её
+        // required, и без неё падает не окно, а весь экран (StackView не может
+        // создать initialItem) — экран оставался пустым.
+        dragHandle: measurementGrip
+
+        // Текущие значения полей по ключам замера. Карта пересобирается при
+        // открытии: так «Изменить замеры» показывает уже записанное.
+        property bool saveFailed: false
+        // Текст ошибки проверки: пустые поля — это «не менялось», но совсем
+        // пустую форму сохранять нечего.
+        property string validationError: ""
+        property var values: ({})
+        // Поля — ключи замера из модели: вес всегда, обхваты — по программе.
+        readonly property var fields: page.hasModel ? page.viewModel.measurementKeys : []
+        parent: Overlay.overlay
+        padding: Spacing.cardPadding
+        modal: true
+        dim: true
+        width: Math.min(page.width - Spacing.screenPadding * 2, page.numberPopupMaxWidth)
+
+        onAboutToShow: {
+            measurementGrip.reset();
+            saveFailed = false;
+            validationError = "";
+        }
+
+        background: Rectangle {
+            color: Theme.surface
+            border.color: Theme.border
+            border.width: Theme.borderWidth
+            radius: Theme.radiusLg
+        }
+
+        contentItem: Column {
+            spacing: Spacing.itemGap
+            width: parent.width
+
+            SwipeDismissHandle {
+                id: measurementGrip
+                width: parent.width
+                onDismissed: measurementPopup.close()
+            }
+            Label {
+                width: parent.width
+                text: qsTr("Замеры за %1").arg(page.selectedDayCaption())
+                font: Typography.sectionTitle
+                color: Theme.textPrimary
+                wrapMode: Text.WordWrap
+            }
+            Label {
+                width: parent.width
+                text: qsTr("Заполните то, что измерили: пустые поля останутся прежними.")
+                font: Typography.caption
+                color: Theme.textSecondary
+                wrapMode: Text.WordWrap
+            }
+            // Прокрутка: обхватов может быть до девяти, и на низком экране форма
+            // выше самого окна.
+            Flickable {
+                flickableDirection: Flickable.VerticalFlick
+                height: Math.min(measurementFields.height, page.height * 0.45)
+                width: parent.width
+
+                contentHeight: measurementFields.height
+
+                Column {
+                    id: measurementFields
+
+                    spacing: Spacing.listGap
+                    width: parent.width
+
+                    Repeater {
+                        model: measurementPopup.fields
+
+                        delegate: Column {
+                            id: measurementField
+
+                            required property int index
+                            required property string modelData
+
+                            readonly property bool isWeight: modelData === "weight"
+                            readonly property string key: modelData
+
+                            property string text: measurementPopup.values[key] !== undefined ? String(measurementPopup.values[key]) : ""
+
+                            spacing: 4
+                            width: parent.width
+
+                            Label {
+                                width: parent.width
+                                text: MeasurementTexts.title(measurementField.key) + ", " + MeasurementTexts.unit(measurementField.key)
+                                font: Typography.captionStrong
+                                color: Theme.textSecondary
+                                wrapMode: Text.WordWrap
+                            }
+                            TextField {
+                                id: measurementInput
+
+                                objectName: "diaryMeasurementInput_" + measurementField.key
+                                width: parent.width
+                                color: Theme.textPrimary
+                                font: Typography.body
+                                inputMethodHints: Qt.ImhFormattedNumbersOnly
+                                padding: Spacing.cardPadding
+                                placeholderText: measurementField.isWeight ? qsTr("Например, 75,5") : qsTr("см")
+                                selectByMouse: true
+                                text: measurementField.text
+                                background: Rectangle {
+                                    color: Theme.surfaceMuted
+                                    radius: Theme.radiusMd
+                                    border.color: measurementInput.activeFocus ? Theme.accent : Theme.border
+                                    border.width: Theme.borderWidth
+                                }
+                                onTextChanged: {
+                                    measurementField.text = text;
+                                    measurementPopup.values[measurementField.key] = text;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Label {
+                objectName: "diaryMeasurementError"
+                width: parent.width
+                visible: measurementPopup.saveFailed || measurementPopup.validationError.length > 0
+                text: measurementPopup.validationError.length > 0 ? measurementPopup.validationError : qsTr("Не удалось сохранить замеры. Проверьте значения и повторите.")
+                color: Theme.negative
+                font: Typography.caption
+                wrapMode: Text.WordWrap
+            }
+            AppButton {
+                objectName: "diaryMeasurementSave"
+                width: parent.width
+                enabled: page.selectedDay !== null && page.selectedDay.editable
+                text: qsTr("Сохранить замеры")
+                variant: AppButton.Primary
+                onClicked: page.saveMeasurements()
+            }
+            AppButton {
+                width: parent.width
+                text: qsTr("Отмена")
+                variant: AppButton.Secondary
+                onClicked: measurementPopup.close()
             }
         }
     }

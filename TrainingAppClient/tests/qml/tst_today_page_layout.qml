@@ -84,6 +84,35 @@ TestCase {
         verify(findChild(page, "todayFocusWeight") !== null, "вес показывается только для чтения");
     }
 
+    // «В фокусе»: карточки KPI должны вмещать свой текст. Регресс: тап-слой
+    // (MouseArea с anchors.fill) внутри AppCard обнулял высоту его колонки
+    // содержимого — карточка рисовалась в 28 px, а значение и тренд выезжали на
+    // заголовок «Отметки дня». Tap-слой теперь в обёртке Item, а не в карточке.
+    function test_focusCardsFitTheirText() {
+        const weight = findChild(page, "todayFocusWeight");
+        const measurements = findChild(page, "todayFocusMeasurements");
+
+        verify(weight !== null && measurements !== null, "нет плиток «В фокусе»");
+        verify(weight.implicitHeight >= 60, "карточка веса схлопнулась: " + weight.implicitHeight);
+        verify(measurements.implicitHeight >= 60, "карточка замеров схлопнулась: " + measurements.implicitHeight);
+        // Клик живёт в обёртке: тап-слой не должен попасть внутрь карточки, иначе
+        // он снова обнулит высоту её колонки содержимого.
+        verify(findChild(weight, "todayFocusWeightTap") === null, "тап-слой попал внутрь карточки");
+        verify(findChild(page, "todayFocusWeightTap") !== null, "нет тап-слоя карточки веса");
+        verify(findChild(page, "todayFocusMeasurementsTap") !== null, "нет тап-слоя карточки замеров");
+    }
+
+    // Срок программы не дублируется в подписи hero: «Сила 8 недель · 8 недель»
+    // читается как ошибка данных.
+    function test_heroOverlineDoesNotRepeatTerm() {
+        page.viewModel.programTitle = "Сила 8 недель";
+        page.viewModel.weeksTotal = 8;
+        compare(page.heroOverline(), "Сила 8 недель");
+        page.viewModel.programTitle = "Сила и объём";
+        compare(page.heroOverline(), "Сила и объём · 8 недель");
+        page.viewModel.programTitle = "Сила и объём";
+    }
+
     Component {
         id: todayPageComponent
 

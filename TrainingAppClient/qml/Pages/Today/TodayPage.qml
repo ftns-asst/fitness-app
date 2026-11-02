@@ -341,6 +341,13 @@ PageScaffold {
     // Ввод веса и обхватов живёт в дневнике: два места записи одного факта
     // расходились, и непонятно было, какое из них главное. Здесь только
     // чтение и переход туда, где значение действительно меняется.
+    //
+    // Тап-слой стоит ПОВЕРХ карточки, а не внутри неё: `MetricCard` — это
+    // `AppCard`, а содержимое карточки живёт в собственной `Column`. Якорный
+    // ребёнок внутри позиционера обнуляет её `implicitHeight` (проверено:
+    // 84 → 28 px), и карточка рисуется ниже своего содержимого — значение и
+    // тренд выезжали на заголовок «Отметки дня». Обёртка `Item` держит клик и
+    // не вмешивается в раскладку карточки.
     RowLayout {
         id: focusRow
 
@@ -349,29 +356,47 @@ PageScaffold {
         visible: page.hasModel && page.viewModel.hasProgram
         width: parent.width
 
-        MetricCard {
-            Layout.fillWidth: true
-            deltaText: page.focusWeightHint()
-            deltaKind: page.viewModel.hasMeasurement ? "neutral" : "neutral"
-            highlight: page.viewModel.hasMeasurement
-            label: qsTr("Вес сегодня")
-            objectName: "todayFocusWeight"
-            valueText: page.focusWeightText()
+        Item {
+            id: weightCell
 
+            Layout.fillWidth: true
+            implicitHeight: weightCard.implicitHeight
+
+            MetricCard {
+                id: weightCard
+
+                width: parent.width
+                objectName: "todayFocusWeight"
+                deltaText: page.focusWeightHint()
+                deltaKind: "neutral"
+                highlight: page.viewModel.hasMeasurement
+                label: qsTr("Вес сегодня")
+                valueText: page.focusWeightText()
+            }
             MouseArea {
+                objectName: "todayFocusWeightTap"
                 anchors.fill: parent
                 onClicked: page.diaryRequested()
             }
         }
-        MetricCard {
-            Layout.fillWidth: true
-            deltaText: page.measurementHint()
-            highlight: false
-            label: qsTr("Замеры по плану")
-            objectName: "todayFocusMeasurements"
-            valueText: page.measurementIsDue() ? qsTr("Пора") : qsTr("По графику")
+        Item {
+            id: measurementCell
 
+            Layout.fillWidth: true
+            implicitHeight: measurementCard.implicitHeight
+
+            MetricCard {
+                id: measurementCard
+
+                width: parent.width
+                objectName: "todayFocusMeasurements"
+                deltaText: page.measurementHint()
+                highlight: false
+                label: qsTr("Замеры по плану")
+                valueText: page.measurementIsDue() ? qsTr("Пора") : qsTr("По графику")
+            }
             MouseArea {
+                objectName: "todayFocusMeasurementsTap"
                 anchors.fill: parent
                 onClicked: page.diaryRequested()
             }
@@ -658,14 +683,22 @@ PageScaffold {
     }
 
 
-    // Подпись hero: программа и её срок — то, что человек выбрал сам.
+    // Подпись hero: программа и её срок — то, что человек выбрал сам. Срок не
+    // повторяется, если он уже в названии («Сила 8 недель · 8 недель» — то же
+    // число дважды подряд читается как ошибка данных).
     function heroOverline() {
         if (!page.hasModel || page.viewModel.hasProgram === false)
             return "";
 
+        const title = String(page.viewModel.programTitle);
         const weeks = page.weeksTotal();
 
-        return weeks > 0 ? qsTr("%1 · %2 недель").arg(page.viewModel.programTitle).arg(weeks) : page.viewModel.programTitle;
+        if (weeks <= 0)
+            return title;
+        if (title.indexOf(String(weeks)) >= 0)
+            return title;
+
+        return qsTr("%1 · %2 недель").arg(title).arg(weeks);
     }
 
     // Крупный заголовок hero: что это за день.

@@ -75,13 +75,16 @@ TestCase {
     function test_loadsRequestedProgramAndShowsNormsAndSummary() {
         compare(stub.calls[0].join("|"), "reload|u1|p1");
         compare(stub.selectedDate, "2026-10-01");
-        // Программа — подпись в шапке каркаса: строка не дублируется в контенте.
-        compare(page.caption, "Сила 4 недели");
+        // Подпись шапки — выбранная дата (макет 13), программа стоит строкой над
+        // карточками: дата меняется от тапа к тапу, программа — нет.
+        verify(page.caption.indexOf("октября") >= 0, page.caption);
+        verify(findChild(page, "diaryScope").text.indexOf("Сила 4 недели") >= 0);
         verify(findChild(page, "diaryValue_2026-10-01_protein").text.indexOf("≥ 180") >= 0);
         compare(findChild(page, "diarySummary_protein"), null);
         findChild(page, "diarySummaryToggle").clicked();
         wait(0);
         const summary = findChild(page, "diarySummary_protein");
+
         verify(summary.text.indexOf("175") >= 0);
         verify(summary.text.indexOf("2") >= 0);
         verify(summary.text.indexOf("1") >= 0);
@@ -380,7 +383,8 @@ TestCase {
         stub.changed();
         wait(0);
         compare(note.text, "Черновик");
-        compare(findChild(page, "diaryWeightMetric").valueText, "83");
+        // Вес в карточке «Вес» — одна строка «83 кг» вместо прежней плитки KPI.
+        compare(findChild(page, "diaryWeightMetric").text, "83 кг");
         compare(stub.selectedDate, "2026-10-01");
         stub.days.setProperty(0, "weight", 82);
     }
@@ -415,7 +419,7 @@ TestCase {
     function test_withoutProgramShowsPersonalRecordsHint() {
         stub.hasProgram = false;
 
-        compare(page.caption, "Личные записи · без программы");
+        verify(findChild(page, "diaryScope").text.indexOf("Личные записи") >= 0);
         const hint = findChild(page, "diaryRulesEmpty");
 
         verify(hint !== null);
@@ -423,11 +427,87 @@ TestCase {
         stub.hasProgram = true;
     }
 
+    // Вес в карточке макета 13: значение, дельта за неделю и среднее — три строки,
+// а не две плитки KPI: плитки занимали пол-экрана ради одного числа.
+    function test_weightCardShowsDeltaAverageAndObhvaty() {
+        compare(findChild(page, "diaryWeightMetric").text, "82 кг");
+        compare(findChild(page, "diaryWeightAverage").text, "Среднее за 7 дней · 82,5 кг");
+        // Дельта приходит ролью delta7; в стабе её нет — подпись скрыта.
+        verify(!findChild(page, "diaryWeightDelta").visible);
+        const caption = findChild(page, "diaryMeasurementsSummary").text;
+
+        verify(caption.indexOf("96") >= 0, caption);
+        verify(caption.indexOf("74") >= 0, caption);
+        compare(findChild(page, "diaryMeasurements_2026-10-01").text, "Изменить замеры");
+    }
+
+    // Форма замеров: вес и обхваты в одном окне — единственный ответ на вопрос
+    // «где сохранять замеры».
+    function test_measurementSheetSavesWeightAndGirths() {
+        findChild(page, "diaryMeasurements_2026-10-01").clicked();
+        wait(0);
+        const popup = page.measurementsPopup;
+
+        verify(popup.visible);
+        // Поля предзаполнены текущим замером дня.
+        compare(findChild(popup.contentItem, "diaryMeasurementInput_weight").text, "82");
+        compare(findChild(popup.contentItem, "diaryMeasurementInput_chest").text, "96");
+        compare(findChild(popup.contentItem, "diaryMeasurementInput_waist").text, "");
+        findChild(popup.contentItem, "diaryMeasurementInput_waist").text = "73,5";
+        findChild(popup.contentItem, "diaryMeasurementSave").clicked();
+        const call = stub.calls[stub.calls.length - 1];
+
+        compare(call[0], "measurements");
+        verify(call[1].indexOf("\"waist\":73.5") >= 0, call[1]);
+        // Окно закрывается анимацией ухода: ждём конца перехода, а не проверяем
+        // visible сразу — иначе тест зависел бы от длительности анимации.
+        tryCompare(popup, "visible", false);
+    }
+
+    function test_rulesSectionCountsVerdicts() {
+        compare(findChild(page, "diaryRulesHeader") !== null, true);
+        compare(findChild(page, "diaryRulesCounter").text, "0 из 1");
+    }
+
+    function test_historyListsPastSessions() {
+        compare(findChild(page, "diaryHistoryTitle_0").text, "Верх");
+        const meta = findChild(page, "diaryHistoryMeta_0").text;
+
+        verify(meta.indexOf("Завершена") >= 0, meta);
+        verify(meta.indexOf("55 мин") >= 0, meta);
+        verify(meta.indexOf("12,4 т") >= 0, meta);
+    }
+
     QtObject {
         id: stub
 
         property string programTitle: "Сила 4 недели"
         property bool hasProgram: true
+        // Поля формы замеров и текущий замер выбранной даты: дневник — место
+        // записи веса и обхватов (док 13, §2).
+        property var measurementKeys: ["weight", "chest", "waist"]
+        property var selectedMeasurement: ({
+                weight: 82,
+                chest: 96
+            })
+        // Последний замер с обхватами: подпись «измерены <дата>».
+        property var lastMeasurement: ({
+                date: "2026-09-28",
+                chest: 96,
+                waist: 74
+            })
+        // Тренировка выбранной даты и история занятий.
+        property var selectedSession: ({})
+        property var sessions: ListModel {
+            ListElement {
+                date: "2026-09-30"
+                title: "Верх"
+                workoutState: "completed"
+                minutes: 55
+                tonnage: 12400
+                setCount: 12
+            }
+        }
 
         signal changed
         property var calls: []
@@ -528,6 +608,10 @@ TestCase {
         }
         function saveWeight(value) {
             calls.push(["weight", value]);
+            return result();
+        }
+        function saveMeasurements(values) {
+            calls.push(["measurements", JSON.stringify(values)]);
             return result();
         }
         function saveNote(text) {
