@@ -14,17 +14,20 @@ PageScaffold {
     property var viewModel: ProgramStatsVM
     property var programViewModel: ProgramVM
     property string programId: ""
+    // Встроенный режим: страница показана внутри сегментов обзора программы,
+    // поэтому не рисует свою панель возврата и заголовок — их держит обзор.
+    property bool embedded: false
     // Панель возврата обязательна: экраны программы открыты поверх вкладок, где
     // таб-бара нет.
     BackBar {
         onClicked: page.backRequested()
         text: qsTr("Назад")
-        visible: true
+        visible: !page.embedded
         width: parent.width
     }
 
-    caption: page.hasData ? qsTr("По завершённым тренировкам") : qsTr("Пока нет данных")
-    title: qsTr("Статистика")
+    caption: page.embedded ? "" : (page.hasData ? qsTr("По завершённым тренировкам") : qsTr("Пока нет данных"))
+    title: page.embedded ? "" : qsTr("Статистика")
 
     // Запрос возврата: экраны программы открыты поверх вкладок, где таб-бара нет.
     signal backRequested

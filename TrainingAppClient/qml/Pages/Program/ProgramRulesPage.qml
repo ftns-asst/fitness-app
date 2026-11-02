@@ -14,17 +14,20 @@ PageScaffold {
 
     property var viewModel: ProgramRulesVM
     property string programId: ""
+    // Встроенный режим: страница показана внутри сегментов обзора программы,
+    // поэтому не рисует свою панель возврата и заголовок — их держит обзор.
+    property bool embedded: false
     // Панель возврата обязательна: экраны программы открыты поверх вкладок, где
     // таб-бара нет.
     BackBar {
         Layout.fillWidth: true
         onClicked: page.backRequested()
         text: qsTr("Назад")
-        visible: true
+        visible: !page.embedded
     }
 
-    caption: page.hasProgram ? qsTr("%1 · окно %2…%3").arg(page.today).arg(page.rangeFrom).arg(page.rangeTo) : page.programId.length > 0 ? qsTr("Программа недоступна") : qsTr("Нет активной программы")
-    title: qsTr("Правила и отметки")
+    caption: page.embedded ? "" : (page.hasProgram ? qsTr("%1 · окно %2…%3").arg(page.today).arg(page.rangeFrom).arg(page.rangeTo) : page.programId.length > 0 ? qsTr("Программа недоступна") : qsTr("Нет активной программы"))
+    title: page.embedded ? "" : qsTr("Правила и отметки")
 
     readonly property bool hasProgram: page.viewModel !== undefined && page.viewModel !== null && page.viewModel.hasProgram
     // Сохранённый расчёт КБЖУ есть: кнопка «Создать правила из расчёта» доступна

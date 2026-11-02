@@ -145,7 +145,7 @@ TestCase {
         compare(shell.pushedDepth, 1);
     }
     function test_leftEdgeSwipeNavigatesBack() {
-        shell.openProgramCatalog();
+        shell.openProgramOverview();
         tryCompare(shell, "stackBusy", false);
         compare(shell.pushedDepth, 2);
         mouseDrag(shellWindow.contentItem, 8, 80, 180, 0);
@@ -154,7 +154,7 @@ TestCase {
     }
     function test_swipeRestoresSavedScreenAfterRelease() {
         shell.showTab(1);
-        shell.openProgramCatalog();
+        shell.openProgramOverview();
         tryCompare(shell, "stackBusy", false);
         shell.showTab(0);
         tryCompare(shell, "stackBusy", false);
@@ -174,7 +174,7 @@ TestCase {
         tryVerify(() => Math.abs(view.contentItem.contentX - view.width) < 1);
     }
     function test_shortEdgeSwipeKeepsCurrentScreen() {
-        shell.openProgramCatalog();
+        shell.openProgramOverview();
         tryCompare(shell, "stackBusy", false);
         mouseDrag(shellWindow.contentItem, 8, 80, 30, 0);
         compare(shell.pushedDepth, 2);
@@ -326,7 +326,7 @@ TestCase {
     // в корень: день → редактор → каталог → корень.
     function test_backWalksThroughChain() {
         shell.showTab(1);
-        shell.openProgramCatalog();
+        shell.openProgramOverview();
         tryCompare(shell, "stackBusy", false);
         shell.openProgramEditor();
         tryCompare(shell, "stackBusy", false);
@@ -342,7 +342,7 @@ TestCase {
         shell.goBack();
         tryCompare(shell, "stackBusy", false);
         tryCompare(shell, "pushedDepth", 2);
-        verify(shell.topItem instanceof ProgramCatalogPage, "назад из редактора должен открыть каталог");
+        verify(shell.topItem instanceof ProgramOverviewPage, "назад из редактора должен открыть обзор");
 
         shell.goBack();
         tryCompare(shell, "stackBusy", false);
@@ -354,7 +354,7 @@ TestCase {
     // каталог»: назад из восстановленного экрана не должен вести в корень).
     function test_switchingTabRestoresWholeChain() {
         shell.showTab(1);
-        shell.openProgramCatalog();
+        shell.openProgramOverview();
         tryCompare(shell, "stackBusy", false);
         shell.openProgramEditor();
         tryCompare(shell, "stackBusy", false);
@@ -391,6 +391,57 @@ TestCase {
         tryCompare(shell, "stackBusy", false);
         tryCompare(shell, "pushedDepth", 2);
         verify(shell.topItem instanceof ProgramOverviewPage, "восстанавливается обзор, а не закрытая форма создания");
+    }
+
+    // Экран «Программы» — два сегмента: свои программы и шаблоны.
+    function test_programsTabHasTwoSegments() {
+        shell.showTab(2);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.currentTab, 2);
+
+        const segments = findChild(shell, "programsSegments");
+
+        verify(segments !== null, "на вкладке нет сегментов «Мои / Шаблоны»");
+        compare(segments.items.length, 2);
+    }
+
+    // Обзор программы держит сегменты и не плодит стек: переключение меняет
+    // содержимое, а не открывает новый экран.
+    function test_programOverviewSegmentsDoNotGrowStack() {
+        shell.openProgramOverview();
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 2);
+
+        const segments = findChild(shell.topItem, "programSegments");
+
+        verify(segments !== null, "в обзоре нет сегментов «Состав / Прогресс / Правила»");
+        compare(segments.items.length, 3);
+
+        segments.selected(1);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 2, "прогресс открывается внутри обзора");
+        compare(shell.topItem.segment, 1);
+
+        segments.selected(2);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 2, "правила открываются внутри обзора");
+        compare(shell.topItem.segment, 2);
+
+        segments.selected(0);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.topItem.segment, 0);
+    }
+
+    // «Каталог программ» больше не отдельный экран: свои программы показывает
+    // вкладка «Программы».
+    function test_programCatalogOpensProgramsTab() {
+        shell.showTab(0);
+        tryCompare(shell, "stackBusy", false);
+
+        shell.openProgramCatalog();
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.currentTab, 2);
+        compare(shell.pushedDepth, 1);
     }
 
     Component {

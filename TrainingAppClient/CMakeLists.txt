@@ -181,7 +181,6 @@ qt_add_qml_module(appTrainingAppClient
         src/Presentation/Program_Qml.cpp
     QML_FILES
         qml/Pages/Diary/DiaryPage.qml
-        qml/Pages/Program/ProgramCatalogPage.qml
     qml/Pages/Program/ProgramOverviewPage.qml
         qml/Pages/Program/ProgramEditPage.qml
         qml/Pages/Program/ProgramDayPage.qml
@@ -270,7 +269,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         # Screens
         qml/Pages/Auth/AuthPage.qml
         qml/Pages/Today/TodayPage.qml
-        qml/Pages/Plans/PlansPage.qml
+        qml/Pages/Programs/ProgramsPage.qml
         qml/Pages/Exercises/ExercisesPage.qml
     qml/Pages/Exercises/ExercisesEditorPage.qml
     qml/Pages/Exercises/ExerciseDetailPage.qml

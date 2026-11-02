@@ -180,7 +180,6 @@ Item {
             "exercise-edit": exerciseEditorComponent,
             "macro-calculator": macroCalculatorComponent,
             "profile": profileComponent,
-            "program-catalog": programCatalogComponent,
             "program-day": programDayComponent,
             "program-edit": programEditorComponent,
             "program-overview": programOverviewComponent,
@@ -489,15 +488,18 @@ Item {
 
                 onProfileActionRequested: shell.openProfile()
             }
-            PlansPage {
+            ProgramsPage {
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
                 profileActionVisible: true
                 profileInitials: shell.profileInitials
+                templates: shell.plansViewModel
                 topInset: shell.topInset
-                viewModel: shell.plansViewModel
 
-                onMyProgramRequested: shell.openProgramCatalog()
+                onCreateRequested: shell.openProgramEditor()
+                onEditRequested: programId => shell.openProgramEditor(programId)
+                onOpenRequested: programId => shell.openProgramOverview(programId)
                 onProfileActionRequested: shell.openProfile()
+                onStatsRequested: programId => shell.openProgramStats(programId)
             }
             ExercisesPage {
                 pageActive: SwipeView.isCurrentItem && pages.depth === 1
@@ -512,18 +514,14 @@ Item {
             }
         }
     }
-    // Запрос на открытие экрана программы из «Планов» — своей глобальной
-    // программы пользователь не ищет среди шаблонов, он открывает её сам.
-    signal myProgramRequested
-
     // — Экраны глобальной программы (срез W11, issues 41–44) —
     // Отдельный стек поверх вкладок: детали программы живут вне неё, поэтому
     // вкладок не видно, а «назад» возвращает на вкладку, из которой пришли.
+    //
+    // Каталог программ больше не отдельный экран: свои программы показывает
+    // вкладка «Программы» сегментом «Мои», поэтому переход ведёт на неё.
     function openProgramCatalog() {
-        shell.noteTabScreen({
-            name: "program-catalog"
-        });
-        shell.pushPage(programCatalogComponent);
+        shell.showTab(2);
     }
     function openProgramOverview(id) {
         shell.programId = id === undefined ? "" : id;
@@ -822,29 +820,6 @@ Item {
 
             onBackRequested: shell.goBack()
             onEditRequested: exerciseId => shell.openExerciseEditor(exerciseId)
-        }
-    }
-    Component {
-        id: programCatalogComponent
-
-        ProgramCatalogPage {
-            bottomInset: shell.pageBottomInset
-            topInset: shell.topInset
-
-            onBackRequested: shell.goBack()
-            onCreateRequested: shell.openProgramEditor()
-            // Открытие, правка и статистика приходят идентификатором: каталог
-            // показывает все программы, а не только активную, поэтому и переход
-            // должен нести конкретную программу.
-            onOpenRequested: function (programId) {
-                shell.openProgramOverview(programId);
-            }
-            onEditRequested: function (programId) {
-                shell.openProgramEditor(programId);
-            }
-            onStatsRequested: function (programId) {
-                shell.openProgramStats(programId);
-            }
         }
     }
     Component {
