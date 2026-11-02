@@ -22,6 +22,7 @@ class Avm_Diary : public QObject
 	Q_PROPERTY(QString selectedDate READ selectedDate NOTIFY changed)
 	Q_PROPERTY(QVariant selectedWeight READ selectedWeight NOTIFY changed)
 	Q_PROPERTY(QString errorKey READ errorKey NOTIFY changed)
+	Q_PROPERTY(bool hasProgram READ Has_Program NOTIFY changed)
 	Q_PROPERTY(QString programTitle READ programTitle NOTIFY changed)
 public:
 	Avm_Diary(AProgram_Repository *in_programs, ARule_Repository *in_rules, AWorkout_Repository *in_workouts,
@@ -41,6 +42,7 @@ public:
 	QString selectedDate() const;
 	QVariant selectedWeight() const;
 	QString errorKey() const;
+	bool Has_Program() const;
 	QString programTitle() const;
 signals:
 	void changed();
@@ -66,6 +68,9 @@ private:
 	AList_Model *Summaries = 0;
 	QString User_Id;
 	SProgram Program;
+	// Программы может не быть вовсе: тогда дневник показывает личные записи
+	// (вес, заметки) за окно по умолчанию, а правила и дни остаются пустыми.
+	bool Program_Loaded = false;
 	QVector<SProgram_Rule> Loaded_Rules;
 	QVector<SDay_Log> Day_Logs;
 	QVariantMap Selection;

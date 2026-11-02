@@ -20,6 +20,7 @@ private slots:
 	void respectsApplicabilityAndExcludesFutureFacts();
 	void scheduleWeightAndCompletedWorkout();
 	void openEndedProgramHasNoFutureRows();
+	void personalRecordsWorkWithoutProgram();
 
 private:
 	QTemporaryDir Directory;
@@ -74,8 +75,13 @@ void ADiary_VM_Test::showsTermNormsAndMissingValues()
 	QVERIFY(vm.openDay("2026-10-02"));
 	QCOMPARE(vm.selectedValues().at(0).toMap().value("verdict").toString(), QString("unknown"));
 	QVERIFY(vm.selectedWeight().isNull());
+	// Нет программы — дневник работает как личные записи: окно по умолчанию
+	// завершается сегодня, правил нет.
 	QVERIFY(vm.reload("nobody"));
-	QCOMPARE(vm.days()->Row_Count(), 0);
+	QVERIFY(!vm.Has_Program());
+	QCOMPARE(vm.days()->Row_Count(), 12 * 7);
+	QCOMPARE(vm.days()->get(vm.days()->Row_Count() - 1).value("date").toString(), QString("2026-10-03"));
+	QCOMPARE(vm.norms()->Row_Count(), 0);
 	QVERIFY(vm.selectedDate().isEmpty());
 }
 //-------------------------------------------------------------------------------------------------------------
@@ -267,6 +273,32 @@ void ADiary_VM_Test::openEndedProgramHasNoFutureRows()
 	vm.setToday("2026-09-30");
 	QVERIFY(vm.reload("u", "p"));
 	QCOMPARE(vm.days()->Row_Count(), 0);
+}
+//-------------------------------------------------------------------------------------------------------------
+// Без программы дневник не пустой: вес и заметки принадлежат пользователю и дате.
+void ADiary_VM_Test::personalRecordsWorkWithoutProgram()
+{
+	AProgram_Repository programs(&Database);
+	ARule_Repository rules(&Database);
+	AWorkout_Repository workouts(&Database);
+	AMeasurement_Repository measurements(&Database);
+	ADay_Note_Repository notes(&Database);
+	AStats_Repository stats(&Database);
+	Avm_Diary vm(&programs, &rules, &workouts, &measurements, &notes, &stats);
+	vm.setToday("2026-10-03");
+	QVERIFY(vm.reload("solo"));
+	QVERIFY(!vm.Has_Program());
+	QCOMPARE(vm.norms()->Row_Count(), 0);
+	QVERIFY(vm.openDay("2026-10-01"));
+	QVERIFY(vm.saveWeight(82.5));
+	QVERIFY(vm.saveNote("вес без программы"));
+	QVERIFY(vm.reload("solo"));
+	QVERIFY(vm.openDay("2026-10-01"));
+	QCOMPARE(vm.selectedWeight().toDouble(), 82.5);
+	QCOMPARE(vm.selectedNote(), QString("вес без программы"));
+	// Правила в таком режиме недоступны: их неоткуда взять.
+	QVERIFY(!vm.saveRuleValue("protein", 200));
+	QCOMPARE(vm.errorKey(), QString("diary.unknown_rule"));
 }
 //-------------------------------------------------------------------------------------------------------------
 void ADiary_VM_Test::dailyIndicatorsComeFromSelectedProgram()

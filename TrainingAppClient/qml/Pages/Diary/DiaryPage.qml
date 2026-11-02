@@ -9,8 +9,8 @@ PageScaffold {
 
     // Заголовок живёт в шапке каркаса — рядом с кнопкой профиля, как на
     // остальных корневых экранах. Подпись — программа, к которой относятся
-    // отметки, чтобы не было второй строки с тем же названием в контенте.
-    caption: page.hasModel && page.viewModel.programTitle ? page.viewModel.programTitle : qsTr("Нет выбранной программы")
+    // отметки; без программы подпись честно говорит, что это личные записи.
+    caption: page.hasProgram ? page.viewModel.programTitle : qsTr("Личные записи · без программы")
     title: qsTr("Дневник")
 
     property var viewModel: typeof DiaryVM !== "undefined" ? DiaryVM : null
@@ -19,6 +19,11 @@ PageScaffold {
     // открыт поверх (диагностика `--screen diary`).
     property bool showBackBar: true
     readonly property bool hasModel: viewModel !== null && viewModel !== undefined
+    // Программы может не быть: тогда дневник показывает личные записи, а блок
+    // правил заменяется подсказкой с переходом к созданию программы. Свойство
+    // читается «не false», чтобы подставные модели без него оставались
+    // эквивалентны рабочей программе.
+    readonly property bool hasProgram: page.hasModel && page.viewModel.hasProgram !== false
     readonly property alias valuePopup: numberPopup
     readonly property int numberPopupMaxWidth: 420
     property string activeDate: ""
@@ -506,8 +511,9 @@ PageScaffold {
             }
             Label {
                 width: parent.width
+                objectName: "diaryRulesEmpty"
                 visible: dayValues.count === 0
-                text: qsTr("В программе пока нет ежедневных числовых правил. Добавьте нужные показатели в разделе «Правила и отметки» программы.")
+                text: page.hasProgram ? qsTr("В программе пока нет ежедневных числовых правил. Добавьте нужные показатели в разделе «Правила и отметки» программы.") : qsTr("Программы пока нет: вес и заметка сохраняются как личные записи. Отмечать правила можно после выбора программы — во вкладке «Программы».")
                 font: Typography.caption
                 color: Theme.textMuted
                 wrapMode: Text.WordWrap

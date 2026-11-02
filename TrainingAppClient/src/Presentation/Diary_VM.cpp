@@ -5,6 +5,13 @@
 
 Q_LOGGING_CATEGORY(Diary_Log, "trainingapp.diary")
 
+namespace
+{
+// Окно личных записей без программы: двенадцать недель до сегодня. Достаточно,
+// чтобы видеть динамику веса и заметки, и не превращает список дат в архив.
+constexpr int kPersonalWindowWeeks = 12;
+}
+
 //-------------------------------------------------------------------------------------------------------------
 Avm_Diary::Avm_Diary(AProgram_Repository *in_programs, ARule_Repository *in_rules, AWorkout_Repository *in_workouts,
                      AMeasurement_Repository *in_measurements, ADay_Note_Repository *in_notes,
@@ -72,18 +79,29 @@ bool Avm_Diary::reload(const QString &in_user_id, const QString &in_program_id)
 				break;
 			}
 		}
-		if (program_id.isEmpty())
-		{
-			emit changed();
-			return true;
-		}
 	}
-	if (!Programs->Load_Program(program_id, Program))
-		return Set_Error("diary.load_failed");
-	if (Program.User_Id != user_id)
+	// Программы нет — дневник всё равно обязан работать: вес и заметки
+	// принадлежат пользователю и дате, а не программе. Срок заменяется окном по
+	// умолчанию (12 недель до сегодня), правила и дни не загружаются.
+	Program_Loaded = false;
+	if (!program_id.isEmpty())
 	{
-		Clear_Data();
-		return Set_Error("diary.forbidden");
+		if (!Programs->Load_Program(program_id, Program))
+			return Set_Error("diary.load_failed");
+		if (Program.User_Id != user_id)
+		{
+			Clear_Data();
+			return Set_Error("diary.forbidden");
+		}
+		Program_Loaded = true;
+	}
+	else
+	{
+		Program = SProgram();
+		Program.User_Id = user_id;
+		Program.Term.Mode = ETerm_Mode::FixedWeeks;
+		Program.Term.Weeks_Total = kPersonalWindowWeeks;
+		Program.Term.Start_Date = Today().addDays(-(kPersonalWindowWeeks * 7 - 1)).toString(Qt::ISODate);
 	}
 	STerm term(Program.Term);
 	if (!Program.Actual_Start_Date.isEmpty())
@@ -100,22 +118,32 @@ bool Avm_Diary::reload(const QString &in_user_id, const QString &in_program_id)
 	}
 	// До старта открытой программы запросы имеют корректные границы, а список дней пуст.
 	const QString query_end = end < term.Start_Date ? term.Start_Date : end;
-	if (!Programs->Load_Days(program_id, days) || !Programs->Load_Schedule(program_id, week_slots) ||
-	    !Rules->Load_Rules(program_id, Loaded_Rules) ||
-	    !Rules->Load_Program_Checkins_Range(program_id, term.Start_Date, query_end, checkins) ||
-	    !Measurements->Load_Range(user_id, start.addDays(-6).toString(Qt::ISODate), query_end, measurements) ||
+	// Данные программы грузятся только когда она есть; личные записи — всегда.
+	if (Program_Loaded && (!Programs->Load_Days(program_id, days) || !Programs->Load_Schedule(program_id, week_slots) ||
+	                       !Rules->Load_Rules(program_id, Loaded_Rules) ||
+	                       !Rules->Load_Program_Checkins_Range(program_id, term.Start_Date, query_end, checkins)))
+	{
+		Clear_Data();
+		return Set_Error("diary.load_failed");
+	}
+	if (!Measurements->Load_Range(user_id, start.addDays(-6).toString(Qt::ISODate), query_end, measurements) ||
 	    !Workouts->Load_Sessions(user_id, program_id, term.Start_Date, query_end, sessions) ||
 	    !Notes->Load_Range(user_id, term.Start_Date, query_end, notes))
 	{
 		Clear_Data();
 		return Set_Error("diary.load_failed");
 	}
+	// Без программы наборы пусты: репозиториям пустой идентификатор означает
+	// «только личные данные пользователя».
 	QVector<SProgram_Rule> daily_rules;
-	for (const SProgram_Rule &rule : Loaded_Rules)
+	if (Program_Loaded)
 	{
-		if (rule.Program_Id == program_id && rule.Periodicity == ERule_Periodicity::PerDay &&
-		    Get_Rule_Kind(rule) == ERule_Kind::Measurable)
-			daily_rules.append(rule);
+		for (const SProgram_Rule &rule : Loaded_Rules)
+		{
+			if (rule.Program_Id == program_id && rule.Periodicity == ERule_Periodicity::PerDay &&
+			    Get_Rule_Kind(rule) == ERule_Kind::Measurable)
+				daily_rules.append(rule);
+		}
 	}
 	Loaded_Rules = daily_rules;
 	if (!ADiary_Calculator::Build(Program, days, week_slots, Loaded_Rules, checkins, measurements, sessions, notes,
@@ -280,6 +308,12 @@ QString Avm_Diary::programTitle() const
 	return Program.Title;
 }
 //-------------------------------------------------------------------------------------------------------------
+// Программы нет — дневник работает как личные записи: даты, вес и заметки.
+bool Avm_Diary::Has_Program() const
+{
+	return Program_Loaded;
+}
+//-------------------------------------------------------------------------------------------------------------
 QDate Avm_Diary::Today() const
 {
 	return Pinned_Today.isValid() ? Pinned_Today : QDate::currentDate();
@@ -298,6 +332,7 @@ void Avm_Diary::Clear_Data()
 	Loaded_Rules.clear();
 	Day_Logs.clear();
 	Program = SProgram();
+	Program_Loaded = false;
 	User_Id.clear();
 	Days->Set_Rows(QVector<QVariantMap>());
 	Norms->Set_Rows(QVector<QVariantMap>());
@@ -322,8 +357,8 @@ bool Avm_Diary::Refresh_Selection()
 	const QString date(selectedDate());
 	const QString user_id(User_Id);
 	const QString program_id(Program.ID);
-	if (program_id.isEmpty())
-		return Set_Error("diary.select_day");
+	// Без программы личные записи сохраняются так же: reload подставит окно по
+	// умолчанию и вернёт пустые правила, а дата останется в списке дней.
 	if (!reload(user_id, program_id))
 		return false;
 	return openDay(date);

@@ -410,10 +410,24 @@ TestCase {
         compare(findChild(page, "diaryNote_2026-10-01").text, "Черновик после ввода белка");
     }
 
+    // Без программы дневник остаётся рабочим: подпись честно говорит, что это
+    // личные записи, а блок правил объясняет, чего не хватает.
+    function test_withoutProgramShowsPersonalRecordsHint() {
+        stub.hasProgram = false;
+
+        compare(page.caption, "Личные записи · без программы");
+        const hint = findChild(page, "diaryRulesEmpty");
+
+        verify(hint !== null);
+        verify(hint.text.indexOf("личные записи") >= 0);
+        stub.hasProgram = true;
+    }
+
     QtObject {
         id: stub
 
         property string programTitle: "Сила 4 недели"
+        property bool hasProgram: true
 
         signal changed
         property var calls: []
