@@ -30,9 +30,9 @@ func NewService(cfg *config.Config,
 	}
 }
 
-func (r *ExerciseService) Start(ctx context.Context) error {
+func (s *ExerciseService) Start(ctx context.Context) error {
 	// TODO: add loading from file
-	err := r.fillExercises(ctx, model.TestExercises)
+	err := s.fillExercises(ctx, model.TestExercises)
 	if err != nil {
 		return fmt.Errorf("failed to fill exercises: %w", err)
 	}
@@ -51,6 +51,10 @@ func (s *ExerciseService) GetEquipment() []model.Equipment {
 }
 
 func (s *ExerciseService) CreateExercise(ctx context.Context, userID uuid.UUID, exercise *model.Exercise) (*model.Exercise, error) {
+	if err := exercise.Validate(); err != nil {
+		return nil, err
+	}
+
 	created, err := s.repo.CreateExercise(ctx, exercise)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create exercise: %w", err)
@@ -72,15 +76,25 @@ func (s *ExerciseService) GetExerciseByID(ctx context.Context, userID uuid.UUID,
 		return nil, err
 	}
 
-	if exercise.OwnerID != nil && userID != *exercise.OwnerID {
+	if !checkUserCanViewExercise(userID, exercise) {
 		return nil, model.ErrForbidden
 	}
 
 	return exercise, nil
 }
 
+func checkUserCanViewExercise(userID uuid.UUID, exercise *model.Exercise) bool {
+	if exercise.OwnerID != nil && !exercise.IsPublic && userID != *exercise.OwnerID {
+		return false
+	}
+	return true
+}
+
 func (s *ExerciseService) getExerciseByID(ctx context.Context, id uuid.UUID) (*model.Exercise, error) {
 	exercise, err := s.repo.GetExerciseByID(ctx, id)
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, model.ErrNotFound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get exercise with id %s: %w", id.String(), err)
 	}
@@ -112,7 +126,14 @@ func (s *ExerciseService) UpdateExercise(ctx context.Context, userID uuid.UUID, 
 	if input == nil {
 		return nil, fmt.Errorf("update exercise input can't be nil")
 	}
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+
 	ok, err := s.repo.IsUserOwnerCheck(ctx, userID, input.ID)
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, model.ErrNotFound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to check owner of exercise: %w", err)
 	}
@@ -141,6 +162,9 @@ func (s *ExerciseService) updateExercise(ctx context.Context, input *model.Updat
 
 func (s *ExerciseService) DeleteExercise(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
 	ok, err := s.repo.IsUserOwnerCheck(ctx, userID, id)
+	if errors.Is(err, repository.ErrNotFound) {
+		return model.ErrNotFound
+	}
 	if err != nil {
 		return fmt.Errorf("failed to check owner of exercise: %w", err)
 	}

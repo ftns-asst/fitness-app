@@ -54,6 +54,27 @@ func TestCreateExercise(t *testing.T) {
 	require.Equal(t, created, res)
 }
 
+func TestCreateExerciseInvalid(t *testing.T) {
+	t.Parallel()
+
+	d := deps{repo: NewMockExerciseRepo(t)}
+	svc := NewService(&config.Config{}, d.repo, nil)
+	_, err := svc.CreateExercise(context.Background(), uuid.New(), &model.Exercise{Name: "  "})
+	require.ErrorIs(t, err, model.ErrBadRequest)
+}
+
+func TestUpdateExerciseInvalid(t *testing.T) {
+	t.Parallel()
+
+	d := deps{repo: NewMockExerciseRepo(t)}
+	svc := NewService(&config.Config{}, d.repo, nil)
+	_, err := svc.UpdateExercise(context.Background(), uuid.New(), &model.UpdateExerciseInput{
+		ID:            uuid.New(),
+		ExerciseInput: model.ExerciseInput{MuscleGroups: []model.MuscleGroup{"unknown"}},
+	})
+	require.ErrorIs(t, err, model.ErrBadRequest)
+}
+
 func TestGetExerciseByID(t *testing.T) {
 	t.Parallel()
 	userID := uuid.New()

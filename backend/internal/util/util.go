@@ -39,6 +39,9 @@ func Dedup[T any, K comparable](slice []T, keyFunc func(t T) K) []T {
 }
 
 func Map[T any, K any](slice []T, keyFunc func(t T) K) []K {
+	if slice == nil {
+		return nil
+	}
 	res := make([]K, 0, len(slice))
 	for _, item := range slice {
 		key := keyFunc(item)

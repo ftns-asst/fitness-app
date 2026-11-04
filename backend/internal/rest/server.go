@@ -18,6 +18,7 @@ import (
 func NewServer(cfg *config.Config, services service.Services) *http.Server {
 	r := gin.New()
 	r.Use(gin.Logger())
+	r.Use(gin.Recovery())
 
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -35,6 +36,9 @@ func NewServer(cfg *config.Config, services service.Services) *http.Server {
 			return
 		}
 		ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("doc.json"))(c)
+	})
+	api.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusFound, c.Request.URL.Path+"swagger/index.html")
 	})
 
 	server := http.Server{

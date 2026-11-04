@@ -16,6 +16,7 @@ func ConvertExerciseToDTO(m *model.Exercise) *dto.ExerciseDTO {
 		ID:          m.ID,
 		Name:        m.Name,
 		Description: m.Description,
+		IsPublic:    m.IsPublic,
 		OwnerID:     m.OwnerID,
 		MuscleGroups: util.Map(m.MuscleGroups, func(m model.MuscleGroup) string {
 			return string(m)
@@ -46,13 +47,14 @@ func ConvertExerciseFromDTO(dto *dto.ExerciseDTO) *model.Exercise {
 	}
 }
 
-func ConvertExerciseFromCreateDTO(dto *dto.CreateExerciseRequestBody) *model.Exercise {
+func ConvertExerciseFromCreateDTO(dto *dto.CreateExerciseRequestBody, userID *uuid.UUID) *model.Exercise {
 	if dto == nil {
 		return nil
 	}
 	return &model.Exercise{
 		Name:        dto.Name,
 		Description: dto.Description,
+		OwnerID:     userID,
 		IsPublic:    dto.IsPublic,
 		MuscleGroups: util.Map(dto.MuscleGroups, func(s string) model.MuscleGroup {
 			return model.MuscleGroup(s)

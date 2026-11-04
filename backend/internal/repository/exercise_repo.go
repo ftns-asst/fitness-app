@@ -42,7 +42,7 @@ func (r *ExerciseRepo) CreateExercise(ctx context.Context, exercise *model.Exerc
 			muscle_group,
 			equipment
 		)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		VALUES ($1, $2, $3, $4, COALESCE($5::text[], '{}'), COALESCE($6::text[], '{}'))
 		RETURNING id, created_at
 	`
 
@@ -137,9 +137,6 @@ func (r *ExerciseRepo) GetExerciseByID(ctx context.Context, id uuid.UUID) (*mode
 	`
 
 	rows, err := conn.Query(ctx, query, id)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrNotFound
-	}
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
@@ -147,6 +144,9 @@ func (r *ExerciseRepo) GetExerciseByID(ctx context.Context, id uuid.UUID) (*mode
 	defer rows.Close()
 
 	res, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByName[model.Exercise])
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("collect failed: %w", err)
 	}
@@ -162,14 +162,12 @@ func (r *ExerciseRepo) GetExercises(ctx context.Context, filters *model.Exercise
 		WHERE deleted_at IS NULL
 	`)
 
-	// not public exercises available only for own list type
-	if filters.ListType != model.ExerciseListTypeOwn {
-		query.WriteString(" AND is_public = TRUE")
-	}
-
 	switch filters.ListType {
-	case model.ExerciseListTypeOwn, model.ExerciseListTypePublicUser:
+	case model.ExerciseListTypeOwn:
 		query.WriteString(" AND owner_id = $1")
+		args = append(args, filters.UserID)
+	case model.ExerciseListTypePublicUser:
+		query.WriteString(" AND is_public = TRUE AND owner_id = $1")
 		args = append(args, filters.UserID)
 	case model.ExerciseListTypeAll:
 		query.WriteString(" AND (is_public = TRUE OR owner_id = $1)")
@@ -178,7 +176,7 @@ func (r *ExerciseRepo) GetExercises(ctx context.Context, filters *model.Exercise
 		query.WriteString(" AND is_public = TRUE AND owner_id IS NOT NULL")
 		if filters.UserID != nil { // if user authenticated, do not return own in public list
 			query.WriteString(" AND owner_id != $1")
-			args = append(args, *filters.UserID)
+			args = append(args, filters.UserID)
 		}
 	case model.ExerciseListTypeBasic:
 		query.WriteString(" AND owner_id IS NULL AND is_public = TRUE")
@@ -234,13 +232,7 @@ func (r *ExerciseRepo) UpdateExercise(ctx context.Context, input *model.UpdateEx
 		RETURNING *
 	`
 	muscleGroups := input.MuscleGroups
-	if muscleGroups == nil {
-		muscleGroups = []model.MuscleGroup{}
-	}
 	equipments := input.Equipments
-	if equipments == nil {
-		equipments = []model.Equipment{}
-	}
 
 	rows, err := conn.Query(ctx, query,
 		input.ID,
@@ -274,6 +266,7 @@ func (r *ExerciseRepo) DeleteExercise(ctx context.Context, id uuid.UUID) error {
 		UPDATE exercises
 		SET deleted_at = NOW()
 		WHERE id = $1
+		AND deleted_at IS NULL
 	`
 	res, err := conn.Exec(ctx, query, id)
 	if err != nil {
@@ -281,7 +274,7 @@ func (r *ExerciseRepo) DeleteExercise(ctx context.Context, id uuid.UUID) error {
 	}
 
 	if res.RowsAffected() == 0 {
-		return ErrNotFound
+		return ErrNoAffectedRows
 	}
 
 	return nil
@@ -292,17 +285,24 @@ func (r *ExerciseRepo) IsUserOwnerCheck(ctx context.Context, userID uuid.UUID, e
 
 	query := `
 		SELECT EXISTS (
+		    SELECT 1 FROM exercises
+		             WHERE id = $1
+		), 
+		       EXISTS (
 			SELECT 1 FROM exercises
 	        WHERE id = $1
 	        	AND owner_id = $2
 		)
 	`
 
-	isOwner := false
-	err := conn.QueryRow(ctx, query, exerciseID, userID).Scan(&isOwner)
+	isExerciseExists, isOwner := false, false
+	err := conn.QueryRow(ctx, query, exerciseID, userID).Scan(&isExerciseExists, &isOwner)
 	if err != nil {
 		return false, fmt.Errorf("select failed: %w", err)
 	}
 
+	if !isExerciseExists {
+		return false, ErrNotFound
+	}
 	return isOwner, nil
 }

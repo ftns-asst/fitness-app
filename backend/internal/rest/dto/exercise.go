@@ -12,6 +12,7 @@ type (
 		Name         string     `json:"name"`
 		Description  *string    `json:"description,omitempty"`
 		OwnerID      *uuid.UUID `json:"owner_id,omitempty"`
+		IsPublic     bool       `json:"is_public"`
 		MuscleGroups []string   `json:"muscle_groups"`
 		Equipment    []string   `json:"equipment"`
 		CreatedAt    time.Time  `json:"created_at"`
@@ -42,7 +43,7 @@ type (
 		PageQueryParams
 	} // @Name ListExerciseQueryParams
 	PageQueryParams struct {
-		Limit  *int `form:"limit" binding:"omitempty,min=1,max=100"`
+		Limit  *int `form:"limit" binding:"omitempty,min=1,max=1000"`
 		Offset *int `form:"offset" binding:"omitempty,min=0,max=100000"`
 	} // @Name PageQueryParams
 )

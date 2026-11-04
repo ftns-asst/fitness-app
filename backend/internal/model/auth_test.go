@@ -90,6 +90,16 @@ func TestSingUpInputValidation(t *testing.T) {
 			Username:      "    ",
 			ExpectedError: ErrBadRequest,
 		},
+		{
+			Name:          "good username with max length",
+			Username:      strings.Repeat("я", UserNameMaxLength),
+			ExpectedError: nil,
+		},
+		{
+			Name:          "error too long username",
+			Username:      strings.Repeat("я", UserNameMaxLength+1),
+			ExpectedError: ErrBadRequest,
+		},
 	}
 
 	for _, test := range tests {

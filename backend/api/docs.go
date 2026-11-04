@@ -300,7 +300,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/RefreshTokensResponse"
+                            "$ref": "#/definitions/Tokens"
                         }
                     },
                     "400": {
@@ -528,7 +528,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/CreateExerciseRequestBody"
+                            "$ref": "#/definitions/Exercise"
                         }
                     },
                     "400": {
@@ -1006,6 +1006,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "is_public": {
+                    "type": "boolean"
+                },
                 "muscle_groups": {
                     "type": "array",
                     "items": {
@@ -1067,14 +1070,6 @@ const docTemplate = `{
             "properties": {
                 "refresh_token": {
                     "type": "string"
-                }
-            }
-        },
-        "RefreshTokensResponse": {
-            "type": "object",
-            "properties": {
-                "tokens": {
-                    "$ref": "#/definitions/Tokens"
                 }
             }
         },
