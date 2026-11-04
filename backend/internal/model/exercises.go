@@ -3,7 +3,9 @@ package model
 import (
 	"fmt"
 	"ftns-asst/internal/util"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -57,9 +59,69 @@ var (
 	ErrUserIDRequired = fmt.Errorf("user id is required for this list type: %w", ErrBadRequest)
 )
 
+// max length of exercises.name column
+const ExerciseNameMaxLength = 255
+
+func validateExerciseName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("exercise name must be not blank: %w", ErrBadRequest)
+	}
+	if utf8.RuneCountInString(name) > ExerciseNameMaxLength {
+		return fmt.Errorf("exercise name must be at most %d characters long: %w", ExerciseNameMaxLength, ErrBadRequest)
+	}
+	return nil
+}
+
+func validateMuscleGroups(groups []MuscleGroup) error {
+	for _, group := range groups {
+		if _, ok := MuscleGroupList[group]; !ok {
+			return fmt.Errorf("unknown muscle group %q: %w", group, ErrBadRequest)
+		}
+	}
+	return nil
+}
+
+func validateEquipments(equipments []Equipment) error {
+	for _, equipment := range equipments {
+		if _, ok := EquipmentList[equipment]; !ok {
+			return fmt.Errorf("unknown equipment %q: %w", equipment, ErrBadRequest)
+		}
+	}
+	return nil
+}
+
+func (e *Exercise) Validate() error {
+	if err := validateExerciseName(e.Name); err != nil {
+		return err
+	}
+	if err := validateMuscleGroups(e.MuscleGroups); err != nil {
+		return err
+	}
+	return validateEquipments(e.Equipments)
+}
+
+// validate partial update, nil fields are not changed
+func (i *ExerciseInput) Validate() error {
+	if i.Name != nil {
+		if err := validateExerciseName(*i.Name); err != nil {
+			return err
+		}
+	}
+	if err := validateMuscleGroups(i.MuscleGroups); err != nil {
+		return err
+	}
+	return validateEquipments(i.Equipments)
+}
+
 func (e *ExerciseFilters) ValidateAndDedup() error {
 	if e.UserID == nil && (e.ListType == ExerciseListTypeOwn || e.ListType == ExerciseListTypePublicUser) {
 		return ErrUserIDRequired
+	}
+	if err := validateMuscleGroups(e.MuscleGroups); err != nil {
+		return err
+	}
+	if err := validateEquipments(e.Equipments); err != nil {
+		return err
 	}
 	e.MuscleGroups = util.Dedup(e.MuscleGroups, func(m MuscleGroup) MuscleGroup { return m })
 	e.Equipments = util.Dedup(e.Equipments, func(e Equipment) Equipment { return e })

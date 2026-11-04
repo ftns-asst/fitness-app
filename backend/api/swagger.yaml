@@ -48,6 +48,8 @@ definitions:
         type: array
       id:
         type: string
+      is_public:
+        type: boolean
       muscle_groups:
         items:
           type: string
@@ -89,11 +91,6 @@ definitions:
         type: string
     required:
     - refresh_token
-    type: object
-  RefreshTokensResponse:
-    properties:
-      tokens:
-        $ref: '#/definitions/Tokens'
     type: object
   ResetPasswordRequestBody:
     properties:
@@ -430,7 +427,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/RefreshTokensResponse'
+            $ref: '#/definitions/Tokens'
         "400":
           description: Bad Request
           schema:
@@ -582,7 +579,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/CreateExerciseRequestBody'
+            $ref: '#/definitions/Exercise'
         "400":
           description: Bad Request
           schema:

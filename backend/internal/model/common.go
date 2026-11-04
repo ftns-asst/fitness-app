@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"errors"
+	"ftns-asst/internal/util"
 	"log"
 
 	"github.com/jackc/pgx/v5"
@@ -49,16 +50,16 @@ type PageInfo struct {
 const (
 	DefaultPageLimit  = 20
 	DefaultPageOffset = 0
-	MaxPageLimit      = 100
+	MaxPageLimit      = 1000
 )
 
 func (p *PageInfo) Normalize() *PageInfo {
 	if p.Limit == nil || *p.Limit <= 0 || *p.Limit > MaxPageLimit {
-		*p.Limit = DefaultPageLimit
+		p.Limit = util.Ptr(DefaultPageLimit)
 	}
 
 	if p.Offset == nil || *p.Offset < 0 {
-		*p.Offset = DefaultPageOffset
+		p.Offset = util.Ptr(DefaultPageOffset)
 	}
 
 	return p

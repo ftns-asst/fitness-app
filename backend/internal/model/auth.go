@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -79,6 +80,12 @@ func ValidatePassword(password string) error {
 	return nil
 }
 
+// max lengths of users.display_name and users.email columns
+const (
+	UserNameMaxLength  = 100
+	UserEmailMaxLength = 256
+)
+
 // input for user registration
 type SignUpInput struct {
 	AuthInput
@@ -91,6 +98,12 @@ func (i *SignUpInput) Validate() error {
 	}
 	if strings.TrimSpace(i.Name) == "" {
 		return fmt.Errorf("user name must be not blank: %w", ErrBadRequest)
+	}
+	if utf8.RuneCountInString(i.Name) > UserNameMaxLength {
+		return fmt.Errorf("user name must be at most %d characters long: %w", UserNameMaxLength, ErrBadRequest)
+	}
+	if utf8.RuneCountInString(i.Email) > UserEmailMaxLength {
+		return fmt.Errorf("email must be at most %d characters long: %w", UserEmailMaxLength, ErrBadRequest)
 	}
 	return nil
 }
