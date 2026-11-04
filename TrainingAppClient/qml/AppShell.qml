@@ -15,24 +15,34 @@ Item {
     property var auth: AuthViewModel
     property real bottomInset: 0
     readonly property int currentTab: tabBar.currentIndex
-    property var exercisesViewModel: ExercisesViewModel
+    // Каталог упражнений — контекстное свойство ExercisesVM (Avm_Exercises,
+    // спринт U4). typeof: в qmltestrunner контекст-свойств нет.
+    property var exercisesViewModel: typeof ExercisesVM !== "undefined" ? ExercisesVM : null
     property string initialProgramScreen: ""
+    // Инструмент ревью: --popup-shot открывает окно выбора упражнения сразу
+    // после открытия экрана дня — для скриншота мини-окна с настоящим
+    // каталогом (qmltestrunner каталог из сети не поднимает).
+    readonly property bool popupShot: Qt.application.arguments.indexOf("--popup-shot") >= 0
     property int initialTab: 0
 
     // — Память вкладок (отзыв: «вернулся на вкладку — а там корень») —
-    // Последний открытый экран каждой вкладки: запись вида
-    // {name: "program-edit", id: …} / {name: "program-day", weekday, kind}.
-    // Возвращение на вкладку восстанавливает экран, возврат к корню (кнопка
-    // «Назад», повторный тап по своей вкладке) снимает запись.
-    property var tabScreens: ({})
+    // Полная история переходов каждой вкладки: массив записей
+    // {name: "program-edit", id: …} / {name: "program-day", weekday, kind}
+    // в порядке открытия. Возвращение на вкладку восстанавливает ВСЮ цепочку
+    // (назад из восстановленного экрана не ведёт в корень), «назад» снимает
+    // верхний экран, повторный тап по своей вкладке сбрасывает к корню.
+    property var tabHistory: ({})
     // Отложенная навигация: push во время перехода отбрасывается guard'ом
     // pushPage, поэтому восстановление экрана после pop живёт в очереди и
     // разбирается в onBusyChanged стека.
-    property var pendingRestoreEntry: null
+    property var pendingRestoreChain: null
     property var pendingComponentEntry: null
     // Глубина стека деталей: тесты навигации смотрят сюда, потому что идентификатор
     // StackView из оболочки наружу недоступен.
     readonly property int pushedDepth: pages.depth
+    // Верхний экран стека: тестам нужно отличать «обзор» от «редактора» при
+    // одинаковой глубине. undefined у корня (вкладки).
+    readonly property var topItem: pages.depth > 1 ? pages.currentItem : null
     // Идёт переход (пуш/поп с анимацией): в это время команды навигации
     // отбрасываются, и тестам нужно дождаться тишины перед следующим шагом.
     readonly property bool stackBusy: pages.busy
@@ -81,7 +91,7 @@ Item {
             return;
 
         const sameTab = tabBar.currentIndex === index;
-        const restore = sameTab === false && shell.tabScreens[index] !== undefined ? shell.tabScreens[index] : null;
+        const chain = sameTab === false && shell.tabHistory[index] !== undefined ? shell.tabHistory[index] : [];
 
         if (pages.depth > 1)
             pages.pop(null);
@@ -96,57 +106,102 @@ Item {
         }
 
         tabBar.currentIndex = index;
-        shell.pendingRestoreEntry = restore;
+        shell.pendingRestoreChain = chain.slice();
         shell.flushPendingNavigation();
     }
 
-    // Память «последний экран вкладки». Записывается в момент открытия
-    // (см. open*-функции), читается при возвращении на вкладку.
+    // Запись экрана в историю вкладки — точка, через которую проходят все
+    // open*-функции. История растёт с каждым push; повторная запись того же
+    // экрана (тот же name/id/weekday/kind) не дублируется, чтобы повторный
+    // вызов open* поверх живого экрана не удваивал цепочку.
     function noteTabScreen(entry) {
-        shell.tabScreens[tabBar.currentIndex] = entry;
+        const history = shell.tabHistory[tabBar.currentIndex] || [];
+
+        if (history.length > 0 && shell.sameEntry(history[history.length - 1], entry))
+            return;
+
+        history.push(entry);
+        shell.tabHistory[tabBar.currentIndex] = history;
+    }
+
+    // Замена верха истории: сохранение программы заменяет редактор обзором
+    // в стеке (pages.replace), и история обязана отражать то же самое —
+    // иначе возврат на вкладку восстановил бы закрытую форму создания.
+    function replaceTopScreen(entry) {
+        const history = shell.tabHistory[tabBar.currentIndex] || [];
+
+        if (history.length > 0)
+            history[history.length - 1] = entry;
+        else
+            history.push(entry);
+
+        shell.tabHistory[tabBar.currentIndex] = history;
     }
 
     function forgetTabScreen(index) {
-        delete shell.tabScreens[index];
+        shell.tabHistory[index] = [];
     }
 
-    // Восстановление последнего экрана вкладки по записи памяти. Идентификатор
-    // программы и день хранятся в записи: у редактора и обзора они задают
-    // программу, у дня — открытый день недели.
-    function restoreScreen(entry) {
-        const openers = {
-            "macro-calculator": function () {
-                shell.openMacroCalculator();
-            },
-            "program-catalog": function () {
-                shell.openProgramCatalog();
-            },
-            "program-day": function () {
-                shell.openProgramDay(entry.weekday, entry.kind);
-            },
-            "program-edit": function () {
-                shell.openProgramEditor(entry.id);
-            },
-            "program-overview": function () {
-                shell.openProgramOverview(entry.id);
-            },
-            "program-rules": function () {
-                shell.openProgramRules();
-            },
-            "program-rules-picker": function () {
-                shell.openProgramRulesPicker();
-            },
-            "program-stats": function () {
-                shell.openProgramStats(entry.id);
-            },
-            "set-entry": function () {
-                shell.openSetEntry();
-            }
-        };
-        const opener = openers[entry.name];
+    // Сравнение записей: одинаковый экран (имя и параметры) не попадает
+    // в историю дважды.
+    function sameEntry(a, b) {
+        return (a.name === b.name) && ((a.id || "") === (b.id || "")) && ((a.weekday || 0) === (b.weekday || 0)) && ((a.kind || 0) === (b.kind || 0)) && ((a.exerciseId || "") === (b.exerciseId || ""));
+    }
 
-        if (opener !== undefined)
-            opener();
+    // Компонент экрана по имени записи. Только для восстановления цепочки:
+    // живые переходы идут через open*-функции с их сайд-эффектами.
+    function componentFor(name) {
+        const map = {
+            "exercise-detail": exerciseDetailComponent,
+            "exercise-edit": exerciseEditorComponent,
+            "macro-calculator": macroCalculatorComponent,
+            "program-catalog": programCatalogComponent,
+            "program-day": programDayComponent,
+            "program-edit": programEditorComponent,
+            "program-overview": programOverviewComponent,
+            "program-rules": programRulesComponent,
+            "program-rules-picker": programRulesPickerComponent,
+            "program-stats": programStatsComponent,
+            "set-entry": setEntryComponent
+        };
+
+        return map[name] !== undefined ? map[name] : null;
+    }
+
+    // Восстановление всей цепочки экранов вкладки одним push'ем: страницы
+    // сами загружают свои данные при создании (Component.onCompleted), поэтому
+    // перед созданием достаточно выставить общие параметры — идентификатор
+    // программы и открытый день. Разные программы в одной цепочке не
+    // поддерживаются: реальный поток всегда смотрит одну программу.
+    function restoreChain(entries) {
+        const components = [];
+        let dayEntry = null;
+
+        for (var i = 0; i < entries.length; ++i) {
+            const entry = entries[i];
+
+            if (entry.id !== undefined && entry.id !== null && entry.id !== "")
+                shell.programId = entry.id;
+
+            if (entry.name === "exercise-detail")
+                shell.exerciseDetailId = entry.exerciseId || "";
+
+            if (entry.name === "program-day")
+                dayEntry = entry;
+
+            const component = shell.componentFor(entry.name);
+
+            if (component !== null)
+                components.push(component);
+        }
+
+        if (dayEntry !== null) {
+            shell.programDayWeekday = dayEntry.weekday;
+            shell.programDayKind = dayEntry.kind;
+        }
+
+        if (components.length > 0)
+            pages.push(components);
     }
 
     // Разбор отложенной навигации, когда стек снова свободен: push во время
@@ -156,11 +211,11 @@ Item {
         if (pages.busy)
             return;
 
-        if (shell.pendingRestoreEntry !== null) {
-            const entry = shell.pendingRestoreEntry;
+        if (shell.pendingRestoreChain !== null) {
+            const chain = shell.pendingRestoreChain;
 
-            shell.pendingRestoreEntry = null;
-            shell.restoreScreen(entry);
+            shell.pendingRestoreChain = null;
+            shell.restoreChain(chain);
 
             return;
         }
@@ -179,11 +234,53 @@ Item {
     // игнорируется. Без guard'а двойной тап толкал один экран дважды —
     // человек видел это как «фантомное перелистывание»: нажатие назад
     // показывало тот же экран ещё раз.
-    function pushPage(component) {
+    function pushPage(component, properties) {
         if (pages.busy)
             return;
 
-        pages.push(component);
+        // properties — для экранов, которым нужно поведение от контекста
+        // открытия (расчёт КБЖУ из настройки программы умеет применять нормы).
+        if (properties === undefined)
+            pages.push(component);
+        else
+            pages.push(component, properties);
+    }
+    // Редактор своего упражнения (спринт U5): закрытие после сохранения
+    // перезагружает каталог — новая строка обязана появиться без ручного
+    // обновления.
+    function closeExerciseEditor() {
+        pages.pop();
+        shell.exercisesViewModel.reload();
+    }
+
+    // Детальная карточка упражнения (спринт U6): id задаётся до пуша — экран
+    // читает его при создании и сам грузит данные (Component.onCompleted).
+    property string exerciseDetailId: ""
+
+    function openExerciseDetail(exerciseId) {
+        shell.exerciseDetailId = exerciseId;
+        // Идентификатор живёт в exerciseId, а не в id: restoreChain трактует
+        // id как идентификатор программы, чужой UUID сломал бы восстановление.
+        shell.noteTabScreen({
+            name: "exercise-detail",
+            exerciseId: exerciseId
+        });
+        shell.pushPage(exerciseDetailComponent);
+    }
+
+    // Правка из карточки: форма должна открыться уже в режиме правки, поэтому
+    // loadExisting вызывается до пуша (title и footer формы читают selected).
+    // В историю вкладки редактор не пишется — как и «+ Своё»: восстановление
+    // возвращает к карточке, а не внутрь формы.
+    function openExerciseEditor(exerciseId) {
+        if (typeof ExercisesEditorVM !== "undefined" && ExercisesEditorVM !== null) {
+            ExercisesEditorVM.reset();
+
+            if (exerciseId !== undefined && exerciseId !== null && exerciseId !== "")
+                ExercisesEditorVM.loadExisting(exerciseId);
+        }
+
+        shell.pushPage(exerciseEditorComponent);
     }
 
     Component.onCompleted: {
@@ -205,6 +302,44 @@ Item {
         // отбрасывает команду молча.
         onBusyChanged: shell.flushPendingNavigation()
     }
+    // Отложенное открытие окна выбора упражнения для снимка (--popup-shot):
+    // стек должен закончить переход, чтобы currentItem был экраном дня.
+    Timer {
+        id: autoOpenPickerTimer
+
+        interval: 900
+
+        onTriggered: {
+            const item = pages.currentItem;
+
+            if (item !== null && item !== undefined && item.exercisePickerItem !== undefined && item.exercisePickerItem !== null) {
+                item.exercisePickerItem.open();
+                // Отчёт инструмента: состояние окна к моменту снимка —
+                // строки каталога, позиция и размер в логе приложения.
+                popupShotProbeTimer.picker = item.exercisePickerItem;
+                popupShotProbeTimer.start();
+            }
+        }
+    }
+    Timer {
+        id: popupShotProbeTimer
+
+        property var picker: null
+
+        interval: 1500
+
+        onTriggered: {
+            if (picker !== null && picker.catalog !== null && picker.catalog.exercise_list !== null && picker.catalog.exercise_list !== undefined) {
+                const model = picker.catalog.exercise_list;
+                const titles = [];
+
+                for (let i = 0; i < Math.min(model.count, 30); ++i)
+                    titles.push(model.get(i).title);
+
+                console.info("[popup-shot] rows=", model.count, "loading=", picker.catalog.loading, "fromCache=", picker.catalog.fromCache, "error=", picker.catalog.errorKey, "titles=", titles.join("; "), "popup-visible=", picker.visible, "x=", picker.x, "y=", picker.y, "w=", picker.width, "h=", picker.height, "parent=", picker.parent !== null ? picker.parent.width + "x" + picker.parent.height : "null");
+            }
+        }
+    }
     BackHandler {
         enabled: pages.depth > 1
         priority: 10
@@ -222,14 +357,14 @@ Item {
                 topInset: shell.topInset
                 viewModel: shell.todayViewModel
 
-                // Расчёт КБЖУ (спринт S7) открывается с главной: человек узнаёт
-                // о нём, когда программа уже есть, а не отправляется искать его
-                // в профиль.
-                onMacroRequested: shell.openMacroCalculator()
                 // День отдыха ведёт в обзор активной программы, а пустой
                 // главный экран — на вкладку «Планы», где программу создают.
                 onPlansRequested: shell.showTab(1)
                 onProgramRequested: shell.openProgramOverview()
+
+                // Тап по строке упражнения — его обзор: тот же вход, что и из
+                // каталога вкладки «Упражнения».
+                onExerciseOpenRequested: exerciseId => shell.openExerciseDetail(exerciseId)
             }
             PlansPage {
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
@@ -241,7 +376,9 @@ Item {
             ExercisesPage {
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
                 topInset: shell.topInset
-                viewModel: shell.exercisesViewModel
+
+                onCreateOwnRequested: shell.pushPage(exerciseEditorComponent)
+                onOpenRequested: exerciseId => shell.openExerciseDetail(exerciseId)
             }
             ProfilePage {
                 auth: shell.auth
@@ -327,6 +464,18 @@ Item {
         });
     }
 
+    // Расчёт КБЖУ из настройки программы: открывается поверх редактора, а не
+    // вместо него — «назад» возвращает в настройку. Флаг applyToProgram
+    // включает на экране расчёта кнопку «Создать правила в программе».
+    function openMacroCalculatorForProgram() {
+        shell.noteTabScreen({
+            name: "macro-calculator"
+        });
+        shell.pushPage(macroCalculatorComponent, {
+            applyToProgram: true
+        });
+    }
+
     // Инструменты (запись подхода, КБЖУ) открываются вместо текущего стека:
     // сперва pop, и только после завершения перехода — push, потому что push
     // во время busy отбрасывается. Запись памяти тоже отложена: «последний
@@ -335,6 +484,10 @@ Item {
     function openAfterPop(component, entry) {
         if (pages.depth > 1) {
             pages.pop(null);
+            // Поток вкладки закрыт (инструмент открыли с корня): прежняя
+            // цепочка экранов больше не лежит в стеке, и хранить её нельзя —
+            // возврат на вкладку восстановил бы несуществующий стек.
+            shell.forgetTabScreen(tabBar.currentIndex);
             shell.pendingComponentEntry = {
                 component: component,
                 entry: entry
@@ -382,7 +535,7 @@ Item {
         // закрытую форму создания. Память вкладки тоже обновляется: последним
         // открытым экраном теперь обзор, а не редактор.
         shell.programId = programId;
-        shell.noteTabScreen({
+        shell.replaceTopScreen({
             name: "program-overview",
             id: programId
         });
@@ -401,6 +554,20 @@ Item {
             "macro-calculator": openMacroCalculator,
             "profile-settings": openProfileSettings,
             "set-entry": openSetEntry,
+            "exercise-edit": function () {
+                if (typeof ExercisesEditorVM !== "undefined" && ExercisesEditorVM !== null)
+                    ExercisesEditorVM.reset();
+
+                shell.pushPage(exerciseEditorComponent);
+            },
+            // Карточка для аудита вёрстки без идентификатора показывает первое
+            // кэшированное упражнение: макет проверяется на реальных данных.
+            "exercise-detail": function () {
+                if (shell.exerciseDetailId.length === 0 && typeof ExercisesOneVM !== "undefined" && ExercisesOneVM !== null)
+                    ExercisesOneVM.loadFirstCached();
+
+                shell.openExerciseDetail(shell.exerciseDetailId);
+            },
             "program-catalog": openProgramCatalog,
             "program-overview": openProgramOverview,
             "program-edit": openProgramEditor,
@@ -413,7 +580,7 @@ Item {
             // снимок показывал «Отдых» и ноль упражнений вместо реального дня.
             "program-day": function () {
                 const weekday = 1;
-                const userId = AppContext !== undefined && AppContext !== null ? AppContext.currentUserId : "u1";
+                const userId = typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
 
                 if (ProgramVM !== undefined && ProgramVM !== null)
                     ProgramVM.reload(userId, "");
@@ -468,6 +635,11 @@ Item {
             weekday: weekday
         });
         shell.pushPage(programDayComponent);
+
+        // Инструмент ревью (см. popupShot): окно открывается, когда переход
+        // завершится и экран дня создастся.
+        if (shell.popupShot)
+            autoOpenPickerTimer.start();
     }
 
     // Открытый экран программы всегда над вкладками, поэтому «назад» просто
@@ -478,14 +650,45 @@ Item {
         if (pages.busy === false && pages.depth > 1) {
             pages.pop();
 
-            // Возврат к корню вкладки закрывает поток экранов: запись
-            // «последнего экрана» больше не отражает то, что пользователь
-            // оставил открытым, поэтому снимается вместе с потоком.
+            // Снятый экран уходит из истории вкладки: «назад» по цепочке
+            // обязан идти синхронно со стеком, иначе восстановление вернуло
+            // бы уже закрытый экран.
+            const history = shell.tabHistory[tabBar.currentIndex] || [];
+
+            if (history.length > 0)
+                history.pop();
+
+            shell.tabHistory[tabBar.currentIndex] = history;
+
+            // Возврат к корню закрывает поток целиком.
             if (pages.depth === 1)
                 shell.forgetTabScreen(tabBar.currentIndex);
         }
     }
 
+    Component {
+        id: exerciseEditorComponent
+
+        ExercisesEditorPage {
+            bottomInset: shell.pageBottomInset
+            topInset: shell.topInset
+
+            onBackRequested: shell.closeExerciseEditor()
+            onFinished: shell.closeExerciseEditor()
+        }
+    }
+    Component {
+        id: exerciseDetailComponent
+
+        ExerciseDetailPage {
+            bottomInset: shell.pageBottomInset
+            exerciseId: shell.exerciseDetailId
+            topInset: shell.topInset
+
+            onBackRequested: shell.goBack()
+            onEditRequested: exerciseId => shell.openExerciseEditor(exerciseId)
+        }
+    }
     Component {
         id: programCatalogComponent
 
@@ -542,6 +745,7 @@ Item {
                 shell.openProgramDay(weekday, dayKind);
             }
             onRulesPickerRequested: shell.openProgramRulesPicker()
+            onMacroRequested: shell.openMacroCalculatorForProgram()
         }
     }
     Component {
@@ -558,6 +762,9 @@ Item {
 
             onBackRequested: shell.goBack()
             onCloseRequested: shell.goBack()
+
+            // Тап по строке упражнения дня — его обзор, как из каталога.
+            onExerciseOpenRequested: exerciseId => shell.openExerciseDetail(exerciseId)
         }
     }
     Component {

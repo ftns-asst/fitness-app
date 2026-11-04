@@ -34,6 +34,7 @@ private slots:
 	void removeDayExerciseReindexesOrder();
 	void copyDayReplacesTargetDay();
 	void addRuleDetailedKeepsCategoryAndPeriodicity();
+	void generateRulesFromMacroRequiresMacroResult();
 	void addAdviceNeedsNoTarget();
 
 	// — Рекомендация в редакторе —
@@ -141,7 +142,7 @@ Avm_Program_Edit *AProgram_Edit_VM_Test::Make_Editor()
 {
 	AsProgram_Service *service = new AsProgram_Service(Program_Repository, this);
 
-	return new Avm_Program_Edit(Program_Repository, Rule_Repository, service, this);
+	return new Avm_Program_Edit(Program_Repository, Rule_Repository, service, 0, this);
 }
 //----------------------------------------------------------------------------
 // Дата окончания — производная от даты старта и срока (§3.3), и её считает
@@ -212,7 +213,7 @@ void AProgram_Edit_VM_Test::loadRefusesReadOnlyProgram()
 	AsSql_Database local_database;
 	AProgram_Repository local_repository(&local_database);
 	AsProgram_Service local_service(&local_repository, this);
-	Avm_Program_Edit editor(&local_repository, Rule_Repository, &local_service, this);
+	Avm_Program_Edit editor(&local_repository, Rule_Repository, &local_service, 0, this);
 	SProgram finished;
 
 	QVERIFY(local_database.Open(Directory.filePath("load_readonly.sqlite3")));
@@ -668,6 +669,20 @@ void AProgram_Edit_VM_Test::addRuleDetailedKeepsCategoryAndPeriodicity()
 	QCOMPARE(rules.first().Enforcement, ERule_Enforcement::Hard);
 }
 //----------------------------------------------------------------------------
+// Генерация правил из расчёта КБЖУ требует сохранённый расчёт. В фикстуре
+// редактора нет Users_Repository (передаётся null), поэтому отказ с понятной
+// ошибкой, а не молчание. Полный путь генерации покрыт tst_Program_Rules_VM.
+void AProgram_Edit_VM_Test::generateRulesFromMacroRequiresMacroResult()
+{
+	Avm_Program_Edit *editor = Make_Editor();
+
+	QVERIFY(Fill_Minimal_Program(editor));
+
+	// Без Users_Repository расчёт неоткуда взять — кнопка отказывает честно.
+	QVERIFY(editor->generateRulesFromMacro("u1") == false);
+	QCOMPARE(editor->errorKey(), QString("macro_calc_required"));
+}
+//----------------------------------------------------------------------------
 // Рекомендация отвечает на вопрос «что делать», а не «сколько», поэтому цель
 // ей не требуется. Раньше Add_Rule_Detailed отвергал любое правило без цели,
 // и пользователь не мог записать в программу то, что модель и БД уже
@@ -962,7 +977,7 @@ void AProgram_Edit_VM_Test::saveFailureNotifiesScreen()
 	AsSql_Database local_database;
 	AProgram_Repository local_repository(&local_database);
 	AsProgram_Service local_service(&local_repository, this);
-	Avm_Program_Edit editor(&local_repository, Rule_Repository, &local_service, this);
+	Avm_Program_Edit editor(&local_repository, Rule_Repository, &local_service, 0, this);
 
 	QVERIFY(local_database.Open(Directory.filePath("save_failed_fk.sqlite3")));
 
@@ -994,7 +1009,8 @@ void AProgram_Edit_VM_Test::saveFailureNotifiesScreen()
 // строку, следующие обновляют её же — копий программа не плодит.
 void AProgram_Edit_VM_Test::draftAutosavePersistsDayExercises()
 {
-	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), this);
+	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0,
+	                        this);
 
 	editor.setAutoSaveEnabled(true);
 	QVERIFY(editor.Reset("u_draft_auto"));
@@ -1018,7 +1034,8 @@ void AProgram_Edit_VM_Test::draftAutosavePersistsDayExercises()
 // дня на месте, и редактор правит ту же строку БД, а не создаёт вторую.
 void AProgram_Edit_VM_Test::resumeDraftContinuesSavedDraftAndDoesNotDuplicate()
 {
-	Avm_Program_Edit first(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), this);
+	Avm_Program_Edit first(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0,
+	                       this);
 
 	first.setAutoSaveEnabled(true);
 	QVERIFY(first.Reset("u_draft_resume"));
@@ -1029,7 +1046,7 @@ void AProgram_Edit_VM_Test::resumeDraftContinuesSavedDraftAndDoesNotDuplicate()
 	QVERIFY(first.Add_Day_Exercise(1, "ex_squat", 4, 5, 8, 100, true));
 
 	// «Перезапуск приложения»: новый редактор, та же БД.
-	Avm_Program_Edit reopened(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this),
+	Avm_Program_Edit reopened(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0,
 	                          this);
 
 	QVERIFY(reopened.resumeDraft("u_draft_resume"));
@@ -1046,7 +1063,8 @@ void AProgram_Edit_VM_Test::resumeDraftContinuesSavedDraftAndDoesNotDuplicate()
 // редактор и ничего не пишет в БД: «Новая программа» без прошлого.
 void AProgram_Edit_VM_Test::resumeDraftWithoutSavedDraftStartsFresh()
 {
-	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), this);
+	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0,
+	                        this);
 
 	const int programs_before = Count_Programs();
 
@@ -1061,7 +1079,8 @@ void AProgram_Edit_VM_Test::resumeDraftWithoutSavedDraftStartsFresh()
 // Повторное удаление без сохранённого черновика — не отказ, а очистка.
 void AProgram_Edit_VM_Test::deleteDraftRemovesStoredDraftAndResetsEditor()
 {
-	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), this);
+	Avm_Program_Edit editor(Program_Repository, Rule_Repository, new AsProgram_Service(Program_Repository, this), 0,
+	                        this);
 
 	editor.setAutoSaveEnabled(true);
 	QVERIFY(editor.Reset("u_draft_delete"));

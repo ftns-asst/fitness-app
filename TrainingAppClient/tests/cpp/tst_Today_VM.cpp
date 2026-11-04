@@ -42,6 +42,8 @@ private slots:
 	void checkinUpdatesRuleStateOnce();
 	void measurementInvalidatesStatsCache();
 	void checkinInvalidatesStatsCache();
+	// Числовые отметки: состояние выводится из цели, «выполнено» заполняет число, отметку можно снять.
+	void numericCheckinDerivesStateAndAutofills();
 	// — Авторасчёт КБЖУ на главной (спринт S7, миграция v6) —
 	void macroPlanAppearsOnToday();
 
@@ -593,5 +595,50 @@ void AToday_VM_Test::macroPlanAppearsOnToday()
 	QVERIFY(vm.macro_calculated_at().isEmpty() == false);
 }
 //------------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+void AToday_VM_Test::numericCheckinDerivesStateAndAutofills()
+{
+	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
+	             Users_Repository);
+
+	Seed_Program("u_num", "p_num");
+	Seed_Rules("p_num");
+
+	vm.Set_Today("2026-10-06");
+	QVERIFY(vm.Load("u_num"));
+
+	// Белок (не ниже 140): 100 г — частично, число доходит до экрана.
+	QVERIFY(vm.saveCheckinValue("p_num_r_protein", 100));
+	QCOMPARE(Row_By_Role(vm.rules(), 0, "todayState").toString(), QString("partial"));
+	QCOMPARE(Row_By_Role(vm.rules(), 0, "todayValue").toDouble(), 100.0);
+
+	// 150 г — выполнено, запись та же (upsert), а не вторая.
+	QVERIFY(vm.saveCheckinValue("p_num_r_protein", 150));
+	QCOMPARE(Row_By_Role(vm.rules(), 0, "todayState").toString(), QString("done"));
+
+	QVector<SRule_Checkin> checkins;
+
+	QVERIFY(Rule_Repository->Load_Program_Checkins_Range("p_num", "2026-10-06", "2026-10-06", checkins));
+	QCOMPARE(checkins.size(), 1);
+
+	// Снятие отметки возвращает «нет данных» и убирает число.
+	QVERIFY(vm.clearCheckin("p_num_r_protein"));
+	QCOMPARE(Row_By_Role(vm.rules(), 0, "todayState").toString(), QString("unknown"));
+	QVERIFY(Row_By_Role(vm.rules(), 0, "todayValue").isNull());
+
+	// «Выполнено» заполняет число целью: для «не ниже 140» — 140.
+	QVERIFY(vm.markCheckinDone("p_num_r_protein"));
+	QCOMPARE(Row_By_Role(vm.rules(), 0, "todayState").toString(), QString("done"));
+	QCOMPARE(Row_By_Role(vm.rules(), 0, "todayValue").toDouble(), 140.0);
+
+	// Диапазон сна 7–9: 10 ч выше границы — failed, 8 — done.
+	QVERIFY(vm.saveCheckinValue("p_num_r_sleep", 10));
+	QCOMPARE(Row_By_Role(vm.rules(), 1, "todayState").toString(), QString("failed"));
+	QVERIFY(vm.saveCheckinValue("p_num_r_sleep", 8));
+	QCOMPARE(Row_By_Role(vm.rules(), 1, "todayState").toString(), QString("done"));
+
+	// Отрицательное число отвергается.
+	QVERIFY(vm.saveCheckinValue("p_num_r_sleep", -5) == false);
+}
 QTEST_GUILESS_MAIN(AToday_VM_Test)
 #include "tst_Today_VM.moc"

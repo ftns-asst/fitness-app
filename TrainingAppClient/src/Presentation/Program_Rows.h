@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Domain/Program_Model.h"
 #include "Domain/Progress_Stats.h"
@@ -89,7 +89,9 @@ QVector<QVariantMap> Build_Day_Exercises(const QVector<SDay_Exercise> &in_exerci
 
 // today_state — состояние отметки правила за сегодня по ruleId (роль
 // todayState); отсутствие отметки даёт «unknown».
-QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const QHash<QString, QString> &in_today_state);
+// today_values — число отметки за сегодня по ruleId (роль todayValue).
+QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const QHash<QString, QString> &in_today_state,
+                                 const QHash<QString, double> &in_today_values = QHash<QString, double>());
 
 // current_values — текущее значение цели по goalTargetId (роль currentValue).
 QVector<QVariantMap> Build_Goal_Targets(const QVector<SGoal_Target> &in_targets,

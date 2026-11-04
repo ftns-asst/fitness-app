@@ -6,7 +6,10 @@
 > контракт plans/workouts/stats (issue 35).
 > Связанные документы: `fitness-assistant-frontend-design.md` (экраны),
 > `mock-data-contract.md` (роли моделей и DTO), `04-roadmap.md` (фазы),
-> `03-api-contract.md` (серверные данные и открытые вопросы).
+> `03-api-contract.md` (серверные данные и открытые вопросы),
+> `09-psmf-tracker-analysis.md` (эталон продукта — Excel-трекер PSMF и
+> расширения модели под него: 10 замеров тела, заметка дня, допуск повторов,
+> оценка упражнения, прогноз).
 
 ## 1. Термины
 

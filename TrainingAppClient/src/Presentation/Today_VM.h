@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Domain/Error_State.h"
 #include "Domain/Macro_Calculator.h"
@@ -115,6 +115,14 @@ public:
 	Q_INVOKABLE bool saveCheckin(const QString &in_rule_id, const QString &in_state, double in_value,
 	                             bool in_has_value);
 
+	// Числовая отметка: «съел 1800 ккал». Состояние выводится из цели правила («не ниже» — done
+	// от порога, «не выше» — done до порога, превышение — failed, недобор — partial).
+	Q_INVOKABLE bool saveCheckinValue(const QString &in_rule_id, double in_value);
+	// «Выполнено» одним касанием: у числового правила значение заполняется целью.
+	Q_INVOKABLE bool markCheckinDone(const QString &in_rule_id);
+	// Снятие отметки за сегодня: правило возвращается в «нет данных».
+	Q_INVOKABLE bool clearCheckin(const QString &in_rule_id);
+
 	bool Load(const QString &in_user_id);
 	void Set_Today(const QString &in_date);
 
@@ -160,6 +168,7 @@ public:
 	                      bool in_has_chest, double in_waist_cm, bool in_has_waist, double in_hip_cm, bool in_has_hip,
 	                      double in_arm_cm, bool in_has_arm, double in_thigh_cm, bool in_has_thigh);
 	bool Save_Checkin(const QString &in_rule_id, const QString &in_state, double in_value, bool in_has_value);
+	const SProgram_Rule *Find_Loaded_Rule(const QString &in_rule_id) const;
 	// Пользователь, от имени которого идёт ввод: замеры и отметки не зависят
 	// от того, есть ли активная программа, поэтому идентификатор хранится
 	// отдельно от неё.

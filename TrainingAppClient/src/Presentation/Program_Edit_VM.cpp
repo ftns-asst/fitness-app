@@ -2,6 +2,7 @@
 
 #include "Data/Program/Program_Repository.h"
 #include "Data/Program/Rule_Repository.h"
+#include "Data/Users/Users_Repository.h"
 #include "Presentation/Program_Rows.h"
 
 #include <QDate>
@@ -32,9 +33,11 @@ QStringList Program_Catalog_Roles()
 // Avm_Program_Edit
 //----------------------------------------------------------------------------
 Avm_Program_Edit::Avm_Program_Edit(AProgram_Repository *in_program_repository, ARule_Repository *in_rule_repository,
-                                   AsProgram_Service *in_service, QObject *in_parent)
+                                   AsProgram_Service *in_service, AUsers_Repository *in_users_repository,
+                                   QObject *in_parent)
     : QObject(in_parent), Program_Repository_Instance(in_program_repository),
-      Rule_Repository_Instance(in_rule_repository), Service_Instance(in_service), Program_Days(new AList_Model(this)),
+      Rule_Repository_Instance(in_rule_repository), Service_Instance(in_service),
+      Users_Repository_Instance(in_users_repository), Program_Days(new AList_Model(this)),
       Goal_Targets(new AList_Model(this)), Rules(new AList_Model(this)), Day_Exercises(new AList_Model(this)),
       Catalog(new AList_Model(this)), Metrics(new AList_Model(this))
 {
@@ -959,6 +962,120 @@ bool Avm_Program_Edit::addCustomRule(const QString &in_title, int in_metric, int
 {
 	return Add_Custom_Rule(in_title, in_metric, in_unit, in_min, in_has_min, in_max, in_has_max, in_exact,
 	                       in_has_exact);
+}
+//----------------------------------------------------------------------------
+bool Avm_Program_Edit::generateRulesFromMacro(const QString &in_user_id)
+{
+	return Generate_Rules_From_Macro(in_user_id);
+}
+//----------------------------------------------------------------------------
+// Правила питания из расчёта КБЖУ добавляются в черновик, а не в активную
+// программу: экран настройки редактирует ещё не сохранённую (или уже открытую)
+// программу, и правила обязаны ехать вместе с ней при сохранении.
+bool Avm_Program_Edit::Generate_Rules_From_Macro(const QString &in_user_id)
+{
+	AsMacro_Calculator::SResult macro;
+	QString calculated_at;
+
+	Clear_Error();
+
+	if (Users_Repository_Instance == 0 ||
+	    Users_Repository_Instance->Load_Macro_Result(in_user_id, macro, calculated_at) == false ||
+	    macro.Calories_Kcal <= 0)
+	{
+		Set_Error("macro_calc_required");
+		emit changed();
+
+		return false;
+	}
+
+	// Таблица правил: код — ключ идемпотентности, форма цели задаётся метрикой
+	// (г — «не ниже», ккал — «ровно»), как в Program_Rules_VM.
+	struct SMacro_Rule
+	{
+		const char *Code;
+		const char *Title;
+		ERule_Metric Metric;
+		ERule_Display_Unit Unit;
+		bool Is_Exact;
+	};
+
+	static const SMacro_Rule macro_rules[] = {
+	    {"macro_protein", "Белок", ERule_Metric::ProteinGrams, ERule_Display_Unit::G, false},
+	    {"macro_carbs", "Углеводы", ERule_Metric::CarbGrams, ERule_Display_Unit::G, false},
+	    {"macro_fat", "Жиры", ERule_Metric::FatGrams, ERule_Display_Unit::G, false},
+	    {"macro_calories", "Калории", ERule_Metric::CaloriesKcal, ERule_Display_Unit::Kcal, true},
+	};
+
+	const double values[] = {macro.Protein_G, macro.Carbs_G, macro.Fat_G, macro.Calories_Kcal};
+
+	for (int i = 0; i < int(sizeof(macro_rules) / sizeof(macro_rules[0])); ++i)
+	{
+		const SMacro_Rule &entry = macro_rules[i];
+		const QString code = QString::fromLatin1(entry.Code);
+		SProgram_Rule rule;
+		bool found = false;
+
+		// Идемпотентность: повторная генерация обновляет цели, а не плодит
+		// дубликаты того же правила.
+		for (int j = 0; j < Draft_Rules.size(); ++j)
+		{
+			if (Draft_Rules.at(j).Code == code)
+			{
+				rule = Draft_Rules.at(j);
+				found = true;
+				break;
+			}
+		}
+
+		if (found == false)
+		{
+			rule.ID = New_Id();
+			rule.Program_Id = Created_Program_Id;
+			rule.Category = ERule_Category::Nutrition;
+			rule.Code = code;
+			rule.Title = QString::fromUtf8(entry.Title);
+			rule.Metric = entry.Metric;
+			rule.Periodicity = ERule_Periodicity::PerDay;
+			rule.Target_Unit = entry.Unit;
+			rule.Display_Unit = entry.Unit;
+			rule.Applies_To = ERule_Applies_To::AllDays;
+			rule.Check_Source = ERule_Check_Source::SelfReport;
+			rule.Enforcement = ERule_Enforcement::Soft;
+		}
+
+		// Цель поедет по расчёту: «не ниже N г» для макросов, «ровно C ккал»
+		// для калорийности. Прочие формы цели очищаются, чтобы не тащить
+		// устаревшие пороги от прошлой генерации.
+		rule.Target_Min = values[i];
+		rule.Has_Target_Min = entry.Is_Exact == false;
+		rule.Target_Max = -1;
+		rule.Has_Target_Max = false;
+		rule.Target_Exact = values[i];
+		rule.Has_Target_Exact = entry.Is_Exact;
+
+		if (found)
+		{
+			for (int j = 0; j < Draft_Rules.size(); ++j)
+			{
+				if (Draft_Rules.at(j).Code == code)
+				{
+					Draft_Rules[j] = rule;
+					break;
+				}
+			}
+		}
+		else
+		{
+			Draft_Rules.append(rule);
+		}
+	}
+
+	Refresh_Rule_Model();
+	emit changed();
+	Persist_Draft();
+
+	return true;
 }
 //----------------------------------------------------------------------------
 // Пресет добавляется по коду, а не по строке из модели: QML отдаёт код,

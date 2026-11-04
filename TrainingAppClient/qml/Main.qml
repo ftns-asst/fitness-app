@@ -42,11 +42,15 @@ ApplicationWindow {
     // profile-settings — раздел «Параметры» профиля: в нём блок «Оформление».
     // Без имени в списке экран молча открывался бы как вкладка «Сегодня», и
     // smoke-проверка проходила бы, ничего не проверив.
-    readonly property string initialProgramScreen: ["program-catalog", "program-overview", "program-edit", "program-rules", "program-rules-picker", "program-stats", "program-day", "macro-calculator", "set-entry", "profile-settings"].indexOf(initialScreen) >= 0 ? initialScreen : ""
+    readonly property string initialProgramScreen: ["program-catalog", "program-overview", "program-edit", "program-rules", "program-rules-picker", "program-stats", "program-day", "macro-calculator", "set-entry", "profile-settings", "exercise-edit", "exercise-detail"].indexOf(initialScreen) >= 0 ? initialScreen : ""
 
     // — Режим снимка для дизайн-ревью и CI: --screenshot <путь> —
     readonly property int screenshotArgIndex: Qt.application.arguments.indexOf("--screenshot")
     readonly property bool screenshotMode: screenshotArgIndex >= 0
+    // --popup-shot открывает окно выбора упражнения на экране дня (см. AppShell);
+    // снимок ждёт и его: 900 мс на открытие окна плюс запас на загрузку каталога.
+    readonly property bool popupShot: Qt.application.arguments.indexOf("--popup-shot") >= 0
+    readonly property int captureDelayMs: popupShot ? 2600 : 700
     readonly property bool startUnauthenticated: Qt.application.arguments.indexOf("--unauth") >= 0
     readonly property int tabArgIndex: Qt.application.arguments.indexOf("--tab")
 
@@ -346,13 +350,24 @@ ApplicationWindow {
 
         target: Qt.styleHints
     }
+    // — Снимок для ревью и CI: цель захвата —
+    //
+    // Кадр берётся с «рамки телефона» (deviceScreen): превью экранов — без
+    // безеля. Окно выбора упражнения живёт в Overlay окна — соседе рамки, и в
+    // такой кадр оно не попадает: `grabToImage` по Overlay и по contentItem
+    // окна в этом рантайме не завершается вовсе. Состояние окна выбора
+    // проверяется отчётом `[popup-shot]` (строки каталога, размер, позиция) и
+    // сквозным добавлением упражнения в день.
+    readonly property Item captureTarget: deviceScreen
+
     Timer {
         id: captureTimer
 
-        // Ждём первый кадр и завершение стартовых анимаций.
-        interval: 700
+        // Ждём первый кадр и завершение стартовых анимаций; с --popup-shot —
+        // ещё и открытие окна выбора упражнения.
+        interval: window.captureDelayMs
 
-        onTriggered: deviceScreen.grabToImage(function (result) {
+        onTriggered: window.captureTarget.grabToImage(function (result) {
             const args = Qt.application.arguments;
             const path = window.screenshotArgIndex + 1 < args.length ? args[window.screenshotArgIndex + 1] : "ui-preview.png";
 
@@ -391,7 +406,7 @@ ApplicationWindow {
     FrameRateMeter {
         id: frameMeter
 
-        running: window.frameRateMode
+        running: window.frameRateMode || Theme.fpsCounter
     }
     Timer {
         id: frameRateTimer
@@ -401,6 +416,14 @@ ApplicationWindow {
         running: window.frameRateMode
 
         onTriggered: console.info("fps", frameMeter.framesPerSecond.toFixed(1), "frame-ms", (frameMeter.frameSeconds * 1000).toFixed(2))
+    }
+    // Плашка счётчика поверх экрана: включается настройкой в «Профиль →
+    // Параметры» (Theme.fpsCounter), клик сквозь неё не проходит в страницу
+    // и не нужен — плашка диагностическая. Стоит над всем контентом.
+    FpsOverlay {
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: Spacing.safeGap + 40
     }
 
     // — Зонд шрифтов: измеряем advanceWidth одного и того же текста в четырёх

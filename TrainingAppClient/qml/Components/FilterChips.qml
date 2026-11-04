@@ -10,6 +10,10 @@ Item {
 
     property int currentIndex: 0
     property var items: []
+    // Multi-режим: массив активных индексов; null — обычный одиночный выбор
+    // по currentIndex. Нажатие по-прежнему приходит сигналом selected(index),
+    // а набор ведёт владелец.
+    property var selectedIndices: null
 
     signal selected(int index)
 
@@ -36,7 +40,7 @@ Item {
                 delegate: Button {
                     id: chip
 
-                    readonly property bool active: chips.currentIndex === index
+                    readonly property bool active: chips.selectedIndices !== null ? chips.selectedIndices.indexOf(index) >= 0 : chips.currentIndex === index
 
                     // Hit-area — Theme.touchMin, визуальная pill остаётся 36 dp.
                     height: chips.height

@@ -2,10 +2,12 @@
 
 #include "Data/Program/Program_Repository.h"
 #include "Data/Program/Rule_Repository.h"
+#include "Data/Users/Users_Repository.h"
 #include "Presentation/Program_Rows.h"
 
 #include <QDate>
 #include <QLoggingCategory>
+#include <QUuid>
 
 Q_LOGGING_CATEGORY(PROGRAM_Rules_VM_Log, "trainingapp.program.rules_vm")
 
@@ -21,9 +23,10 @@ static bool Is_Supported_Period(int in_days)
 // Avm_Program_Rules
 //----------------------------------------------------------------------------
 Avm_Program_Rules::Avm_Program_Rules(AProgram_Repository *in_program_repository, ARule_Repository *in_rule_repository,
-                                     QObject *in_parent)
+                                     AUsers_Repository *in_users_repository, QObject *in_parent)
     : QObject(in_parent), Program_Repository_Instance(in_program_repository),
-      Rule_Repository_Instance(in_rule_repository), Rules(new AList_Model(this)), Checkins(new AList_Model(this))
+      Rule_Repository_Instance(in_rule_repository), Users_Repository_Instance(in_users_repository),
+      Rules(new AList_Model(this)), Checkins(new AList_Model(this))
 {
 	Rules->Set_Roles(Program_Rows::Rule_Roles());
 	Checkins->Set_Roles(Program_Rows::Checkin_Roles());
@@ -48,6 +51,11 @@ bool Avm_Program_Rules::saveCheckin(const QString &in_rule_id, const QString &in
 	return Save_Checkin(in_rule_id, in_state, in_value, in_has_value, in_note);
 }
 //----------------------------------------------------------------------------
+bool Avm_Program_Rules::generateRulesFromMacro(const QString &in_user_id)
+{
+	return Generate_Rules_From_Macro(in_user_id);
+}
+//----------------------------------------------------------------------------
 bool Avm_Program_Rules::Reload(const QString &in_user_id)
 {
 	Clear_Error();
@@ -66,6 +74,20 @@ bool Avm_Program_Rules::Reload(const QString &in_user_id)
 	// пустую выборку: процент показывался прочерком, а подпись «Отметок за это
 	// окно нет» появлялась при полной базе.
 	Apply_Period();
+
+	// Сохранённый расчёт КБЖУ: кнопка генерации правил питания активна только
+	// при наличии расчёта. Пустой результат — обычное состояние («ещё не
+	// считали»), поэтому чтение не ошибка.
+	Has_Macro_Result_Value = false;
+
+	if (Users_Repository_Instance != 0)
+	{
+		AsMacro_Calculator::SResult macro;
+		QString calculated_at;
+
+		if (Users_Repository_Instance->Load_Macro_Result(in_user_id, macro, calculated_at) && macro.Calories_Kcal > 0)
+			Has_Macro_Result_Value = true;
+	}
 
 	// Отметки читаются раньше правил: роль todayState строится из них, иначе
 	// состояние за сегодня всегда оставалось бы «неизвестно».
@@ -176,6 +198,142 @@ bool Avm_Program_Rules::Save_Checkin(const QString &in_rule_id, const QString &i
 	return true;
 }
 //----------------------------------------------------------------------------
+// Генерация правил питания из расчёта КБЖУ (спринт «КБЖУ в правилах»).
+//
+// Четыре правила: белок/углеводы/жиры — «не ниже N г», калории — «ровно C
+// ккал». Цели берутся из сохранённого расчёта (миграции v5–v6), поэтому
+// программу можно отмечать по нормам макросов.
+//
+// Повторное нажатие по тому же расчёту ничего не меняет, по новому — обновляет
+// цели существующих правил по коду: adherence считал бы по двум противоречащим
+// нормам белка, а список засорялся бы дублями. Название правила при обновлении
+// сохраняется: переименовать «Белок» — право пользователя.
+//
+// Без сохранённого расчёта отказ с macro_calc_required: «углеводы ≥ 0 г» в
+// программе бессмысленны и только запутали бы.
+//----------------------------------------------------------------------------
+bool Avm_Program_Rules::Generate_Rules_From_Macro(const QString &in_user_id)
+{
+	AsMacro_Calculator::SResult macro;
+	QString calculated_at;
+
+	Clear_Error();
+
+	if (Users_Repository_Instance == 0 ||
+	    Users_Repository_Instance->Load_Macro_Result(in_user_id, macro, calculated_at) == false ||
+	    macro.Calories_Kcal <= 0)
+	{
+		Set_Error("macro_calc_required");
+		emit changed();
+
+		return false;
+	}
+
+	// Генерация привязана к активной программе: правила живут в ней.
+	if (Program_Id_Text.isEmpty())
+	{
+		Set_Error("no_active_program");
+		emit changed();
+
+		return false;
+	}
+
+	if (Rule_Repository_Instance == 0)
+	{
+		Set_Error("undefined_error");
+		emit changed();
+
+		return false;
+	}
+
+	// Макро-правила описываются таблицей: код — ключ идемпотентности, форма
+	// цели задаётся метрикой (г — «не ниже», ккал — «ровно»).
+	struct SMacro_Rule
+	{
+		const char *Code;
+		const char *Title;
+		ERule_Metric Metric;
+		ERule_Display_Unit Unit;
+		bool Is_Exact;
+	};
+
+	static const SMacro_Rule macro_rules[] = {
+	    {"macro_protein", "Белок", ERule_Metric::ProteinGrams, ERule_Display_Unit::G, false},
+	    {"macro_carbs", "Углеводы", ERule_Metric::CarbGrams, ERule_Display_Unit::G, false},
+	    {"macro_fat", "Жиры", ERule_Metric::FatGrams, ERule_Display_Unit::G, false},
+	    {"macro_calories", "Калории", ERule_Metric::CaloriesKcal, ERule_Display_Unit::Kcal, true},
+	};
+
+	const double values[] = {macro.Protein_G, macro.Carbs_G, macro.Fat_G, macro.Calories_Kcal};
+
+	for (int i = 0; i < int(sizeof(macro_rules) / sizeof(macro_rules[0])); ++i)
+	{
+		const SMacro_Rule &entry = macro_rules[i];
+		const QString code = QString::fromLatin1(entry.Code);
+		int index = -1;
+
+		for (int j = 0; j < Loaded_Rules.size(); ++j)
+		{
+			if (Loaded_Rules.at(j).Code == code)
+			{
+				index = j;
+				break;
+			}
+		}
+
+		SProgram_Rule rule;
+
+		if (index >= 0)
+		{
+			// Существующее правило: название и прочие поля остаются за
+			// пользователем, целями обновляются только числа.
+			rule = Loaded_Rules.at(index);
+		}
+		else
+		{
+			rule.ID = QUuid::createUuid().toString(QUuid::WithoutBraces);
+			rule.Program_Id = Program_Id_Text;
+			rule.Category = ERule_Category::Nutrition;
+			rule.Code = code;
+			rule.Title = QString::fromUtf8(entry.Title);
+			rule.Metric = entry.Metric;
+			rule.Periodicity = ERule_Periodicity::PerDay;
+			rule.Target_Unit = entry.Unit;
+			rule.Display_Unit = entry.Unit;
+			rule.Applies_To = ERule_Applies_To::AllDays;
+			rule.Check_Source = ERule_Check_Source::SelfReport;
+			rule.Enforcement = ERule_Enforcement::Soft;
+		}
+
+		// Цель поедет по расчёту в любом случае: «не ниже N г» для макросов,
+		// «ровно C ккал» для калорийности.
+		rule.Target_Min = values[i];
+		rule.Has_Target_Min = entry.Is_Exact == false;
+		rule.Target_Exact = values[i];
+		rule.Has_Target_Exact = entry.Is_Exact;
+
+		if (index >= 0)
+			Loaded_Rules[index] = rule;
+		else
+			Loaded_Rules.append(rule);
+	}
+
+	if (Rule_Repository_Instance->Replace_Rules(Program_Id_Text, Loaded_Rules) == false)
+	{
+		Set_Error("undefined_error");
+		emit changed();
+
+		return false;
+	}
+
+	// Правила перечитываются из хранилища: модель обязана показывать то, что
+	// сохранено, а не то, что собиралось в памяти.
+	Load_Rules();
+	emit changed();
+
+	return true;
+}
+//----------------------------------------------------------------------------
 void Avm_Program_Rules::Clear_All()
 {
 	Program_Id_Text.clear();
@@ -185,6 +343,7 @@ void Avm_Program_Rules::Clear_All()
 	Checkins->Set_Rows(QVector<QVariantMap>());
 	Has_Adherence = false;
 	Adherence_Number = 0;
+	Has_Macro_Result_Value = false;
 }
 //----------------------------------------------------------------------------
 bool Avm_Program_Rules::Load_Rules()
@@ -337,6 +496,11 @@ double Avm_Program_Rules::adherencePercent() const
 bool Avm_Program_Rules::hasAdherencePercent() const
 {
 	return Has_Adherence;
+}
+//----------------------------------------------------------------------------
+bool Avm_Program_Rules::Has_Macro_Result() const
+{
+	return Has_Macro_Result_Value;
 }
 //----------------------------------------------------------------------------
 AList_Model *Avm_Program_Rules::rules() const

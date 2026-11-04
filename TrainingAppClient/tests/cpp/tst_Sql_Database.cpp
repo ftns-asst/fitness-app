@@ -41,6 +41,14 @@ private slots:
 	// накопленные правила — иначе она стоила бы пользователю всей программы.
 	void acceptsKilogramUnit();
 	void keepsRulesWhenAddingKilogramUnit();
+
+	// — Метрики макронутриентов «углеводы/жиры» (миграция v8) —
+	// Расчёт КБЖУ создаёт в программе правила по белку, углеводам, жирам и
+	// калориям. Пока в CHECK metric нет carbGrams/fatGrams, эти правила не
+	// сохраняются, и норма макросов не закрепляется. Миграция обязана и
+	// расширить CHECK, и не потерять накопленные правила (пересоздание таблицы).
+	void acceptsMacroNutrientMetrics();
+	void keepsRulesWhenAddingMacroNutrientMetrics();
 };
 
 //----------------------------------------------------------------------------
@@ -581,6 +589,89 @@ void ASql_Database_Test::keepsRulesWhenAddingKilogramUnit()
 	                    "target_min, target_unit, applies_to, check_source, display_unit, note) "
 	                    "VALUES('new1', 'p1', 'recovery', 'bodyWeightControl', 'Вес тела', 'bodyWeightKg', 'perWeek', "
 	                    "80.0, 'kg', 'allDays', 'selfReport', 'kg', 'Раз в неделю')"),
+	         qPrintable(query.lastError().text()));
+
+	QVERIFY(query.exec("SELECT COUNT(*) FROM program_rules"));
+	QVERIFY(query.next());
+	QCOMPARE(query.value(0).toInt(), 2);
+}
+//----------------------------------------------------------------------------
+// Метрики углеводов и жиров принимаются схемой: правило «углеводы ≥ 250 г»,
+// созданное из расчёта КБЖУ, обязано сохраняться. Без метрик в CHECK норма
+// макросов не закрепилась бы, и интеграция КБЖУ↔правила была бы неполной.
+void ASql_Database_Test::acceptsMacroNutrientMetrics()
+{
+	QTemporaryDir directory;
+	AsSql_Database database;
+	QSqlQuery query;
+	QString path;
+
+	QVERIFY(directory.isValid());
+	path = directory.filePath("macro_metrics.sqlite3");
+	QVERIFY(database.Open(path));
+	Seed_Program_Fixture(database.Sql_Connection(), query);
+
+	QVERIFY2(query.exec("INSERT INTO program_rules(id, program_id, category, code, title, metric, periodicity, "
+	                    "target_min, target_unit, applies_to, check_source, display_unit, note) "
+	                    "VALUES('c1', 'p1', 'nutrition', 'macro_carbs', 'Углеводы', 'carbGrams', 'perDay', "
+	                    "250.0, 'g', 'allDays', 'selfReport', 'g', 'Углеводы из расчёта')"),
+	         qPrintable(query.lastError().text()));
+	QVERIFY2(query.exec("INSERT INTO program_rules(id, program_id, category, code, title, metric, periodicity, "
+	                    "target_min, target_unit, applies_to, check_source, display_unit, note) "
+	                    "VALUES('f1', 'p1', 'nutrition', 'macro_fat', 'Жиры', 'fatGrams', 'perDay', "
+	                    "70.0, 'g', 'allDays', 'selfReport', 'g', 'Жиры из расчёта')"),
+	         qPrintable(query.lastError().text()));
+
+	QVERIFY(query.exec("SELECT metric FROM program_rules WHERE id = 'c1'"));
+	QVERIFY(query.next());
+	QCOMPARE(query.value(0).toString(), QString("carbGrams"));
+	QVERIFY(query.exec("SELECT metric FROM program_rules WHERE id = 'f1'"));
+	QVERIFY(query.next());
+	QCOMPARE(query.value(0).toString(), QString("fatGrams"));
+}
+//----------------------------------------------------------------------------
+// Добавление метрик требует пересоздать таблицу (CHECK не ALTER'ится), а
+// пересоздание без переноса строк стоило бы пользователю всех правил. Приём
+// тот же, что в v3→v4 и v2→v3, и он обязан быть проверен на данных.
+void ASql_Database_Test::keepsRulesWhenAddingMacroNutrientMetrics()
+{
+	QTemporaryDir directory;
+	AsSql_Database database;
+	AsSql_Database builder;
+	QSqlQuery query;
+	QString path;
+
+	QVERIFY(directory.isValid());
+	path = directory.filePath("v7.sqlite3");
+
+	// База, выпущенная релизом со схемой v7: правило по белку в граммах.
+	QVERIFY(builder.Open(path));
+	Seed_Program_Fixture(builder.Sql_Connection(), query);
+	QVERIFY2(query.exec("INSERT INTO program_rules(id, program_id, category, code, title, metric, periodicity, "
+	                    "target_min, target_unit, applies_to, check_source, display_unit, note) "
+	                    "VALUES('old1', 'p1', 'nutrition', 'macro_protein', 'Белок', 'proteinGrams', 'perDay', "
+	                    "150.0, 'g', 'allDays', 'selfReport', 'g', 'Белок из расчёта')"),
+	         qPrintable(query.lastError().text()));
+	builder.Close();
+
+	QVERIFY(database.Open(path));
+	QCOMPARE(database.Get_Schema_Version(), AsSql_Database::Get_Current_Schema_Version());
+
+	// Запрос идёт по соединению открытой базы: после builder.Close() объект
+	// query остаётся привязан к закрытому соединению, и SELECT возвращает
+	// false без внятной причины.
+	query = QSqlQuery(database.Sql_Connection());
+
+	// Правило, созданное до миграции, уцелело.
+	QVERIFY(query.exec("SELECT COUNT(*) FROM program_rules WHERE id = 'old1'"));
+	QVERIFY(query.next());
+	QCOMPARE(query.value(0).toInt(), 1);
+
+	// И углеводы с жирами после миграции принимаются.
+	QVERIFY2(query.exec("INSERT INTO program_rules(id, program_id, category, code, title, metric, periodicity, "
+	                    "target_min, target_unit, applies_to, check_source, display_unit, note) "
+	                    "VALUES('new1', 'p1', 'nutrition', 'macro_carbs', 'Углеводы', 'carbGrams', 'perDay', "
+	                    "250.0, 'g', 'allDays', 'selfReport', 'g', 'Углеводы')"),
 	         qPrintable(query.lastError().text()));
 
 	QVERIFY(query.exec("SELECT COUNT(*) FROM program_rules"));

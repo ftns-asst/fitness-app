@@ -99,4 +99,30 @@ AppCard {
             }
         }
     }
+    Label {
+        color: Theme.textSecondary
+        font: Typography.caption
+        text: qsTr("Счётчик кадров (FPS)")
+        width: parent.width
+    }
+    // Диагностика плавности скролла: фактическая частота кадров показывается
+    // плашкой поверх экрана, пока настройка включена. Сегментированный контрол
+    // — как у темы: стиль блока единый.
+    RowLayout {
+        width: parent.width
+
+        SegmentedControl {
+            id: fpsSelector
+
+            Layout.fillWidth: true
+            objectName: "appearanceFpsSelector"
+
+            currentIndex: Theme.fpsCounter ? 1 : 0
+            items: [qsTr("Выкл"), qsTr("Вкл")]
+
+            onSelected: function (index) {
+                Theme.fpsCounter = (index === 1);
+            }
+        }
+    }
 }

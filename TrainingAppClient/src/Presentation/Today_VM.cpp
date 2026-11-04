@@ -263,6 +263,7 @@ void Avm_Today::Load_Rules_For_Today()
 {
 	QVector<SRule_Checkin> checkins;
 	QHash<QString, QString> states;
+	QHash<QString, double> values;
 
 	Rules->Set_Rows(QVector<QVariantMap>());
 	Loaded_Rules.clear();
@@ -275,9 +276,14 @@ void Avm_Today::Load_Rules_For_Today()
 	Rule_Repository_Instance->Load_Program_Checkins_Range(Program_Id_Text, Today_Text, Today_Text, checkins);
 
 	for (int i = 0; i < checkins.size(); ++i)
+	{
 		states.insert(checkins.at(i).Rule_Id, Program_Model::To_String(checkins.at(i).State));
 
-	Rules->Set_Rows(Program_Rows::Build_Rules(Loaded_Rules, states));
+		if (checkins.at(i).Has_Value)
+			values.insert(checkins.at(i).Rule_Id, checkins.at(i).Value);
+	}
+
+	Rules->Set_Rows(Program_Rows::Build_Rules(Loaded_Rules, states, values));
 }
 //----------------------------------------------------------------------------
 void Avm_Today::Load_Session()
@@ -544,6 +550,96 @@ bool Avm_Today::saveCheckin(const QString &in_rule_id, const QString &in_state, 
 	// «выполнено» на главной берётся из строки правила, и без
 	// перечитывания точка и процент остались бы прежними до
 	// перезагрузки экрана.
+	Load_Rules_For_Today();
+	emit changed();
+
+	return true;
+}
+//----------------------------------------------------------------------------
+const SProgram_Rule *Avm_Today::Find_Loaded_Rule(const QString &in_rule_id) const
+{
+	for (int i = 0; i < Loaded_Rules.size(); ++i)
+	{
+		if (Loaded_Rules.at(i).ID == in_rule_id)
+			return &Loaded_Rules.at(i);
+	}
+
+	return 0;
+}
+//----------------------------------------------------------------------------
+// Числовая отметка. Состояние не спрашивается у пользователя: его выводит цель правила.
+//   «не ниже»:   ≥ min — done; 0 < v < min — partial; 0 — failed.
+//   «не выше»:   ≤ max — done; выше — failed.
+//   диапазон:     внутри — done; ниже min — partial (или failed при 0); выше max — failed.
+//   «ровно»:      с допуском 1 % — done, иначе partial.
+// Рекомендация без цели числом не отмечается.
+bool Avm_Today::saveCheckinValue(const QString &in_rule_id, double in_value)
+{
+	const SProgram_Rule *rule = Find_Loaded_Rule(in_rule_id);
+	QString state;
+
+	Clear_Error();
+
+	if (rule == 0 || Get_Rule_Kind(*rule) == ERule_Kind::Advice || in_value < 0)
+	{
+		Set_Error("invalid_checkin_state");
+		emit changed();
+
+		return false;
+	}
+
+	if (rule->Has_Target_Exact)
+	{
+		const double tolerance = qMax(0.01, qAbs(rule->Target_Exact) * 0.01);
+
+		state = qAbs(in_value - rule->Target_Exact) <= tolerance ? "done" : "partial";
+	}
+	else if (rule->Has_Target_Max && in_value > rule->Target_Max)
+		state = "failed";
+	else if (rule->Has_Target_Min && in_value < rule->Target_Min)
+		state = in_value > 0 ? "partial" : "failed";
+	else
+		state = "done";
+
+	return saveCheckin(in_rule_id, state, in_value, true);
+}
+//----------------------------------------------------------------------------
+bool Avm_Today::markCheckinDone(const QString &in_rule_id)
+{
+	const SProgram_Rule *rule = Find_Loaded_Rule(in_rule_id);
+
+	// Правило без цели не знает, чем заполняться: отметка без числа.
+	if (rule == 0 || Get_Rule_Kind(*rule) == ERule_Kind::Advice)
+		return saveCheckin(in_rule_id, "done", -1, false);
+
+	// «Выполнено» заполняет число целью: «не ниже» — нижней границей, «не выше» — верхней,
+	// «ровно» — точным значением.
+	double value = 0;
+
+	if (rule->Has_Target_Exact)
+		value = rule->Target_Exact;
+	else if (rule->Has_Target_Min)
+		value = rule->Target_Min;
+	else if (rule->Has_Target_Max)
+		value = rule->Target_Max;
+
+	return saveCheckin(in_rule_id, "done", value, true);
+}
+//----------------------------------------------------------------------------
+bool Avm_Today::clearCheckin(const QString &in_rule_id)
+{
+	Clear_Error();
+
+	if (Rule_Repository_Instance == 0 || in_rule_id.isEmpty() ||
+	    Rule_Repository_Instance->Delete_Checkin(in_rule_id, Today_Text) == false)
+	{
+		Set_Error("checkin_save_failed");
+		emit changed();
+
+		return false;
+	}
+
+	Invalidate_Stats();
 	Load_Rules_For_Today();
 	emit changed();
 

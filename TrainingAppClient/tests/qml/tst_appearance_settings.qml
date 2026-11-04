@@ -19,6 +19,7 @@ TestCase {
         // следующая проверка (и следующий файл тестов) получили бы чужую тему.
         Theme.accentIndex = 0;
         Theme.darkMode = false;
+        Theme.fpsCounter = false;
     }
     // Рекурсивный поиск по objectName: у блока оформления нет своих id снаружи,
     // а кружки акцента лежат в ряду внутри карточки.
@@ -49,6 +50,7 @@ TestCase {
     function init() {
         Theme.accentIndex = 0;
         Theme.darkMode = false;
+        Theme.fpsCounter = false;
         card = null;
         profilePage = null;
     }
@@ -112,6 +114,37 @@ TestCase {
         selector.selected(0);
 
         compare(Theme.darkMode, false);
+    }
+    // Счётчик кадров включается тумблером в блоке оформления и пишется в тот
+    // же токен Theme, что читает оверлей: диагностика «негладкого» скролла —
+    // настройка пользователя, а не только флаг запуска --fps.
+    function test_fpsCounterTogglesFromSettings() {
+        card = createTemporaryObject(appearanceCardComponent, testCase);
+
+        verify(card !== null, "блок оформления не создался");
+
+        const selector = testCase.findByName(card, "appearanceFpsSelector");
+
+        verify(selector !== null, "в блоке оформления нет переключателя счётчика кадров");
+        compare(selector.currentIndex, 0);
+
+        selector.selected(1);
+
+        compare(Theme.fpsCounter, true);
+
+        selector.selected(0);
+
+        compare(Theme.fpsCounter, false);
+    }
+    // Контрол показывает текущее состояние настройки, а не дефолт: счётчик
+    // включён до создания блока — подсвечен «Вкл».
+    function test_fpsSelectorShowsCurrentState() {
+        Theme.fpsCounter = true;
+        card = createTemporaryObject(appearanceCardComponent, testCase);
+
+        verify(card !== null, "блок оформления не создался");
+
+        compare(testCase.findByName(card, "appearanceFpsSelector").currentIndex, 1);
     }
     // Контрол показывает текущую тему, а не своё состояние по умолчанию:
     // тёмная тема включена до создания блока — подсвечен «Тёмная».

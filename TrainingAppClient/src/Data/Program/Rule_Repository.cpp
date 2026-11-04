@@ -354,6 +354,28 @@ bool ARule_Repository::Save_Checkin(const SRule_Checkin &in_checkin)
 	return true;
 }
 //----------------------------------------------------------------------------
+bool ARule_Repository::Delete_Checkin(const QString &in_rule_id, const QString &in_date)
+{
+	QSqlQuery query(Connection());
+
+	Clear_Last_Error();
+
+	if (Check_Open() == false)
+		return false;
+
+	if (in_rule_id.isEmpty() || Is_Valid_Date(in_date) == false)
+		return Set_Last_Error("Для снятия отметки нужны ruleId и корректная дата");
+
+	query.prepare("DELETE FROM rule_checkins WHERE rule_id = ? AND date = ?");
+	query.addBindValue(in_rule_id);
+	query.addBindValue(in_date);
+
+	if (query.exec() == false)
+		return Set_Last_Error(QString("Не удалось снять отметку: %1").arg(query.lastError().text()));
+
+	return true;
+}
+//----------------------------------------------------------------------------
 static void Read_Checkin_Row(QSqlQuery &in_query, SRule_Checkin &out_checkin)
 {
 	out_checkin = SRule_Checkin();
