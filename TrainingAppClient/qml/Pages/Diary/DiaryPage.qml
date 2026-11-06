@@ -7,6 +7,8 @@ import TrainingAppClient
 PageScaffold {
     id: page
 
+    largeTitle: true
+
     // Шапка по макету 13: подпись — выбранная дата («пн, 2 ноября»). Название
     // программы стоит строкой над карточками: дата меняется от тапа к тапу, а
     // программа — нет, и в подписи шапки она мигала бы вместе с днями.
@@ -35,7 +37,10 @@ PageScaffold {
     // выбранная дата была в последней. Смещение считается из ширины плитки и
     // применяется после раскладки.
     property bool stripAligned: false
-    onWeekStartChanged: Qt.callLater(page.alignStrip)
+    onWeekStartChanged: {
+        if (!daysStrip.moving && !page.stripAligned)
+            Qt.callLater(page.alignStrip);
+    }
     property int revision: 0
     property bool summariesExpanded: false
     property var noteDrafts: ({})
@@ -139,7 +144,6 @@ PageScaffold {
         }
         page.weekStart = Math.min(page.weekStart, Math.max(0, Math.floor((page.dayCount - 1) / 7) * 7));
         page.refreshSelectedDay();
-        Qt.callLater(page.alignStrip);
         if (!page.selectedDay || !page.selectedDay.editable)
             numberPopup.close();
         dayCard.syncNote();
@@ -156,8 +160,10 @@ PageScaffold {
             return false;
         numberPopup.close();
         page.activeDate = date;
-        if (reveal)
+        if (reveal) {
             page.weekStart = Math.floor(index / 7) * 7;
+            Qt.callLater(page.alignStrip);
+        }
         page.jumpInvalid = false;
         dayCard.syncNote();
         return true;
@@ -367,6 +373,9 @@ PageScaffold {
                 values[keys[i]] = page.numberText(value);
         }
         measurementPopup.values = values;
+        measurementPopup.editDate = page.activeDate;
+        measurementPopup.programContext = page.programId;
+        measurementPopup.fieldErrors = ({});
         measurementPopup.saveFailed = false;
         measurementPopup.validationError = "";
         measurementPopup.open();
@@ -374,8 +383,13 @@ PageScaffold {
     // Сбор формы замеров: пустые поля не отправляются («не менялось»), мусор и
     // отрицательные числа — ошибка, совсем пустая форма — тоже.
     function saveMeasurements() {
+        if (page.activeDate !== measurementPopup.editDate || page.programId !== measurementPopup.programContext || !page.selectedDay || !page.selectedDay.editable || !page.openDay(measurementPopup.editDate, true)) {
+            measurementPopup.validationError = qsTr("Дата изменилась. Откройте замеры нужного дня заново.");
+            return;
+        }
         const keys = page.hasModel ? page.viewModel.measurementKeys : [];
         const values = {};
+        const errors = {};
         let invalid = false;
         for (let i = 0; i < keys.length; ++i) {
             const raw = measurementPopup.values[keys[i]];
@@ -384,12 +398,19 @@ PageScaffold {
                 continue;
             if (!/^[0-9]+([.,][0-9]+)?$/.test(text)) {
                 invalid = true;
+                errors[keys[i]] = qsTr("Введите число, например 75,5");
                 continue;
             }
             values[keys[i]] = Number(text.replace(",", "."));
+            if (!isFinite(values[keys[i]]) || (keys[i] === "weight" && values[keys[i]] <= 0)) {
+                invalid = true;
+                errors[keys[i]] = qsTr("Проверьте значение");
+            }
         }
+        measurementPopup.fieldErrors = errors;
         if (invalid) {
-            measurementPopup.validationError = qsTr("Введите неотрицательное число");
+            measurementPopup.validationError = qsTr("Исправьте выделенные поля");
+            Qt.callLater(measurementPopup.focusFirstError);
             return;
         }
         if (Object.keys(values).length === 0) {
@@ -404,6 +425,8 @@ PageScaffold {
         measurementPopup.close();
     }
     function alignStrip() {
+        if (daysStrip.moving)
+            return;
         page.stripAligned = true;
         daysStrip.contentX = Math.max(0, page.weekStart * (page.stripTileWidth + daysStrip.spacing));
         Qt.callLater(function () {
@@ -484,21 +507,37 @@ PageScaffold {
         }
         // Подзаголовок и область — как `large-sub` в макете 13: экран сразу
         // говорит, что здесь живёт, и чьи это правила.
-        Label {
-            objectName: "diarySubtitle"
+        RowLayout {
             width: parent.width
-            text: qsTr("Вес, отметки и заметки за дату. Будущие дни — только просмотр.")
-            font: Typography.body
-            color: Theme.textSecondary
-            wrapMode: Text.WordWrap
-        }
-        Label {
-            objectName: "diaryScope"
-            width: parent.width
-            text: page.hasModel ? page.scopeText() : ""
-            font: Typography.caption
-            color: page.hasProgram ? Theme.textMuted : Theme.warning
-            wrapMode: Text.WordWrap
+            Label {
+                objectName: "diaryScope"
+                Layout.fillWidth: true
+                text: page.hasModel ? page.scopeText() : ""
+                font: Typography.caption
+                color: Theme.textSecondary
+                wrapMode: Text.WordWrap
+            }
+            AppButton {
+                objectName: "diaryTodayButton"
+                readonly property bool hasToday: {
+                    page.revision;
+                    return page.indexForDate(Qt.formatDate(new Date(), Qt.ISODate)) >= 0;
+                }
+                text: hasToday ? qsTr("Сегодня") : qsTr("Последняя дата")
+                variant: AppButton.Ghost
+                onClicked: {
+                    if (hasToday) {
+                        page.selectDate(Qt.formatDate(new Date(), Qt.ISODate));
+                        return;
+                    }
+                    for (let i = page.dayCount - 1; i >= 0; --i) {
+                        if (page.dayAt(i).editable) {
+                            page.selectDate(page.dayAt(i).date);
+                            return;
+                        }
+                    }
+                }
+            }
         }
         DateField {
             id: datePicker
@@ -508,6 +547,8 @@ PageScaffold {
             pickerOnly: true
             label: qsTr("Перейти к дате")
             value: page.activeDate
+            minimumDate: page.dayCount > 0 ? page.dayAt(0).date : ""
+            maximumDate: page.dayCount > 0 ? page.dayAt(page.dayCount - 1).date : ""
             onEdited: function (isoDate) {
                 if (page.selectDate(isoDate)) {
                     closePicker();
@@ -537,20 +578,20 @@ PageScaffold {
                 implicitWidth: Theme.touchMin
                 text: "‹"
                 Accessible.name: qsTr("Предыдущая неделя")
-                variant: AppButton.Secondary
+                variant: AppButton.Ghost
                 enabled: page.weekStart > 0
                 onClicked: page.weekStart = Math.max(0, page.weekStart - 7)
             }
             AppButton {
                 id: periodButton
                 objectName: "diaryDateJumpToggle"
-                readonly property string periodStart: page.dayAt(page.weekStart) ? page.dayAt(page.weekStart).date : ""
+                readonly property string periodStart: page.activeDate
                 readonly property string monthName: periodStart.length === 10 ? Qt.locale("ru_RU").standaloneMonthName(Number(periodStart.slice(5, 7)) - 1) : ""
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 labelFont: Typography.captionStrong
                 text: monthName.length > 0 ? monthName.charAt(0).toUpperCase() + monthName.slice(1) + " " + periodStart.slice(0, 4) : qsTr("Выбрать дату")
-                variant: AppButton.Secondary
+                variant: AppButton.Ghost
                 Accessible.name: qsTr("Открыть календарь")
                 contentItem: Item {
                     implicitWidth: periodLabel.implicitWidth
@@ -583,7 +624,7 @@ PageScaffold {
                 implicitWidth: Theme.touchMin
                 text: "›"
                 Accessible.name: qsTr("Следующая неделя")
-                variant: AppButton.Secondary
+                variant: AppButton.Ghost
                 enabled: page.weekStart + 7 < page.dayCount
                 onClicked: page.weekStart += 7
             }
@@ -775,15 +816,6 @@ PageScaffold {
                             wrapMode: Text.WordWrap
                         }
                     }
-                    AppButton {
-                        objectName: "diaryWeight_" + dayCard.dayDate
-                        Layout.alignment: Qt.AlignTop
-                        compact: true
-                        enabled: dayCard.canEdit
-                        text: qsTr("Изменить")
-                        variant: AppButton.Ghost
-                        onClicked: page.editNumber(dayCard.dayDate, dayCard.canEdit, null, true)
-                    }
                 }
                 Label {
                     objectName: "diaryMeasurementsSummary"
@@ -842,75 +874,75 @@ PageScaffold {
                         enabled: dayCard.canEdit && cell.editable !== false
                         text: cell.title + ": " + page.displayValue(cell.value) + (cell.unit ? " " + page.unitLabel(cell.unit) : "") + "\n" + qsTr("Норма: %1%2").arg(cell.target).arg(cell.unit ? " " + page.unitLabel(cell.unit) : "") + " · " + page.verdictFor(cell.verdict).label
                         variant: AppButton.Ghost
-                    contentItem: Column {
-                        // Цвет вердикта наружу: подсветка значения и тест читают
-                        // одно свойство, а не разбирают строки подписей.
-                        readonly property color color: page.verdictFor(valueButton.cell.verdict).color
-                        spacing: 2
+                        contentItem: Column {
+                            // Цвет вердикта наружу: подсветка значения и тест читают
+                            // одно свойство, а не разбирают строки подписей.
+                            readonly property color color: page.verdictFor(valueButton.cell.verdict).color
+                            spacing: 2
 
-                        RowLayout {
-                            spacing: Spacing.itemGap
-                            width: parent.width
+                            RowLayout {
+                                spacing: Spacing.itemGap
+                                width: parent.width
 
-                            Column {
-                                Layout.fillWidth: true
-                                Layout.minimumWidth: 0
-                                spacing: 2
+                                Column {
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    spacing: 2
 
-                                Label {
-                                    width: parent.width
-                                    text: valueButton.cell.title
-                                    font: Typography.body
-                                    color: Theme.textPrimary
-                                    wrapMode: Text.WordWrap
+                                    Label {
+                                        width: parent.width
+                                        text: valueButton.cell.title
+                                        font: Typography.body
+                                        color: Theme.textPrimary
+                                        wrapMode: Text.WordWrap
+                                    }
+                                    Label {
+                                        width: parent.width
+                                        text: qsTr("цель %1%2").arg(valueButton.cell.target).arg(valueButton.cell.unit ? " " + page.unitLabel(valueButton.cell.unit) : "")
+                                        font: Typography.caption
+                                        color: Theme.textMuted
+                                        wrapMode: Text.WordWrap
+                                    }
                                 }
                                 Label {
-                                    width: parent.width
-                                    text: qsTr("цель %1%2").arg(valueButton.cell.target).arg(valueButton.cell.unit ? " " + page.unitLabel(valueButton.cell.unit) : "")
-                                    font: Typography.caption
-                                    color: Theme.textMuted
-                                    wrapMode: Text.WordWrap
-                                }
-                            }
-                            Label {
-                                Layout.maximumWidth: parent.width * 0.4
-                                text: page.displayValue(valueButton.cell.value) + (valueButton.cell.unit ? " " + page.unitLabel(valueButton.cell.unit) : "")
-                                font: Typography.bodyStrong
-                                color: valueButton.badge.color
-                                horizontalAlignment: Text.AlignRight
-                                wrapMode: Text.WrapAnywhere
-                            }
-                            // Бейдж вердикта: «в норме / мимо / нет значения» — то же
-                            // слово, что в подписи строки, но читается с одного взгляда.
-                            Rectangle {
-                                Layout.alignment: Qt.AlignVCenter
-                                color: Theme.surfaceMuted
-                                implicitHeight: 20
-                                implicitWidth: badgeLabel.implicitWidth + Spacing.listGap
-                                radius: Theme.radiusSm
-
-                                Label {
-                                    id: badgeLabel
-
-                                    anchors.centerIn: parent
+                                    Layout.maximumWidth: parent.width * 0.4
+                                    text: page.displayValue(valueButton.cell.value) + (valueButton.cell.unit ? " " + page.unitLabel(valueButton.cell.unit) : "")
+                                    font: Typography.bodyStrong
                                     color: valueButton.badge.color
-                                    font: Typography.captionStrong
-                                    text: valueButton.badge.label
+                                    horizontalAlignment: Text.AlignRight
+                                    wrapMode: Text.WrapAnywhere
+                                }
+                                // Бейдж вердикта: «в норме / мимо / нет значения» — то же
+                                // слово, что в подписи строки, но читается с одного взгляда.
+                                Rectangle {
+                                    Layout.alignment: Qt.AlignVCenter
+                                    color: Theme.surfaceMuted
+                                    implicitHeight: 20
+                                    implicitWidth: badgeLabel.implicitWidth + Spacing.listGap
+                                    radius: Theme.radiusSm
+
+                                    Label {
+                                        id: badgeLabel
+
+                                        anchors.centerIn: parent
+                                        color: valueButton.badge.color
+                                        font: Typography.captionStrong
+                                        text: valueButton.badge.label
+                                    }
                                 }
                             }
+                            // Разделитель вместо отступа: строки правил идут подряд, и
+                            // линия отделяет один факт от другого дешевле карточки.
+                            Rectangle {
+                                width: parent.width
+                                height: Theme.borderWidth
+                                color: Theme.borderSubtle
+                            }
                         }
-                        // Разделитель вместо отступа: строки правил идут подряд, и
-                        // линия отделяет один факт от другого дешевле карточки.
-                        Rectangle {
-                            width: parent.width
-                            height: Theme.borderWidth
-                            color: Theme.borderSubtle
-                        }
+                        onClicked: page.editNumber(dayCard.dayDate, valueButton.enabled, cell, false)
                     }
-                    onClicked: page.editNumber(dayCard.dayDate, valueButton.enabled, cell, false)
                 }
-            }
-            Label {
+                Label {
                     width: parent.width
                     objectName: "diaryRulesEmpty"
                     visible: dayValues.count === 0
@@ -941,7 +973,7 @@ PageScaffold {
                     color: Theme.textSecondary
                     wrapMode: Text.WordWrap
                 }
-            AppButton {
+                AppButton {
                     objectName: "diaryNoteEdit_" + dayCard.dayDate
                     width: parent.width
                     visible: !dayCard.editingNote && dayCard.canEdit
@@ -1334,124 +1366,197 @@ PageScaffold {
     // одного полного. Теперь ответ один — здесь.
     SwipePopup {
         id: measurementPopup
-
-        // Окно обязано иметь ручку перетаскивания: SwipePopup объявляет её
-        // required, и без неё падает не окно, а весь экран (StackView не может
-        // создать initialItem) — экран оставался пустым.
         dragHandle: measurementGrip
-
-        // Текущие значения полей по ключам замера. Карта пересобирается при
-        // открытии: так «Изменить замеры» показывает уже записанное.
-        property bool saveFailed: false
-        // Текст ошибки проверки: пустые поля — это «не менялось», но совсем
-        // пустую форму сохранять нечего.
-        property string validationError: ""
-        property var values: ({})
-        // Поля — ключи замера из модели: вес всегда, обхваты — по программе.
-        readonly property var fields: page.hasModel ? page.viewModel.measurementKeys : []
         parent: Overlay.overlay
-        padding: Spacing.cardPadding
         modal: true
         dim: true
+        padding: Spacing.cardPadding
+        property string editDate: ""
+        property string programContext: ""
+        property bool saveFailed: false
+        property string validationError: ""
+        property var fieldErrors: ({})
+        property var values: ({})
+        readonly property var fields: page.hasModel ? page.viewModel.measurementKeys : []
+        readonly property real usableHeight: parent !== null ? (Qt.inputMethod.visible && Qt.inputMethod.keyboardRectangle.y > 0 ? Math.min(parent.height, Qt.inputMethod.keyboardRectangle.y) : parent.height) : page.height
+        readonly property bool sameDay: page.activeDate === editDate && page.programId === programContext && page.selectedDay !== null && page.selectedDay.editable
         width: Math.min(page.width - Spacing.screenPadding * 2, page.numberPopupMaxWidth)
+        height: Math.min(implicitHeight, Math.max(160, usableHeight - Spacing.safeGap * 2))
+        restingY: Math.max(0, usableHeight - height - Spacing.safeGap)
 
+        function setValue(key, text) {
+            if (String(values[key] === undefined ? "" : values[key]) === text)
+                return;
+            const next = Object.assign({}, values);
+            next[key] = text;
+            values = next;
+            const errors = Object.assign({}, fieldErrors);
+            delete errors[key];
+            fieldErrors = errors;
+            validationError = "";
+            saveFailed = false;
+        }
+        function focusFirstError() {
+            for (let i = 0; i < measurementRepeater.count; ++i) {
+                const item = measurementRepeater.itemAt(i);
+                if (item && fieldErrors[item.key]) {
+                    item.input.forceActiveFocus();
+                    measurementFlick.reveal(item);
+                    return;
+                }
+            }
+        }
         onAboutToShow: {
             measurementGrip.reset();
+            measurementFlick.contentY = 0;
             saveFailed = false;
             validationError = "";
         }
-
+        onClosed: Qt.inputMethod.hide()
         background: Rectangle {
             color: Theme.surface
             border.color: Theme.border
             border.width: Theme.borderWidth
             radius: Theme.radiusLg
         }
-
-        contentItem: Column {
+        contentItem: ColumnLayout {
             spacing: Spacing.itemGap
-            width: parent.width
-
             SwipeDismissHandle {
                 id: measurementGrip
-                width: parent.width
+                Layout.fillWidth: true
                 onDismissed: measurementPopup.close()
             }
-            Label {
-                width: parent.width
-                text: qsTr("Замеры за %1").arg(page.selectedDayCaption())
-                font: Typography.sectionTitle
-                color: Theme.textPrimary
-                wrapMode: Text.WordWrap
+            RowLayout {
+                Layout.fillWidth: true
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("Замеры")
+                    font: Typography.sectionTitle
+                    color: Theme.textPrimary
+                }
+                AppButton {
+                    objectName: "diaryMeasurementClose"
+                    text: qsTr("Закрыть")
+                    variant: AppButton.Ghost
+                    onClicked: measurementPopup.close()
+                }
             }
             Label {
-                width: parent.width
-                text: qsTr("Заполните то, что измерили: пустые поля останутся прежними.")
+                Layout.fillWidth: true
+                text: page.shortDate(measurementPopup.editDate) + " · " + qsTr("Пустые поля не меняют записи")
                 font: Typography.caption
-                color: Theme.textSecondary
+                color: Theme.textMuted
                 wrapMode: Text.WordWrap
             }
-            // Прокрутка: обхватов может быть до девяти, и на низком экране форма
-            // выше самого окна.
             Flickable {
+                id: measurementFlick
+                objectName: "diaryMeasurementScroll"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.minimumHeight: 0
+                Layout.preferredHeight: measurementFields.implicitHeight
+                clip: true
+                contentHeight: measurementFields.implicitHeight
                 flickableDirection: Flickable.VerticalFlick
-                height: Math.min(measurementFields.height, page.height * 0.45)
-                width: parent.width
-
-                contentHeight: measurementFields.height
-
-                Column {
+                boundsBehavior: Flickable.StopAtBounds
+                flickDeceleration: Theme.flickDeceleration
+                ScrollIndicator.vertical: ScrollIndicator {}
+                function reveal(item) {
+                    if (!item)
+                        return;
+                    const top = item.y;
+                    const bottom = top + item.height;
+                    if (top < contentY)
+                        contentY = top;
+                    else if (bottom > contentY + height)
+                        contentY = Math.max(0, bottom - height);
+                    contentY = Math.max(0, Math.min(contentY, Math.max(0, contentHeight - height)));
+                }
+                function revealFocusedField() {
+                    for (let i = 0; i < measurementRepeater.count; ++i) {
+                        const item = measurementRepeater.itemAt(i);
+                        if (item && item.input.activeFocus)
+                            measurementFlick.reveal(item);
+                    }
+                }
+                onHeightChanged: Qt.callLater(measurementFlick.revealFocusedField)
+                GridLayout {
                     id: measurementFields
-
-                    spacing: Spacing.listGap
-                    width: parent.width
-
+                    width: measurementFlick.width
+                    columns: 2
+                    columnSpacing: Spacing.listGap
+                    rowSpacing: Spacing.listGap
                     Repeater {
+                        id: measurementRepeater
                         model: measurementPopup.fields
-
-                        delegate: Column {
+                        delegate: ColumnLayout {
                             id: measurementField
-
                             required property int index
                             required property string modelData
-
-                            readonly property bool isWeight: modelData === "weight"
                             readonly property string key: modelData
-
-                            property string text: measurementPopup.values[key] !== undefined ? String(measurementPopup.values[key]) : ""
-
+                            readonly property bool isWeight: key === "weight"
+                            property alias input: measurementInput
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            Layout.preferredWidth: 1
+                            Layout.columnSpan: isWeight ? 2 : 1
                             spacing: 4
-                            width: parent.width
-
                             Label {
-                                width: parent.width
-                                text: MeasurementTexts.title(measurementField.key) + ", " + MeasurementTexts.unit(measurementField.key)
+                                Layout.fillWidth: true
+                                text: MeasurementTexts.title(measurementField.key)
                                 font: Typography.captionStrong
                                 color: Theme.textSecondary
                                 wrapMode: Text.WordWrap
                             }
                             TextField {
                                 id: measurementInput
-
                                 objectName: "diaryMeasurementInput_" + measurementField.key
-                                width: parent.width
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                Layout.preferredHeight: measurementField.isWeight ? Theme.buttonPrimary : Theme.touchMin
                                 color: Theme.textPrimary
-                                font: Typography.body
+                                font: Typography.bodyStrong
                                 inputMethodHints: Qt.ImhFormattedNumbersOnly
-                                padding: Spacing.cardPadding
-                                placeholderText: measurementField.isWeight ? qsTr("Например, 75,5") : qsTr("см")
+                                padding: Spacing.listGap
+                                rightPadding: 36
+                                placeholderText: "—"
                                 selectByMouse: true
-                                text: measurementField.text
+                                text: measurementPopup.values[measurementField.key] !== undefined ? String(measurementPopup.values[measurementField.key]) : ""
+                                EnterKey.type: measurementField.index + 1 < measurementRepeater.count ? Qt.EnterKeyNext : Qt.EnterKeyDone
+                                Accessible.name: MeasurementTexts.title(measurementField.key) + ", " + MeasurementTexts.unit(measurementField.key)
                                 background: Rectangle {
                                     color: Theme.surfaceMuted
                                     radius: Theme.radiusMd
-                                    border.color: measurementInput.activeFocus ? Theme.accent : Theme.border
                                     border.width: Theme.borderWidth
+                                    border.color: measurementPopup.fieldErrors[measurementField.key] ? Theme.negative : measurementInput.activeFocus ? Theme.accent : Theme.border
                                 }
-                                onTextChanged: {
-                                    measurementField.text = text;
-                                    measurementPopup.values[measurementField.key] = text;
+                                Label {
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: Spacing.listGap
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: MeasurementTexts.unit(measurementField.key)
+                                    color: Theme.textMuted
+                                    font: Typography.caption
                                 }
+                                onTextChanged: measurementPopup.setValue(measurementField.key, text)
+                                onActiveFocusChanged: {
+                                    if (activeFocus)
+                                        Qt.callLater(measurementFlick.reveal, measurementField);
+                                }
+                                onAccepted: {
+                                    if (measurementField.index + 1 < measurementRepeater.count)
+                                        measurementRepeater.itemAt(measurementField.index + 1).input.forceActiveFocus();
+                                    else
+                                        Qt.inputMethod.hide();
+                                }
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                visible: !!measurementPopup.fieldErrors[measurementField.key]
+                                text: measurementPopup.fieldErrors[measurementField.key] || ""
+                                color: Theme.negative
+                                font: Typography.caption
+                                wrapMode: Text.WordWrap
                             }
                         }
                     }
@@ -1459,26 +1564,20 @@ PageScaffold {
             }
             Label {
                 objectName: "diaryMeasurementError"
-                width: parent.width
+                Layout.fillWidth: true
                 visible: measurementPopup.saveFailed || measurementPopup.validationError.length > 0
-                text: measurementPopup.validationError.length > 0 ? measurementPopup.validationError : qsTr("Не удалось сохранить замеры. Проверьте значения и повторите.")
+                text: measurementPopup.validationError.length > 0 ? measurementPopup.validationError : qsTr("Не удалось сохранить. Введённые значения остались в форме.")
                 color: Theme.negative
                 font: Typography.caption
                 wrapMode: Text.WordWrap
             }
             AppButton {
                 objectName: "diaryMeasurementSave"
-                width: parent.width
-                enabled: page.selectedDay !== null && page.selectedDay.editable
+                Layout.fillWidth: true
+                enabled: measurementPopup.sameDay
                 text: qsTr("Сохранить замеры")
                 variant: AppButton.Primary
                 onClicked: page.saveMeasurements()
-            }
-            AppButton {
-                width: parent.width
-                text: qsTr("Отмена")
-                variant: AppButton.Secondary
-                onClicked: measurementPopup.close()
             }
         }
     }

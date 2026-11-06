@@ -135,6 +135,9 @@ TestCase {
         wait(50);
         compare(page.activeDate, "2026-11-07");
         compare(strip.contentX, before);
+        page.refresh();
+        wait(50);
+        compare(strip.contentX, before);
     }
 
     function test_horizontalGestureScrollsDatesWithoutSelectingDay() {
@@ -184,7 +187,7 @@ TestCase {
         verify(findChild(page, "diaryDay_2099-10-02") !== null);
         compare(findChild(page, "diaryDay_2026-10-01"), null);
         verify(!findChild(page, "diaryValue_2099-10-02_protein").enabled);
-        verify(!findChild(page, "diaryWeight_2099-10-02").enabled);
+        verify(!findChild(page, "diaryMeasurements_2099-10-02").enabled);
         verify(!findChild(page, "diaryNote_2099-10-02").enabled);
         verify(!findChild(page, "diaryNoteSave_2099-10-02").enabled);
         verify(!page.openDay("2099-10-02", true));
@@ -224,8 +227,8 @@ TestCase {
     }
 
     function test_editorCannotSaveAfterDayBecomesReadOnly() {
-        findChild(page, "diaryWeight_2026-10-01").clicked();
-        const save = findChild(page.valuePopup.contentItem, "diaryNumberSave");
+        findChild(page, "diaryMeasurements_2026-10-01").clicked();
+        const save = findChild(page.measurementsPopup.contentItem, "diaryMeasurementSave");
         const count = stub.calls.length;
         stub.days.setProperty(0, "editable", false);
         stub.changed();
@@ -275,10 +278,13 @@ TestCase {
         note.text = "Первая строка\nВторая строка";
         findChild(page, "diaryNoteSave_2026-10-01").clicked();
         compare(stub.calls[stub.calls.length - 1][1], note.text);
-        findChild(page, "diaryWeight_2026-10-01").clicked();
-        findChild(page.valuePopup.contentItem, "diaryNumberInput").text = "81,4";
-        findChild(page.valuePopup.contentItem, "diaryNumberSave").clicked();
-        compare(stub.calls[stub.calls.length - 1].join("|"), "weight|81.4");
+        verify(findChild(page, "diaryWeight_2026-10-01") === null);
+        findChild(page, "diaryMeasurements_2026-10-01").clicked();
+        findChild(page.measurementsPopup.contentItem, "diaryMeasurementInput_weight").text = "81,4";
+        findChild(page.measurementsPopup.contentItem, "diaryMeasurementSave").clicked();
+        const call = stub.calls[stub.calls.length - 1];
+        compare(call[0], "measurements");
+        verify(call[1].indexOf("\"weight\":81.4") >= 0, call[1]);
     }
 
     function test_invalidNumberDoesNotSaveAndFailureKeepsEditor() {
@@ -428,7 +434,7 @@ TestCase {
     }
 
     // Вес в карточке макета 13: значение, дельта за неделю и среднее — три строки,
-// а не две плитки KPI: плитки занимали пол-экрана ради одного числа.
+    // а не две плитки KPI: плитки занимали пол-экрана ради одного числа.
     function test_weightCardShowsDeltaAverageAndObhvaty() {
         compare(findChild(page, "diaryWeightMetric").text, "82 кг");
         compare(findChild(page, "diaryWeightAverage").text, "Среднее за 7 дней · 82,5 кг");
@@ -464,6 +470,48 @@ TestCase {
         tryCompare(popup, "visible", false);
     }
 
+    function test_measurementEditorCannotWriteIntoAnotherDate() {
+        page.openMeasurements();
+        wait(0);
+        const popup = page.measurementsPopup;
+        compare(popup.editDate, "2026-10-01");
+        page.activeDate = "2099-10-02";
+        const before = stub.calls.length;
+        page.saveMeasurements();
+        compare(stub.calls.length, before);
+    }
+    function test_invalidMeasurementIdentifiesItsField() {
+        page.openMeasurements();
+        wait(0);
+        const popup = page.measurementsPopup;
+        findChild(popup.contentItem, "diaryMeasurementInput_waist").text = "abc";
+        page.saveMeasurements();
+        verify(popup.visible);
+        verify(popup.fieldErrors.waist.length > 0);
+    }
+    function test_measurementFieldsShareRowsAndKeepSaveVisible() {
+        const previousWidth = testCase.Window.window.width;
+        const previousHeight = testCase.Window.window.height;
+        testCase.Window.window.width = 390;
+        testCase.Window.window.height = 812;
+        wait(50);
+        page.openMeasurements();
+        const popup = page.measurementsPopup;
+        tryCompare(popup, "opened", true);
+        const chest = findChild(popup.contentItem, "diaryMeasurementInput_chest");
+        const waist = findChild(popup.contentItem, "diaryMeasurementInput_waist");
+        const save = findChild(popup.contentItem, "diaryMeasurementSave");
+        const chestPoint = chest.mapToItem(popup.contentItem, 0, 0);
+        const waistPoint = waist.mapToItem(popup.contentItem, 0, 0);
+        compare(chestPoint.y, waistPoint.y);
+        verify(waistPoint.x > chestPoint.x);
+        verify(save.mapToItem(popup.contentItem, 0, save.height).y <= popup.contentItem.height + 1);
+        verify(popup.height <= popup.usableHeight);
+        popup.close();
+        tryCompare(popup, "visible", false);
+        testCase.Window.window.width = previousWidth;
+        testCase.Window.window.height = previousHeight;
+    }
     function test_rulesSectionCountsVerdicts() {
         compare(findChild(page, "diaryRulesHeader") !== null, true);
         compare(findChild(page, "diaryRulesCounter").text, "0 из 1");

@@ -87,6 +87,31 @@ TestCase {
         compare(field.shownYear, 2026);
         compare(field.shownMonth, 10);
     }
+    function test_weekdayHeadingsMatchMondayGrid() {
+        compare(field.weekdayInitials[0], new Date(2024, 0, 1).toLocaleDateString(Qt.locale(), "ddd"));
+        compare(field.weekdayInitials[6], new Date(2024, 0, 7).toLocaleDateString(Qt.locale(), "ddd"));
+    }
+    function test_calendarRejectsDaysOutsideAvailableRange() {
+        field.minimumDate = "2026-11-03";
+        field.maximumDate = "2026-11-20";
+        field.pick("2026-11-02");
+        compare(pickedSpy.count, 0);
+        field.pick("2026-11-20");
+        compare(pickedSpy.count, 1);
+    }
+    function test_reopeningReturnsToSelectedMonth() {
+        const window = createTemporaryObject(dateFieldInWindowComponent, testCase);
+        window.show();
+        field = window.field;
+        field.value = "2026-11-05";
+        field.openPicker();
+        field.shiftMonth(3);
+        field.closePicker();
+        tryCompare(field, "expanded", false);
+        field.openPicker();
+        compare(field.shownMonth, 10);
+        compare(field.shownYear, 2026);
+    }
     // Шаг по году сохраняет месяц: «+ год» из ноября даёт ноябрь следующего года,
     // а не тот же день через двенадцать месяцев.
     function test_yearStepKeepsMonth() {
@@ -147,6 +172,7 @@ TestCase {
         waitForRendering(field);
         // Содержимое календаря — Popup: его элементы живут в оверлее окна, а не
         // в children поля, поэтому искать нужно по дереву окна.
+        testCase.findByName(window.contentItem, "dateMonthYearButton").clicked();
         const nextYear = testCase.findByName(window.contentItem, "dateNextYearButton");
 
         verify(nextYear !== null, "в календаре нет кнопки следующего года");

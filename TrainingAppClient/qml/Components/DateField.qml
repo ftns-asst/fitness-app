@@ -3,279 +3,293 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import TrainingAppClient
 
-// Выбор даты (срез W11). Ручной ввод «2026-11-02» заменён календарём:
-// на телефоне ввод с клавиатуры — лишние шаги и источник опечаток, из-за
-// которых программа просто не создаётся.
-//
-// Календарь собран на QtQuick.Controls, а не на DateDialog: модуль
-// QtQuick.Dialogs не подключён к сборке, а своя сетка даёт нужное — крупные
-// цели касания и предсказуемый вид на всех платформах.
-//
-// Значение — YYYY-MM-DD, формат, который ждёт C++ (§3.3). Месяцы и дни
-// берутся из локали QML, поэтому подписи переводятся вместе с приложением.
-//-------------------------------------------------------------------------------
+// A compact month calendar shared by forms and diary date navigation.
 Item {
     id: field
 
     property string value: ""
     property string label: ""
-    // Использовать общий календарь с собственной кнопкой вызова (например, период дневника).
     property bool pickerOnly: false
+    property string minimumDate: ""
+    property string maximumDate: ""
     readonly property bool expanded: picker.visible
-
-    // Год и месяц, показываемые календарём.
-    property int shownYear: value.length === 10 ? Number(value.substring(0, 4)) : (new Date()).getFullYear()
-    property int shownMonth: value.length === 10 ? Number(value.substring(5, 7)) - 1 : (new Date()).getMonth()
+    property int shownYear: value.length === 10 ? Number(value.slice(0, 4)) : new Date().getFullYear()
+    property int shownMonth: value.length === 10 ? Number(value.slice(5, 7)) - 1 : new Date().getMonth()
+    property bool periodExpanded: false
+    readonly property string today: Qt.formatDate(new Date(), Qt.ISODate)
+    readonly property int daysInMonth: new Date(shownYear, shownMonth + 1, 0).getDate()
+    readonly property int leadingBlanks: (new Date(shownYear, shownMonth, 1).getDay() + 6) % 7
+    readonly property int cellSize: Math.floor((picker.width - picker.padding * 2) / 7)
+    readonly property var weekdayInitials: {
+        const names = [];
+        for (let day = 0; day < 7; ++day)
+            names.push(new Date(2024, 0, day + 1).toLocaleDateString(Qt.locale(), "ddd"));
+        return names;
+    }
+    readonly property var months: {
+        const result = [];
+        for (let month = 0; month < 12; ++month)
+            result.push({
+                id: month,
+                title: Qt.locale().standaloneMonthName(month)
+            });
+        return result;
+    }
+    readonly property string readableText: value.length !== 10 ? qsTr("Дата не выбрана") : field.readableDate(value)
 
     signal edited(string isoDate)
-
-    // Две строки: подпись сверху, значение с кнопкой снизу. Высота задана
-    // явно, потому что у Item нет содержимого для расчёта implicitHeight.
     implicitHeight: pickerOnly ? 0 : 72
     implicitWidth: 240
 
-    readonly property int cellSize: Math.floor((width - Spacing.listGap * 6) / 7)
-    // Дни месяца: високосный год считает сам Date, а не деление на 4.
-    readonly property int daysInMonth: new Date(shownYear, shownMonth + 1, 0).getDate()
-    // Пустые клетки до первого числа: неделя начинается с понедельника (ISO).
-    readonly property int leadingBlanks: (new Date(shownYear, shownMonth, 1).getDay() + 6) % 7
+    function isDateAvailable(iso) {
+        return (minimumDate.length === 0 || iso >= minimumDate) && (maximumDate.length === 0 || iso <= maximumDate);
+    }
+    function iso_For(year, monthIndex, day) {
+        return year + "-" + String(monthIndex + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+    }
+    function shiftMonth(delta) {
+        const shifted = new Date(shownYear, shownMonth + delta, 1);
+        shownYear = shifted.getFullYear();
+        shownMonth = shifted.getMonth();
+    }
+    function shiftYear(delta) {
+        shownYear += delta;
+    }
+    function openPicker() {
+        const selected = value.length === 10 ? value : today;
+        shownYear = Number(selected.slice(0, 4));
+        shownMonth = Number(selected.slice(5, 7)) - 1;
+        periodExpanded = false;
+        picker.open();
+    }
+    function closePicker() {
+        picker.close();
+    }
+    function pick(iso) {
+        if (!isDateAvailable(iso))
+            return;
+        edited(iso);
+        closePicker();
+    }
 
-    // — Поле: подпись, значение и кнопка раскрытия —
     Rectangle {
         visible: !field.pickerOnly
         anchors.fill: parent
+        color: Theme.surface
         border.color: field.expanded ? Theme.accent : Theme.border
         border.width: Theme.borderWidth
-        color: Theme.surface
         radius: Theme.radiusMd
     }
-    // Подпись стоит над значением, а не слева: в строку на 360 px подпись,
-    // дата и кнопка не помещались и обрезали друг друга.
     ColumnLayout {
         visible: !field.pickerOnly
         anchors.fill: parent
         anchors.leftMargin: Spacing.listGap
         anchors.rightMargin: Spacing.listGap
         spacing: 2
-
         Label {
+            visible: field.label.length > 0
+            text: field.label
             color: Theme.textMuted
             font: Typography.caption
-            text: field.label
-            visible: field.label.length > 0
         }
         RowLayout {
             Layout.fillWidth: true
-            spacing: Spacing.itemGap
-
             Label {
                 Layout.fillWidth: true
-                color: Theme.textPrimary
-                elide: Text.ElideRight
-                font: Typography.body
                 text: field.readableText
+                color: Theme.textPrimary
+                font: Typography.body
+                elide: Text.ElideRight
             }
             AppButton {
-                onClicked: field.expanded ? field.closePicker() : field.openPicker()
                 text: field.expanded ? qsTr("Скрыть") : qsTr("Выбрать")
-                variant: AppButton.Secondary
+                variant: AppButton.Ghost
+                onClicked: field.expanded ? field.closePicker() : field.openPicker()
             }
         }
     }
-    // Сокращения дней недели берутся из локали и режутся до двух букв:
-    // перечисление QLocale.FormatName в QML недоступно, а написанный вручную
-    // список не переводился бы вместе с приложением.
-    readonly property var weekdayInitials: {
-        const names = [];
-
-        for (let day = 0; day < 7; ++day)
-            names.push(Qt.locale().dayName(day).substring(0, 2));
-
-        return names;
-    }
-
-    // — Календарь: месяц, дни недели, сетка чисел —
     SwipePopup {
         id: picker
+        parent: Overlay.overlay
         dragHandle: calendarGrip
-        restingY: field.pickerOnly ? Theme.buttonSecondary + Spacing.itemGap * 2 : field.height + Spacing.itemGap
-
-        onAboutToShow: calendarGrip.reset()
-        width: field.width
+        modal: true
+        dim: true
         padding: Spacing.listGap
-
+        width: Math.min(380, parent !== null ? parent.width - Spacing.safeGap * 2 : field.width)
         background: Rectangle {
+            color: Theme.surface
             border.color: Theme.border
             border.width: Theme.borderWidth
-            color: Theme.surface
             radius: Theme.radiusLg
         }
         contentItem: ColumnLayout {
+            spacing: Spacing.itemGap
             SwipeDismissHandle {
                 id: calendarGrip
                 Layout.fillWidth: true
                 objectName: "calendarSwipeGrip"
                 onDismissed: field.closePicker()
             }
-            spacing: Spacing.itemGap
-
-            // Навигация по календарю: верхняя строка — год, нижняя — месяц.
-            // Двойные стрелки появились потому, что календарь открывается на
-            // текущей дате, а программу планируют на год вперёд: без шага по
-            // году до нужного месяца приходилось щёлкать по двенадцать раз, и
-            // выбор даты превращался в десятки нажатий.
-            //
-            // Год и месяц разведены по строкам, а не стоят в одной: в строке на
-            // четыре стрелки и подпись стрелкам доставалось по 36 px, а подпись
-            // «Октябрь 2026» обрезалась.
             RowLayout {
                 Layout.fillWidth: true
-                spacing: Spacing.itemGap
-
                 AppButton {
+                    objectName: "datePrevMonthButton"
                     Layout.preferredWidth: Theme.touchMin
-                    objectName: "datePrevYearButton"
-                    onClicked: field.shiftYear(-1)
-                    text: qsTr("‹‹")
-                    variant: AppButton.Secondary
+                    implicitWidth: Theme.touchMin
+                    text: "‹"
+                    variant: AppButton.Ghost
+                    Accessible.name: qsTr("Предыдущий месяц")
+                    onClicked: field.shiftMonth(-1)
                 }
-                Label {
+                AppButton {
+                    id: monthYearButton
+                    objectName: "dateMonthYearButton"
                     Layout.fillWidth: true
-                    color: Theme.textPrimary
-                    font: Typography.bodyStrong
-                    horizontalAlignment: Text.AlignHCenter
-                    text: String(field.shownYear)
+                    labelFont: Typography.bodyStrong
+                    text: Qt.locale().standaloneMonthName(field.shownMonth) + " " + field.shownYear
+                    variant: AppButton.Ghost
+                    Accessible.name: qsTr("Выбрать месяц и год")
+                    onClicked: field.periodExpanded = !field.periodExpanded
+                    contentItem: RowLayout {
+                        spacing: Spacing.itemGap
+                        Label {
+                            Layout.fillWidth: true
+                            text: monthYearButton.text
+                            color: Theme.textPrimary
+                            font: Typography.bodyStrong
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                        }
+                        AppIcon {
+                            name: "chevronDown"
+                            iconColor: Theme.textMuted
+                            rotation: field.periodExpanded ? 180 : 0
+                        }
+                    }
                 }
                 AppButton {
+                    objectName: "dateNextMonthButton"
                     Layout.preferredWidth: Theme.touchMin
-                    objectName: "dateNextYearButton"
-                    onClicked: field.shiftYear(1)
-                    text: qsTr("››")
-                    variant: AppButton.Secondary
+                    implicitWidth: Theme.touchMin
+                    text: "›"
+                    variant: AppButton.Ghost
+                    Accessible.name: qsTr("Следующий месяц")
+                    onClicked: field.shiftMonth(1)
                 }
             }
             RowLayout {
                 Layout.fillWidth: true
-                spacing: Spacing.itemGap
-
+                visible: field.periodExpanded
                 AppButton {
+                    objectName: "datePrevYearButton"
                     Layout.preferredWidth: Theme.touchMin
-                    objectName: "datePrevMonthButton"
-                    onClicked: field.shiftMonth(-1)
-                    text: qsTr("‹")
-                    variant: AppButton.Secondary
+                    implicitWidth: Theme.touchMin
+                    text: "‹"
+                    variant: AppButton.Ghost
+                    Accessible.name: qsTr("Предыдущий год")
+                    onClicked: field.shiftYear(-1)
                 }
-                Label {
+                AppComboBox {
+                    id: monthSelector
+                    objectName: "calendarMonthSelector"
                     Layout.fillWidth: true
-                    color: Theme.textPrimary
-                    font: Typography.bodyStrong
-                    horizontalAlignment: Text.AlignHCenter
-                    text: Qt.locale().standaloneMonthName(field.shownMonth)
+                    model: field.months
+                    onActivated: field.shownMonth = currentIndex
+                    Binding {
+                        target: monthSelector
+                        property: "currentIndex"
+                        value: field.shownMonth
+                    }
                 }
                 AppButton {
+                    objectName: "dateNextYearButton"
                     Layout.preferredWidth: Theme.touchMin
-                    objectName: "dateNextMonthButton"
-                    onClicked: field.shiftMonth(1)
-                    text: qsTr("›")
-                    variant: AppButton.Secondary
+                    implicitWidth: Theme.touchMin
+                    text: "›"
+                    variant: AppButton.Ghost
+                    Accessible.name: qsTr("Следующий год")
+                    onClicked: field.shiftYear(1)
                 }
             }
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 0
-
                 Repeater {
                     model: 7
-
                     delegate: Label {
                         required property int index
-
                         Layout.fillWidth: true
-                        color: Theme.textMuted
-                        font: Typography.caption
-                        horizontalAlignment: Text.AlignHCenter
                         text: field.weekdayInitials[index]
+                        font: Typography.caption
+                        color: Theme.textMuted
+                        horizontalAlignment: Text.AlignHCenter
                     }
                 }
             }
             GridLayout {
                 Layout.fillWidth: true
                 columns: 7
-
+                rowSpacing: 0
+                columnSpacing: 0
                 Repeater {
-                    model: field.leadingBlanks
-
-                    delegate: Item {
-                        Layout.preferredHeight: field.cellSize
-                        Layout.preferredWidth: field.cellSize
-                    }
-                }
-                Repeater {
-                    model: field.daysInMonth
-
-                    delegate: AppButton {
+                    model: 42
+                    delegate: AbstractButton {
                         id: dayCell
-
                         required property int index
-
-                        Layout.preferredHeight: field.cellSize
-                        Layout.preferredWidth: field.cellSize
-                        readonly property int day: index + 1
+                        readonly property int day: index - field.leadingBlanks + 1
+                        readonly property bool inMonth: day > 0 && day <= field.daysInMonth
                         readonly property string iso: field.iso_For(field.shownYear, field.shownMonth, day)
-                        font.pixelSize: 14
-                        onClicked: field.pick(dayCell.iso)
-                        padding: 0
-                        text: String(day)
-                        variant: field.value === dayCell.iso ? AppButton.Primary : AppButton.Secondary
+                        objectName: inMonth ? "calendarDate_" + iso : "calendarBlank_" + index
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: field.cellSize
+                        Layout.preferredHeight: Math.max(Theme.touchMin, field.cellSize)
+                        enabled: inMonth && field.isDateAvailable(iso)
+                        text: inMonth ? String(day) : ""
+                        Accessible.name: inMonth ? field.readableDate(iso) : ""
+                        Accessible.role: Accessible.Button
+                        Accessible.onPressAction: clicked()
+                        onClicked: field.pick(iso)
+                        contentItem: Label {
+                            text: dayCell.text
+                            color: field.value === dayCell.iso ? Theme.accentForeground : dayCell.enabled ? Theme.textPrimary : Theme.textMuted
+                            opacity: dayCell.enabled ? 1 : 0.4
+                            font: field.value === dayCell.iso ? Typography.bodyStrong : Typography.body
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            width: Math.min(parent.width - 4, 40)
+                            height: width
+                            anchors.centerIn: parent
+                            radius: width / 2
+                            color: field.value === dayCell.iso && dayCell.inMonth ? Theme.accent : dayCell.down ? Theme.accentSurface : "transparent"
+                            border.width: dayCell.inMonth && dayCell.iso === field.today ? Theme.borderWidth : 0
+                            border.color: Theme.accent
+                        }
                     }
                 }
             }
-            AppButton {
+            RowLayout {
                 Layout.fillWidth: true
-                objectName: "dateCloseButton"
-                text: qsTr("Закрыть календарь")
-                variant: AppButton.Secondary
-                onClicked: field.closePicker()
+                AppButton {
+                    objectName: "dateTodayButton"
+                    Layout.fillWidth: true
+                    text: qsTr("Сегодня")
+                    variant: AppButton.Ghost
+                    enabled: field.isDateAvailable(field.today)
+                    onClicked: field.pick(field.today)
+                }
+                AppButton {
+                    objectName: "dateCloseButton"
+                    Layout.fillWidth: true
+                    text: qsTr("Готово")
+                    variant: AppButton.Ghost
+                    onClicked: field.closePicker()
+                }
             }
         }
     }
-
-    function openPicker() {
-        picker.open();
+    function readableDate(iso) {
+        return Qt.formatDate(new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))), "d MMMM yyyy");
     }
-
-    function closePicker() {
-        picker.close();
-    }
-
-    function shiftMonth(delta) {
-        const shifted = new Date(shownYear, shownMonth + delta, 1);
-
-        shownYear = shifted.getFullYear();
-        shownMonth = shifted.getMonth();
-    }
-
-    // Шаг по году: месяц сохраняется, поэтому «плюс год» из октября даёт
-    // октябрь следующего года, а не «то же число» через двенадцать месяцев.
-    // День берётся первым: 29 февраля в невисокосном году сдвинуло бы месяц
-    // вперёд, и календарь показывал бы март вместо февраля.
-    function shiftYear(delta) {
-        const shifted = new Date(shownYear + delta, shownMonth, 1);
-
-        shownYear = shifted.getFullYear();
-        shownMonth = shifted.getMonth();
-    }
-
-    function pick(iso) {
-        edited(iso);
-        closePicker();
-    }
-
-    // Дата собирается вручную, а не через toISOString(): тот сдвигает день
-    // назад в отрицательных временных зонах.
-    function iso_For(year, monthIndex, day) {
-        return year + "-" + String(monthIndex + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
-    }
-
-    readonly property string readableText: value.length !== 10 ? qsTr("дата не выбрана") : qsTr("%1 %2 %3").arg(Number(value.substring(8, 10))).arg(Qt.locale().standaloneMonthName(Number(value.substring(5, 7)) - 1)).arg(value.substring(0, 4))
 }
