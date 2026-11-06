@@ -36,9 +36,9 @@
 
 Q_LOGGING_CATEGORY(APP_Context_Log, "trainingapp.app")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AsApp_Context
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 const QString AsApp_Context::Default_Api_Base_URL = "http://fitness.nought.ru/api/v1";
 const QString AsApp_Context::Environment_Variable_Name = "TRAINING_APP_API_URL";
 const QString AsApp_Context::Settings_Key = "network/apiUrl";
@@ -54,11 +54,16 @@ const QString AsApp_Context::Demo_User_Id = "u1";
 // и данные реального входа относились к одному пользователю. С появлением
 // авторизации значение начнёт приходить из токена.
 const QString AsApp_Context::Current_User_Id = "u1";
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsApp_Context::AsApp_Context(QObject *in_parent) : QObject(in_parent), Error_State(&APP_Context_Log())
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+AsApp_Context::~AsApp_Context()
+{
+	Destroy_Stack();
+}
+//-------------------------------------------------------------------------------------------------------------
 bool AsApp_Context::Initialize(const QStringList &in_arguments)
 {
 	QSettings settings;
@@ -68,7 +73,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments)
 
 	return Initialize(in_arguments, settings, environment_url);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_settings,
                                const QByteArray &in_environment_url)
 {
@@ -84,53 +89,9 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	Initialized = false;
 	Error_State.Clear_Last_Error();
 
-	if (Auth_Bridge_Instance != 0)
-	{
-		delete Auth_Bridge_Instance;
-		Auth_Bridge_Instance = 0;
-	}
-
-	if (Users_Repository_Instance != 0)
-	{
-		delete Users_Repository_Instance;
-		Users_Repository_Instance = 0;
-	}
-
-	if (Auth_VM_Instance != 0)
-	{
-		delete Auth_VM_Instance;
-		Auth_VM_Instance = 0;
-	}
-
-	if (Auth_Repository_Instance != 0)
-	{
-		delete Auth_Repository_Instance;
-		Auth_Repository_Instance = 0;
-	}
-
-	if (Auth_Session_Instance != 0)
-	{
-		delete Auth_Session_Instance;
-		Auth_Session_Instance = 0;
-	}
-
-	if (Token_Store_Instance != 0)
-	{
-		delete Token_Store_Instance;
-		Token_Store_Instance = 0;
-	}
-
-	if (HTTP_Client_Instance != 0)
-	{
-		delete HTTP_Client_Instance;
-		HTTP_Client_Instance = 0;
-	}
-
-	if (SQL_Database_Instance != 0)
-	{
-		delete SQL_Database_Instance;
-		SQL_Database_Instance = 0;
-	}
+	// Повторная инициализация пересобирает весь граф: частичный демонтаж
+	// оставил бы живые ViewModel с указателями на удалённую базу и клиент.
+	Destroy_Stack();
 
 	candidate.clear();
 	source.clear();
@@ -138,7 +99,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 
 	success = Read_Command_Line_URL(in_arguments, candidate, command_line_found, error);
 
-	if (success == false)
+	if (!success)
 	{
 		Set_Last_Error(error);
 		return false;
@@ -152,7 +113,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	{
 		candidate = in_settings.value(Settings_Key).toString().trimmed();
 
-		if (candidate.isEmpty() == false)
+		if (!candidate.isEmpty())
 		{
 			source = "settings";
 		}
@@ -160,7 +121,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 		{
 			candidate = QString::fromUtf8(in_environment_url).trimmed();
 
-			if (candidate.isEmpty() == false)
+			if (!candidate.isEmpty())
 			{
 				source = "environment";
 			}
@@ -174,7 +135,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 
 	success = Normalize_Api_Base_URL(candidate, normalized_url, error);
 
-	if (success == false)
+	if (!success)
 	{
 		Set_Last_Error(QString("Некорректный API URL из источника %1: %2").arg(source, error));
 		return false;
@@ -184,7 +145,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	Api_URL_Source = source;
 	SQL_Database_Instance = new AsSql_Database(this);
 
-	if (SQL_Database_Instance->Open() == false)
+	if (!SQL_Database_Instance->Open())
 	{
 		Set_Last_Error(SQL_Database_Instance->Get_Last_Error());
 		delete SQL_Database_Instance;
@@ -194,7 +155,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 
 	HTTP_Client_Instance = new AsHttp_Client(QUrl(Api_Base_URL), this);
 
-	if (HTTP_Client_Instance->Base_URL().isValid() == false)
+	if (!HTTP_Client_Instance->Base_URL().isValid())
 	{
 		Set_Last_Error(HTTP_Client_Instance->Last_Error());
 		delete HTTP_Client_Instance;
@@ -249,19 +210,19 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Стек модели программы. Порядок важен: репозитории создаются раньше
 // сервисов, сервисы — раньше ViewModel, потому что каждый следующий получает
 // предыдущий конструктором. Владение — QObject-родитель (this), поэтому
 // разрушается стек автоматически.
-//----------------------------------------------------------------------------
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Демо-данные. Создаются только при --demo-seed: сидер пишет в базу, и его
 // вызов без флага наполнил бы демонстрационный мусором базу пользователя.
 //
 // Владелец создаётся здесь же и живёт до конца приложения: он не хранит
 // состояния, но должен пережить Initialize, иначе указатель осиротеет.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsApp_Context::Seed_Demo_Data(const QStringList &in_arguments)
 {
 	const QString demo_user_id = Demo_User_Id;
@@ -273,8 +234,8 @@ void AsApp_Context::Seed_Demo_Data(const QStringList &in_arguments)
 	{
 		Demo_Seeder_Instance = new ADemo_Seeder(this);
 
-		if (Demo_Seeder_Instance->Seed(Program_Repository_Instance, Rule_Repository_Instance, demo_user_id,
-		                               Workout_Repository_Instance, Measurement_Repository_Instance) == false)
+		if (!Demo_Seeder_Instance->Seed(Program_Repository_Instance, Rule_Repository_Instance, demo_user_id,
+		                                Workout_Repository_Instance, Measurement_Repository_Instance))
 		{
 			// Посев не ломает запуск: без демо-данных приложение работает,
 			// просто экраны покажут пустые состояния.
@@ -286,7 +247,7 @@ void AsApp_Context::Seed_Demo_Data(const QStringList &in_arguments)
 		}
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsApp_Context::Create_Program_Stack()
 {
 	Program_Repository_Instance = new AProgram_Repository(SQL_Database_Instance, this);
@@ -318,72 +279,135 @@ void AsApp_Context::Create_Program_Stack()
 	Macro_VM_Instance =
 	    new Avm_Macro(Macro_Calculator_Instance, Measurement_Repository_Instance, Users_Repository_Instance, this);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+void AsApp_Context::Destroy_Stack()
+{
+	// Стек программы (обратно Create_Program_Stack).
+	delete Macro_VM_Instance;
+	Macro_VM_Instance = 0;
+	delete Macro_Calculator_Instance;
+	Macro_Calculator_Instance = 0;
+	delete Today_VM_Instance;
+	Today_VM_Instance = 0;
+	delete Program_Catalog_VM_Instance;
+	Program_Catalog_VM_Instance = 0;
+	delete Program_Edit_VM_Instance;
+	Program_Edit_VM_Instance = 0;
+	delete Program_Rules_VM_Instance;
+	Program_Rules_VM_Instance = 0;
+	delete Program_Stats_VM_Instance;
+	Program_Stats_VM_Instance = 0;
+	delete Program_VM_Instance;
+	Program_VM_Instance = 0;
+	delete Workout_Logger_Instance;
+	Workout_Logger_Instance = 0;
+	delete Program_Service_Instance;
+	Program_Service_Instance = 0;
+	delete Workout_Repository_Instance;
+	Workout_Repository_Instance = 0;
+	delete Stats_Repository_Instance;
+	Stats_Repository_Instance = 0;
+	delete Measurement_Repository_Instance;
+	Measurement_Repository_Instance = 0;
+	delete Rule_Repository_Instance;
+	Rule_Repository_Instance = 0;
+	delete Program_Repository_Instance;
+	Program_Repository_Instance = 0;
+
+	// Каталог упражнений.
+	delete Exercises_One_VM_Instance;
+	Exercises_One_VM_Instance = 0;
+	delete Exercises_Editor_VM_Instance;
+	Exercises_Editor_VM_Instance = 0;
+	delete Exercises_VM_Instance;
+	Exercises_VM_Instance = 0;
+	delete Exercises_Repository_Instance;
+	Exercises_Repository_Instance = 0;
+
+	// Auth и транспорт.
+	delete Auth_Bridge_Instance;
+	Auth_Bridge_Instance = 0;
+	delete Users_Repository_Instance;
+	Users_Repository_Instance = 0;
+	delete Auth_VM_Instance;
+	Auth_VM_Instance = 0;
+	delete Auth_Repository_Instance;
+	Auth_Repository_Instance = 0;
+	delete Auth_Session_Instance;
+	Auth_Session_Instance = 0;
+	delete Token_Store_Instance;
+	Token_Store_Instance = 0;
+	delete HTTP_Client_Instance;
+	HTTP_Client_Instance = 0;
+	delete SQL_Database_Instance;
+	SQL_Database_Instance = 0;
+}
+//-------------------------------------------------------------------------------------------------------------
 QString AsApp_Context::apiBaseUrl() const
 {
 	return Api_Base_URL;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AsApp_Context::apiUrlSource() const
 {
 	return Api_URL_Source;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsApp_Context::initialized() const
 {
 	return Initialized;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AsApp_Context::Last_Error() const
 {
 	return Error_State.Get_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsApp_Context::Set_Last_Error(const QString &in_error)
 {
 	return Error_State.Set_Last_Error(in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsHttp_Client *AsApp_Context::HTTP_Client() const
 {
 	return HTTP_Client_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsSql_Database *AsApp_Context::SQL_Database() const
 {
 	return SQL_Database_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsToken_Store *AsApp_Context::Token_Store() const
 {
 	return Token_Store_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsAuth_Session *AsApp_Context::Auth_Session() const
 {
 	return Auth_Session_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AAuth_Repository *AsApp_Context::Auth_Repository() const
 {
 	return Auth_Repository_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Auth *AsApp_Context::Auth_VM() const
 {
 	return Auth_VM_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AUsers_Repository *AsApp_Context::Users_Repository() const
 {
 	return Users_Repository_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Auth_Bridge *AsApp_Context::Auth_Bridge() const
 {
 	return Auth_Bridge_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsApp_Context::Normalize_Api_Base_URL(const QString &in_value, QString &out_value, QString &out_error)
 {
 	QUrl url;
@@ -394,7 +418,7 @@ bool AsApp_Context::Normalize_Api_Base_URL(const QString &in_value, QString &out
 	url = QUrl(in_value.trimmed(), QUrl::StrictMode);
 	scheme = url.scheme().toLower();
 
-	if (url.isValid() == false || url.isRelative() || url.host().isEmpty())
+	if (!url.isValid() || url.isRelative() || url.host().isEmpty())
 	{
 		out_error = "ожидается абсолютный URL с именем хоста";
 		return false;
@@ -406,7 +430,7 @@ bool AsApp_Context::Normalize_Api_Base_URL(const QString &in_value, QString &out
 		return false;
 	}
 
-	if (url.userInfo().isEmpty() == false)
+	if (!url.userInfo().isEmpty())
 	{
 		out_error = "credentials запрещены в base URL";
 		return false;
@@ -424,7 +448,7 @@ bool AsApp_Context::Normalize_Api_Base_URL(const QString &in_value, QString &out
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsApp_Context::Read_Command_Line_URL(const QStringList &in_arguments, QString &out_value, bool &out_found,
                                           QString &out_error)
 {
@@ -468,102 +492,102 @@ bool AsApp_Context::Read_Command_Line_URL(const QStringList &in_arguments, QStri
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Геттеры стека модели программы: экраны 41–44 и логгер получают готовые
 // экземпляры из composition root, а не создают свои.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AProgram_Repository *AsApp_Context::Program_Repository() const
 {
 	return Program_Repository_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 ARule_Repository *AsApp_Context::Rule_Repository() const
 {
 	return Rule_Repository_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AMeasurement_Repository *AsApp_Context::Measurement_Repository() const
 {
 	return Measurement_Repository_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AStats_Repository *AsApp_Context::Stats_Repository() const
 {
 	return Stats_Repository_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AWorkout_Repository *AsApp_Context::Workout_Repository() const
 {
 	return Workout_Repository_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsProgram_Service *AsApp_Context::Program_Service() const
 {
 	return Program_Service_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsWorkout_Logger *AsApp_Context::Workout_Logger() const
 {
 	return Workout_Logger_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Program *AsApp_Context::Program_VM() const
 {
 	return Program_VM_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Program_Catalog *AsApp_Context::Program_Catalog_VM() const
 {
 	return Program_Catalog_VM_Instance;
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Macro *AsApp_Context::Macro_VM() const
 {
 	return Macro_VM_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Exercises *AsApp_Context::Exercises_VM() const
 {
 	return Exercises_VM_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Exercises_Editor *AsApp_Context::Exercises_Editor_VM() const
 {
 	return Exercises_Editor_VM_Instance;
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Exercises_One *AsApp_Context::Exercises_One_VM() const
 {
 	return Exercises_One_VM_Instance;
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Today *AsApp_Context::Today_VM() const
 {
 	return Today_VM_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AsApp_Context::currentUserId() const
 {
 	return Current_User_Id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 ADemo_Seeder *AsApp_Context::Demo_Seeder() const
 {
 	return Demo_Seeder_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Program_Stats *AsApp_Context::Program_Stats_VM() const
 {
 	return Program_Stats_VM_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Program_Rules *AsApp_Context::Program_Rules_VM() const
 {
 	return Program_Rules_VM_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Program_Edit *AsApp_Context::Program_Edit_VM() const
 {
 	return Program_Edit_VM_Instance;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

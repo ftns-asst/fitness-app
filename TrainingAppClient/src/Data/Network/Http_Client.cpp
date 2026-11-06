@@ -1,4 +1,4 @@
-#include "Data/Network/Http_Client.h"
+﻿#include "Data/Network/Http_Client.h"
 
 #include <QJsonParseError>
 #include <QLoggingCategory>
@@ -9,10 +9,10 @@
 
 Q_LOGGING_CATEGORY(HTTP_Log, "trainingapp.http")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Состояние одной логической операции, общее для всех её retry attempts.
 // Владелец — AsHttp_Client через QObject parent.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 class AHttp_Operation : public QObject
 {
 public:
@@ -24,42 +24,44 @@ public:
 	QUrl URL;
 	int Request_Id = 0;
 	int Attempt_Count = 0;
+	bool Response_Too_Large = false; // текущая попытка прервана по пределу размера
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AsHttp_Client
-//----------------------------------------------------------------------------
-AsHttp_Client::AsHttp_Client(const QUrl &in_base_url, QObject *in_parent) : QObject(in_parent), Network_Manager()
+//-------------------------------------------------------------------------------------------------------------
+AsHttp_Client::AsHttp_Client(const QUrl &in_base_url, QObject *in_parent)
+    : QObject(in_parent), Network_Manager(), Error_State(&HTTP_Log())
 {
 	Set_Base_URL(in_base_url);
 	qRegisterMetaType<SHttp_Response>("SHttp_Response");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsHttp_Client::Set_Base_URL(const QUrl &in_base_url)
 {
 	QUrl normalized_url;
 	QString scheme;
 
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 	API_Base_URL.clear();
 	normalized_url = in_base_url;
 	scheme = normalized_url.scheme().toLower();
 
-	if (normalized_url.isValid() == false || normalized_url.isRelative() || normalized_url.host().isEmpty())
+	if (!normalized_url.isValid() || normalized_url.isRelative() || normalized_url.host().isEmpty())
 	{
-		Last_Error_Text = "API base URL должен быть абсолютным и содержать host";
+		Error_State.Set_Last_Error("API base URL должен быть абсолютным и содержать host");
 		return false;
 	}
 
 	if (scheme != "http" && scheme != "https")
 	{
-		Last_Error_Text = "API base URL поддерживает только http и https";
+		Error_State.Set_Last_Error("API base URL поддерживает только http и https");
 		return false;
 	}
 
-	if (normalized_url.userInfo().isEmpty() == false || normalized_url.hasQuery() || normalized_url.hasFragment())
+	if (!normalized_url.userInfo().isEmpty() || normalized_url.hasQuery() || normalized_url.hasFragment())
 	{
-		Last_Error_Text = "API base URL не должен содержать credentials, query или fragment";
+		Error_State.Set_Last_Error("API base URL не должен содержать credentials, query или fragment");
 		return false;
 	}
 
@@ -69,24 +71,24 @@ bool AsHttp_Client::Set_Base_URL(const QUrl &in_base_url)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QUrl AsHttp_Client::Base_URL() const
 {
 	return API_Base_URL;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AsHttp_Client::Last_Error() const
 {
-	return Last_Error_Text;
+	return Error_State.Get_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AsHttp_Client::Send(const SHttp_Request &in_request)
 {
 	AHttp_Operation *operation;
 	QUrl url;
 	int request_id;
 
-	if (Validate_Request(in_request, url) == false)
+	if (!Validate_Request(in_request, url))
 		return 0;
 
 	request_id = Next_Request_Id;
@@ -99,7 +101,7 @@ int AsHttp_Client::Send(const SHttp_Request &in_request)
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AsHttp_Client::Get(const QString &in_path, const QMap<QByteArray, QByteArray> &in_headers)
 {
 	SHttp_Request request;
@@ -111,7 +113,7 @@ int AsHttp_Client::Get(const QString &in_path, const QMap<QByteArray, QByteArray
 
 	return Send(request);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AsHttp_Client::Post_JSON(const QString &in_path, const QJsonObject &in_body,
                              const QMap<QByteArray, QByteArray> &in_headers, bool in_retry_enabled)
 {
@@ -126,40 +128,51 @@ int AsHttp_Client::Post_JSON(const QString &in_path, const QJsonObject &in_body,
 
 	return Send(request);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsHttp_Client::Set_Timeout_Ms(int in_timeout_ms)
 {
 	if (in_timeout_ms > 0)
 		Request_Timeout_Ms = in_timeout_ms;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AsHttp_Client::Timeout_Ms() const
 {
 	return Request_Timeout_Ms;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsHttp_Client::Set_Max_Retry_Count(int in_count)
 {
 	if (in_count >= 0)
 		Maximum_Retry_Count = in_count;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AsHttp_Client::Max_Retry_Count() const
 {
 	return Maximum_Retry_Count;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsHttp_Client::Set_Initial_Retry_Delay_Ms(int in_delay_ms)
 {
 	if (in_delay_ms >= 0)
 		Initial_Retry_Delay = in_delay_ms;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AsHttp_Client::Initial_Retry_Delay_Ms() const
 {
 	return Initial_Retry_Delay;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+void AsHttp_Client::Set_Max_Response_Bytes(int in_bytes)
+{
+	if (in_bytes > 0)
+		Maximum_Response_Bytes = in_bytes;
+}
+//-------------------------------------------------------------------------------------------------------------
+int AsHttp_Client::Max_Response_Bytes() const
+{
+	return Maximum_Response_Bytes;
+}
+//-------------------------------------------------------------------------------------------------------------
 void AsHttp_Client::onReplyFinished()
 {
 	QNetworkReply *reply;
@@ -171,7 +184,7 @@ void AsHttp_Client::onReplyFinished()
 
 	reply = qobject_cast<QNetworkReply *>(sender());
 
-	if (reply == 0 || Active_Replies.contains(reply) == false)
+	if (reply == 0 || !Active_Replies.contains(reply))
 		return;
 
 	operation = Active_Replies.take(reply);
@@ -181,28 +194,53 @@ void AsHttp_Client::onReplyFinished()
 	network_error = (int)reply->error();
 	Finish_Request(operation, reply, http_status, network_error, body);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+void AsHttp_Client::onReplyDownloadProgress(qint64 in_bytes_received, qint64 in_bytes_total)
+{
+	QNetworkReply *reply;
+	AHttp_Operation *operation;
+
+	reply = qobject_cast<QNetworkReply *>(sender());
+
+	if (reply == 0 || !Active_Replies.contains(reply))
+		return;
+
+	// in_bytes_total = -1, если сервер не прислал Content-Length: тогда
+	// ограничивает только фактически полученный объём.
+	if (in_bytes_received <= Maximum_Response_Bytes && in_bytes_total <= Maximum_Response_Bytes)
+		return;
+
+	operation = Active_Replies.value(reply);
+
+	if (operation->Response_Too_Large)
+		return;
+
+	operation->Response_Too_Large = true;
+	qCWarning(HTTP_Log).noquote() << "response too large" << operation->Request_Id << "limit" << Maximum_Response_Bytes;
+	reply->abort();
+}
+//-------------------------------------------------------------------------------------------------------------
 bool AsHttp_Client::Validate_Request(const SHttp_Request &in_request, QUrl &out_url)
 {
 	QUrl relative_url;
 	QByteArray method;
 	QString path;
 
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 	out_url.clear();
 	method = in_request.Method.trimmed().toUpper();
 	path = in_request.Path.trimmed();
 	relative_url = QUrl(path, QUrl::StrictMode);
 
-	if (API_Base_URL.isValid() == false || API_Base_URL.isEmpty())
+	if (!API_Base_URL.isValid() || API_Base_URL.isEmpty())
 	{
-		Last_Error_Text = "HTTP client не имеет валидного API base URL";
+		Error_State.Set_Last_Error("HTTP client не имеет валидного API base URL");
 		return false;
 	}
 
 	if (method.isEmpty() || path.isEmpty())
 	{
-		Last_Error_Text = "HTTP method и path обязательны";
+		Error_State.Set_Last_Error("HTTP method и path обязательны");
 		return false;
 	}
 
@@ -210,20 +248,20 @@ bool AsHttp_Client::Validate_Request(const SHttp_Request &in_request, QUrl &out_
 	{
 		if (symbol < 'A' || symbol > 'Z')
 		{
-			Last_Error_Text = "HTTP method должен содержать только A-Z";
+			Error_State.Set_Last_Error("HTTP method должен содержать только A-Z");
 			return false;
 		}
 	}
 
-	if (relative_url.isValid() == false || relative_url.isRelative() == false || relative_url.hasFragment())
+	if (!relative_url.isValid() || !relative_url.isRelative() || relative_url.hasFragment())
 	{
-		Last_Error_Text = "HTTP path должен быть relative URL без fragment";
+		Error_State.Set_Last_Error("HTTP path должен быть relative URL без fragment");
 		return false;
 	}
 
 	if (relative_url.path().split('/', Qt::SkipEmptyParts).contains(".."))
 	{
-		Last_Error_Text = "HTTP path не должен выходить из API base path";
+		Error_State.Set_Last_Error("HTTP path не должен выходить из API base path");
 		return false;
 	}
 
@@ -232,16 +270,16 @@ bool AsHttp_Client::Validate_Request(const SHttp_Request &in_request, QUrl &out_
 
 	out_url = QUrl(API_Base_URL.toString(QUrl::FullyEncoded) + "/" + path, QUrl::StrictMode);
 
-	if (out_url.isValid() == false || out_url.host() != API_Base_URL.host())
+	if (!out_url.isValid() || out_url.host() != API_Base_URL.host())
 	{
-		Last_Error_Text = "Не удалось построить безопасный endpoint URL";
+		Error_State.Set_Last_Error("Не удалось построить безопасный endpoint URL");
 		out_url.clear();
 		return false;
 	}
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsHttp_Client::Start_Request(AHttp_Operation *in_operation)
 {
 	QNetworkRequest network_request;
@@ -250,6 +288,7 @@ void AsHttp_Client::Start_Request(AHttp_Operation *in_operation)
 	QByteArray method;
 
 	++in_operation->Attempt_Count;
+	in_operation->Response_Too_Large = false;
 	method = in_operation->Request.Method.trimmed().toUpper();
 	network_request.setUrl(in_operation->URL);
 	network_request.setTransferTimeout(Request_Timeout_Ms);
@@ -266,11 +305,12 @@ void AsHttp_Client::Start_Request(AHttp_Operation *in_operation)
 	reply = Network_Manager.sendCustomRequest(network_request, method, in_operation->Request.Body);
 	Active_Replies.insert(reply, in_operation);
 	connect(reply, &QNetworkReply::finished, this, &AsHttp_Client::onReplyFinished);
+	connect(reply, &QNetworkReply::downloadProgress, this, &AsHttp_Client::onReplyDownloadProgress);
 
 	qCInfo(HTTP_Log).noquote() << "request" << in_operation->Request_Id << method << Safe_Path(in_operation->URL)
 	                           << "attempt" << in_operation->Attempt_Count;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsHttp_Client::Finish_Request(AHttp_Operation *in_operation, QNetworkReply *in_reply, int in_http_status,
                                    int in_network_error, const QByteArray &in_body)
 {
@@ -295,13 +335,25 @@ void AsHttp_Client::Finish_Request(AHttp_Operation *in_operation, QNetworkReply 
 	response.HTTP_Status_Code = in_http_status;
 	response.Network_Error_Code = in_network_error;
 	response.Attempt_Count = in_operation->Attempt_Count;
+
+	if (in_operation->Response_Too_Large)
+	{
+		// Тело прервано на середине: не разбираем и не отдаём его частично.
+		response.Error =
+		    AApi_Error("response_too_large", "Response body exceeds client limit", in_http_status, in_network_error);
+		emit requestFinished(response.Request_Id, response);
+		in_reply->deleteLater();
+		in_operation->deleteLater();
+		return;
+	}
+
 	response.Body = in_body;
 	header_names = in_reply->rawHeaderList();
 
 	for (const QByteArray &header_name : header_names)
 		response.Headers.insert(header_name.toLower(), in_reply->rawHeader(header_name));
 
-	if (in_body.isEmpty() == false)
+	if (!in_body.isEmpty())
 	{
 		response.JSON = QJsonDocument::fromJson(in_body, &parse_error);
 		response.JSON_Valid = parse_error.error == QJsonParseError::NoError;
@@ -309,17 +361,18 @@ void AsHttp_Client::Finish_Request(AHttp_Operation *in_operation, QNetworkReply 
 
 	response.Success = in_http_status >= 200 && in_http_status <= 299 && in_network_error == QNetworkReply::NoError;
 
-	if (response.Success == false)
+	if (!response.Success)
 		response.Error = AApi_Error::From_Response(in_http_status, in_network_error, in_reply->errorString(), in_body);
 
 	emit requestFinished(response.Request_Id, response);
 	in_reply->deleteLater();
 	in_operation->deleteLater();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsHttp_Client::Should_Retry(const AHttp_Operation *in_operation, int in_http_status, int in_network_error) const
 {
-	if (in_operation->Request.Retry_Enabled == false || in_operation->Attempt_Count > Maximum_Retry_Count)
+	if (!in_operation->Request.Retry_Enabled || in_operation->Attempt_Count > Maximum_Retry_Count ||
+	    in_operation->Response_Too_Large)
 		return false;
 
 	if (in_http_status >= 500 && in_http_status <= 599)
@@ -327,7 +380,7 @@ bool AsHttp_Client::Should_Retry(const AHttp_Operation *in_operation, int in_htt
 
 	return in_http_status <= 0 && in_network_error != QNetworkReply::NoError;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AsHttp_Client::Retry_Delay_Ms(int in_attempt_count) const
 {
 	int delay_ms;
@@ -344,9 +397,9 @@ int AsHttp_Client::Retry_Delay_Ms(int in_attempt_count) const
 
 	return delay_ms;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AsHttp_Client::Safe_Path(const QUrl &in_url)
 {
 	return in_url.path(QUrl::FullyEncoded);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

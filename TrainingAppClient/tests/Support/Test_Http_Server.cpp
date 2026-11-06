@@ -1,23 +1,23 @@
-#include "Support/Test_Http_Server.h"
+﻿#include "Support/Test_Http_Server.h"
 
 #include <QHostAddress>
 #include <QTcpSocket>
 #include <QTimer>
 #include <QVariant>
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // ATest_Http_Server
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 ATest_Http_Server::ATest_Http_Server(QObject *in_parent) : QObject(in_parent), Server(this)
 {
 	connect(&Server, &QTcpServer::newConnection, this, &ATest_Http_Server::onNewConnection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 ATest_Http_Server::~ATest_Http_Server()
 {
 	Stop();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ATest_Http_Server::Start()
 {
 	Last_Error_Text.clear();
@@ -25,7 +25,7 @@ bool ATest_Http_Server::Start()
 	if (Server.isListening())
 		return true;
 
-	if (Server.listen(QHostAddress::LocalHost, 0) == false)
+	if (!Server.listen(QHostAddress::LocalHost, 0))
 	{
 		Last_Error_Text = Server.errorString();
 		return false;
@@ -33,7 +33,7 @@ bool ATest_Http_Server::Start()
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server::Stop()
 {
 	QList<QTcpSocket *> sockets;
@@ -49,37 +49,37 @@ void ATest_Http_Server::Stop()
 	Buffers.clear();
 	Server.close();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ATest_Http_Server::Is_Listening() const
 {
 	return Server.isListening();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QUrl ATest_Http_Server::Base_URL() const
 {
 	return QUrl(QString("http://127.0.0.1:%1").arg(Server.serverPort()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString ATest_Http_Server::Last_Error() const
 {
 	return Last_Error_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server::Enqueue_Response(const STest_Http_Response &in_response)
 {
 	Responses.append(in_response);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int ATest_Http_Server::Pending_Response_Count() const
 {
 	return Responses.size();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int ATest_Http_Server::Request_Count() const
 {
 	return Requests.size();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Request ATest_Http_Server::Request_At(int in_index) const
 {
 	STest_Http_Request empty_request;
@@ -89,14 +89,14 @@ STest_Http_Request ATest_Http_Server::Request_At(int in_index) const
 
 	return Requests.at(in_index);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server::Clear()
 {
 	Responses.clear();
 	Requests.clear();
 	Last_Error_Text.clear();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server::onNewConnection()
 {
 	QTcpSocket *socket;
@@ -109,14 +109,14 @@ void ATest_Http_Server::onNewConnection()
 		connect(socket, &QTcpSocket::disconnected, this, &ATest_Http_Server::onSocketDisconnected);
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server::onSocketReadyRead()
 {
 	QTcpSocket *socket;
 
 	socket = qobject_cast<QTcpSocket *>(sender());
 
-	if (socket == 0 || Buffers.contains(socket) == false)
+	if (socket == 0 || !Buffers.contains(socket))
 		return;
 
 	Buffers[socket].append(socket->readAll());
@@ -129,7 +129,7 @@ void ATest_Http_Server::onSocketReadyRead()
 
 	Try_Consume_Request(socket);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server::onSocketDisconnected()
 {
 	QTcpSocket *socket;
@@ -142,7 +142,7 @@ void ATest_Http_Server::onSocketDisconnected()
 	Buffers.remove(socket);
 	socket->deleteLater();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server::onDelayedResponse()
 {
 	QTimer *timer;
@@ -163,7 +163,7 @@ void ATest_Http_Server::onDelayedResponse()
 
 	Write_And_Close(socket, response);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool ATest_Http_Server::Try_Consume_Request(QTcpSocket *in_socket)
 {
 	QByteArray buffer;
@@ -199,7 +199,7 @@ bool ATest_Http_Server::Try_Consume_Request(QTcpSocket *in_socket)
 	line = lines.takeFirst().trimmed();
 	request_parts = line.split(' ');
 
-	if (request_parts.size() != 3 || request_parts.at(2).startsWith("HTTP/") == false)
+	if (request_parts.size() != 3 || !request_parts.at(2).startsWith("HTTP/"))
 	{
 		Send_Bad_Request(in_socket);
 		return false;
@@ -233,7 +233,7 @@ bool ATest_Http_Server::Try_Consume_Request(QTcpSocket *in_socket)
 	{
 		content_length = request.Headers.value("content-length").toLongLong(&length_ok);
 
-		if (length_ok == false || content_length < 0 || content_length > 1024 * 1024)
+		if (!length_ok || content_length < 0 || content_length > 1024 * 1024)
 		{
 			Send_Bad_Request(in_socket);
 			return false;
@@ -262,7 +262,7 @@ bool ATest_Http_Server::Try_Consume_Request(QTcpSocket *in_socket)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server::Send_Bad_Request(QTcpSocket *in_socket)
 {
 	STest_Http_Response response;
@@ -272,7 +272,7 @@ void ATest_Http_Server::Send_Bad_Request(QTcpSocket *in_socket)
 	response.Body = "{\"key\":\"validation_error\",\"message\":\"Malformed HTTP request\"}";
 	Send_Response(in_socket, response);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server::Send_Response(QTcpSocket *in_socket, const STest_Http_Response &in_response)
 {
 	QTimer *timer;
@@ -298,13 +298,13 @@ void ATest_Http_Server::Send_Response(QTcpSocket *in_socket, const STest_Http_Re
 	connect(timer, &QTimer::timeout, this, &ATest_Http_Server::onDelayedResponse);
 	timer->start(in_response.Delay_Ms);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ATest_Http_Server::Write_And_Close(QTcpSocket *in_socket, const QByteArray &in_response)
 {
 	in_socket->write(in_response);
 	in_socket->disconnectFromHost();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray ATest_Http_Server::Build_Response(const STest_Http_Response &in_response)
 {
 	QByteArray response;
@@ -315,7 +315,7 @@ QByteArray ATest_Http_Server::Build_Response(const STest_Http_Response &in_respo
 	response += "Content-Length: " + QByteArray::number(in_response.Body.size()) + "\r\n";
 	response += "Connection: close\r\n";
 
-	if (in_response.Content_Type.isEmpty() == false)
+	if (!in_response.Content_Type.isEmpty())
 		response += "Content-Type: " + in_response.Content_Type + "\r\n";
 
 	iterator = in_response.Headers.constBegin();
@@ -331,7 +331,7 @@ QByteArray ATest_Http_Server::Build_Response(const STest_Http_Response &in_respo
 
 	return response;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray ATest_Http_Server::Reason_Phrase(int in_status_code)
 {
 	switch (in_status_code)
@@ -360,4 +360,4 @@ QByteArray ATest_Http_Server::Reason_Phrase(int in_status_code)
 		return "Test Response";
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

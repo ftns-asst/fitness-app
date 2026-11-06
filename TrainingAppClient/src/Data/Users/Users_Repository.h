@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Data/Auth/Auth_Session.h"
 #include "Data/Database/Sql_Database.h"
@@ -10,13 +10,13 @@
 #include <QObject>
 #include <QString>
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Оркестрация профиля пользователя: получение с сервера с записью в
 // user_cache/profile_cache, офлайн-чтение кэша с пометкой from_cache, локальные
 // параметры (уровень, цель, частота) в profile_local с записью в sync_outbox
 // (воркер синхронизации — issue 34). Статус «сохранено локально» —
 // Status_Saved_Locally.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 class AUsers_Repository : public QObject
 {
 	Q_OBJECT
@@ -57,6 +57,9 @@ private slots:
 	void on_Get_User_Finished(int in_request_id, const SUsers_User &in_user, const AApi_Error &in_error);
 
 private:
+	// Null-безопасное соединение: без базы отдаёт пустое QSqlDatabase, и
+	// запрос откатится проверкой Is_Open() ниже, а не разыменованием 0.
+	QSqlDatabase Connection() const;
 	bool Persist_User(const SUsers_User &in_user);
 	bool Persist_Profile_Cache(const QString &in_user_id, const SUsers_Profile &in_profile);
 
@@ -65,4 +68,4 @@ private:
 	AUsers_Api *Users_Api_Instance;
 	QHash<int, QString> Pending_Requests; // request id → user id
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

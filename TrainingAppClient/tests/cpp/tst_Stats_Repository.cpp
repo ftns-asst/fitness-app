@@ -1,4 +1,4 @@
-#include "Data/Database/Sql_Database.h"
+﻿#include "Data/Database/Sql_Database.h"
 #include "Data/Program/Program_Repository.h"
 #include "Data/Program/Stats_Repository.h"
 #include "Domain/Program_Model.h"
@@ -28,14 +28,14 @@ private:
 	int Counter = 0;
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AStats_Repository_Test::Make_Database_Path()
 {
 	++Counter;
 
 	return Directory.filePath(QString("stats_%1.sqlite3").arg(Counter));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SProgram AStats_Repository_Test::Make_Program(const QString &in_id, const QString &in_user_id)
 {
 	SProgram program;
@@ -55,13 +55,13 @@ SProgram AStats_Repository_Test::Make_Program(const QString &in_id, const QStrin
 
 	return program;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AStats_Repository_Test::Seed_Program(AProgram_Repository &in_repository, const QString &in_id,
                                           const QString &in_user_id)
 {
 	QVERIFY(in_repository.Insert_Program(Make_Program(in_id, in_user_id)));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AStats_Repository_Test::programStatsRoundTrip()
 {
 	AsSql_Database database;
@@ -74,10 +74,10 @@ void AStats_Repository_Test::programStatsRoundTrip()
 	Seed_Program(program_repository, "p1", "u1");
 
 	// До пересчёта строки нет: «нечего считать» — не ошибка для читателя.
-	QVERIFY(repository.Load_Program_Stats("p1", entry) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Load_Program_Stats("p1", entry));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 	QVERIFY(repository.Is_Program_Stats_Fresh("p1", 1, is_fresh));
-	QVERIFY(is_fresh == false);
+	QVERIFY(!is_fresh);
 
 	QVERIFY(repository.Save_Program_Stats("p1", 1,
 	                                      "{\"plannedSessions\":36,\"completedSessions\":30,"
@@ -85,16 +85,16 @@ void AStats_Repository_Test::programStatsRoundTrip()
 	QVERIFY(repository.Load_Program_Stats("p1", entry));
 	QCOMPARE(entry.Owner_Id, QString("p1"));
 	QCOMPARE(entry.Program_Revision, 1);
-	QVERIFY(entry.Computed_At.isEmpty() == false);
+	QVERIFY(!entry.Computed_At.isEmpty());
 	QVERIFY(entry.Payload_Json.contains("adherencePercent"));
 
 	// Свежесть привязана к ревизии структуры программы (§5.4).
 	QVERIFY(repository.Is_Program_Stats_Fresh("p1", 1, is_fresh));
 	QVERIFY(is_fresh);
 	QVERIFY(repository.Is_Program_Stats_Fresh("p1", 2, is_fresh));
-	QVERIFY(is_fresh == false);
+	QVERIFY(!is_fresh);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AStats_Repository_Test::programStatsValidateAndUpsert()
 {
 	AsSql_Database database;
@@ -118,22 +118,22 @@ void AStats_Repository_Test::programStatsValidateAndUpsert()
 	QCOMPARE(query.value(0).toInt(), 1);
 
 	// Нагрузка обязана быть корректным JSON-объектом (§5.4).
-	QVERIFY(repository.Save_Program_Stats("p1", 3, QString()) == false);
-	QVERIFY(repository.Save_Program_Stats("p1", 3, "{oops}") == false);
-	QVERIFY(repository.Save_Program_Stats("p1", 3, "[1, 2]") == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Save_Program_Stats("p1", 3, QString()));
+	QVERIFY(!repository.Save_Program_Stats("p1", 3, "{oops}"));
+	QVERIFY(!repository.Save_Program_Stats("p1", 3, "[1, 2]"));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 
 	// Ревизия нужна для инвалидации, поэтому она обязательна.
-	QVERIFY(repository.Save_Program_Stats("p1", 0, "{\"tonnageKg\":300}") == false);
-	QVERIFY(repository.Save_Program_Stats(QString(), 1, "{\"tonnageKg\":300}") == false);
+	QVERIFY(!repository.Save_Program_Stats("p1", 0, "{\"tonnageKg\":300}"));
+	QVERIFY(!repository.Save_Program_Stats(QString(), 1, "{\"tonnageKg\":300}"));
 
 	// FK: статистику нельзя завести для несуществующей программы.
-	QVERIFY(repository.Save_Program_Stats("missing", 1, "{\"tonnageKg\":300}") == false);
+	QVERIFY(!repository.Save_Program_Stats("missing", 1, "{\"tonnageKg\":300}"));
 
 	QVERIFY(repository.Load_Program_Stats("p1", entry));
 	QCOMPARE(entry.Program_Revision, 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AStats_Repository_Test::lifetimeStatsRoundTrip()
 {
 	AsSql_Database database;
@@ -144,14 +144,14 @@ void AStats_Repository_Test::lifetimeStatsRoundTrip()
 	QVERIFY(database.Open(Make_Database_Path()));
 	query = QSqlQuery(database.Sql_Connection());
 
-	QVERIFY(repository.Load_Lifetime_Stats("u1", entry) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Load_Lifetime_Stats("u1", entry));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 
 	QVERIFY(repository.Save_Lifetime_Stats("u1", "{\"totalSessions\":48,\"totalTonnageKg\":210000}"));
 	QVERIFY(repository.Load_Lifetime_Stats("u1", entry));
 	QCOMPARE(entry.Owner_Id, QString("u1"));
 	QCOMPARE(entry.Program_Revision, 0);
-	QVERIFY(entry.Computed_At.isEmpty() == false);
+	QVERIFY(!entry.Computed_At.isEmpty());
 	QCOMPARE(entry.Payload_Json, QString("{\"totalSessions\":48,\"totalTonnageKg\":210000}"));
 
 	QVERIFY(repository.Save_Lifetime_Stats("u1", "{\"totalSessions\":49,\"totalTonnageKg\":214000}"));
@@ -161,10 +161,10 @@ void AStats_Repository_Test::lifetimeStatsRoundTrip()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toInt(), 1);
 
-	QVERIFY(repository.Save_Lifetime_Stats("u1", "[]") == false);
-	QVERIFY(repository.Save_Lifetime_Stats(QString(), "{}") == false);
+	QVERIFY(!repository.Save_Lifetime_Stats("u1", "[]"));
+	QVERIFY(!repository.Save_Lifetime_Stats(QString(), "{}"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AStats_Repository_Test::invalidationScope()
 {
 	AsSql_Database database;
@@ -185,7 +185,7 @@ void AStats_Repository_Test::invalidationScope()
 
 	// Точечная инвалидация одной программы не трогает остальные.
 	QVERIFY(repository.Invalidate_Program_Stats("p1"));
-	QVERIFY(repository.Load_Program_Stats("p1", entry) == false);
+	QVERIFY(!repository.Load_Program_Stats("p1", entry));
 	QVERIFY(repository.Load_Program_Stats("p2", entry));
 	QVERIFY(repository.Load_Program_Stats("p3", entry));
 
@@ -193,7 +193,7 @@ void AStats_Repository_Test::invalidationScope()
 
 	// Инвалидация общей статистики не трогает кэш программ.
 	QVERIFY(repository.Invalidate_Lifetime_Stats("u1"));
-	QVERIFY(repository.Load_Lifetime_Stats("u1", entry) == false);
+	QVERIFY(!repository.Load_Lifetime_Stats("u1", entry));
 	QVERIFY(repository.Load_Lifetime_Stats("u2", entry));
 	QVERIFY(repository.Load_Program_Stats("p1", entry));
 
@@ -201,14 +201,14 @@ void AStats_Repository_Test::invalidationScope()
 	// статистика одной транзакцией (запись факта, завершение программы).
 	QVERIFY(repository.Save_Lifetime_Stats("u1", "{\"totalSessions\":11}"));
 	QVERIFY(repository.Invalidate_User_Stats("u1"));
-	QVERIFY(repository.Load_Program_Stats("p1", entry) == false);
-	QVERIFY(repository.Load_Program_Stats("p2", entry) == false);
-	QVERIFY(repository.Load_Lifetime_Stats("u1", entry) == false);
+	QVERIFY(!repository.Load_Program_Stats("p1", entry));
+	QVERIFY(!repository.Load_Program_Stats("p2", entry));
+	QVERIFY(!repository.Load_Lifetime_Stats("u1", entry));
 
 	QVERIFY(repository.Load_Program_Stats("p3", entry));
 	QVERIFY(repository.Load_Lifetime_Stats("u2", entry));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AStats_Repository_Test::closedDatabaseFails()
 {
 	AsSql_Database closed;
@@ -216,19 +216,19 @@ void AStats_Repository_Test::closedDatabaseFails()
 	SStats_Cache_Entry entry;
 	bool is_fresh = true;
 
-	QVERIFY(repository.Save_Program_Stats("p1", 1, "{}") == false);
-	QVERIFY(repository.Save_Lifetime_Stats("u1", "{}") == false);
-	QVERIFY(repository.Load_Program_Stats("p1", entry) == false);
-	QVERIFY(repository.Load_Lifetime_Stats("u1", entry) == false);
-	QVERIFY(repository.Is_Program_Stats_Fresh("p1", 1, is_fresh) == false);
-	QVERIFY(repository.Invalidate_Program_Stats("p1") == false);
-	QVERIFY(repository.Invalidate_Lifetime_Stats("u1") == false);
-	QVERIFY(repository.Invalidate_User_Stats("u1") == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Save_Program_Stats("p1", 1, "{}"));
+	QVERIFY(!repository.Save_Lifetime_Stats("u1", "{}"));
+	QVERIFY(!repository.Load_Program_Stats("p1", entry));
+	QVERIFY(!repository.Load_Lifetime_Stats("u1", entry));
+	QVERIFY(!repository.Is_Program_Stats_Fresh("p1", 1, is_fresh));
+	QVERIFY(!repository.Invalidate_Program_Stats("p1"));
+	QVERIFY(!repository.Invalidate_Lifetime_Stats("u1"));
+	QVERIFY(!repository.Invalidate_User_Stats("u1"));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(AStats_Repository_Test)
 
 #include "tst_Stats_Repository.moc"
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

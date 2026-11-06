@@ -1,4 +1,4 @@
-#include "Data/Program/Program_Repository.h"
+﻿#include "Data/Program/Program_Repository.h"
 
 #include <QDate>
 #include <QDateTime>
@@ -10,11 +10,11 @@
 #include <QSqlError>
 #include <QSqlQuery>
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Логирование ошибок, Text_Column/Number_Column/Int_Column и журнал
 // ревизий (Write_Revision_Row/Bump_Revision_Internal) — в
 // AProgram_Repository_Base.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static void Read_Program_Row(QSqlQuery &in_query, SProgram &out_program)
 {
 	out_program = SProgram();
@@ -38,7 +38,7 @@ static void Read_Program_Row(QSqlQuery &in_query, SProgram &out_program)
 	From_String(in_query.value(17).toString(), out_program.Sync_State);
 	out_program.Note = in_query.value(18).toString();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Чтение строк остальных сущностей программы. Вынесены из методов Load_*,
 // чтобы SQL-запрос и разбор полей не лежали в одном теле: правка маппинга и
 // правка запроса — разные изменения.
@@ -46,7 +46,7 @@ static void Read_Program_Row(QSqlQuery &in_query, SProgram &out_program)
 // in_offset — сдвиг начала полей в наборе результата: 0 для обычного
 // SELECT сущности, 1 когда перед полями идёт присоединённая колонка
 // (program_day_id в Load_Day_Exercises_By_Program).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static void Read_Goal_Target_Row(QSqlQuery &in_query, SGoal_Target &out_target)
 {
 	out_target = SGoal_Target();
@@ -54,7 +54,7 @@ static void Read_Goal_Target_Row(QSqlQuery &in_query, SGoal_Target &out_target)
 	From_String(in_query.value(1).toString(), out_target.Metric);
 	out_target.Exercise_Id = in_query.value(2).toString();
 
-	if (in_query.isNull(3) == false)
+	if (!in_query.isNull(3))
 	{
 		out_target.Has_Measurement_Key = true;
 		From_String(in_query.value(3).toString(), out_target.Measurement_Key);
@@ -62,7 +62,7 @@ static void Read_Goal_Target_Row(QSqlQuery &in_query, SGoal_Target &out_target)
 
 	From_String(in_query.value(4).toString(), out_target.Unit);
 
-	if (in_query.isNull(5) == false)
+	if (!in_query.isNull(5))
 	{
 		out_target.Has_Start_Value = true;
 		out_target.Start_Value = in_query.value(5).toDouble();
@@ -70,13 +70,13 @@ static void Read_Goal_Target_Row(QSqlQuery &in_query, SGoal_Target &out_target)
 
 	out_target.Target_Value = in_query.value(6).toDouble();
 
-	if (in_query.isNull(7) == false)
+	if (!in_query.isNull(7))
 	{
 		out_target.Has_Target_Weight_Kg = true;
 		out_target.Target_Weight_Kg = in_query.value(7).toDouble();
 	}
 
-	if (in_query.isNull(8) == false)
+	if (!in_query.isNull(8))
 	{
 		out_target.Has_Target_Reps = true;
 		out_target.Target_Reps = in_query.value(8).toInt();
@@ -86,7 +86,7 @@ static void Read_Goal_Target_Row(QSqlQuery &in_query, SGoal_Target &out_target)
 	out_target.Target_Date = in_query.value(10).toString();
 	From_String(in_query.value(11).toString(), out_target.State);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static void Read_Day_Row(QSqlQuery &in_query, const QString &in_program_id, SProgram_Day &out_day)
 {
 	out_day = SProgram_Day();
@@ -95,7 +95,7 @@ static void Read_Day_Row(QSqlQuery &in_query, const QString &in_program_id, SPro
 	out_day.Title = in_query.value(1).toString();
 	From_String(in_query.value(2).toString(), out_day.Kind);
 
-	if (in_query.isNull(3) == false)
+	if (!in_query.isNull(3))
 		Parse_Json_Array(in_query.value(3).toString(), out_day.Focus);
 
 	out_day.Estimated_Minutes = in_query.value(4).toInt();
@@ -103,7 +103,7 @@ static void Read_Day_Row(QSqlQuery &in_query, const QString &in_program_id, SPro
 	out_day.Source_Day_Id = in_query.value(6).toString();
 	out_day.Note = in_query.value(7).toString();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static void Read_Day_Exercise_Fields(QSqlQuery &in_query, int in_offset, SDay_Exercise &out_exercise)
 {
 	out_exercise = SDay_Exercise();
@@ -115,19 +115,19 @@ static void Read_Day_Exercise_Fields(QSqlQuery &in_query, int in_offset, SDay_Ex
 	out_exercise.Reps_Max = in_query.value(in_offset + 5).toInt();
 	From_String(in_query.value(in_offset + 6).toString(), out_exercise.Weight_Mode);
 
-	if (in_query.isNull(in_offset + 7) == false)
+	if (!in_query.isNull(in_offset + 7))
 	{
 		out_exercise.Has_Target_Weight_Kg = true;
 		out_exercise.Target_Weight_Kg = in_query.value(in_offset + 7).toDouble();
 	}
 
-	if (in_query.isNull(in_offset + 8) == false)
+	if (!in_query.isNull(in_offset + 8))
 	{
 		out_exercise.Has_Percent_Of_1rm = true;
 		out_exercise.Percent_Of_1rm = in_query.value(in_offset + 8).toDouble();
 	}
 
-	if (in_query.isNull(in_offset + 9) == false)
+	if (!in_query.isNull(in_offset + 9))
 	{
 		out_exercise.Has_Rpe_Target = true;
 		out_exercise.Rpe_Target = in_query.value(in_offset + 9).toDouble();
@@ -138,19 +138,19 @@ static void Read_Day_Exercise_Fields(QSqlQuery &in_query, int in_offset, SDay_Ex
 	out_exercise.Superset_Group = in_query.value(in_offset + 12).toString();
 	out_exercise.Warmup_Sets = in_query.value(in_offset + 13).toInt();
 
-	if (in_query.isNull(in_offset + 14) == false)
+	if (!in_query.isNull(in_offset + 14))
 	{
 		out_exercise.Has_Progression = true;
 		Parse_Progression_Json(in_query.value(in_offset + 14).toString(), out_exercise.Progression);
 	}
 
-	if (in_query.isNull(in_offset + 15) == false)
+	if (!in_query.isNull(in_offset + 15))
 		Parse_Json_Array(in_query.value(in_offset + 15).toString(), out_exercise.Substitution_Ids);
 
 	out_exercise.Is_Optional = in_query.value(in_offset + 16).toInt() != 0;
 	out_exercise.Note = in_query.value(in_offset + 17).toString();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static void Read_Slot_Row(QSqlQuery &in_query, const QString &in_program_id, SWeek_Slot &out_slot)
 {
 	out_slot = SWeek_Slot();
@@ -163,10 +163,10 @@ static void Read_Slot_Row(QSqlQuery &in_query, const QString &in_program_id, SWe
 	out_slot.Is_Anchor = in_query.value(5).toInt() != 0;
 	out_slot.Note = in_query.value(6).toString();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Снимки разделов для program_revisions.snapshot_json (§3.9): старое
 // состояние до правки. Формат — компактный JSON, ключи camelCase.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QJsonObject Goal_Target_Snapshot_Object(const SGoal_Target &in_target)
 {
 	QJsonObject object;
@@ -174,7 +174,7 @@ static QJsonObject Goal_Target_Snapshot_Object(const SGoal_Target &in_target)
 	object.insert("id", in_target.ID);
 	object.insert("metric", To_String(in_target.Metric));
 
-	if (in_target.Exercise_Id.isEmpty() == false)
+	if (!in_target.Exercise_Id.isEmpty())
 		object.insert("exerciseId", in_target.Exercise_Id);
 
 	if (in_target.Has_Measurement_Key)
@@ -195,14 +195,14 @@ static QJsonObject Goal_Target_Snapshot_Object(const SGoal_Target &in_target)
 
 	object.insert("direction", To_String(in_target.Direction));
 
-	if (in_target.Target_Date.isEmpty() == false)
+	if (!in_target.Target_Date.isEmpty())
 		object.insert("targetDate", in_target.Target_Date);
 
 	object.insert("state", To_String(in_target.State));
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QJsonObject Day_Snapshot_Object(const SProgram_Day &in_day)
 {
 	QJsonObject object;
@@ -215,21 +215,21 @@ static QJsonObject Day_Snapshot_Object(const SProgram_Day &in_day)
 	for (int i = 0; i < in_day.Focus.size(); ++i)
 		focus.append(in_day.Focus.at(i));
 
-	if (focus.isEmpty() == false)
+	if (!focus.isEmpty())
 		object.insert("focus", focus);
 
 	object.insert("estimatedMinutes", in_day.Estimated_Minutes);
 	object.insert("orderIndex", in_day.Order_Index);
 
-	if (in_day.Source_Day_Id.isEmpty() == false)
+	if (!in_day.Source_Day_Id.isEmpty())
 		object.insert("sourceDayId", in_day.Source_Day_Id);
 
-	if (in_day.Note.isEmpty() == false)
+	if (!in_day.Note.isEmpty())
 		object.insert("note", in_day.Note);
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QJsonObject Day_Exercise_Snapshot_Object(const SDay_Exercise &in_exercise)
 {
 	QJsonObject object;
@@ -256,10 +256,10 @@ static QJsonObject Day_Exercise_Snapshot_Object(const SDay_Exercise &in_exercise
 
 	object.insert("restSeconds", in_exercise.Rest_Seconds);
 
-	if (in_exercise.Tempo.isEmpty() == false)
+	if (!in_exercise.Tempo.isEmpty())
 		object.insert("tempo", in_exercise.Tempo);
 
-	if (in_exercise.Superset_Group.isEmpty() == false)
+	if (!in_exercise.Superset_Group.isEmpty())
 		object.insert("supersetGroup", in_exercise.Superset_Group);
 
 	object.insert("warmupSets", in_exercise.Warmup_Sets);
@@ -273,17 +273,17 @@ static QJsonObject Day_Exercise_Snapshot_Object(const SDay_Exercise &in_exercise
 	for (int i = 0; i < in_exercise.Substitution_Ids.size(); ++i)
 		substitutions.append(in_exercise.Substitution_Ids.at(i));
 
-	if (substitutions.isEmpty() == false)
+	if (!substitutions.isEmpty())
 		object.insert("substitutionIds", substitutions);
 
 	object.insert("isOptional", in_exercise.Is_Optional);
 
-	if (in_exercise.Note.isEmpty() == false)
+	if (!in_exercise.Note.isEmpty())
 		object.insert("note", in_exercise.Note);
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QJsonObject Slot_Snapshot_Object(const SWeek_Slot &in_slot)
 {
 	QJsonObject object;
@@ -296,19 +296,19 @@ static QJsonObject Slot_Snapshot_Object(const SWeek_Slot &in_slot)
 	if (in_slot.Rotation_Index != 0)
 		object.insert("rotationIndex", in_slot.Rotation_Index);
 
-	if (in_slot.Program_Day_Id.isEmpty() == false)
+	if (!in_slot.Program_Day_Id.isEmpty())
 		object.insert("programDayId", in_slot.Program_Day_Id);
 
 	object.insert("kind", To_String(in_slot.Kind));
 
 	object.insert("isAnchor", in_slot.Is_Anchor);
 
-	if (in_slot.Note.isEmpty() == false)
+	if (!in_slot.Note.isEmpty())
 		object.insert("note", in_slot.Note);
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QString Term_Snapshot_Json(const STerm &in_term)
 {
 	QJsonObject object;
@@ -318,23 +318,23 @@ static QString Term_Snapshot_Json(const STerm &in_term)
 	object.insert("extendedWeeks", in_term.Extended_Weeks);
 	object.insert("mode", To_String(in_term.Mode));
 
-	if (in_term.Compute_End_Date().isEmpty() == false)
+	if (!in_term.Compute_End_Date().isEmpty())
 		object.insert("endDate", in_term.Compute_End_Date());
 
 	return QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact));
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AProgram_Repository
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AProgram_Repository::AProgram_Repository(AsSql_Database *in_database, QObject *in_parent)
     : AProgram_Repository_Base(in_database, in_parent)
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Check_Editable(const QString &in_program_id, SProgram &out_program)
 {
-	if (Load_Program(in_program_id, out_program) == false)
+	if (!Load_Program(in_program_id, out_program))
 		return false;
 
 	// Инвариант 24 (§4): completed/cancelled/archived — read-only по
@@ -346,7 +346,7 @@ bool AProgram_Repository::Check_Editable(const QString &in_program_id, SProgram 
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Load_Program(const QString &in_program_id, SProgram &out_program)
 {
 	QSqlQuery query(Connection());
@@ -355,7 +355,7 @@ bool AProgram_Repository::Load_Program(const QString &in_program_id, SProgram &o
 	Clear_Last_Error();
 	out_program = SProgram();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT id, user_id, title, source_kind, source_template_id, goal, level, schedule_kind, state, "
@@ -363,10 +363,10 @@ bool AProgram_Repository::Load_Program(const QString &in_program_id, SProgram &o
 	              "updated_at, sync_state, note FROM programs WHERE id = ?");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать программу: %1").arg(query.lastError().text()));
 
-	if (query.next() == false)
+	if (!query.next())
 		return Set_Last_Error(QString("Программа %1 не найдена").arg(in_program_id));
 
 	Read_Program_Row(query, program);
@@ -374,7 +374,7 @@ bool AProgram_Repository::Load_Program(const QString &in_program_id, SProgram &o
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Get_Active_Program_Id(const QString &in_user_id, QString &out_program_id)
 {
 	QSqlQuery query(Connection());
@@ -382,23 +382,23 @@ bool AProgram_Repository::Get_Active_Program_Id(const QString &in_user_id, QStri
 	Clear_Last_Error();
 	out_program_id.clear();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT id FROM programs WHERE user_id = ? AND state = 'active' ORDER BY created_at LIMIT 1");
 	query.addBindValue(in_user_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось найти активную программу: %1").arg(query.lastError().text()));
 
-	if (query.next() == false)
+	if (!query.next())
 		return Set_Last_Error(QString("У пользователя %1 нет активной программы").arg(in_user_id));
 
 	out_program_id = query.value(0).toString();
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Load_Programs(const QString &in_user_id, QVector<SProgram> &out_programs)
 {
 	QSqlQuery query(Connection());
@@ -406,7 +406,7 @@ bool AProgram_Repository::Load_Programs(const QString &in_user_id, QVector<SProg
 	Clear_Last_Error();
 	out_programs.clear();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT id, user_id, title, source_kind, source_template_id, goal, level, schedule_kind, state, "
@@ -414,7 +414,7 @@ bool AProgram_Repository::Load_Programs(const QString &in_user_id, QVector<SProg
 	              "updated_at, sync_state, note FROM programs WHERE user_id = ? ORDER BY updated_at DESC, id");
 	query.addBindValue(in_user_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать список программ: %1").arg(query.lastError().text()));
 
 	while (query.next())
@@ -427,7 +427,7 @@ bool AProgram_Repository::Load_Programs(const QString &in_user_id, QVector<SProg
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Load_Goal_Targets(const QString &in_program_id, QVector<SGoal_Target> &out_targets)
 {
 	QSqlQuery query(Connection());
@@ -436,7 +436,7 @@ bool AProgram_Repository::Load_Goal_Targets(const QString &in_program_id, QVecto
 	Clear_Last_Error();
 	out_targets.clear();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT id, metric, exercise_id, measurement_key, unit, start_value, target_value, "
@@ -444,7 +444,7 @@ bool AProgram_Repository::Load_Goal_Targets(const QString &in_program_id, QVecto
 	              "WHERE program_id = ? ORDER BY id");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать цели: %1").arg(query.lastError().text()));
 
 	while (query.next())
@@ -455,7 +455,7 @@ bool AProgram_Repository::Load_Goal_Targets(const QString &in_program_id, QVecto
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Load_Days(const QString &in_program_id, QVector<SProgram_Day> &out_days)
 {
 	QSqlQuery query(Connection());
@@ -464,14 +464,14 @@ bool AProgram_Repository::Load_Days(const QString &in_program_id, QVector<SProgr
 	Clear_Last_Error();
 	out_days.clear();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT id, title, kind, focus, estimated_minutes, order_index, source_day_id, note "
 	              "FROM program_days WHERE program_id = ? ORDER BY order_index");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать дни: %1").arg(query.lastError().text()));
 
 	while (query.next())
@@ -483,7 +483,7 @@ bool AProgram_Repository::Load_Days(const QString &in_program_id, QVector<SProgr
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Load_Day_Exercises(const QString &in_program_day_id, QVector<SDay_Exercise> &out_exercises)
 {
 	QSqlQuery query(Connection());
@@ -492,7 +492,7 @@ bool AProgram_Repository::Load_Day_Exercises(const QString &in_program_day_id, Q
 	Clear_Last_Error();
 	out_exercises.clear();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT id, exercise_id, order_index, sets, reps_min, reps_max, weight_mode, target_weight_kg, "
@@ -501,7 +501,7 @@ bool AProgram_Repository::Load_Day_Exercises(const QString &in_program_day_id, Q
 	              "ORDER BY order_index");
 	query.addBindValue(in_program_day_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать предписания: %1").arg(query.lastError().text()));
 
 	while (query.next())
@@ -513,7 +513,7 @@ bool AProgram_Repository::Load_Day_Exercises(const QString &in_program_day_id, Q
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Load_Exercise_Titles(const QVector<QString> &in_exercise_ids,
                                                QHash<QString, QString> &out_titles)
 {
@@ -525,7 +525,7 @@ bool AProgram_Repository::Load_Exercise_Titles(const QVector<QString> &in_exerci
 	if (in_exercise_ids.isEmpty())
 		return true;
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	// IN-список строится из подготовленных плейсхолдеров: значения не
@@ -536,7 +536,7 @@ bool AProgram_Repository::Load_Exercise_Titles(const QVector<QString> &in_exerci
 	for (int i = 0; i < in_exercise_ids.size(); ++i)
 		query.addBindValue(in_exercise_ids.at(i));
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать названия упражнений: %1").arg(query.lastError().text()));
 
 	while (query.next())
@@ -544,7 +544,7 @@ bool AProgram_Repository::Load_Exercise_Titles(const QVector<QString> &in_exerci
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Load_Schedule(const QString &in_program_id, QVector<SWeek_Slot> &out_slots)
 {
 	QSqlQuery query(Connection());
@@ -553,14 +553,14 @@ bool AProgram_Repository::Load_Schedule(const QString &in_program_id, QVector<SW
 	Clear_Last_Error();
 	out_slots.clear();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	query.prepare("SELECT id, day_of_week, rotation_index, program_day_id, kind, is_anchor, note "
 	              "FROM program_schedule WHERE program_id = ? ORDER BY day_of_week, rotation_index");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать расписание: %1").arg(query.lastError().text()));
 
 	while (query.next())
@@ -571,7 +571,7 @@ bool AProgram_Repository::Load_Schedule(const QString &in_program_id, QVector<SW
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Предписания всех дней программы одним запросом. Раньше здесь был цикл с
 bool AProgram_Repository::Load_Day_Exercises_By_Days(const QVector<SProgram_Day> &in_days,
                                                      QVector<SDay_Exercise> &out_exercises)
@@ -586,7 +586,7 @@ bool AProgram_Repository::Load_Day_Exercises_By_Days(const QVector<SProgram_Day>
 	if (in_days.isEmpty())
 		return true;
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	// Один запрос на всю программу вместо запроса на каждый день (N+1). Идентификаторы
@@ -600,7 +600,7 @@ bool AProgram_Repository::Load_Day_Exercises_By_Days(const QVector<SProgram_Day>
 	for (int i = 0; i < in_days.size(); ++i)
 		query.addBindValue(in_days.at(i).ID);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать предписания программы: %1").arg(query.lastError().text()));
 
 	while (query.next())
@@ -617,7 +617,7 @@ bool AProgram_Repository::Load_Day_Exercises_By_Days(const QVector<SProgram_Day>
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Load_Program_Full(const QString &in_program_id, SProgram &out_program,
                                             QVector<SGoal_Target> &out_targets, QVector<SProgram_Day> &out_days,
                                             QVector<SDay_Exercise> &out_exercises, QVector<SWeek_Slot> &out_slots)
@@ -628,21 +628,21 @@ bool AProgram_Repository::Load_Program_Full(const QString &in_program_id, SProgr
 	out_exercises.clear();
 	out_slots.clear();
 
-	if (Load_Program(in_program_id, out_program) == false)
+	if (!Load_Program(in_program_id, out_program))
 		return false;
 
-	if (Load_Goal_Targets(in_program_id, out_targets) == false)
+	if (!Load_Goal_Targets(in_program_id, out_targets))
 		return false;
 
-	if (Load_Days(in_program_id, out_days) == false)
+	if (!Load_Days(in_program_id, out_days))
 		return false;
 
-	if (Load_Day_Exercises_By_Days(out_days, out_exercises) == false)
+	if (!Load_Day_Exercises_By_Days(out_days, out_exercises))
 		return false;
 
 	return Load_Schedule(in_program_id, out_slots);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Insert_Program(const SProgram &in_program)
 {
 	QSqlQuery query(Connection());
@@ -651,7 +651,7 @@ bool AProgram_Repository::Insert_Program(const SProgram &in_program)
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	if (in_program.ID.isEmpty())
@@ -672,7 +672,7 @@ bool AProgram_Repository::Insert_Program(const SProgram &in_program)
 	    in_program.Created_At.isEmpty() ? QDateTime::currentDateTimeUtc().toString(Qt::ISODate) : in_program.Created_At;
 	updated_at = in_program.Updated_At.isEmpty() ? created_at : in_program.Updated_At;
 
-	if (Connection().transaction() == false)
+	if (!Connection().transaction())
 		return Set_Last_Error("Не удалось начать транзакцию");
 
 	query.prepare("INSERT INTO programs(id, user_id, title, source_kind, source_template_id, goal, level, "
@@ -700,26 +700,26 @@ bool AProgram_Repository::Insert_Program(const SProgram &in_program)
 	query.addBindValue(To_String(in_program.Sync_State));
 	query.addBindValue(Text_Column(in_program.Note));
 
-	if (query.exec() == false || Write_Revision_Row(in_program.ID, in_program.Revision, ERevision_Reason::State,
-	                                                "Программа создана", QString()) == false)
+	if (!query.exec() || !Write_Revision_Row(in_program.ID, in_program.Revision, ERevision_Reason::State,
+	                                         "Программа создана", QString()))
 	{
 		Connection().rollback();
 
-		if (Error_State.Has_Error() == false)
+		if (!Error_State.Has_Error())
 			Set_Last_Error(QString("Не удалось сохранить программу: %1").arg(query.lastError().text()));
 
 		return false;
 	}
 
-	if (Connection().commit() == false)
+	if (!Connection().commit())
 		return Set_Last_Error(QString("Не удалось зафиксировать программу: %1").arg(Connection().lastError().text()));
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Создание полной программы: строка программы, её структура и стартовая
 // ревизия фиксируются атомарно, чтобы не оставлять пустые/частичные планы.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Insert_Program_Full(const SProgram &in_program, const QVector<SGoal_Target> &in_targets,
                                               const QVector<SProgram_Day> &in_days,
                                               const QVector<SDay_Exercise> &in_exercises,
@@ -731,7 +731,7 @@ bool AProgram_Repository::Insert_Program_Full(const SProgram &in_program, const 
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
 	if (in_program.ID.isEmpty() || in_program.User_Id.isEmpty() || in_program.Title.trimmed().isEmpty())
@@ -740,15 +740,15 @@ bool AProgram_Repository::Insert_Program_Full(const SProgram &in_program, const 
 	if (in_program.State != EProgram_State::Draft || in_program.Revision != 1)
 		return Set_Last_Error("Новая программа должна начинаться в состоянии draft с ревизии 1");
 
-	if (Validate_Targets(in_program, in_targets) == false ||
-	    Validate_Structure(in_program.Schedule_Kind, in_days, in_exercises, in_slots) == false)
+	if (!Validate_Targets(in_program, in_targets) ||
+	    !Validate_Structure(in_program.Schedule_Kind, in_days, in_exercises, in_slots))
 		return false;
 
 	created_at =
 	    in_program.Created_At.isEmpty() ? QDateTime::currentDateTimeUtc().toString(Qt::ISODate) : in_program.Created_At;
 	updated_at = in_program.Updated_At.isEmpty() ? created_at : in_program.Updated_At;
 
-	if (Connection().transaction() == false)
+	if (!Connection().transaction())
 		return Set_Last_Error("Не удалось начать транзакцию создания программы");
 
 	query.prepare("INSERT INTO programs(id, user_id, title, source_kind, source_template_id, goal, level, "
@@ -781,27 +781,27 @@ bool AProgram_Repository::Insert_Program_Full(const SProgram &in_program, const 
 	query.addBindValue(To_String(ESync_State::Local));
 	query.addBindValue(Text_Column(in_program.Note));
 
-	if (query.exec() == false || Insert_Targets_Internal(in_program.ID, in_targets) == false ||
-	    Insert_Days_Internal(in_program.ID, in_days) == false || Insert_Day_Exercises_Internal(in_exercises) == false ||
-	    Insert_Slots_Internal(in_program.ID, in_slots) == false ||
+	if (!query.exec() || !Insert_Targets_Internal(in_program.ID, in_targets) ||
+	    !Insert_Days_Internal(in_program.ID, in_days) || !Insert_Day_Exercises_Internal(in_exercises) ||
+	    !Insert_Slots_Internal(in_program.ID, in_slots) ||
 	    Write_Revision_Row(in_program.ID, 1, ERevision_Reason::State, "Программа создана со структурой", QString()) ==
 	        false)
 	{
 		Connection().rollback();
 
-		if (Error_State.Has_Error() == false)
+		if (!Error_State.Has_Error())
 			Set_Last_Error(QString("Не удалось создать программу: %1").arg(query.lastError().text()));
 
 		return false;
 	}
 
-	if (Connection().commit() == false)
+	if (!Connection().commit())
 		return Set_Last_Error(
 		    QString("Не удалось зафиксировать создание программы: %1").arg(Connection().lastError().text()));
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Insert_Targets_Internal(const QString &in_program_id, const QVector<SGoal_Target> &in_targets)
 {
 	QSqlQuery query(Connection());
@@ -831,14 +831,14 @@ bool AProgram_Repository::Insert_Targets_Internal(const QString &in_program_id, 
 		query.addBindValue(Text_Column(target.Target_Date));
 		query.addBindValue(To_String(target.State));
 
-		if (query.exec() == false)
+		if (!query.exec())
 			return Set_Last_Error(
 			    QString("Не удалось сохранить цель %1: %2").arg(target.ID).arg(query.lastError().text()));
 	}
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Insert_Days_Internal(const QString &in_program_id, const QVector<SProgram_Day> &in_days)
 {
 	QSqlQuery query(Connection());
@@ -863,14 +863,14 @@ bool AProgram_Repository::Insert_Days_Internal(const QString &in_program_id, con
 		query.addBindValue(Text_Column(day.Source_Day_Id));
 		query.addBindValue(Text_Column(day.Note));
 
-		if (query.exec() == false)
+		if (!query.exec())
 			return Set_Last_Error(
 			    QString("Не удалось сохранить день %1: %2").arg(day.ID).arg(query.lastError().text()));
 	}
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Insert_Day_Exercises_Internal(const QVector<SDay_Exercise> &in_exercises)
 {
 	QSqlQuery query(Connection());
@@ -908,14 +908,14 @@ bool AProgram_Repository::Insert_Day_Exercises_Internal(const QVector<SDay_Exerc
 		query.addBindValue(exercise.Is_Optional ? 1 : 0);
 		query.addBindValue(Text_Column(exercise.Note));
 
-		if (query.exec() == false)
+		if (!query.exec())
 			return Set_Last_Error(
 			    QString("Не удалось сохранить предписание %1: %2").arg(exercise.ID).arg(query.lastError().text()));
 	}
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Insert_Slots_Internal(const QString &in_program_id, const QVector<SWeek_Slot> &in_slots)
 {
 	QSqlQuery query(Connection());
@@ -939,29 +939,29 @@ bool AProgram_Repository::Insert_Slots_Internal(const QString &in_program_id, co
 		query.addBindValue(slot.Is_Anchor ? 1 : 0);
 		query.addBindValue(Text_Column(slot.Note));
 
-		if (query.exec() == false)
+		if (!query.exec())
 			return Set_Last_Error(
 			    QString("Не удалось сохранить слот %1: %2").arg(slot.ID).arg(query.lastError().text()));
 	}
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Validate_Structure(ESchedule_Kind in_kind, const QVector<SProgram_Day> &in_days,
                                              const QVector<SDay_Exercise> &in_exercises,
                                              const QVector<SWeek_Slot> &in_slots)
 {
 	QSet<QString> day_ids;
 
-	if (Validate_Days(in_days, day_ids) == false)
+	if (!Validate_Days(in_days, day_ids))
 		return false;
 
-	if (Validate_Day_Exercises(in_exercises, day_ids) == false)
+	if (!Validate_Day_Exercises(in_exercises, day_ids))
 		return false;
 
 	return Validate_Slots(in_kind, in_slots, day_ids);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Validate_Days(const QVector<SProgram_Day> &in_days, QSet<QString> &out_day_ids)
 {
 	out_day_ids.clear();
@@ -979,7 +979,7 @@ bool AProgram_Repository::Validate_Days(const QVector<SProgram_Day> &in_days, QS
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Validate_Day_Exercises(const QVector<SDay_Exercise> &in_exercises,
                                                  const QSet<QString> &in_day_ids)
 {
@@ -990,7 +990,7 @@ bool AProgram_Repository::Validate_Day_Exercises(const QVector<SDay_Exercise> &i
 		if (exercise.Exercise_Id.isEmpty())
 			return Set_Last_Error(QString("Предписание %1 без упражнения").arg(exercise.ID));
 
-		if (in_day_ids.contains(exercise.Program_Day_Id) == false)
+		if (!in_day_ids.contains(exercise.Program_Day_Id))
 			return Set_Last_Error(QString("Предписание %1 ссылается на неизвестный день %2")
 			                          .arg(exercise.ID)
 			                          .arg(exercise.Program_Day_Id));
@@ -1004,7 +1004,7 @@ bool AProgram_Repository::Validate_Day_Exercises(const QVector<SDay_Exercise> &i
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QString Slot_Position_Error(ESchedule_Kind in_kind, const SWeek_Slot &in_slot)
 {
 	if (in_kind == ESchedule_Kind::Weekday)
@@ -1012,10 +1012,10 @@ static QString Slot_Position_Error(ESchedule_Kind in_kind, const SWeek_Slot &in_
 
 	return QString("Слот %1: позиция ротации должна быть не меньше 1").arg(in_slot.ID);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Слоты расписания: отдых не ссылается на день, тренировка ссылается на день
 // из нового состава (§3.4), позиция уникальна внутри расписания.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Validate_Slots(ESchedule_Kind in_kind, const QVector<SWeek_Slot> &in_slots,
                                          const QSet<QString> &in_day_ids)
 {
@@ -1029,7 +1029,7 @@ bool AProgram_Repository::Validate_Slots(ESchedule_Kind in_kind, const QVector<S
 		if (slot.ID.isEmpty())
 			return Set_Last_Error("Пустой идентификатор слота расписания");
 
-		if (Validate_Slot_Day(slot, in_day_ids) == false)
+		if (!Validate_Slot_Day(slot, in_day_ids))
 			return false;
 
 		position = Slot_Position(in_kind, slot);
@@ -1045,12 +1045,12 @@ bool AProgram_Repository::Validate_Slots(ESchedule_Kind in_kind, const QVector<S
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Validate_Slot_Day(const SWeek_Slot &in_slot, const QSet<QString> &in_day_ids)
 {
 	if (in_slot.Kind == ESlot_Kind::Rest)
 	{
-		if (in_slot.Program_Day_Id.isEmpty() == false)
+		if (!in_slot.Program_Day_Id.isEmpty())
 			return Set_Last_Error(QString("Слот отдыха %1 не может ссылаться на день").arg(in_slot.ID));
 
 		return true;
@@ -1059,17 +1059,17 @@ bool AProgram_Repository::Validate_Slot_Day(const SWeek_Slot &in_slot, const QSe
 	if (in_slot.Program_Day_Id.isEmpty())
 		return Set_Last_Error(QString("Слот %1 без ссылки на день плана").arg(in_slot.ID));
 
-	if (in_day_ids.contains(in_slot.Program_Day_Id) == false)
+	if (!in_day_ids.contains(in_slot.Program_Day_Id))
 		return Set_Last_Error(
 		    QString("Слот %1 ссылается на неизвестный день %2").arg(in_slot.ID).arg(in_slot.Program_Day_Id));
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Позиция слота: для расписания по дням недели — ISO-день, для ротации —
 // индекс витка. Ноль означает «позиция некорректна», текст ошибки строит
 // Slot_Position_Error.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AProgram_Repository::Slot_Position(ESchedule_Kind in_kind, const SWeek_Slot &in_slot) const
 {
 	if (in_kind == ESchedule_Kind::Weekday)
@@ -1086,7 +1086,7 @@ int AProgram_Repository::Slot_Position(ESchedule_Kind in_kind, const SWeek_Slot 
 // (fatLoss/strength) не может остаться без целей; инвариант 9 — направление
 // согласовано со стартовым и целевым значением (проверяется только при
 // заданном startValue).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Validate_Targets(const SProgram &in_program, const QVector<SGoal_Target> &in_targets)
 {
 	QSet<QString> target_ids;
@@ -1112,22 +1112,22 @@ bool AProgram_Repository::Validate_Targets(const SProgram &in_program, const QVe
 
 		target_ids.insert(target.ID);
 
-		if (Check_Goal_Direction(target) == false)
+		if (!Check_Goal_Direction(target))
 			return false;
 	}
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Инвариант 9 §4: направление согласовано со стартовым и целевым
 // значением. Проверяется только при заданном стартовом значении: без него
 // нечего сравнивать.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Check_Goal_Direction(const SGoal_Target &in_target)
 {
 	double tolerance = 1e-6;
 
-	if (in_target.Has_Start_Value == false)
+	if (!in_target.Has_Start_Value)
 		return true;
 
 	if (in_target.Direction == EGoal_Direction::Decrease && in_target.Target_Value >= in_target.Start_Value)
@@ -1148,13 +1148,13 @@ bool AProgram_Repository::Check_Goal_Direction(const SGoal_Target &in_target)
 	return Set_Last_Error(
 	    QString("Цель %1: при direction=maintain цель должна равняться стартовому значению").arg(in_target.ID));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AProgram_Repository::Build_Goal_Targets_Snapshot(const QString &in_program_id)
 {
 	QVector<SGoal_Target> targets;
 	QJsonArray array;
 
-	if (Load_Goal_Targets(in_program_id, targets) == false)
+	if (!Load_Goal_Targets(in_program_id, targets))
 		return QString();
 
 	for (int i = 0; i < targets.size(); ++i)
@@ -1162,7 +1162,7 @@ QString AProgram_Repository::Build_Goal_Targets_Snapshot(const QString &in_progr
 
 	return QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AProgram_Repository::Build_Structure_Snapshot(const QString &in_program_id)
 {
 	QVector<SProgram_Day> days;
@@ -1173,14 +1173,14 @@ QString AProgram_Repository::Build_Structure_Snapshot(const QString &in_program_
 	QJsonArray exercise_array;
 	QJsonArray slot_array;
 
-	if (Load_Days(in_program_id, days) == false || Load_Schedule(in_program_id, week_slots) == false)
+	if (!Load_Days(in_program_id, days) || !Load_Schedule(in_program_id, week_slots))
 		return QString();
 
 	for (int i = 0; i < days.size(); ++i)
 	{
 		QVector<SDay_Exercise> day_exercises;
 
-		if (Load_Day_Exercises(days.at(i).ID, day_exercises) == false)
+		if (!Load_Day_Exercises(days.at(i).ID, day_exercises))
 			return QString();
 
 		day_array.append(Day_Snapshot_Object(days.at(i)));
@@ -1201,16 +1201,16 @@ QString AProgram_Repository::Build_Structure_Snapshot(const QString &in_program_
 
 	return QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Снимок только расписания (§3.9: «снимок изменённой части») — для
 // Replace_Schedule, который дни и предписания не трогает.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AProgram_Repository::Build_Schedule_Snapshot(const QString &in_program_id)
 {
 	QVector<SWeek_Slot> week_slots;
 	QJsonArray slot_array;
 
-	if (Load_Schedule(in_program_id, week_slots) == false)
+	if (!Load_Schedule(in_program_id, week_slots))
 		return QString();
 
 	for (int i = 0; i < week_slots.size(); ++i)
@@ -1218,28 +1218,28 @@ QString AProgram_Repository::Build_Schedule_Snapshot(const QString &in_program_i
 
 	return QString::fromUtf8(QJsonDocument(slot_array).toJson(QJsonDocument::Compact));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Снимок старого состояния обязателен для каждой правки с журналом: пустой
 // снимок (ошибка чтения) означал бы запись ревизии без истории §3.9 —
 // такую правку корректнее откатить. Пустая строка при успешном чтении
 // невозможна: сериализаторы всегда возвращают «[]» или объект.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Require_Snapshot(const QString &in_snapshot, const QString &in_section)
 {
-	if (in_snapshot.isEmpty() == false)
+	if (!in_snapshot.isEmpty())
 		return true;
 
-	if (Error_State.Has_Error() == false)
+	if (!Error_State.Has_Error())
 		return Set_Last_Error(
 		    QString("Не удалось прочитать прежнее состояние раздела %1 для журнала ревизий").arg(in_section));
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Общий каркас транзакционной правки: снимок старого раздела →
 // замена → инкремент ревизии → строка журнала → commit. Отказ на
 // любом шаге = rollback.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Replace_Goal_Targets(const QString &in_program_id, const QVector<SGoal_Target> &in_targets)
 {
 	SProgram program;
@@ -1248,21 +1248,21 @@ bool AProgram_Repository::Replace_Goal_Targets(const QString &in_program_id, con
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
-	if (Check_Editable(in_program_id, program) == false)
+	if (!Check_Editable(in_program_id, program))
 		return false;
 
-	if (Validate_Targets(program, in_targets) == false)
+	if (!Validate_Targets(program, in_targets))
 		return false;
 
-	if (Connection().transaction() == false)
+	if (!Connection().transaction())
 		return Set_Last_Error("Не удалось начать транзакцию");
 
 	snapshot = Build_Goal_Targets_Snapshot(in_program_id);
 
-	if (Require_Snapshot(snapshot, "целей") == false)
+	if (!Require_Snapshot(snapshot, "целей"))
 	{
 		Connection().rollback();
 
@@ -1272,25 +1272,25 @@ bool AProgram_Repository::Replace_Goal_Targets(const QString &in_program_id, con
 	query.prepare("DELETE FROM goal_targets WHERE program_id = ?");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false || Insert_Targets_Internal(in_program_id, in_targets) == false ||
-	    Bump_Revision_Internal(in_program_id, program.Revision) == false ||
-	    Write_Revision_Row(in_program_id, program.Revision + 1, ERevision_Reason::Goal, "Правка целей программы",
-	                       snapshot) == false)
+	if (!query.exec() || !Insert_Targets_Internal(in_program_id, in_targets) ||
+	    !Bump_Revision_Internal(in_program_id, program.Revision) ||
+	    !Write_Revision_Row(in_program_id, program.Revision + 1, ERevision_Reason::Goal, "Правка целей программы",
+	                        snapshot))
 	{
 		Connection().rollback();
 
-		if (Error_State.Has_Error() == false)
+		if (!Error_State.Has_Error())
 			Set_Last_Error(QString("Не удалось заменить цели: %1").arg(query.lastError().text()));
 
 		return false;
 	}
 
-	if (Connection().commit() == false)
+	if (!Connection().commit())
 		return Set_Last_Error("Не удалось зафиксировать правку целей");
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Change_Profile(const QString &in_program_id, const QString &in_title, EProgram_Goal in_goal,
                                          EProgram_Level in_level)
 {
@@ -1300,10 +1300,10 @@ bool AProgram_Repository::Change_Profile(const QString &in_program_id, const QSt
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
-	if (Check_Editable(in_program_id, program) == false)
+	if (!Check_Editable(in_program_id, program))
 		return false;
 
 	// Пустое название оставлять нельзя: каталог показывал бы строку без
@@ -1311,7 +1311,7 @@ bool AProgram_Repository::Change_Profile(const QString &in_program_id, const QSt
 	if (in_title.trimmed().isEmpty())
 		return Set_Last_Error("Название программы не может быть пустым");
 
-	if (Connection().transaction() == false)
+	if (!Connection().transaction())
 		return Set_Last_Error("Не удалось начать транзакцию");
 
 	// Снимок паспортных полей: журнал ревизий объясняет, что менялось, даже
@@ -1329,7 +1329,7 @@ bool AProgram_Repository::Change_Profile(const QString &in_program_id, const QSt
 	query.addBindValue(in_program_id);
 	query.addBindValue(program.Revision);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		Connection().rollback();
 
@@ -1343,20 +1343,20 @@ bool AProgram_Repository::Change_Profile(const QString &in_program_id, const QSt
 		return Set_Last_Error("Ревизия программы изменилась параллельно, правка отклонена");
 	}
 
-	if (Write_Revision_Row(in_program_id, program.Revision + 1, ERevision_Reason::Goal, "Изменение описания",
-	                       QString::fromUtf8(QJsonDocument(snapshot).toJson(QJsonDocument::Compact))) == false)
+	if (!Write_Revision_Row(in_program_id, program.Revision + 1, ERevision_Reason::Goal, "Изменение описания",
+	                        QString::fromUtf8(QJsonDocument(snapshot).toJson(QJsonDocument::Compact))))
 	{
 		Connection().rollback();
 
 		return false;
 	}
 
-	if (Connection().commit() == false)
+	if (!Connection().commit())
 		return Set_Last_Error("Не удалось сохранить изменения программы");
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Change_Term(const QString &in_program_id, const STerm &in_term)
 {
 	SProgram program;
@@ -1365,13 +1365,13 @@ bool AProgram_Repository::Change_Term(const QString &in_program_id, const STerm 
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
-	if (Check_Editable(in_program_id, program) == false)
+	if (!Check_Editable(in_program_id, program))
 		return false;
 
-	if (Connection().transaction() == false)
+	if (!Connection().transaction())
 		return Set_Last_Error("Не удалось начать транзакцию");
 
 	snapshot = Term_Snapshot_Json(program.Term);
@@ -1389,7 +1389,7 @@ bool AProgram_Repository::Change_Term(const QString &in_program_id, const STerm 
 	query.addBindValue(in_program_id);
 	query.addBindValue(program.Revision);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		Connection().rollback();
 
@@ -1411,12 +1411,12 @@ bool AProgram_Repository::Change_Term(const QString &in_program_id, const STerm 
 		return false;
 	}
 
-	if (Connection().commit() == false)
+	if (!Connection().commit())
 		return Set_Last_Error("Не удалось зафиксировать изменение срока");
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Replace_Schedule(const QString &in_program_id, const QVector<SWeek_Slot> &in_slots)
 {
 	SProgram program;
@@ -1426,26 +1426,26 @@ bool AProgram_Repository::Replace_Schedule(const QString &in_program_id, const Q
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
-	if (Check_Editable(in_program_id, program) == false)
+	if (!Check_Editable(in_program_id, program))
 		return false;
 
-	if (Load_Days(in_program_id, days) == false)
+	if (!Load_Days(in_program_id, days))
 		return false;
 
-	if (Validate_Structure(program.Schedule_Kind, days, QVector<SDay_Exercise>(), in_slots) == false)
+	if (!Validate_Structure(program.Schedule_Kind, days, QVector<SDay_Exercise>(), in_slots))
 		return false;
 
-	if (Connection().transaction() == false)
+	if (!Connection().transaction())
 		return Set_Last_Error("Не удалось начать транзакцию");
 
 	// Снимок только изменяемого раздела (§3.9): правка расписания не
 	// затрагивает дни и предписания.
 	snapshot = Build_Schedule_Snapshot(in_program_id);
 
-	if (Require_Snapshot(snapshot, "расписания") == false)
+	if (!Require_Snapshot(snapshot, "расписания"))
 	{
 		Connection().rollback();
 
@@ -1455,25 +1455,25 @@ bool AProgram_Repository::Replace_Schedule(const QString &in_program_id, const Q
 	query.prepare("DELETE FROM program_schedule WHERE program_id = ?");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false || Insert_Slots_Internal(in_program_id, in_slots) == false ||
-	    Bump_Revision_Internal(in_program_id, program.Revision) == false ||
-	    Write_Revision_Row(in_program_id, program.Revision + 1, ERevision_Reason::Schedule, "Правка расписания",
-	                       snapshot) == false)
+	if (!query.exec() || !Insert_Slots_Internal(in_program_id, in_slots) ||
+	    !Bump_Revision_Internal(in_program_id, program.Revision) ||
+	    !Write_Revision_Row(in_program_id, program.Revision + 1, ERevision_Reason::Schedule, "Правка расписания",
+	                        snapshot))
 	{
 		Connection().rollback();
 
-		if (Error_State.Has_Error() == false)
+		if (!Error_State.Has_Error())
 			Set_Last_Error(QString("Не удалось заменить расписание: %1").arg(query.lastError().text()));
 
 		return false;
 	}
 
-	if (Connection().commit() == false)
+	if (!Connection().commit())
 		return Set_Last_Error("Не удалось зафиксировать расписание");
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Replace_Structure(const QString &in_program_id, const QVector<SProgram_Day> &in_days,
                                             const QVector<SDay_Exercise> &in_exercises,
                                             const QVector<SWeek_Slot> &in_slots, ERevision_Reason in_reason,
@@ -1486,16 +1486,16 @@ bool AProgram_Repository::Replace_Structure(const QString &in_program_id, const 
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
-	if (Check_Editable(in_program_id, program) == false)
+	if (!Check_Editable(in_program_id, program))
 		return false;
 
-	if (Validate_Structure(program.Schedule_Kind, in_days, in_exercises, in_slots) == false)
+	if (!Validate_Structure(program.Schedule_Kind, in_days, in_exercises, in_slots))
 		return false;
 
-	if (Connection().transaction() == false)
+	if (!Connection().transaction())
 		return Set_Last_Error("Не удалось начать транзакцию");
 
 	// Снимок старой структуры — до удаления дней: после него ссылки
@@ -1504,7 +1504,7 @@ bool AProgram_Repository::Replace_Structure(const QString &in_program_id, const 
 	snapshot = Build_Structure_Snapshot(in_program_id);
 	summary = in_summary.isEmpty() ? "Правка структуры программы" : in_summary;
 
-	if (Require_Snapshot(snapshot, "структуры") == false)
+	if (!Require_Snapshot(snapshot, "структуры"))
 	{
 		Connection().rollback();
 
@@ -1514,7 +1514,7 @@ bool AProgram_Repository::Replace_Structure(const QString &in_program_id, const 
 	query.prepare("DELETE FROM program_schedule WHERE program_id = ?");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		Connection().rollback();
 
@@ -1524,26 +1524,25 @@ bool AProgram_Repository::Replace_Structure(const QString &in_program_id, const 
 	query.prepare("DELETE FROM program_days WHERE program_id = ?");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false || Insert_Days_Internal(in_program_id, in_days) == false ||
-	    Insert_Day_Exercises_Internal(in_exercises) == false ||
-	    Insert_Slots_Internal(in_program_id, in_slots) == false ||
-	    Bump_Revision_Internal(in_program_id, program.Revision) == false ||
-	    Write_Revision_Row(in_program_id, program.Revision + 1, in_reason, summary, snapshot) == false)
+	if (!query.exec() || !Insert_Days_Internal(in_program_id, in_days) ||
+	    !Insert_Day_Exercises_Internal(in_exercises) || !Insert_Slots_Internal(in_program_id, in_slots) ||
+	    !Bump_Revision_Internal(in_program_id, program.Revision) ||
+	    !Write_Revision_Row(in_program_id, program.Revision + 1, in_reason, summary, snapshot))
 	{
 		Connection().rollback();
 
-		if (Error_State.Has_Error() == false)
+		if (!Error_State.Has_Error())
 			Set_Last_Error(QString("Не удалось заменить структуру: %1").arg(query.lastError().text()));
 
 		return false;
 	}
 
-	if (Connection().commit() == false)
+	if (!Connection().commit())
 		return Set_Last_Error("Не удалось зафиксировать структуру");
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AProgram_Repository::Change_State(const QString &in_program_id, EProgram_State in_new_state)
 {
 	SProgram program;
@@ -1553,10 +1552,10 @@ bool AProgram_Repository::Change_State(const QString &in_program_id, EProgram_St
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
-	if (Load_Program(in_program_id, program) == false)
+	if (!Load_Program(in_program_id, program))
 		return false;
 
 	// Разрешённые переходы — §3.1.
@@ -1568,12 +1567,12 @@ bool AProgram_Repository::Change_State(const QString &in_program_id, EProgram_St
 	          ((program.State == EProgram_State::Completed || program.State == EProgram_State::Cancelled) &&
 	           in_new_state == EProgram_State::Archived);
 
-	if (allowed == false)
+	if (!allowed)
 		return Set_Last_Error(QString("Переход состояния %1 → %2 не разрешён (§3.1)")
 		                          .arg(To_String(program.State))
 		                          .arg(To_String(in_new_state)));
 
-	if (Connection().transaction() == false)
+	if (!Connection().transaction())
 		return Set_Last_Error("Не удалось начать транзакцию");
 
 	// Активация фиксирует фактическую дату старта, если она ещё не
@@ -1593,7 +1592,7 @@ bool AProgram_Repository::Change_State(const QString &in_program_id, EProgram_St
 	query.addBindValue(in_program_id);
 	query.addBindValue(program.Revision);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		Connection().rollback();
 
@@ -1607,21 +1606,21 @@ bool AProgram_Repository::Change_State(const QString &in_program_id, EProgram_St
 		return Set_Last_Error("Ревизия программы изменилась параллельно, смена состояния отклонена");
 	}
 
-	if (Write_Revision_Row(in_program_id, program.Revision + 1, ERevision_Reason::State,
-	                       QString("Состояние: %1 → %2").arg(To_String(program.State)).arg(To_String(in_new_state)),
-	                       QString()) == false)
+	if (!Write_Revision_Row(in_program_id, program.Revision + 1, ERevision_Reason::State,
+	                        QString("Состояние: %1 → %2").arg(To_String(program.State)).arg(To_String(in_new_state)),
+	                        QString()))
 	{
 		Connection().rollback();
 
 		return false;
 	}
 
-	if (Connection().commit() == false)
+	if (!Connection().commit())
 		return Set_Last_Error("Не удалось зафиксировать состояние");
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Включение программы при инварианте «одна активная на пользователя» (§2.3).
 // Прежняя активная программа переводится в паузу — без этого вторая активация
 // упирается в частичный уникальный индекс programs_one_active_per_user, и
@@ -1645,10 +1644,10 @@ bool AProgram_Repository::Activate_Exclusive(const QString &in_program_id, QStri
 	Clear_Last_Error();
 	out_paused_program_id.clear();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
-	if (Load_Program(in_program_id, program) == false)
+	if (!Load_Program(in_program_id, program))
 		return false;
 
 	if (program.State == EProgram_State::Active)
@@ -1668,7 +1667,7 @@ bool AProgram_Repository::Activate_Exclusive(const QString &in_program_id, QStri
 	query.prepare("SELECT id FROM programs WHERE user_id = ? AND state = 'active' ORDER BY created_at LIMIT 1");
 	query.addBindValue(program.User_Id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось найти активную программу: %1").arg(query.lastError().text()));
 
 	active_program_id = query.next() ? query.value(0).toString() : QString();
@@ -1676,13 +1675,13 @@ bool AProgram_Repository::Activate_Exclusive(const QString &in_program_id, QStri
 	if (active_program_id == in_program_id)
 		return true;
 
-	if (active_program_id.isEmpty() == false && Load_Program(active_program_id, previous) == false)
+	if (!active_program_id.isEmpty() && !Load_Program(active_program_id, previous))
 		return false;
 
-	if (Connection().transaction() == false)
+	if (!Connection().transaction())
 		return Set_Last_Error("Не удалось начать транзакцию");
 
-	if (active_program_id.isEmpty() == false)
+	if (!active_program_id.isEmpty())
 	{
 		// Оптимистичная блокировка, как в Change_State: пауза применяется
 		// только к прочитанной ревизии прежней программы.
@@ -1693,7 +1692,7 @@ bool AProgram_Repository::Activate_Exclusive(const QString &in_program_id, QStri
 		query.addBindValue(active_program_id);
 		query.addBindValue(previous.Revision);
 
-		if (query.exec() == false)
+		if (!query.exec())
 		{
 			Connection().rollback();
 
@@ -1708,8 +1707,8 @@ bool AProgram_Repository::Activate_Exclusive(const QString &in_program_id, QStri
 			return Set_Last_Error("Ревизия прежней программы изменилась параллельно, включение отклонено");
 		}
 
-		if (Write_Revision_Row(active_program_id, previous.Revision + 1, ERevision_Reason::State,
-		                       QString("Пауза: включена программа «%1»").arg(program.Title), QString()) == false)
+		if (!Write_Revision_Row(active_program_id, previous.Revision + 1, ERevision_Reason::State,
+		                        QString("Пауза: включена программа «%1»").arg(program.Title), QString()))
 		{
 			Connection().rollback();
 
@@ -1732,7 +1731,7 @@ bool AProgram_Repository::Activate_Exclusive(const QString &in_program_id, QStri
 	query.addBindValue(in_program_id);
 	query.addBindValue(program.Revision);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		Connection().rollback();
 
@@ -1746,24 +1745,24 @@ bool AProgram_Repository::Activate_Exclusive(const QString &in_program_id, QStri
 		return Set_Last_Error("Ревизия программы изменилась параллельно, смена состояния отклонена");
 	}
 
-	if (Write_Revision_Row(
+	if (!Write_Revision_Row(
 	        in_program_id, program.Revision + 1, ERevision_Reason::State,
 	        QString("Состояние: %1 → %2").arg(To_String(program.State)).arg(To_String(EProgram_State::Active)),
-	        QString()) == false)
+	        QString()))
 	{
 		Connection().rollback();
 
 		return false;
 	}
 
-	if (Connection().commit() == false)
+	if (!Connection().commit())
 		return Set_Last_Error("Не удалось зафиксировать состояние");
 
 	out_paused_program_id = active_program_id;
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Удаление черновика (§3.1). Брошенное создание не должно копиться в каталоге
 // вечно: «Удалить черновик» в редакторе стирает его вместе с днями,
 // упражнениями, целями, расписанием, правилами и журналом ревизий — все
@@ -1780,32 +1779,32 @@ bool AProgram_Repository::Delete_Draft(const QString &in_program_id)
 
 	Clear_Last_Error();
 
-	if (Check_Open() == false)
+	if (!Check_Open())
 		return false;
 
-	if (Load_Program(in_program_id, program) == false)
+	if (!Load_Program(in_program_id, program))
 		return false;
 
 	if (program.State != EProgram_State::Draft)
 		return Set_Last_Error(
 		    QString("Удалить можно только черновик, состояние программы — %1 (§3.1)").arg(To_String(program.State)));
 
-	if (Connection().transaction() == false)
+	if (!Connection().transaction())
 		return Set_Last_Error("Не удалось начать транзакцию");
 
 	query.prepare("DELETE FROM programs WHERE id = ?");
 	query.addBindValue(in_program_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		Connection().rollback();
 
 		return Set_Last_Error(QString("Не удалось удалить черновик: %1").arg(query.lastError().text()));
 	}
 
-	if (Connection().commit() == false)
+	if (!Connection().commit())
 		return Set_Last_Error("Не удалось зафиксировать удаление черновика");
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

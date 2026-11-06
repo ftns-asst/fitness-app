@@ -1,4 +1,4 @@
-#include "Data/Auth/Auth_Session.h"
+﻿#include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Exercises/Exercises_Api.h"
@@ -28,6 +28,9 @@ private slots:
 	void listIncompleteSuccessReportsUndefinedError();
 	void muscleGroupsParseArray();
 	void equipmentsParseArray();
+	void listIgnoresForeignSessionResponses();
+	void listSurvivesTokenRefresh();
+	void oneEncodesIdInPath();
 
 private:
 	static STest_Http_Response JSON_Response(int in_status, const QByteArray &in_body);
@@ -35,7 +38,7 @@ private:
 	void Make_Api(ATest_Http_Server &in_server, AsAuth_Session *&out_session, QTemporaryDir &out_dir,
 	              bool in_with_session, AExercises_Api *&out_api);
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Response AExercises_Api_Test::JSON_Response(int in_status, const QByteArray &in_body)
 {
 	STest_Http_Response response;
@@ -45,7 +48,7 @@ STest_Http_Response AExercises_Api_Test::JSON_Response(int in_status, const QByt
 
 	return response;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray AExercises_Api_Test::Exercise_Array_Body()
 {
 	// Голый массив без обёртки и total (docs/03, §3.9); у второго упражнения
@@ -60,7 +63,7 @@ QByteArray AExercises_Api_Test::Exercise_Array_Body()
 	                  "\"created_at\":\"2026-10-02T10:00:00Z\"}"
 	                  "]");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api_Test::Make_Api(ATest_Http_Server &in_server, AsAuth_Session *&out_session, QTemporaryDir &out_dir,
                                    bool in_with_session, AExercises_Api *&out_api)
 {
@@ -86,7 +89,7 @@ void AExercises_Api_Test::Make_Api(ATest_Http_Server &in_server, AsAuth_Session 
 	out_session = session;
 	out_api = api;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api_Test::listParsesExerciseArray()
 {
 	ATest_Http_Server server;
@@ -123,12 +126,12 @@ void AExercises_Api_Test::listParsesExerciseArray()
 	QCOMPARE(items[1].ID, QString("bbbbbbbb-1111-2222-3333-444444444444"));
 	QCOMPARE(items[1].Name, QString("Push up"));
 	QVERIFY(items[1].Description.isEmpty());
-	QVERIFY(items[1].Has_Owner == false);
+	QVERIFY(!items[1].Has_Owner);
 	QCOMPARE(items[1].Muscle_Groups, QStringList({"chest", "triceps"}));
 	QVERIFY(items[1].Equipment.isEmpty());
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!error.Is_Error());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api_Test::listEncodesFiltersAndPagination()
 {
 	ATest_Http_Server server;
@@ -161,7 +164,7 @@ void AExercises_Api_Test::listEncodesFiltersAndPagination()
 	QVERIFY(target.indexOf(QByteArray("жим")) < 0);
 	QVERIFY(target.count(QByteArray("muscle_group=")) == 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api_Test::listRejectsInvalidParameters()
 {
 	ATest_Http_Server server;
@@ -180,9 +183,9 @@ void AExercises_Api_Test::listRejectsInvalidParameters()
 	QCOMPARE(api->Get_List("all", QStringList(), QStringList(), QString(), 50, -1), 0);
 	QCOMPARE(api->Get_List("all", QStringList(), QStringList(), QString(), 50, 100001), 0);
 	QCOMPARE(server.Request_Count(), 0);
-	QVERIFY(api->Last_Error().isEmpty() == false);
+	QVERIFY(!api->Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api_Test::listGoesAnonymousWithoutSession()
 {
 	ATest_Http_Server server;
@@ -200,9 +203,9 @@ void AExercises_Api_Test::listGoesAnonymousWithoutSession()
 	QVERIFY(api->Get_List("basic", QStringList(), QStringList(), QString(), 50, 0) > 0);
 	QVERIFY(spy.wait(5000));
 
-	QVERIFY(server.Request_At(0).Headers.contains("authorization") == false);
+	QVERIFY(!server.Request_At(0).Headers.contains("authorization"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api_Test::listSendsBearerWithSession()
 {
 	ATest_Http_Server server;
@@ -222,7 +225,7 @@ void AExercises_Api_Test::listSendsBearerWithSession()
 
 	QCOMPARE(server.Request_At(0).Headers.value("authorization"), QByteArray("Bearer stored-access"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api_Test::listPreservesBackendErrorKey()
 {
 	ATest_Http_Server server;
@@ -247,7 +250,7 @@ void AExercises_Api_Test::listPreservesBackendErrorKey()
 	QVERIFY(error.Is_Error());
 	QCOMPARE(error.Key(), QString("user_id_required_for_filter"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api_Test::listIncompleteSuccessReportsUndefinedError()
 {
 	ATest_Http_Server server;
@@ -272,7 +275,7 @@ void AExercises_Api_Test::listIncompleteSuccessReportsUndefinedError()
 	QVERIFY(error.Is_Error());
 	QCOMPARE(error.Key(), QString("undefined_error"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api_Test::muscleGroupsParseArray()
 {
 	ATest_Http_Server server;
@@ -296,10 +299,10 @@ void AExercises_Api_Test::muscleGroupsParseArray()
 	error = qvariant_cast<AApi_Error>(arguments.at(2));
 
 	QCOMPARE(groups, QStringList({"chest", "biceps"}));
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!error.Is_Error());
 	QCOMPARE(server.Request_At(0).Target, QByteArray("/api/v1/muscle-groups"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api_Test::equipmentsParseArray()
 {
 	ATest_Http_Server server;
@@ -323,9 +326,108 @@ void AExercises_Api_Test::equipmentsParseArray()
 	error = qvariant_cast<AApi_Error>(arguments.at(2));
 
 	QCOMPARE(equipments, QStringList({"barbell", "dumbbell"}));
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!error.Is_Error());
 	QCOMPARE(server.Request_At(0).Target, QByteArray("/api/v1/equipments"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+// Ответ на чужой запрос той же сессии не должен попасть в каталог: идентификаторы
+// сессии и логические идентификаторы API — разные пространства.
+//-------------------------------------------------------------------------------------------------------------
+void AExercises_Api_Test::listIgnoresForeignSessionResponses()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AsAuth_Session *session = 0;
+	AExercises_Api *api = 0;
+	SHttp_Request foreign_request;
+
+	Make_Api(server, session, directory, true, api);
+	QSignalSpy spy(api, &AExercises_Api::listFinished);
+	QSignalSpy session_spy(session, &AsAuth_Session::requestFinished);
+	QList<QVariant> arguments;
+	QVector<SExercises_Item> items;
+	AApi_Error error;
+
+	server.Enqueue_Response(JSON_Response(200, QByteArray("{\"id\":\"user-1\"}")));
+	server.Enqueue_Response(JSON_Response(200, Exercise_Array_Body()));
+
+	foreign_request.Method = "GET";
+	foreign_request.Path = "users/user-1";
+	QVERIFY(session->Send_Authed(foreign_request) > 0);
+
+	// Сервер выдаёт ответы по порядку прихода запросов: второй запрос уходит
+	// только после того, как первый дошёл, иначе под нагрузкой они поменялись
+	// бы местами и каталог получил бы ответ чужого запроса.
+	QTRY_COMPARE_WITH_TIMEOUT(server.Request_Count(), 1, 5000);
+
+	int request_id = api->Get_List("all", QStringList(), QStringList(), QString(), 50, 0);
+
+	QVERIFY(request_id > 0);
+	QVERIFY(spy.wait(5000));
+	QCOMPARE(spy.count(), 1);
+
+	arguments = spy.takeFirst();
+	items = qvariant_cast<QVector<SExercises_Item>>(arguments.at(1));
+	error = qvariant_cast<AApi_Error>(arguments.at(2));
+
+	QCOMPARE(arguments.at(0).toInt(), request_id);
+	QVERIFY(!error.Is_Error());
+	QCOMPARE(items.size(), 2);
+	QCOMPARE(session_spy.count(), 2);
+}
+//-------------------------------------------------------------------------------------------------------------
+// 401 на запрос каталога уходит в single-flight refresh сессии; API получает
+// только итоговый ответ повтора, а не промежуточный 401 транспорта.
+//-------------------------------------------------------------------------------------------------------------
+void AExercises_Api_Test::listSurvivesTokenRefresh()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AsAuth_Session *session = 0;
+	AExercises_Api *api = 0;
+
+	Make_Api(server, session, directory, true, api);
+	QSignalSpy spy(api, &AExercises_Api::listFinished);
+	QList<QVariant> arguments;
+	QVector<SExercises_Item> items;
+	AApi_Error error;
+
+	server.Enqueue_Response(JSON_Response(401, "{\"key\":\"token_expired\",\"message\":\"expired\"}"));
+	server.Enqueue_Response(
+	    JSON_Response(200, "{\"tokens\":{\"access_token\":\"new-access\",\"refresh_token\":\"new-refresh\"}}"));
+	server.Enqueue_Response(JSON_Response(200, Exercise_Array_Body()));
+
+	QVERIFY(api->Get_List("all", QStringList(), QStringList(), QString(), 50, 0) > 0);
+	QVERIFY(spy.wait(5000));
+	QCOMPARE(spy.count(), 1);
+
+	arguments = spy.takeFirst();
+	items = qvariant_cast<QVector<SExercises_Item>>(arguments.at(1));
+	error = qvariant_cast<AApi_Error>(arguments.at(2));
+
+	QVERIFY(!error.Is_Error());
+	QCOMPARE(items.size(), 2);
+	QCOMPARE(server.Request_Count(), 3);
+	QCOMPARE(server.Request_At(2).Headers.value("authorization"), QByteArray("Bearer new-access"));
+}
+//-------------------------------------------------------------------------------------------------------------
+void AExercises_Api_Test::oneEncodesIdInPath()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AsAuth_Session *session = 0;
+	AExercises_Api *api = 0;
+
+	Make_Api(server, session, directory, true, api);
+	QSignalSpy spy(api, &AExercises_Api::oneFinished);
+
+	server.Enqueue_Response(JSON_Response(404, "{\"key\":\"not_found\",\"message\":\"missing\"}"));
+
+	// `/`, `?` и `#` из идентификатора не должны менять endpoint.
+	QVERIFY(api->Get_One("a/b?type=own#x") > 0);
+	QVERIFY(spy.wait(5000));
+	QCOMPARE(server.Request_At(0).Target, QByteArray("/api/v1/exercises/a%2Fb%3Ftype%3Down%23x"));
+}
+//-------------------------------------------------------------------------------------------------------------
 QTEST_MAIN(AExercises_Api_Test)
 #include "tst_Exercises_Api.moc"

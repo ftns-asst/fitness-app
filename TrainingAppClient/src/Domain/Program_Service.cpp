@@ -9,27 +9,27 @@
 
 Q_LOGGING_CATEGORY(PROGRAM_Service_Log, "trainingapp.program.service")
 
-//----------------------------------------------------------------------------
-AsProgram_Service::AsProgram_Service(IProgram_Repository *in_repository, QObject *in_parent)
+//-------------------------------------------------------------------------------------------------------------
+AsProgram_Service::AsProgram_Service(AProgram_Repository_Port *in_repository, QObject *in_parent)
     : QObject(in_parent), Repository_Instance(in_repository), Error_State(&PROGRAM_Service_Log())
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AsProgram_Service::Get_Last_Error() const
 {
 	return Error_State.Get_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Service::Set_Last_Error(const QString &in_error)
 {
 	return Error_State.Set_Last_Error(in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsProgram_Service::Clear_Last_Error()
 {
 	Error_State.Clear_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Service::Create_From_Scratch(const SProgram &in_program, const QVector<SGoal_Target> &in_targets,
                                             const QVector<SProgram_Day> &in_days,
                                             const QVector<SDay_Exercise> &in_exercises,
@@ -40,7 +40,7 @@ bool AsProgram_Service::Create_From_Scratch(const SProgram &in_program, const QV
 	Clear_Last_Error();
 	out_program = SProgram();
 
-	if (!Repository_Instance)
+	if (Repository_Instance == 0)
 		return Set_Last_Error("Репозиторий программы не задан");
 
 	if (program.User_Id.trimmed().isEmpty() || program.Title.trimmed().isEmpty())
@@ -61,14 +61,14 @@ bool AsProgram_Service::Create_From_Scratch(const SProgram &in_program, const QV
 	program.Updated_At.clear();
 	program.Sync_State = ESync_State::Local;
 
-	if (Repository_Instance->Insert_Program_Full(program, in_targets, in_days, in_exercises, in_slots) == false)
+	if (!Repository_Instance->Insert_Program_Full(program, in_targets, in_days, in_exercises, in_slots))
 		return Set_Last_Error(Repository_Instance->Get_Last_Error());
 
 	out_program = program;
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Service::Create_From_Snapshot(const SProgram &in_program, const SProgram &in_template_snapshot,
                                              const QVector<SGoal_Target> &in_targets,
                                              const QVector<SProgram_Day> &in_days,
@@ -86,7 +86,7 @@ bool AsProgram_Service::Create_From_Snapshot(const SProgram &in_program, const S
 	Clear_Last_Error();
 	out_program = SProgram();
 
-	if (!Repository_Instance)
+	if (Repository_Instance == 0)
 		return Set_Last_Error("Репозиторий программы не задан");
 
 	if (in_program.User_Id.trimmed().isEmpty() || in_program.Title.trimmed().isEmpty())
@@ -148,7 +148,7 @@ bool AsProgram_Service::Create_From_Snapshot(const SProgram &in_program, const S
 		if (exercises.at(i).ID.isEmpty() || all_ids.contains(exercises.at(i).ID))
 			return Set_Last_Error("Снимок шаблона содержит пустой или повторный id сущности");
 
-		if (days.isEmpty() || day_ids.contains(exercises.at(i).Program_Day_Id) == false)
+		if (days.isEmpty() || !day_ids.contains(exercises.at(i).Program_Day_Id))
 			return Set_Last_Error(
 			    QString("Предписание %1 ссылается на день вне снимка шаблона").arg(exercises.at(i).ID));
 
@@ -168,9 +168,9 @@ bool AsProgram_Service::Create_From_Snapshot(const SProgram &in_program, const S
 
 		all_ids.insert(week_slots.at(i).ID);
 
-		if (week_slots.at(i).Program_Day_Id.isEmpty() == false)
+		if (!week_slots.at(i).Program_Day_Id.isEmpty())
 		{
-			if (day_ids.contains(week_slots.at(i).Program_Day_Id) == false)
+			if (!day_ids.contains(week_slots.at(i).Program_Day_Id))
 				return Set_Last_Error(QString("Слот %1 ссылается на день вне снимка шаблона").arg(week_slots.at(i).ID));
 
 			week_slots[i].Program_Day_Id = day_ids.value(week_slots.at(i).Program_Day_Id);
@@ -180,53 +180,53 @@ bool AsProgram_Service::Create_From_Snapshot(const SProgram &in_program, const S
 		week_slots[i].Program_Id = program.ID;
 	}
 
-	if (Repository_Instance->Insert_Program_Full(program, targets, days, exercises, week_slots) == false)
+	if (!Repository_Instance->Insert_Program_Full(program, targets, days, exercises, week_slots))
 		return Set_Last_Error(Repository_Instance->Get_Last_Error());
 
 	out_program = program;
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Service::Activate(const QString &in_program_id)
 {
 	Clear_Last_Error();
 
-	if (!Repository_Instance)
+	if (Repository_Instance == 0)
 		return Set_Last_Error("Репозиторий программы не задан");
 
-	if (Repository_Instance->Change_State(in_program_id, EProgram_State::Active) == false)
+	if (!Repository_Instance->Change_State(in_program_id, EProgram_State::Active))
 		return Set_Last_Error(Repository_Instance->Get_Last_Error());
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Service::Activate_Exclusive(const QString &in_program_id, QString &out_paused_program_id)
 {
 	Clear_Last_Error();
 	out_paused_program_id.clear();
 
-	if (!Repository_Instance)
+	if (Repository_Instance == 0)
 		return Set_Last_Error("Репозиторий программы не задан");
 
-	if (Repository_Instance->Activate_Exclusive(in_program_id, out_paused_program_id) == false)
+	if (!Repository_Instance->Activate_Exclusive(in_program_id, out_paused_program_id))
 		return Set_Last_Error(Repository_Instance->Get_Last_Error());
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Service::Pause(const QString &in_program_id)
 {
 	Clear_Last_Error();
 
-	if (!Repository_Instance)
+	if (Repository_Instance == 0)
 		return Set_Last_Error("Репозиторий программы не задан");
 
-	if (Repository_Instance->Change_State(in_program_id, EProgram_State::Paused) == false)
+	if (!Repository_Instance->Change_State(in_program_id, EProgram_State::Paused))
 		return Set_Last_Error(Repository_Instance->Get_Last_Error());
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Service::Resume(const QString &in_program_id)
 {
 	QString paused_program_id;
@@ -236,46 +236,46 @@ bool AsProgram_Service::Resume(const QString &in_program_id)
 	// уникальный индекс programs_one_active_per_user.
 	return Activate_Exclusive(in_program_id, paused_program_id);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Service::Complete(const QString &in_program_id)
 {
 	Clear_Last_Error();
 
-	if (!Repository_Instance)
+	if (Repository_Instance == 0)
 		return Set_Last_Error("Репозиторий программы не задан");
 
-	if (Repository_Instance->Change_State(in_program_id, EProgram_State::Completed) == false)
+	if (!Repository_Instance->Change_State(in_program_id, EProgram_State::Completed))
 		return Set_Last_Error(Repository_Instance->Get_Last_Error());
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Service::Cancel(const QString &in_program_id)
 {
 	Clear_Last_Error();
 
-	if (!Repository_Instance)
+	if (Repository_Instance == 0)
 		return Set_Last_Error("Репозиторий программы не задан");
 
-	if (Repository_Instance->Change_State(in_program_id, EProgram_State::Cancelled) == false)
+	if (!Repository_Instance->Change_State(in_program_id, EProgram_State::Cancelled))
 		return Set_Last_Error(Repository_Instance->Get_Last_Error());
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Service::Archive(const QString &in_program_id)
 {
 	Clear_Last_Error();
 
-	if (!Repository_Instance)
+	if (Repository_Instance == 0)
 		return Set_Last_Error("Репозиторий программы не задан");
 
-	if (Repository_Instance->Change_State(in_program_id, EProgram_State::Archived) == false)
+	if (!Repository_Instance->Change_State(in_program_id, EProgram_State::Archived))
 		return Set_Last_Error(Repository_Instance->Get_Last_Error());
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsProgram_Service::Recommend_Weight(const SDay_Exercise &in_exercise, double in_current_weight_kg,
                                          int in_completed_sets, int in_minimum_reps, double in_max_rpe,
                                          int in_week_index, double &out_recommended_weight_kg)
@@ -297,15 +297,14 @@ bool AsProgram_Service::Recommend_Weight(const SDay_Exercise &in_exercise, doubl
 	if (rule.Type == EProgression_Type::Max)
 		return Set_Last_Error("Неизвестный тип правила прогрессии");
 
-	if (std::isfinite(in_current_weight_kg) == false || in_current_weight_kg <= 0 || in_week_index < 1 ||
-	    in_completed_sets < 0 || in_minimum_reps < 0 || std::isfinite(in_max_rpe) == false || in_max_rpe < 0 ||
-	    in_max_rpe > 10)
+	if (!std::isfinite(in_current_weight_kg) || in_current_weight_kg <= 0 || in_week_index < 1 ||
+	    in_completed_sets < 0 || in_minimum_reps < 0 || !std::isfinite(in_max_rpe) || in_max_rpe < 0 || in_max_rpe > 10)
 		return Set_Last_Error("Некорректные исходные данные рекомендации веса");
 
-	if (std::isfinite(increment) == false || increment <= 0 || trigger_sets < 1 || trigger_reps < 0)
+	if (!std::isfinite(increment) || increment <= 0 || trigger_sets < 1 || trigger_reps < 0)
 		return Set_Last_Error("Некорректный шаг или порог правила прогрессии");
 
-	if (rule.Has_Max_Rpe && (std::isfinite(rule.Max_Rpe) == false || rule.Max_Rpe < 5 || rule.Max_Rpe > 10))
+	if (rule.Has_Max_Rpe && (!std::isfinite(rule.Max_Rpe) || rule.Max_Rpe < 5 || rule.Max_Rpe > 10))
 		return Set_Last_Error("Порог RPE правила прогрессии должен быть в диапазоне 5–10");
 
 	if (rule.Has_Deload_Every_Weeks && rule.Deload_Every_Weeks < 1)
@@ -322,7 +321,7 @@ bool AsProgram_Service::Recommend_Weight(const SDay_Exercise &in_exercise, doubl
 	else if (rule.Type == EProgression_Type::LinearWeight || rule.Type == EProgression_Type::DoubleProgression)
 	{
 		bool successful_sets = in_completed_sets >= trigger_sets && in_minimum_reps >= trigger_reps;
-		bool rpe_allowed = rule.Has_Max_Rpe == false || in_max_rpe <= 0 || in_max_rpe <= rule.Max_Rpe;
+		bool rpe_allowed = !rule.Has_Max_Rpe || in_max_rpe <= 0 || in_max_rpe <= rule.Max_Rpe;
 
 		if (successful_sets && rpe_allowed)
 			recommended_weight += increment;
@@ -332,10 +331,10 @@ bool AsProgram_Service::Recommend_Weight(const SDay_Exercise &in_exercise, doubl
 		return Set_Last_Error("Неизвестный тип правила прогрессии");
 	}
 
-	if (std::isfinite(recommended_weight) == false || recommended_weight <= 0)
+	if (!std::isfinite(recommended_weight) || recommended_weight <= 0)
 		return Set_Last_Error("Правило прогрессии рассчитало некорректный вес");
 
 	out_recommended_weight_kg = recommended_weight;
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

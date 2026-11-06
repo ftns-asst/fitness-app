@@ -1,4 +1,4 @@
-#include "Data/Database/Sql_Database.h"
+﻿#include "Data/Database/Sql_Database.h"
 #include "Data/Program/Program_Repository.h"
 #include "Domain/Program_Model.h"
 
@@ -37,14 +37,14 @@ private:
 	int Counter = 0;
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AProgram_Repository_Test::Make_Database_Path()
 {
 	++Counter;
 
 	return Directory.filePath(QString("repo_%1.sqlite3").arg(Counter));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Repository_Test::Seed_Exercise(AsSql_Database &in_database, const QString &in_id)
 {
 	QSqlQuery query(in_database.Sql_Connection());
@@ -57,7 +57,7 @@ void AProgram_Repository_Test::Seed_Exercise(AsSql_Database &in_database, const 
 	query.addBindValue("barbell");
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SProgram AProgram_Repository_Test::Make_Program(const QString &in_id, EProgram_State in_state)
 {
 	SProgram program;
@@ -77,7 +77,7 @@ SProgram AProgram_Repository_Test::Make_Program(const QString &in_id, EProgram_S
 
 	return program;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Прямая запись updated_at в обход репозитория: штамп ставится самой записью,
 // а для проверки порядка списка нужны заранее заданные, различимые значения.
 void AProgram_Repository_Test::Stamp_Updated_At(AsSql_Database &in_database, const QString &in_program_id,
@@ -90,7 +90,7 @@ void AProgram_Repository_Test::Stamp_Updated_At(AsSql_Database &in_database, con
 	query.addBindValue(in_program_id);
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Repository_Test::Seed_Structure(AProgram_Repository &in_repository, const QString &in_program_id)
 {
 	QVector<SProgram_Day> days;
@@ -177,7 +177,7 @@ void AProgram_Repository_Test::Seed_Structure(AProgram_Repository &in_repository
 	QVERIFY(in_repository.Replace_Structure(in_program_id, days, exercises, week_slots, ERevision_Reason::Days,
 	                                        "Первичный план"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Repository_Test::insertAndLoadProgram()
 {
 	AsSql_Database database;
@@ -202,7 +202,7 @@ void AProgram_Repository_Test::insertAndLoadProgram()
 	QCOMPARE(loaded.Revision, 1);
 	QCOMPARE(loaded.Term.Start_Date, QString("2026-09-29"));
 	QCOMPARE(loaded.Term.Weeks_Total, 12);
-	QVERIFY(loaded.Created_At.isEmpty() == false); // репозиторий штампует время
+	QVERIFY(!loaded.Created_At.isEmpty()); // репозиторий штампует время
 
 	// Материализованное производное поле и журнал ревизии 1.
 	QVERIFY(query.exec("SELECT end_date_generated FROM programs WHERE id = 'p1'"));
@@ -214,17 +214,17 @@ void AProgram_Repository_Test::insertAndLoadProgram()
 	QCOMPARE(query.value(1).toString(), QString("state"));
 
 	// Отсутствующая программа и закрытая база — ошибки.
-	QVERIFY(repository.Load_Program("missing", loaded) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
-	QVERIFY(repository.Replace_Structure("missing", QVector<SProgram_Day>(), QVector<SDay_Exercise>(),
-	                                     QVector<SWeek_Slot>(), ERevision_Reason::Days, QString()) == false);
+	QVERIFY(!repository.Load_Program("missing", loaded));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
+	QVERIFY(!repository.Replace_Structure("missing", QVector<SProgram_Day>(), QVector<SDay_Exercise>(),
+	                                      QVector<SWeek_Slot>(), ERevision_Reason::Days, QString()));
 
 	AsSql_Database closed;
 	AProgram_Repository closed_repository(&closed);
-	QVERIFY(closed_repository.Insert_Program(program) == false);
-	QVERIFY(closed_repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!closed_repository.Insert_Program(program));
+	QVERIFY(!closed_repository.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Repository_Test::activeProgramLookup()
 {
 	AsSql_Database database;
@@ -241,16 +241,16 @@ void AProgram_Repository_Test::activeProgramLookup()
 
 	// Инвариант 1 §4: вторая активная невозможна
 	// (частичный уникальный индекс).
-	QVERIFY(repository.Insert_Program(Make_Program("p2", EProgram_State::Active)) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Insert_Program(Make_Program("p2", EProgram_State::Active)));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 
 	// Она же невозможна и переходом состояния.
 	QVERIFY(repository.Insert_Program(Make_Program("p2", EProgram_State::Paused)));
-	QVERIFY(repository.Change_State("p2", EProgram_State::Active) == false);
+	QVERIFY(!repository.Change_State("p2", EProgram_State::Active));
 
-	QVERIFY(repository.Get_Active_Program_Id("u2", active_id) == false);
+	QVERIFY(!repository.Get_Active_Program_Id("u2", active_id));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Список программ пользователя (каталог, срез S1). Особенность: список у
 // несуществующего пользователя — это пустой список, а не ошибка. Каталог на
 // первом запуске обязан показывать приглашение создать программу, поэтому
@@ -295,7 +295,7 @@ void AProgram_Repository_Test::loadProgramsListsEveryStateNewestFirst()
 	QVERIFY(repository.Load_Programs("u1", programs));
 	QCOMPARE(programs.size(), 3);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Repository_Test::loadProgramsIsEmptyForUnknownUser()
 {
 	AsSql_Database database;
@@ -312,7 +312,7 @@ void AProgram_Repository_Test::loadProgramsIsEmptyForUnknownUser()
 	QVERIFY(programs.isEmpty());
 	QVERIFY(repository.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Смена паспортных полей программы (название, цель, уровень). Редактор после
 // Load() обязан сохранять их, иначе правка заголовка терялась бы молча.
 void AProgram_Repository_Test::changeProfileUpdatesTitleGoalLevel()
@@ -336,7 +336,7 @@ void AProgram_Repository_Test::changeProfileUpdatesTitleGoalLevel()
 	// что программа изменилась.
 	QCOMPARE(loaded.Revision, 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Repository_Test::changeProfileRejectsReadOnlyProgram()
 {
 	AsSql_Database database;
@@ -348,12 +348,12 @@ void AProgram_Repository_Test::changeProfileRejectsReadOnlyProgram()
 	QVERIFY(database.Open(path));
 	QVERIFY(repository.Insert_Program(Make_Program("p1", EProgram_State::Completed)));
 
-	QVERIFY(repository.Change_Profile("p1", "Другое", EProgram_Goal::Strength, EProgram_Level::Beginner) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Change_Profile("p1", "Другое", EProgram_Goal::Strength, EProgram_Level::Beginner));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 	QVERIFY(repository.Load_Program("p1", loaded));
 	QCOMPARE(loaded.Title, QString("Сила 12 недель"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Repository_Test::changeStateValidatesTransitions()
 {
 	AsSql_Database database;
@@ -370,12 +370,12 @@ void AProgram_Repository_Test::changeStateValidatesTransitions()
 	QVERIFY(repository.Load_Program("p1", loaded));
 	QCOMPARE(loaded.State, EProgram_State::Active);
 	QCOMPARE(loaded.Revision, 2);
-	QVERIFY(loaded.Actual_Start_Date.isEmpty() == false);
+	QVERIFY(!loaded.Actual_Start_Date.isEmpty());
 
 	// Запрещённые переходы.
-	QVERIFY(repository.Change_State("p1", EProgram_State::Draft) == false);
-	QVERIFY(repository.Change_State("p1", EProgram_State::Archived) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Change_State("p1", EProgram_State::Draft));
+	QVERIFY(!repository.Change_State("p1", EProgram_State::Archived));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 
 	// Пауза и возврат.
 	QVERIFY(repository.Change_State("p1", EProgram_State::Paused));
@@ -383,14 +383,14 @@ void AProgram_Repository_Test::changeStateValidatesTransitions()
 
 	// Завершение → архив; из архива хода нет.
 	QVERIFY(repository.Change_State("p1", EProgram_State::Completed));
-	QVERIFY(repository.Change_State("p1", EProgram_State::Active) == false);
+	QVERIFY(!repository.Change_State("p1", EProgram_State::Active));
 	QVERIFY(repository.Change_State("p1", EProgram_State::Archived));
-	QVERIFY(repository.Change_State("p1", EProgram_State::Active) == false);
+	QVERIFY(!repository.Change_State("p1", EProgram_State::Active));
 
 	QVERIFY(repository.Load_Program("p1", loaded));
 	QCOMPARE(loaded.Revision, 6); // 6 успешных переходов = 6 ревизий
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Repository_Test::editsAreRejectedForReadOnlyStates()
 {
 	AsSql_Database database;
@@ -405,19 +405,19 @@ void AProgram_Repository_Test::editsAreRejectedForReadOnlyStates()
 
 	// Инвариант 24 §4: completed/cancelled/archived — read-only по
 	// структуре.
-	QVERIFY(repository.Replace_Structure("p1", QVector<SProgram_Day>(), QVector<SDay_Exercise>(), QVector<SWeek_Slot>(),
-	                                     ERevision_Reason::Days, QString()) == false);
-	QVERIFY(repository.Replace_Schedule("p1", QVector<SWeek_Slot>()) == false);
-	QVERIFY(repository.Replace_Goal_Targets("p1", QVector<SGoal_Target>()) == false);
+	QVERIFY(!repository.Replace_Structure("p1", QVector<SProgram_Day>(), QVector<SDay_Exercise>(),
+	                                      QVector<SWeek_Slot>(), ERevision_Reason::Days, QString()));
+	QVERIFY(!repository.Replace_Schedule("p1", QVector<SWeek_Slot>()));
+	QVERIFY(!repository.Replace_Goal_Targets("p1", QVector<SGoal_Target>()));
 
 	term = STerm();
 	term.Start_Date = "2026-10-06";
 	term.Weeks_Total = 16;
 	term.Mode = ETerm_Mode::FixedWeeks;
-	QVERIFY(repository.Change_Term("p1", term) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Change_Term("p1", term));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Repository_Test::replaceStructureBumpsRevisionAndKeepsFacts()
 {
 	AsSql_Database database;
@@ -510,7 +510,7 @@ void AProgram_Repository_Test::replaceStructureBumpsRevisionAndKeepsFacts()
 	QVERIFY(snapshot.contains("dx1"));
 	QVERIFY(snapshot.contains("\"targetWeightKg\":60"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Repository_Test::replaceScheduleValidatesSlots()
 {
 	AsSql_Database database;
@@ -535,7 +535,7 @@ void AProgram_Repository_Test::replaceScheduleValidatesSlots()
 	slot.Day_Of_Week = 2;
 	slot.Kind = ESlot_Kind::Workout;
 	week_slots.append(slot);
-	QVERIFY(repository.Replace_Schedule("p1", week_slots) == false);
+	QVERIFY(!repository.Replace_Schedule("p1", week_slots));
 	QVERIFY(repository.Get_Last_Error().contains("день"));
 
 	// Ссылка на несуществующий день.
@@ -546,7 +546,7 @@ void AProgram_Repository_Test::replaceScheduleValidatesSlots()
 	slot.Program_Day_Id = "ghost";
 	slot.Kind = ESlot_Kind::Workout;
 	week_slots.append(slot);
-	QVERIFY(repository.Replace_Schedule("p1", week_slots) == false);
+	QVERIFY(!repository.Replace_Schedule("p1", week_slots));
 
 	// День отдыха со ссылкой на день.
 	week_slots.clear();
@@ -556,7 +556,7 @@ void AProgram_Repository_Test::replaceScheduleValidatesSlots()
 	slot.Program_Day_Id = "d1";
 	slot.Kind = ESlot_Kind::Rest;
 	week_slots.append(slot);
-	QVERIFY(repository.Replace_Schedule("p1", week_slots) == false);
+	QVERIFY(!repository.Replace_Schedule("p1", week_slots));
 
 	// Дубликат day_of_week.
 	week_slots.clear();
@@ -570,7 +570,7 @@ void AProgram_Repository_Test::replaceScheduleValidatesSlots()
 		week_slots.append(slot);
 	}
 
-	QVERIFY(repository.Replace_Schedule("p1", week_slots) == false);
+	QVERIFY(!repository.Replace_Schedule("p1", week_slots));
 
 	// Отказ ничего не меняет: ревизия и слоты прежние.
 	QVERIFY(repository.Load_Program("p1", loaded));
@@ -579,7 +579,7 @@ void AProgram_Repository_Test::replaceScheduleValidatesSlots()
 	QCOMPARE(loaded_slots.size(), 7);
 	QCOMPARE(loaded_slots.at(0).Program_Day_Id, QString("d1"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Repository_Test::goalAndTermEditsJournal()
 {
 	AsSql_Database database;
@@ -667,7 +667,7 @@ void AProgram_Repository_Test::goalAndTermEditsJournal()
 	QVERIFY(snapshot.contains("t2"));
 	QVERIFY(snapshot.contains("\"startValue\":80"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Repository_Test::loadFullAssemblesTree()
 {
 	AsSql_Database database;
@@ -721,7 +721,7 @@ void AProgram_Repository_Test::loadFullAssemblesTree()
 	QCOMPARE(exercises.size(), 1);
 	QCOMPARE(exercises.at(0).Exercise_Id, QString("ex2"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Удаление черновика: брошенное создание стирается целиком — дни, предписания
 // и расписание снимает каскад FK, сирот в таблицах не остаётся. Программа в
 // «живом» состоянии удалению не поддаётся: отказ с ошибкой, а не тихие
@@ -747,11 +747,11 @@ void AProgram_Repository_Test::deleteDraftRemovesOnlyDrafts()
 	// Активная программа редактором не удаляется: её состояния меняются
 	// переходами §3.1 (Change_State/Activate_Exclusive), и Delete_Draft
 	// обязан отказаться с ошибкой.
-	QVERIFY(repository.Delete_Draft("p_active") == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Delete_Draft("p_active"));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 
 	// Промах по идентификатору — тоже отказ, а не молчаливый успех.
-	QVERIFY(repository.Delete_Draft("p_missing") == false);
+	QVERIFY(!repository.Delete_Draft("p_missing"));
 
 	QVERIFY(repository.Delete_Draft("p_draft"));
 
@@ -764,7 +764,7 @@ void AProgram_Repository_Test::deleteDraftRemovesOnlyDrafts()
 	QVERIFY(repository.Load_Days("p_draft", days));
 	QCOMPARE(days.size(), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(AProgram_Repository_Test)
 

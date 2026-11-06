@@ -17,7 +17,7 @@
 
 Q_LOGGING_CATEGORY(EXERCISES_Repository_Log, "trainingapp.exercises.repository")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AExercises_Repository::AExercises_Repository(AsHttp_Client *in_http_client, AsAuth_Session *in_session,
                                              AsSql_Database *in_database, QObject *in_parent)
     : QObject(in_parent), Database_Instance(in_database), Session_Instance(in_session)
@@ -37,38 +37,58 @@ AExercises_Repository::AExercises_Repository(AsHttp_Client *in_http_client, AsAu
 	        &AExercises_Repository::on_Public_List_Finished);
 	connect(Exercises_Api_Instance, &AExercises_Api::oneFinished, this, &AExercises_Repository::on_One_Finished);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AExercises_Repository::Last_Error() const
 {
-	return Last_Error_Text;
+	return Error_State.Get_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AExercises_Repository::Joined_List(const QStringList &in_values)
 {
 	// Пустой список join() отдаёт null-QString: bind null упирается в
 	// NOT NULL DEFAULT '' — DEFAULT спасает только опущенную колонку.
 	return in_values.isEmpty() ? QString("") : in_values.join(",");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+QSqlDatabase AExercises_Repository::Connection() const
+{
+	if (Database_Instance != 0)
+		return Database_Instance->Sql_Connection();
+
+	return QSqlDatabase();
+}
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Is_Transport_Error(const AApi_Error &in_error)
 {
 	// Транспортный сбой не имеет HTTP-статуса (docs/03, §6: transport-сбой
 	// сессию не рвёт) — по нему и отличаем офлайн от ответа сервера.
 	return in_error.Is_Error() && in_error.HTTP_Status_Code() == 0;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+void AExercises_Repository::Sort_By_Name(QVector<SExercises_Item> &in_out_items)
+{
+	// STL-алгоритм инкапсулирован здесь (CODE_STYLE §9): у Qt-контейнеров нет
+	// собственной сортировки, а ручная вставками квадратична на каталоге.
+	std::sort(in_out_items.begin(), in_out_items.end(), &AExercises_Repository::Name_Less);
+}
+//-------------------------------------------------------------------------------------------------------------
+bool AExercises_Repository::Name_Less(const SExercises_Item &in_left, const SExercises_Item &in_right)
+{
+	return QString::localeAwareCompare(in_left.Name, in_right.Name) < 0;
+}
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Repository::Load_List(const QString &in_type, const QStringList &in_muscle_groups,
                                      const QStringList &in_equipments, const QString &in_search, int in_limit,
                                      int in_offset)
 {
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	int request_id =
 	    Exercises_Api_Instance->Get_List(in_type, in_muscle_groups, in_equipments, in_search, in_limit, in_offset);
 
 	if (request_id == 0)
 	{
-		Last_Error_Text = Exercises_Api_Instance->Last_Error();
+		Error_State.Set_Last_Error(Exercises_Api_Instance->Last_Error());
 		return 0;
 	}
 
@@ -76,16 +96,16 @@ int AExercises_Repository::Load_List(const QString &in_type, const QStringList &
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Repository::Load_Muscle_Groups()
 {
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	int request_id = Exercises_Api_Instance->Get_Muscle_Groups();
 
 	if (request_id == 0)
 	{
-		Last_Error_Text = Exercises_Api_Instance->Last_Error();
+		Error_State.Set_Last_Error(Exercises_Api_Instance->Last_Error());
 		return 0;
 	}
 
@@ -93,16 +113,16 @@ int AExercises_Repository::Load_Muscle_Groups()
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Repository::Load_Equipments()
 {
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	int request_id = Exercises_Api_Instance->Get_Equipments();
 
 	if (request_id == 0)
 	{
-		Last_Error_Text = Exercises_Api_Instance->Last_Error();
+		Error_State.Set_Last_Error(Exercises_Api_Instance->Last_Error());
 		return 0;
 	}
 
@@ -110,20 +130,20 @@ int AExercises_Repository::Load_Equipments()
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Load_Cached_List(QVector<SExercises_Item> &out_items)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_items.clear();
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	query.prepare("SELECT id, name, description, owner_id, is_own, muscle_groups, equipment FROM exercises_cache "
 	              "ORDER BY name");
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		qCWarning(EXERCISES_Repository_Log).noquote() << "cached list read failed";
 		return false;
@@ -137,7 +157,7 @@ bool AExercises_Repository::Load_Cached_List(QVector<SExercises_Item> &out_items
 		item.Name = query.value(1).toString();
 		item.Description = query.value(2).toString();
 		item.Owner_ID = query.value(3).toString();
-		item.Has_Owner = item.Owner_ID.isEmpty() == false;
+		item.Has_Owner = !item.Owner_ID.isEmpty();
 		item.Muscle_Groups = query.value(5).toString().split(',', Qt::SkipEmptyParts);
 		item.Equipment = query.value(6).toString().split(',', Qt::SkipEmptyParts);
 
@@ -146,47 +166,47 @@ bool AExercises_Repository::Load_Cached_List(QVector<SExercises_Item> &out_items
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Load_Cached_One(const QString &in_exercise_id, SExercises_Item &out_item)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_item = SExercises_Item();
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false || in_exercise_id.isEmpty())
+	if (Database_Instance == 0 || !Database_Instance->Is_Open() || in_exercise_id.isEmpty())
 		return false;
 
 	query.prepare("SELECT id, name, description, owner_id, muscle_groups, equipment FROM exercises_cache "
 	              "WHERE id = ?");
 	query.addBindValue(in_exercise_id);
 
-	if (query.exec() == false || query.next() == false)
+	if (!query.exec() || !query.next())
 		return false;
 
 	out_item.ID = query.value(0).toString();
 	out_item.Name = query.value(1).toString();
 	out_item.Description = query.value(2).toString();
 	out_item.Owner_ID = query.value(3).toString();
-	out_item.Has_Owner = out_item.Owner_ID.isEmpty() == false;
+	out_item.Has_Owner = !out_item.Owner_ID.isEmpty();
 	out_item.Muscle_Groups = query.value(4).toString().split(',', Qt::SkipEmptyParts);
 	out_item.Equipment = query.value(5).toString().split(',', Qt::SkipEmptyParts);
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Load_Local_Catalog(QVector<SExercises_Item> &out_items)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_items.clear();
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	// Локальный каталог — зеркало FK дня программы: он содержит и базовые
 	// примитивы, и серверные строки, и свои упражнения. muscle_group здесь
 	// одно значение (колонка зеркала), equipment — список через запятую.
-	if (query.exec("SELECT id, title, muscle_group, equipment FROM exercises ORDER BY title") == false)
+	if (!query.exec("SELECT id, title, muscle_group, equipment FROM exercises ORDER BY title"))
 	{
 		qCWarning(EXERCISES_Repository_Log).noquote() << "local catalog read failed";
 		return false;
@@ -212,7 +232,7 @@ bool AExercises_Repository::Load_Local_Catalog(QVector<SExercises_Item> &out_ite
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Load_Offline_List(QVector<SExercises_Item> &out_items)
 {
 	QVector<SExercises_Item> cached;
@@ -224,7 +244,7 @@ bool AExercises_Repository::Load_Offline_List(QVector<SExercises_Item> &out_item
 	// Кэш первым: у него полные описания и владелец, и он источник истины
 	// для серверных строк. Локальный каталог дописывает то, чего в кэше нет, —
 	// базовые примитивы и упражнения, уже стоящие в программах.
-	if (Load_Cached_List(cached) == false)
+	if (!Load_Cached_List(cached))
 		return false;
 
 	for (int i = 0; i < cached.size(); ++i)
@@ -248,29 +268,28 @@ bool AExercises_Repository::Load_Offline_List(QVector<SExercises_Item> &out_item
 	// Единый порядок объединённого списка — по названию: кэш и локальный
 	// каталог сортируются независимо, и без этого строки шли бы двумя блоками
 	// (серверные, затем локальные), что в списке выглядело бы случайным.
-	std::sort(out_items.begin(), out_items.end(), [](const SExercises_Item &in_left, const SExercises_Item &in_right)
-	          { return QString::localeAwareCompare(in_left.Name, in_right.Name) < 0; });
+	Sort_By_Name(out_items);
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Is_Own_Owner(const QString &in_owner_id)
 {
 	const QString user_id = Session_Instance != 0 ? Session_Instance->User_ID() : QString();
 
-	return in_owner_id.isEmpty() == false && user_id.isEmpty() == false && in_owner_id == user_id;
+	return !in_owner_id.isEmpty() && !user_id.isEmpty() && in_owner_id == user_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Has_Session() const
 {
 	return Session_Instance != 0 && Session_Instance->Has_Session();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AExercises_Repository::Local_Owner_Id()
 {
 	return QStringLiteral("local");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Локальное сохранение своего упражнения. Сервер недоступен для мутаций без
 // сессии (приложение без входа) и при transport-сбое — раньше форма в обоих
 // случаях отвечала ошибкой, и своё упражнение создать было нельзя вовсе.
@@ -280,7 +299,7 @@ bool AExercises_Repository::Save_Local_Exercise(QString &io_exercise_id, const Q
                                                 const QString &in_description, const QStringList &in_muscle_groups,
                                                 const QStringList &in_equipments)
 {
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false || in_name.trimmed().isEmpty())
+	if (Database_Instance == 0 || !Database_Instance->Is_Open() || in_name.trimmed().isEmpty())
 		return false;
 
 	// Пустое описание из формы — null-QString, а колонка NOT NULL.
@@ -293,7 +312,7 @@ bool AExercises_Repository::Save_Local_Exercise(QString &io_exercise_id, const Q
 	if (is_new)
 		io_exercise_id = QUuid::createUuid().toString(QUuid::WithoutBraces);
 
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("INSERT INTO exercises_cache(id, name, description, owner_id, is_own, muscle_groups, equipment, "
 	              "updated_at) VALUES(?, ?, ?, ?, 1, ?, ?, ?) "
@@ -308,7 +327,7 @@ bool AExercises_Repository::Save_Local_Exercise(QString &io_exercise_id, const Q
 	query.addBindValue(Joined_List(in_equipments));
 	query.addBindValue(now);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		qCWarning(EXERCISES_Repository_Log).noquote() << "local exercise save failed:" << query.lastError().text();
 
@@ -329,7 +348,7 @@ bool AExercises_Repository::Save_Local_Exercise(QString &io_exercise_id, const Q
 	Mirror_Local_Exercise(item);
 
 	// Правка уже зеркалированной строки: INSERT OR IGNORE её не меняет.
-	QSqlQuery update(Database_Instance->Sql_Connection());
+	QSqlQuery update(Connection());
 
 	update.prepare("UPDATE exercises SET title = ?, muscle_group = ?, equipment = ?, description = ? WHERE id = ?");
 	update.addBindValue(item.Name);
@@ -343,54 +362,54 @@ bool AExercises_Repository::Save_Local_Exercise(QString &io_exercise_id, const Q
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Delete_Local_Exercise(const QString &in_exercise_id)
 {
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false || in_exercise_id.isEmpty())
+	if (Database_Instance == 0 || !Database_Instance->Is_Open() || in_exercise_id.isEmpty())
 		return false;
 
 	Delete_Cached(in_exercise_id);
 
 	// Зеркало удаляется, пока на него не ссылается день программы (FK):
 	// при отказе строка остаётся — упражнение стоит в программе.
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("DELETE FROM exercises WHERE id = ? AND is_custom = 1");
 	query.addBindValue(in_exercise_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		qCInfo(EXERCISES_Repository_Log).noquote() << "local mirror kept (in use)" << in_exercise_id;
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Load_Cached_First_Id(QString &out_exercise_id)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_exercise_id.clear();
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
-	if (query.exec("SELECT id FROM exercises_cache ORDER BY name LIMIT 1") == false || query.next() == false)
+	if (!query.exec("SELECT id FROM exercises_cache ORDER BY name LIMIT 1") || !query.next())
 		return false;
 
 	out_exercise_id = query.value(0).toString();
 
-	return out_exercise_id.isEmpty() == false;
+	return !out_exercise_id.isEmpty();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Load_Cached_Muscle_Groups(QStringList &out_groups)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_groups.clear();
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
-	if (query.exec("SELECT name FROM muscle_groups_ref ORDER BY position") == false)
+	if (!query.exec("SELECT name FROM muscle_groups_ref ORDER BY position"))
 	{
 		qCWarning(EXERCISES_Repository_Log).noquote() << "cached muscle groups read failed";
 		return false;
@@ -401,17 +420,17 @@ bool AExercises_Repository::Load_Cached_Muscle_Groups(QStringList &out_groups)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Load_Cached_Equipments(QStringList &out_equipments)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	out_equipments.clear();
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
-	if (query.exec("SELECT name FROM equipments_ref ORDER BY position") == false)
+	if (!query.exec("SELECT name FROM equipments_ref ORDER BY position"))
 	{
 		qCWarning(EXERCISES_Repository_Log).noquote() << "cached equipments read failed";
 		return false;
@@ -422,118 +441,118 @@ bool AExercises_Repository::Load_Cached_Equipments(QStringList &out_equipments)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Repository::Load_Public_List()
 {
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	int request_id = Exercises_Api_Instance->Get_List("public", QStringList(), QStringList(), QString(), 1000, 0);
 
 	if (request_id == 0)
 	{
-		Last_Error_Text = Exercises_Api_Instance->Last_Error();
+		Error_State.Set_Last_Error(Exercises_Api_Instance->Last_Error());
 		return 0;
 	}
 
 	SPending_Call pending;
 
-	pending.Kind = Kind_Public_List;
+	pending.Kind = EPending_Kind::Public_List;
 	Pending_Calls.insert(request_id, pending);
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Repository::Load_One(const QString &in_id)
 {
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	int request_id = Exercises_Api_Instance->Get_One(in_id);
 
 	if (request_id == 0)
 	{
-		Last_Error_Text = Exercises_Api_Instance->Last_Error();
+		Error_State.Set_Last_Error(Exercises_Api_Instance->Last_Error());
 		return 0;
 	}
 
 	SPending_Call pending;
 
-	pending.Kind = Kind_One;
+	pending.Kind = EPending_Kind::One;
 	pending.Exercise_Id = in_id.trimmed();
 	Pending_Calls.insert(request_id, pending);
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Repository::Create_Exercise(const QString &in_name, bool in_is_public, const QString &in_description,
                                            const QStringList &in_muscle_groups, const QStringList &in_equipments)
 {
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	int request_id =
 	    Exercises_Api_Instance->Create_Exercise(in_name, in_is_public, in_description, in_muscle_groups, in_equipments);
 
 	if (request_id == 0)
 	{
-		Last_Error_Text = Exercises_Api_Instance->Last_Error();
+		Error_State.Set_Last_Error(Exercises_Api_Instance->Last_Error());
 		return 0;
 	}
 
 	SPending_Call pending;
 
-	pending.Kind = Kind_List;
+	pending.Kind = EPending_Kind::List;
 	Pending_Calls.insert(request_id, pending);
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Repository::Update_Exercise(const QString &in_id, const QString &in_name, bool in_is_public,
                                            const QString &in_description, const QStringList &in_muscle_groups,
                                            const QStringList &in_equipments)
 {
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	int request_id = Exercises_Api_Instance->Update_Exercise(in_id, in_name, in_is_public, in_description,
 	                                                         in_muscle_groups, in_equipments);
 
 	if (request_id == 0)
 	{
-		Last_Error_Text = Exercises_Api_Instance->Last_Error();
+		Error_State.Set_Last_Error(Exercises_Api_Instance->Last_Error());
 		return 0;
 	}
 
 	SPending_Call pending;
 
-	pending.Kind = Kind_List;
+	pending.Kind = EPending_Kind::List;
 	Pending_Calls.insert(request_id, pending);
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Repository::Delete_Exercise(const QString &in_id)
 {
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	int request_id = Exercises_Api_Instance->Delete_Exercise(in_id);
 
 	if (request_id == 0)
 	{
-		Last_Error_Text = Exercises_Api_Instance->Last_Error();
+		Error_State.Set_Last_Error(Exercises_Api_Instance->Last_Error());
 		return 0;
 	}
 
 	SPending_Call pending;
 
-	pending.Kind = Kind_List;
+	pending.Kind = EPending_Kind::List;
 	Pending_Calls.insert(request_id, pending);
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Save_Catalogs(const QStringList &in_groups, const QStringList &in_equipments)
 {
 	return Persist_String_List("muscle_groups_ref", in_groups) && Persist_String_List("equipments_ref", in_equipments);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Базовые группы мышц офлайн-каталога. Ключи — из словаря ExerciseTexts
 // (qml/Presentation/ExerciseTexts.qml): неизвестный ключ показался бы сырым,
 // а здесь весь набор переводим.
@@ -542,24 +561,24 @@ QStringList AExercises_Repository::Base_Muscle_Groups()
 	return QStringList({"chest", "upper_back", "lats", "quads", "hamstrings", "glutes", "front_delts", "side_delts",
 	                    "rear_delts", "biceps", "triceps", "abs", "calves", "cardio"});
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList AExercises_Repository::Base_Equipments()
 {
 	return QStringList({"bodyweight", "barbell", "dumbbell", "bench", "pull_up_bar", "cable_machine", "kettlebell",
 	                    "mat", "treadmill"});
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Ensure_Offline_Base()
 {
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	// Сначала чтение, и запись только в пустой кэш: сервер — источник истины,
 	// и примитивы не должны подмешиваться к серверному каталогу после первой
 	// успешной загрузки.
-	QSqlQuery probe(Database_Instance->Sql_Connection());
+	QSqlQuery probe(Connection());
 
-	if (probe.exec("SELECT COUNT(*) FROM exercises_cache") == false)
+	if (!probe.exec("SELECT COUNT(*) FROM exercises_cache"))
 	{
 		qCWarning(EXERCISES_Repository_Log).noquote() << "base catalog probe failed";
 		return false;
@@ -570,13 +589,13 @@ bool AExercises_Repository::Ensure_Offline_Base()
 
 	// Справочники раньше упражнений, но только пустые: непустые могли быть
 	// прогреты с сервера, и засев затирал бы серверные значения фильтров.
-	QSqlQuery groups_probe(Database_Instance->Sql_Connection());
+	QSqlQuery groups_probe(Connection());
 
 	if (groups_probe.exec("SELECT COUNT(*) FROM muscle_groups_ref") && groups_probe.next() &&
 	    groups_probe.value(0).toInt() == 0)
 		Persist_String_List("muscle_groups_ref", Base_Muscle_Groups());
 
-	QSqlQuery equipments_probe(Database_Instance->Sql_Connection());
+	QSqlQuery equipments_probe(Connection());
 
 	if (equipments_probe.exec("SELECT COUNT(*) FROM equipments_ref") && equipments_probe.next() &&
 	    equipments_probe.value(0).toInt() == 0)
@@ -589,7 +608,7 @@ bool AExercises_Repository::Ensure_Offline_Base()
 	// перепишет базовую строку.
 	Mirror_Base_Catalog();
 
-	if (Persist_List(base) == false)
+	if (!Persist_List(base))
 	{
 		qCWarning(EXERCISES_Repository_Log).noquote() << "base catalog persist failed";
 		return false;
@@ -597,7 +616,7 @@ bool AExercises_Repository::Ensure_Offline_Base()
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository::Mirror_Base_Catalog()
 {
 	const QVector<SExercises_Item> base = Base_Exercises();
@@ -605,10 +624,10 @@ void AExercises_Repository::Mirror_Base_Catalog()
 	for (int i = 0; i < base.size(); ++i)
 		Mirror_Base_Exercise(base.at(i));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository::Mirror_Base_Exercise(const SExercises_Item &in_item)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("INSERT OR IGNORE INTO exercises(id, title, subtitle, muscle_group, equipment, is_custom, "
 	              "description, created_at) VALUES(?, ?, '', ?, ?, 0, ?, ?)");
@@ -619,10 +638,10 @@ void AExercises_Repository::Mirror_Base_Exercise(const SExercises_Item &in_item)
 	query.addBindValue(in_item.Description);
 	query.addBindValue(in_item.Created_At);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		qCWarning(EXERCISES_Repository_Log).noquote() << "base exercise mirror failed:" << query.lastError().text();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<SExercises_Item> AExercises_Repository::Base_Exercises()
 {
 	// Идентификаторы — «builtin-…»: строка любого вида допустима (локальный
@@ -659,7 +678,7 @@ QVector<SExercises_Item> AExercises_Repository::Base_Exercises()
 	    {"builtin-calf-raise", "Подъёмы на носки", "calves", "bodyweight"},
 	    {"builtin-running", "Бег", "cardio", "treadmill"}};
 
-	const int row_count = static_cast<int>(sizeof(rows) / sizeof(rows[0]));
+	const int row_count = (int)(sizeof(rows) / sizeof(rows[0]));
 	QVector<SExercises_Item> items;
 
 	for (int i = 0; i < row_count; ++i)
@@ -683,12 +702,12 @@ QVector<SExercises_Item> AExercises_Repository::Base_Exercises()
 
 	return items;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Delete_Cached(const QString &in_exercise_id)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	// Сервер удаляет мягко (строка исчезает из списков), кэш — жёстко:
@@ -696,7 +715,7 @@ bool AExercises_Repository::Delete_Cached(const QString &in_exercise_id)
 	query.prepare("DELETE FROM exercises_cache WHERE id = ?");
 	query.addBindValue(in_exercise_id);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		qCWarning(EXERCISES_Repository_Log).noquote() << "cache delete failed";
 		return false;
@@ -704,29 +723,29 @@ bool AExercises_Repository::Delete_Cached(const QString &in_exercise_id)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Is_Cached_Own(const QString &in_exercise_id)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	query.prepare("SELECT is_own FROM exercises_cache WHERE id = ?");
 	query.addBindValue(in_exercise_id);
 
-	if (query.exec() == false || query.next() == false)
+	if (!query.exec() || !query.next())
 		return false;
 
 	return query.value(0).toInt() != 0;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Persist_List(const QVector<SExercises_Item> &in_items)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 	QString user_id;
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	user_id = Session_Instance != 0 ? Session_Instance->User_ID() : QString();
@@ -750,7 +769,7 @@ bool AExercises_Repository::Persist_List(const QVector<SExercises_Item> &in_item
 		query.addBindValue(Joined_List(item.Equipment));
 		query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
 
-		if (query.exec() == false)
+		if (!query.exec())
 		{
 			qCWarning(EXERCISES_Repository_Log).noquote()
 			    << "exercises_cache persist failed:" << query.lastError().text();
@@ -762,7 +781,7 @@ bool AExercises_Repository::Persist_List(const QVector<SExercises_Item> &in_item
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Зеркало кэша в локальный каталог exercises (схема v2): FK
 // program_day_exercises.exercise_id → exercises.id требует строки с
 // серверными uuid, иначе выбор упражнения из каталога в дне программы
@@ -770,7 +789,7 @@ bool AExercises_Repository::Persist_List(const QVector<SExercises_Item> &in_item
 // каталог безопасны.
 void AExercises_Repository::Mirror_Local_Exercise(const SExercises_Item &in_item)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("INSERT OR IGNORE INTO exercises(id, title, subtitle, muscle_group, equipment, is_custom, "
 	              "description, created_at) VALUES(?, ?, '', ?, ?, 1, ?, ?)");
@@ -781,24 +800,33 @@ void AExercises_Repository::Mirror_Local_Exercise(const SExercises_Item &in_item
 	query.addBindValue(in_item.Description);
 	query.addBindValue(in_item.Created_At);
 
-	if (query.exec() == false)
+	if (!query.exec())
 		qCWarning(EXERCISES_Repository_Log).noquote() << "local exercise mirror failed:" << query.lastError().text();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Persist_String_List(const char *in_table, const QStringList &in_values)
 {
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlDatabase connection = Connection();
+	QSqlQuery query(connection);
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
 	// Справочники малы и не версионируются (docs/03, §3.10): перезапись
 	// целиком проще upsert'а и не оставляет исчезнувших значений. Имена
 	// таблиц — литералы вызывающего кода, не пользовательский ввод.
-	if (query.exec(QString("DELETE FROM %1").arg(QLatin1String(in_table))) == false)
+	// Очистка и вставка — одна транзакция: сбой посередине не оставляет
+	// справочник пустым или обрезанным.
+	if (!connection.transaction())
+	{
+		qCWarning(EXERCISES_Repository_Log).noquote() << "catalog transaction failed";
+		return false;
+	}
+
+	if (!query.exec(QString("DELETE FROM %1").arg(QLatin1String(in_table))))
 	{
 		qCWarning(EXERCISES_Repository_Log).noquote() << "catalog clear failed";
-		return false;
+		goto _error_exit;
 	}
 
 	for (int i = 0; i < in_values.size(); ++i)
@@ -807,22 +835,30 @@ bool AExercises_Repository::Persist_String_List(const char *in_table, const QStr
 		query.addBindValue(in_values.at(i));
 		query.addBindValue(i);
 
-		if (query.exec() == false)
+		if (!query.exec())
 		{
 			qCWarning(EXERCISES_Repository_Log).noquote() << "catalog persist failed";
-			return false;
+			goto _error_exit;
 		}
 	}
 
-	return true;
+	if (connection.commit())
+		return true;
+
+	qCWarning(EXERCISES_Repository_Log).noquote() << "catalog commit failed";
+
+_error_exit:
+	connection.rollback();
+
+	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository::on_List_Finished(int in_request_id, const QVector<SExercises_Item> &in_items,
                                              const AApi_Error &in_error)
 {
 	// Сигнал общий с on_Public_List_Finished: чужой род — не наш запрос,
 	// и Pending-запись трогать нельзя (её take() сделает соседний слот).
-	if (Pending_Calls.contains(in_request_id) == false || Pending_Calls.value(in_request_id).Kind != Kind_List)
+	if (!Pending_Calls.contains(in_request_id) || Pending_Calls.value(in_request_id).Kind != EPending_Kind::List)
 		return;
 
 	Pending_Calls.take(in_request_id);
@@ -848,7 +884,7 @@ void AExercises_Repository::on_List_Finished(int in_request_id, const QVector<SE
 			return;
 		}
 	}
-	else if (in_error.Is_Error() == false && Persist_List(in_items))
+	else if (!in_error.Is_Error() && Persist_List(in_items))
 	{
 		emit listFinished(in_request_id, in_items, false, in_error);
 		return;
@@ -856,11 +892,11 @@ void AExercises_Repository::on_List_Finished(int in_request_id, const QVector<SE
 
 	emit listFinished(in_request_id, in_items, false, in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository::on_Muscle_Groups_Finished(int in_request_id, const QStringList &in_groups,
                                                       const AApi_Error &in_error)
 {
-	if (Pending_Calls.contains(in_request_id) == false)
+	if (!Pending_Calls.contains(in_request_id))
 		return;
 
 	Pending_Calls.take(in_request_id);
@@ -881,7 +917,7 @@ void AExercises_Repository::on_Muscle_Groups_Finished(int in_request_id, const Q
 			return;
 		}
 	}
-	else if (in_error.Is_Error() == false && Persist_String_List("muscle_groups_ref", in_groups))
+	else if (!in_error.Is_Error() && Persist_String_List("muscle_groups_ref", in_groups))
 	{
 		emit muscleGroupsFinished(in_request_id, in_groups, false, in_error);
 		return;
@@ -889,11 +925,11 @@ void AExercises_Repository::on_Muscle_Groups_Finished(int in_request_id, const Q
 
 	emit muscleGroupsFinished(in_request_id, in_groups, false, in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository::on_Equipments_Finished(int in_request_id, const QStringList &in_equipments,
                                                    const AApi_Error &in_error)
 {
-	if (Pending_Calls.contains(in_request_id) == false)
+	if (!Pending_Calls.contains(in_request_id))
 		return;
 
 	Pending_Calls.take(in_request_id);
@@ -914,7 +950,7 @@ void AExercises_Repository::on_Equipments_Finished(int in_request_id, const QStr
 			return;
 		}
 	}
-	else if (in_error.Is_Error() == false && Persist_String_List("equipments_ref", in_equipments))
+	else if (!in_error.Is_Error() && Persist_String_List("equipments_ref", in_equipments))
 	{
 		emit equipmentsFinished(in_request_id, in_equipments, false, in_error);
 		return;
@@ -922,7 +958,7 @@ void AExercises_Repository::on_Equipments_Finished(int in_request_id, const QStr
 
 	emit equipmentsFinished(in_request_id, in_equipments, false, in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository::on_Create_Finished(int in_request_id, const SExercises_Item &in_item,
                                                const AApi_Error &in_error)
 {
@@ -930,23 +966,23 @@ void AExercises_Repository::on_Create_Finished(int in_request_id, const SExercis
 
 	// Созданное упражнение сразу живёт в кэше: офлайн-каталог его видит
 	// до первой перезагрузки.
-	if (in_error.Is_Error() == false && Persist_List(QVector<SExercises_Item>{in_item}) == false)
+	if (!in_error.Is_Error() && !Persist_List(QVector<SExercises_Item>{in_item}))
 		qCWarning(EXERCISES_Repository_Log).noquote() << "created exercise cache persist failed";
 
 	emit createFinished(in_request_id, in_item, in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository::on_Update_Finished(int in_request_id, const SExercises_Item &in_item,
                                                const AApi_Error &in_error)
 {
 	Q_UNUSED(in_request_id);
 
-	if (in_error.Is_Error() == false && Persist_List(QVector<SExercises_Item>{in_item}) == false)
+	if (!in_error.Is_Error() && !Persist_List(QVector<SExercises_Item>{in_item}))
 		qCWarning(EXERCISES_Repository_Log).noquote() << "updated exercise cache persist failed";
 
 	emit updateFinished(in_request_id, in_item, in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository::on_Delete_Finished(int in_request_id, const AApi_Error &in_error)
 {
 	Q_UNUSED(in_request_id);
@@ -961,13 +997,13 @@ void AExercises_Repository::on_Delete_Finished(int in_request_id, const AApi_Err
 	// который знает, что удалял. Здесь ничего не читаем.
 	emit deleteFinished(in_request_id, in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository::on_Public_List_Finished(int in_request_id, const QVector<SExercises_Item> &in_items,
                                                     const AApi_Error &in_error)
 {
-	// Один сигнал listFinished обслуживает два потребителя: каталог (Kind_List)
-	// и is_public-проверку редактора (Kind_Public_List). Чужой род — пропуск.
-	if (Pending_Calls.contains(in_request_id) == false || Pending_Calls.value(in_request_id).Kind != Kind_Public_List)
+	// Один сигнал listFinished обслуживает два потребителя: каталог (EPending_Kind::List)
+	// и is_public-проверку редактора (EPending_Kind::Public_List). Чужой род — пропуск.
+	if (!Pending_Calls.contains(in_request_id) || Pending_Calls.value(in_request_id).Kind != EPending_Kind::Public_List)
 		return;
 
 	Pending_Calls.take(in_request_id);
@@ -980,7 +1016,7 @@ void AExercises_Repository::on_Public_List_Finished(int in_request_id, const QVe
 		from_cache = true;
 		error = AApi_Error();
 	}
-	else if (in_error.Is_Error() == false)
+	else if (!in_error.Is_Error())
 	{
 		if (Persist_List(in_items))
 			from_cache = false;
@@ -988,13 +1024,13 @@ void AExercises_Repository::on_Public_List_Finished(int in_request_id, const QVe
 
 	emit publicListFinished(in_request_id, in_items, from_cache, error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository::on_One_Finished(int in_request_id, const SExercises_Item &in_item,
                                             const AApi_Error &in_error)
 {
 	// Чужой род — не наш запрос: список слушает те же api-сигналы, но Kind
-	// Pending_Calls различает потребителей (тот же приём, что у Kind_Public_List).
-	if (Pending_Calls.contains(in_request_id) == false || Pending_Calls.value(in_request_id).Kind != Kind_One)
+	// Pending_Calls различает потребителей (тот же приём, что у EPending_Kind::Public_List).
+	if (!Pending_Calls.contains(in_request_id) || Pending_Calls.value(in_request_id).Kind != EPending_Kind::One)
 		return;
 
 	const QString exercise_id = Pending_Calls.take(in_request_id).Exercise_Id;
@@ -1021,7 +1057,7 @@ void AExercises_Repository::on_One_Finished(int in_request_id, const SExercises_
 
 	// Успех — истина сервера: кэш обновляется (и зеркало FK — тоже: freshly
 	// загруженное упражнение можно сразу добавить в день программы).
-	if (in_error.Is_Error() == false && in_item.ID.isEmpty() == false)
+	if (!in_error.Is_Error() && !in_item.ID.isEmpty())
 	{
 		if (Persist_List(QVector<SExercises_Item>{in_item}))
 			qCInfo(EXERCISES_Repository_Log).noquote() << "one persisted" << in_item.ID;
@@ -1029,9 +1065,9 @@ void AExercises_Repository::on_One_Finished(int in_request_id, const SExercises_
 
 	emit oneFinished(in_request_id, exercise_id, in_item, false, in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // — Локальные фото техники (схема v9) —
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AExercises_Repository::Photos_Directory()
 {
 	// App data — стандартный writable-каталог приложения; пустой (консольные
@@ -1043,7 +1079,7 @@ QString AExercises_Repository::Photos_Directory()
 
 	return base + QLatin1String("/images/exercises");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Repository::Clear_Staged_Photos()
 {
 	const QDir directory(Photos_Directory());
@@ -1052,13 +1088,13 @@ void AExercises_Repository::Clear_Staged_Photos()
 	for (int i = 0; i < staged.size(); ++i)
 		QFile::remove(directory.filePath(staged.at(i)));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Stage_Photo(const QUrl &in_source, QString &out_staged_file, QString &out_error)
 {
 	out_error.clear();
 	out_staged_file.clear();
 
-	if (in_source.isEmpty() || in_source.isValid() == false)
+	if (in_source.isEmpty() || !in_source.isValid())
 	{
 		out_error = QLatin1String("photo_failed");
 
@@ -1070,7 +1106,7 @@ bool AExercises_Repository::Stage_Photo(const QUrl &in_source, QString &out_stag
 	const QString source_path = in_source.isLocalFile() ? in_source.toLocalFile() : in_source.toString();
 	QFile source(source_path);
 
-	if (source.open(QIODevice::ReadOnly) == false)
+	if (!source.open(QIODevice::ReadOnly))
 	{
 		qCWarning(EXERCISES_Repository_Log).nospace() << "photo stage: unreadable " << source_path;
 		out_error = QLatin1String("photo_failed");
@@ -1097,7 +1133,7 @@ bool AExercises_Repository::Stage_Photo(const QUrl &in_source, QString &out_stag
 	    suffix != QLatin1String("webp") && suffix != QLatin1String("gif"))
 		suffix = QLatin1String("jpg");
 
-	if (QDir().mkpath(Photos_Directory()) == false)
+	if (!QDir().mkpath(Photos_Directory()))
 	{
 		out_error = QLatin1String("photo_failed");
 
@@ -1111,7 +1147,7 @@ bool AExercises_Repository::Stage_Photo(const QUrl &in_source, QString &out_stag
 	const QString staged = Photos_Directory() + QLatin1String("/staging.") + suffix;
 	QFile target(staged);
 
-	if (target.open(QIODevice::WriteOnly) == false || target.write(data) != data.size())
+	if (!target.open(QIODevice::WriteOnly) || target.write(data) != data.size())
 	{
 		target.close();
 		QFile::remove(staged);
@@ -1126,31 +1162,31 @@ bool AExercises_Repository::Stage_Photo(const QUrl &in_source, QString &out_stag
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Photo_File_Name(const QString &in_exercise_id, QString &out_file_name)
 {
 	out_file_name.clear();
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("SELECT file_name FROM exercise_photos WHERE exercise_id = ?");
 	query.addBindValue(in_exercise_id);
 
-	if (query.exec() == false || query.next() == false)
+	if (!query.exec() || !query.next())
 		return false;
 
 	out_file_name = query.value(0).toString();
 
-	return out_file_name.isEmpty() == false;
+	return !out_file_name.isEmpty();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Commit_Photo(const QString &in_exercise_id, const QString &in_staged_file)
 {
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false || in_exercise_id.isEmpty() ||
-	    QFile::exists(in_staged_file) == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open() || in_exercise_id.isEmpty() ||
+	    !QFile::exists(in_staged_file))
 		return false;
 
 	const QString suffix = QFileInfo(in_staged_file).suffix().toLower();
@@ -1167,21 +1203,21 @@ bool AExercises_Repository::Commit_Photo(const QString &in_exercise_id, const QS
 	// файл с тем же именем убирается явно (повторная загрузка того же фото).
 	QFile::remove(target);
 
-	if (QFile::rename(in_staged_file, target) == false)
+	if (!QFile::rename(in_staged_file, target))
 	{
 		qCWarning(EXERCISES_Repository_Log).nospace() << "photo commit: rename failed " << in_staged_file;
 
 		return false;
 	}
 
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("INSERT INTO exercise_photos (exercise_id, file_name) VALUES (?, ?) "
 	              "ON CONFLICT(exercise_id) DO UPDATE SET file_name = excluded.file_name");
 	query.addBindValue(in_exercise_id);
 	query.addBindValue(file_name);
 
-	if (query.exec() == false)
+	if (!query.exec())
 	{
 		qCWarning(EXERCISES_Repository_Log).nospace() << "photo commit: " << query.lastError().text();
 
@@ -1190,26 +1226,26 @@ bool AExercises_Repository::Commit_Photo(const QString &in_exercise_id, const QS
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Photo_File(const QString &in_exercise_id, QString &out_file)
 {
 	out_file.clear();
 
 	QString file_name;
 
-	if (Photo_File_Name(in_exercise_id, file_name) == false)
+	if (!Photo_File_Name(in_exercise_id, file_name))
 		return false;
 
 	const QString path = Photos_Directory() + QLatin1Char('/') + file_name;
 
-	if (QFile::exists(path) == false)
+	if (!QFile::exists(path))
 		return false;
 
 	out_file = path;
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Delete_Photo(const QString &in_exercise_id)
 {
 	QString file_name;
@@ -1217,22 +1253,22 @@ bool AExercises_Repository::Delete_Photo(const QString &in_exercise_id)
 	if (Photo_File_Name(in_exercise_id, file_name))
 		QFile::remove(Photos_Directory() + QLatin1Char('/') + file_name);
 
-	if (Database_Instance == 0 || Database_Instance->Is_Open() == false)
+	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
-	QSqlQuery query(Database_Instance->Sql_Connection());
+	QSqlQuery query(Connection());
 
 	query.prepare("DELETE FROM exercise_photos WHERE exercise_id = ?");
 	query.addBindValue(in_exercise_id);
 
 	return query.exec();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Cancel_Staged_Photo(const QString &in_staged_file)
 {
 	// Убирается только файл внутри каталога фото: произвольный путь (баг
 	// привязки или подмена) не удаляется.
-	if (in_staged_file.isEmpty() || in_staged_file.startsWith(Photos_Directory()) == false)
+	if (in_staged_file.isEmpty() || !in_staged_file.startsWith(Photos_Directory()))
 		return false;
 
 	return QFile::remove(in_staged_file);

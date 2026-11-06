@@ -1,4 +1,4 @@
-#include "App/Android_Frame_Rate.h"
+﻿#include "App/Android_Frame_Rate.h"
 
 #include <QLoggingCategory>
 
@@ -11,11 +11,11 @@
 Q_LOGGING_CATEGORY(ANDROID_FRAME_RATE_Log, "trainingapp.android.framerate")
 
 #ifdef Q_OS_ANDROID
-//---------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Самый частотный режим дисплея. Аргументы: display — android.view.Display;
 // best_rate получает частоту найденного режима. Возврат: id режима
 // (preferredDisplayModeId), 0 — режимы определить не удалось.
-//---------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static int Best_Display_Mode(const QJniObject &display, float *best_rate)
 {
 	QJniEnvironment environment;
@@ -31,22 +31,22 @@ static int Best_Display_Mode(const QJniObject &display, float *best_rate)
 	*best_rate = 0.0f;
 	best_id = 0;
 
-	if (display.isValid() == false)
+	if (!display.isValid())
 		return 0;
 
 	modes = display.callObjectMethod("getSupportedModes", "()[Landroid/view/Display$Mode;");
 
-	if (modes.isValid() == false)
+	if (!modes.isValid())
 		return 0;
 
-	mode_array = static_cast<jobjectArray>(modes.object());
+	mode_array = (jobjectArray)modes.object();
 	count = environment->GetArrayLength(mode_array);
 
 	for (i = 0; i < count; ++i)
 	{
 		mode = QJniObject::fromLocalRef(environment->GetObjectArrayElement(mode_array, i));
 
-		if (mode.isValid() == false)
+		if (!mode.isValid())
 			continue;
 
 		rate = mode.callMethod<jfloat>("getRefreshRate", "()F");
@@ -61,7 +61,7 @@ static int Best_Display_Mode(const QJniObject &display, float *best_rate)
 
 	return best_id;
 }
-//---------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsAndroid_Frame_Rate::Request_Highest()
 {
 	QJniObject activity = QNativeInterface::QAndroidApplication::context();
@@ -72,7 +72,7 @@ bool AsAndroid_Frame_Rate::Request_Highest()
 	float best_rate;
 	int best_mode;
 
-	if (activity.isValid() == false)
+	if (!activity.isValid())
 	{
 		qCWarning(ANDROID_FRAME_RATE_Log) << "android activity is not available";
 
@@ -81,7 +81,7 @@ bool AsAndroid_Frame_Rate::Request_Highest()
 
 	window = activity.callObjectMethod("getWindow", "()Landroid/view/Window;");
 
-	if (window.isValid() == false)
+	if (!window.isValid())
 	{
 		qCWarning(ANDROID_FRAME_RATE_Log) << "android window is not available";
 
@@ -90,13 +90,13 @@ bool AsAndroid_Frame_Rate::Request_Highest()
 
 	window_manager = window.callObjectMethod("getWindowManager", "()Landroid/view/WindowManager;");
 
-	if (window_manager.isValid() == true)
+	if (window_manager.isValid())
 		display = window_manager.callObjectMethod("getDefaultDisplay", "()Landroid/view/Display;");
 
 	best_mode = Best_Display_Mode(display, &best_rate);
 	attributes = window.callObjectMethod("getAttributes", "()Landroid/view/WindowManager$LayoutParams;");
 
-	if (attributes.isValid() == false)
+	if (!attributes.isValid())
 	{
 		qCWarning(ANDROID_FRAME_RATE_Log) << "window attributes are not available";
 
@@ -108,7 +108,7 @@ bool AsAndroid_Frame_Rate::Request_Highest()
 		// Точный режим надёжнее частоты: preferredDisplayModeId переключает
 		// окно в конкретный режим, тогда как абстрактные 120 Гц система вправе
 		// игнорировать, если панель, например, 90-герцевая.
-		attributes.setField<jint>("preferredDisplayModeId", static_cast<jint>(best_mode));
+		attributes.setField<jint>("preferredDisplayModeId", (jint)best_mode);
 		attributes.setField<jfloat>("preferredRefreshRate", best_rate);
 		qCInfo(ANDROID_FRAME_RATE_Log) << "requested display mode" << best_mode << "at" << best_rate << "Hz";
 	}
@@ -133,4 +133,4 @@ bool AsAndroid_Frame_Rate::Request_Highest()
 	return false;
 }
 #endif
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-#include "Data/Exercises/Exercises_Api.h"
+﻿#include "Data/Exercises/Exercises_Api.h"
 
 #include <QJsonArray>
 #include <QJsonObject>
@@ -7,9 +7,12 @@
 
 Q_LOGGING_CATEGORY(EXERCISES_Api_Log, "trainingapp.exercises.api")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+// AExercises_Api
+//-------------------------------------------------------------------------------------------------------------
 AExercises_Api::AExercises_Api(AsHttp_Client *in_http_client, AsAuth_Session *in_session, QObject *in_parent)
-    : QObject(in_parent), HTTP_Client_Instance(in_http_client), Session_Instance(in_session)
+    : QObject(in_parent), HTTP_Client_Instance(in_http_client), Session_Instance(in_session),
+      Error_State(&EXERCISES_Api_Log())
 {
 	qRegisterMetaType<SExercises_Item>("SExercises_Item");
 	qRegisterMetaType<QVector<SExercises_Item>>("QVector<SExercises_Item>");
@@ -20,18 +23,23 @@ AExercises_Api::AExercises_Api(AsHttp_Client *in_http_client, AsAuth_Session *in
 	if (Session_Instance != 0)
 		connect(Session_Instance, &AsAuth_Session::requestFinished, this, &AExercises_Api::on_Session_Finished);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AExercises_Api::Last_Error() const
 {
-	return Last_Error_Text;
+	return Error_State.Get_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Api::Valid_Type(const QString &in_type)
 {
 	return in_type == QString("basic") || in_type == QString("public") || in_type == QString("own") ||
 	       in_type == QString("all");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+QString AExercises_Api::Item_Path(const QString &in_id)
+{
+	return QString("exercises/") + QString::fromLatin1(QUrl::toPercentEncoding(in_id.trimmed()));
+}
+//-------------------------------------------------------------------------------------------------------------
 QString AExercises_Api::List_Path(const QString &in_type, const QStringList &in_muscle_groups,
                                   const QStringList &in_equipments, const QString &in_search, int in_limit,
                                   int in_offset)
@@ -49,7 +57,7 @@ QString AExercises_Api::List_Path(const QString &in_type, const QStringList &in_
 	for (int i = 0; i < in_equipments.size(); ++i)
 		query.addQueryItem("equipment", in_equipments.at(i));
 
-	if (in_search.isEmpty() == false)
+	if (!in_search.isEmpty())
 		query.addQueryItem("search", in_search);
 
 	query.addQueryItem("limit", QString::number(in_limit));
@@ -57,25 +65,25 @@ QString AExercises_Api::List_Path(const QString &in_type, const QStringList &in_
 
 	return QString("exercises?") + query.toString(QUrl::FullyEncoded);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Api::Get_List(const QString &in_type, const QStringList &in_muscle_groups,
                              const QStringList &in_equipments, const QString &in_search, int in_limit, int in_offset)
 {
 	SHttp_Request request;
 
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	// Обязательные и валидируемые параметры (docs/03, §3.9): невалидные не
 	// отправляют запрос — вызывающий видит Last_Error и идентификатор 0.
-	if (Valid_Type(in_type) == false)
+	if (!Valid_Type(in_type))
 	{
-		Last_Error_Text = "Невалидный type списка упражнений";
+		Error_State.Set_Last_Error("Невалидный type списка упражнений");
 		return 0;
 	}
 
 	if (in_limit < 1 || in_limit > 1000 || in_offset < 0 || in_offset > 100000)
 	{
-		Last_Error_Text = "Невалидная страница списка упражнений";
+		Error_State.Set_Last_Error("Невалидная страница списка упражнений");
 		return 0;
 	}
 
@@ -83,16 +91,16 @@ int AExercises_Api::Get_List(const QString &in_type, const QStringList &in_muscl
 	request.Path = List_Path(in_type, in_muscle_groups, in_equipments, in_search, in_limit, in_offset);
 	request.Retry_Enabled = true;
 
-	return Send_Optional(request, Kind_List);
+	return Send_Optional(request, ECall_Kind::List);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Тело POST/PATCH: name, is_public, description (omitempty — пустой не
 // отправляем), muscle_groups, equipment; PATCH добавляет id (обязан совпадать
 // с путём, docs/03, §3.9).
-//----------------------------------------------------------------------------
-QJsonObject Exercises_Mutation_Body(const QString &in_id, const QString &in_name, bool in_is_public,
-                                    const QString &in_description, const QStringList &in_muscle_groups,
-                                    const QStringList &in_equipments)
+//-------------------------------------------------------------------------------------------------------------
+QJsonObject AExercises_Api::Mutation_Body(const QString &in_id, const QString &in_name, bool in_is_public,
+                                          const QString &in_description, const QStringList &in_muscle_groups,
+                                          const QStringList &in_equipments)
 {
 	QJsonObject body;
 	QJsonArray groups;
@@ -110,109 +118,108 @@ QJsonObject Exercises_Mutation_Body(const QString &in_id, const QString &in_name
 	body.insert("muscle_groups", groups);
 	body.insert("equipment", equipments);
 
-	if (in_description.isEmpty() == false)
+	if (!in_description.isEmpty())
 		body.insert("description", in_description);
 
-	if (in_id.isEmpty() == false)
+	if (!in_id.isEmpty())
 		body.insert("id", in_id);
 
 	return body;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Api::Create_Exercise(const QString &in_name, bool in_is_public, const QString &in_description,
                                     const QStringList &in_muscle_groups, const QStringList &in_equipments)
 {
 	SHttp_Request request;
 
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	// Имя — единственное содержательно обязательное поле: сервер в Swagger
 	// не помечает required, но пустое имя не имеет смысла (docs/03, §3.9).
 	if (in_name.trimmed().isEmpty())
 	{
-		Last_Error_Text = "Название упражнения не может быть пустым";
+		Error_State.Set_Last_Error("Название упражнения не может быть пустым");
 		return 0;
 	}
 
 	request.Method = "POST";
 	request.Path = "exercises";
-	request.Body = QJsonDocument(Exercises_Mutation_Body(QString(), in_name.trimmed(), in_is_public, in_description,
-	                                                     in_muscle_groups, in_equipments))
+	request.Body = QJsonDocument(Mutation_Body(QString(), in_name.trimmed(), in_is_public, in_description,
+	                                           in_muscle_groups, in_equipments))
 	                   .toJson(QJsonDocument::Compact);
 
-	return Send_Authed_Mutation(request, Kind_Create);
+	return Send_Authed_Mutation(request, ECall_Kind::Create);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Api::Update_Exercise(const QString &in_id, const QString &in_name, bool in_is_public,
                                     const QString &in_description, const QStringList &in_muscle_groups,
                                     const QStringList &in_equipments)
 {
 	SHttp_Request request;
 
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	if (in_id.trimmed().isEmpty() || in_name.trimmed().isEmpty())
 	{
-		Last_Error_Text = "Название упражнения не может быть пустым";
+		Error_State.Set_Last_Error("Название упражнения не может быть пустым");
 		return 0;
 	}
 
 	request.Method = "PATCH";
-	request.Path = QString("exercises/%1").arg(in_id.trimmed());
-	request.Body = QJsonDocument(Exercises_Mutation_Body(in_id.trimmed(), in_name.trimmed(), in_is_public,
-	                                                     in_description, in_muscle_groups, in_equipments))
+	request.Path = Item_Path(in_id);
+	request.Body = QJsonDocument(Mutation_Body(in_id.trimmed(), in_name.trimmed(), in_is_public, in_description,
+	                                           in_muscle_groups, in_equipments))
 	                   .toJson(QJsonDocument::Compact);
 
-	return Send_Authed_Mutation(request, Kind_Update);
+	return Send_Authed_Mutation(request, ECall_Kind::Update);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Api::Delete_Exercise(const QString &in_id)
 {
 	SHttp_Request request;
 
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	if (in_id.trimmed().isEmpty())
 	{
-		Last_Error_Text = "Не указано упражнение для удаления";
+		Error_State.Set_Last_Error("Не указано упражнение для удаления");
 		return 0;
 	}
 
 	request.Method = "DELETE";
-	request.Path = QString("exercises/%1").arg(in_id.trimmed());
+	request.Path = Item_Path(in_id);
 
-	return Send_Authed_Mutation(request, Kind_Delete);
+	return Send_Authed_Mutation(request, ECall_Kind::Delete);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Api::Get_One(const QString &in_id)
 {
 	SHttp_Request request;
 
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 
 	if (in_id.trimmed().isEmpty())
 	{
-		Last_Error_Text = "Не указано упражнение для чтения";
+		Error_State.Set_Last_Error("Не указано упражнение для чтения");
 		return 0;
 	}
 
 	// GET /exercises/{id} — приватный эндпоинт (docs/03, §3.9): без активной
 	// сессии запрос не отправляется, «своё» без токена не читается.
 	request.Method = "GET";
-	request.Path = QString("exercises/%1").arg(in_id.trimmed());
+	request.Path = Item_Path(in_id);
 	request.Retry_Enabled = true;
 
-	return Send_Authed_Mutation(request, Kind_One);
+	return Send_Authed_Mutation(request, ECall_Kind::One);
 }
-//----------------------------------------------------------------------------
-int AExercises_Api::Send_Authed_Mutation(const SHttp_Request &in_request, int in_kind)
+//-------------------------------------------------------------------------------------------------------------
+int AExercises_Api::Send_Authed_Mutation(const SHttp_Request &in_request, ECall_Kind in_kind)
 {
-	SPending_Call pending;
 	int inner_id;
 
-	if (Session_Instance == 0 || Session_Instance->Has_Session() == false)
+	if (Session_Instance == 0 || !Session_Instance->Has_Session())
 	{
-		Last_Error_Text = "Нет активной сессии: требуется вход";
+		Error_State.Set_Last_Error("Нет активной сессии: требуется вход");
 		return 0;
 	}
 
@@ -221,41 +228,35 @@ int AExercises_Api::Send_Authed_Mutation(const SHttp_Request &in_request, int in
 	if (inner_id == 0)
 		return 0;
 
-	pending.Kind = in_kind;
-	pending.Source = Source_Session;
-	Pending_Calls.insert(Next_Request_Id, pending);
-	qCInfo(EXERCISES_Api_Log).noquote() << "mutation started" << Next_Request_Id << "kind" << in_kind;
-
-	return Next_Request_Id++;
+	return Register_Call(Session_Calls, inner_id, in_kind);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Api::Get_Muscle_Groups()
 {
 	SHttp_Request request;
 
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 	request.Method = "GET";
 	request.Path = "muscle-groups";
 	request.Retry_Enabled = true;
 
-	return Send_Optional(request, Kind_Muscle_Groups);
+	return Send_Optional(request, ECall_Kind::Muscle_Groups);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AExercises_Api::Get_Equipments()
 {
 	SHttp_Request request;
 
-	Last_Error_Text.clear();
+	Error_State.Clear_Last_Error();
 	request.Method = "GET";
 	request.Path = "equipments";
 	request.Retry_Enabled = true;
 
-	return Send_Optional(request, Kind_Equipments);
+	return Send_Optional(request, ECall_Kind::Equipments);
 }
-//----------------------------------------------------------------------------
-int AExercises_Api::Send_Optional(const SHttp_Request &in_request, int in_kind)
+//-------------------------------------------------------------------------------------------------------------
+int AExercises_Api::Send_Optional(const SHttp_Request &in_request, ECall_Kind in_kind)
 {
-	SPending_Call pending;
 	int inner_id;
 
 	// Опциональная авторизация (docs/03, §3.9): с активной сессией токен
@@ -263,40 +264,57 @@ int AExercises_Api::Send_Optional(const SHttp_Request &in_request, int in_kind)
 	if (Session_Instance != 0 && Session_Instance->Has_Session())
 	{
 		inner_id = Session_Instance->Send_Authed(in_request);
-		pending.Source = Source_Session;
+
+		if (inner_id == 0)
+			return 0;
+
+		return Register_Call(Session_Calls, inner_id, in_kind);
 	}
-	else
-	{
-		inner_id = HTTP_Client_Instance != 0 ? HTTP_Client_Instance->Send(in_request) : 0;
-		pending.Source = Source_Client;
-	}
+
+	if (HTTP_Client_Instance == 0)
+		return 0;
+
+	inner_id = HTTP_Client_Instance->Send(in_request);
 
 	if (inner_id == 0)
 		return 0;
 
-	pending.Kind = in_kind;
-	Pending_Calls.insert(Next_Request_Id, pending);
-	qCInfo(EXERCISES_Api_Log).noquote() << "request started" << Next_Request_Id << "kind" << in_kind;
-
-	return Next_Request_Id++;
+	return Register_Call(Client_Calls, inner_id, in_kind);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+int AExercises_Api::Register_Call(QHash<int, int> &in_out_inner_map, int in_inner_id, ECall_Kind in_kind)
+{
+	SPending_Call pending;
+	int request_id;
+
+	request_id = Next_Request_Id;
+	++Next_Request_Id;
+	pending.Kind = in_kind;
+	Pending_Calls.insert(request_id, pending);
+	in_out_inner_map.insert(in_inner_id, request_id);
+	qCInfo(EXERCISES_Api_Log).noquote() << "request started" << request_id << "kind" << (int)in_kind;
+
+	return request_id;
+}
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api::on_Client_Finished(int in_request_id, const SHttp_Response &in_response)
 {
-	if (Pending_Calls.contains(in_request_id) == false)
+	// Клиент сообщает о всех своих запросах, в том числе отправленных
+	// сессией и другими API: берём только зарегистрированные здесь.
+	if (!Client_Calls.contains(in_request_id))
 		return;
 
-	Finish_Call(in_request_id, in_response);
+	Finish_Call(Client_Calls.take(in_request_id), in_response);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api::on_Session_Finished(int in_request_id, const SHttp_Response &in_response)
 {
-	if (Pending_Calls.contains(in_request_id) == false)
+	if (!Session_Calls.contains(in_request_id))
 		return;
 
-	Finish_Call(in_request_id, in_response);
+	Finish_Call(Session_Calls.take(in_request_id), in_response);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api::Finish_Call(int in_request_id, const SHttp_Response &in_response)
 {
 	SPending_Call pending = Pending_Calls.take(in_request_id);
@@ -304,7 +322,7 @@ void AExercises_Api::Finish_Call(int in_request_id, const SHttp_Response &in_res
 
 	switch (pending.Kind)
 	{
-	case Kind_Muscle_Groups:
+	case ECall_Kind::Muscle_Groups:
 	{
 		QStringList groups;
 
@@ -313,7 +331,7 @@ void AExercises_Api::Finish_Call(int in_request_id, const SHttp_Response &in_res
 		emit muscleGroupsFinished(in_request_id, groups, error);
 		break;
 	}
-	case Kind_Equipments:
+	case ECall_Kind::Equipments:
 	{
 		QStringList equipments;
 
@@ -322,7 +340,7 @@ void AExercises_Api::Finish_Call(int in_request_id, const SHttp_Response &in_res
 		emit equipmentsFinished(in_request_id, equipments, error);
 		break;
 	}
-	case Kind_Create:
+	case ECall_Kind::Create:
 	{
 		SExercises_Item item;
 
@@ -331,7 +349,7 @@ void AExercises_Api::Finish_Call(int in_request_id, const SHttp_Response &in_res
 		emit createFinished(in_request_id, item, error);
 		break;
 	}
-	case Kind_Update:
+	case ECall_Kind::Update:
 	{
 		SExercises_Item item;
 
@@ -340,13 +358,13 @@ void AExercises_Api::Finish_Call(int in_request_id, const SHttp_Response &in_res
 		emit updateFinished(in_request_id, item, error);
 		break;
 	}
-	case Kind_Delete:
+	case ECall_Kind::Delete:
 	{
 		qCInfo(EXERCISES_Api_Log).noquote() << "delete finished" << in_request_id;
 		emit deleteFinished(in_request_id, in_response.Error);
 		break;
 	}
-	case Kind_One:
+	case ECall_Kind::One:
 	{
 		SExercises_Item item;
 
@@ -366,7 +384,7 @@ void AExercises_Api::Finish_Call(int in_request_id, const SHttp_Response &in_res
 	}
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AExercises_Api::Parse_Item(const QJsonObject &in_row, SExercises_Item &out_item)
 {
 	QJsonArray groups;
@@ -385,7 +403,7 @@ bool AExercises_Api::Parse_Item(const QJsonObject &in_row, SExercises_Item &out_
 	out_item.Description =
 	    in_row.value("description").isString() ? in_row.value("description").toString() : QString("");
 	out_item.Owner_ID = in_row.value("owner_id").isString() ? in_row.value("owner_id").toString() : QString("");
-	out_item.Has_Owner = out_item.Owner_ID.isEmpty() == false;
+	out_item.Has_Owner = !out_item.Owner_ID.isEmpty();
 	out_item.Created_At = in_row.value("created_at").isString() ? in_row.value("created_at").toString() : QString("");
 
 	groups = in_row.value("muscle_groups").toArray();
@@ -399,33 +417,32 @@ bool AExercises_Api::Parse_Item(const QJsonObject &in_row, SExercises_Item &out_
 		out_item.Equipment.append(equipment.at(e).toString());
 
 	// Обязательные поля успешного ответа (docs/03, §3.9).
-	return out_item.ID.isEmpty() == false && out_item.Name.isEmpty() == false;
+	return !out_item.ID.isEmpty() && !out_item.Name.isEmpty();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Один Exercise (ответ POST/PATCH; схема ответа POST в Swagger декларирует
 // тело запроса — дефект спецификации, docs/03, §3.9). Не объект или без
 // обязательных полей — undefined_error.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api::Parse_Single(const SHttp_Response &in_response, SExercises_Item &out_item, AApi_Error &out_error)
 {
 	out_item = SExercises_Item();
 	out_error = AApi_Error();
 
-	if (in_response.Success == false)
+	if (!in_response.Success)
 	{
 		out_error = in_response.Error;
 		return;
 	}
 
-	if (in_response.JSON_Valid == false || in_response.JSON.isObject() == false ||
-	    Parse_Item(in_response.JSON.object(), out_item) == false)
+	if (!in_response.JSON_Valid || !in_response.JSON.isObject() || !Parse_Item(in_response.JSON.object(), out_item))
 	{
 		out_item = SExercises_Item();
 		out_error = AApi_Error("undefined_error", "Incomplete exercise response", in_response.HTTP_Status_Code,
 		                       in_response.Network_Error_Code);
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api::Parse_List(const SHttp_Response &in_response, QVector<SExercises_Item> &out_items,
                                 AApi_Error &out_error)
 {
@@ -434,14 +451,14 @@ void AExercises_Api::Parse_List(const SHttp_Response &in_response, QVector<SExer
 	out_items.clear();
 	out_error = AApi_Error();
 
-	if (in_response.Success == false)
+	if (!in_response.Success)
 	{
 		out_error = in_response.Error;
 		return;
 	}
 
 	// Голый массив без обёртки (docs/03, §3.9): не массив — undefined_error.
-	if (in_response.JSON_Valid == false || in_response.JSON.isArray() == false)
+	if (!in_response.JSON_Valid || !in_response.JSON.isArray())
 	{
 		out_error = AApi_Error("undefined_error", "Incomplete exercises response", in_response.HTTP_Status_Code,
 		                       in_response.Network_Error_Code);
@@ -462,7 +479,7 @@ void AExercises_Api::Parse_List(const SHttp_Response &in_response, QVector<SExer
 		// DEFAULT работает только для опущенной колонки, не для NULL.
 		item.Description = row.value("description").isString() ? row.value("description").toString() : QString("");
 		item.Owner_ID = row.value("owner_id").isString() ? row.value("owner_id").toString() : QString("");
-		item.Has_Owner = item.Owner_ID.isEmpty() == false;
+		item.Has_Owner = !item.Owner_ID.isEmpty();
 		item.Created_At = row.value("created_at").isString() ? row.value("created_at").toString() : QString("");
 
 		QJsonArray groups = row.value("muscle_groups").toArray();
@@ -487,7 +504,7 @@ void AExercises_Api::Parse_List(const SHttp_Response &in_response, QVector<SExer
 		out_items.append(item);
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AExercises_Api::Parse_String_Array(const SHttp_Response &in_response, QStringList &out_values,
                                         AApi_Error &out_error)
 {
@@ -496,13 +513,13 @@ void AExercises_Api::Parse_String_Array(const SHttp_Response &in_response, QStri
 	out_values.clear();
 	out_error = AApi_Error();
 
-	if (in_response.Success == false)
+	if (!in_response.Success)
 	{
 		out_error = in_response.Error;
 		return;
 	}
 
-	if (in_response.JSON_Valid == false || in_response.JSON.isArray() == false)
+	if (!in_response.JSON_Valid || !in_response.JSON.isArray())
 	{
 		out_error = AApi_Error("undefined_error", "Incomplete exercises response", in_response.HTTP_Status_Code,
 		                       in_response.Network_Error_Code);
@@ -514,4 +531,4 @@ void AExercises_Api::Parse_String_Array(const SHttp_Response &in_response, QStri
 	for (int i = 0; i < array.size(); ++i)
 		out_values.append(array.at(i).toString());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

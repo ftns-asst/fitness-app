@@ -1,4 +1,4 @@
-#include "Domain/Rule_Engine.h"
+﻿#include "Domain/Rule_Engine.h"
 
 #include <QDate>
 #include <QDateTime>
@@ -8,15 +8,15 @@
 
 Q_LOGGING_CATEGORY(RULE_Engine_Log, "trainingapp.program.rule")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Допуск точной цели (exact): вес и часы измеряются с шагом 0,5, поэтому
 // «ориентир» считается достигнутым в пределах половины шага.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static const double Exact_Target_Tolerance = 0.5;
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Проверка канонической ISO-даты «YYYY-MM-DD».
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static bool Is_Iso_Date(const QString &in_text)
 {
 	QDate date = QDate::fromString(in_text, Qt::ISODate);
@@ -25,47 +25,47 @@ static bool Is_Iso_Date(const QString &in_text)
 }
 
 // AsRule_Engine
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsRule_Engine::AsRule_Engine() : Error_State(&RULE_Engine_Log())
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AsRule_Engine::Get_Last_Error() const
 {
 	return Error_State.Get_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsRule_Engine::Set_Last_Error(const QString &in_error)
 {
 	return Error_State.Set_Last_Error(in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsRule_Engine::Clear_Last_Error()
 {
 	Error_State.Clear_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsRule_Engine::Is_Rule_Active(const SProgram_Rule &in_rule, const QString &in_date)
 {
 	QString date = in_date.trimmed();
 
 	Clear_Last_Error();
 
-	if (Is_Iso_Date(date) == false)
+	if (!Is_Iso_Date(date))
 		return Set_Last_Error(QString("Некорректная дата правила: %1").arg(in_date));
 
-	if (in_rule.Active_From.isEmpty() == false)
+	if (!in_rule.Active_From.isEmpty())
 	{
-		if (Is_Iso_Date(in_rule.Active_From) == false)
+		if (!Is_Iso_Date(in_rule.Active_From))
 			return Set_Last_Error(QString("Некорректная дата начала правила: %1").arg(in_rule.Active_From));
 
 		if (date < in_rule.Active_From)
 			return false;
 	}
 
-	if (in_rule.Active_To.isEmpty() == false)
+	if (!in_rule.Active_To.isEmpty())
 	{
-		if (Is_Iso_Date(in_rule.Active_To) == false)
+		if (!Is_Iso_Date(in_rule.Active_To))
 			return Set_Last_Error(QString("Некорректная дата окончания правила: %1").arg(in_rule.Active_To));
 
 		if (date > in_rule.Active_To)
@@ -74,12 +74,12 @@ bool AsRule_Engine::Is_Rule_Active(const SProgram_Rule &in_rule, const QString &
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsRule_Engine::Evaluate_Value(const SProgram_Rule &in_rule, double in_value, ECheckin_State &out_state)
 {
 	Clear_Last_Error();
 
-	if (std::isfinite(in_value) == false)
+	if (!std::isfinite(in_value))
 		return Set_Last_Error("Значение отметки должно быть конечным числом");
 
 	// Рекомендация отвечает на вопрос «что делать», а не «сколько»: вердикт
@@ -123,7 +123,7 @@ bool AsRule_Engine::Evaluate_Value(const SProgram_Rule &in_rule, double in_value
 
 	return Set_Last_Error(QString("У правила %1 не задано целевое значение").arg(in_rule.ID));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsRule_Engine::Evaluate_Checkin(const SProgram_Rule &in_rule, const SRule_Checkin &in_checkin,
                                      ECheckin_State &out_state)
 {
@@ -136,7 +136,7 @@ bool AsRule_Engine::Evaluate_Checkin(const SProgram_Rule &in_rule, const SRule_C
 		return true;
 	}
 
-	if (in_checkin.Has_Value == false)
+	if (!in_checkin.Has_Value)
 	{
 		out_state = in_checkin.State;
 
@@ -145,7 +145,7 @@ bool AsRule_Engine::Evaluate_Checkin(const SProgram_Rule &in_rule, const SRule_C
 
 	return Evaluate_Value(in_rule, in_checkin.Value, out_state);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsRule_Engine::Build_Computed_Checkin(const SProgram_Rule &in_rule, const SWorkout_Session &in_session,
                                            const QVector<SSet_Log> &in_sets,
                                            const QVector<SWorkout_Session> &in_earlier_sessions,
@@ -161,7 +161,7 @@ bool AsRule_Engine::Build_Computed_Checkin(const SProgram_Rule &in_rule, const S
 	if (in_rule.ID.isEmpty())
 		return Set_Last_Error("Расчётная отметка требует правило с id");
 
-	if (in_session.ID.isEmpty() || Is_Iso_Date(in_session.Date) == false)
+	if (in_session.ID.isEmpty() || !Is_Iso_Date(in_session.Date))
 		return Set_Last_Error("Расчётная отметка требует тренировку с id и датой");
 
 	checkin.Rule_Id = in_rule.ID;
@@ -197,7 +197,7 @@ bool AsRule_Engine::Build_Computed_Checkin(const SProgram_Rule &in_rule, const S
 	{
 		ECheckin_State state = ECheckin_State::Unknown;
 
-		if (Evaluate_Value(in_rule, value, state) == false)
+		if (!Evaluate_Value(in_rule, value, state))
 			return false;
 
 		checkin.Value = value;
@@ -209,7 +209,7 @@ bool AsRule_Engine::Build_Computed_Checkin(const SProgram_Rule &in_rule, const S
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsRule_Engine::Compute_Rule_Stats(const SProgram_Rule &in_rule, const QVector<SRule_Checkin> &in_checkins,
                                        SRule_Stats &out_stats)
 {
@@ -237,7 +237,7 @@ bool AsRule_Engine::Compute_Rule_Stats(const SProgram_Rule &in_rule, const QVect
 		if (checkin.Rule_Id != in_rule.ID)
 			continue;
 
-		if (Evaluate_Checkin(in_rule, checkin, state) == false)
+		if (!Evaluate_Checkin(in_rule, checkin, state))
 			return false;
 
 		Accumulate_State(state, out_stats);
@@ -259,7 +259,7 @@ bool AsRule_Engine::Compute_Rule_Stats(const SProgram_Rule &in_rule, const QVect
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsRule_Engine::Compute_Overall_Stats(const QVector<SProgram_Rule> &in_rules,
                                           const QVector<SRule_Checkin> &in_checkins, SRule_Stats &out_stats)
 {
@@ -275,7 +275,7 @@ bool AsRule_Engine::Compute_Overall_Stats(const QVector<SProgram_Rule> &in_rules
 	{
 		SRule_Stats rule_stats;
 
-		if (Compute_Rule_Stats(in_rules.at(i), in_checkins, rule_stats) == false)
+		if (!Compute_Rule_Stats(in_rules.at(i), in_checkins, rule_stats))
 			return false;
 
 		total.Done_Count += rule_stats.Done_Count;
@@ -291,7 +291,7 @@ bool AsRule_Engine::Compute_Overall_Stats(const QVector<SProgram_Rule> &in_rules
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsRule_Engine::Compute_Max_Rpe_Value(const QVector<SSet_Log> &in_sets, double &out_value,
                                           bool &out_has_value) const
 {
@@ -302,17 +302,17 @@ void AsRule_Engine::Compute_Max_Rpe_Value(const QVector<SSet_Log> &in_sets, doub
 	{
 		const SSet_Log &set = in_sets.at(i);
 
-		if (set.Is_Warmup || set.Done == false || set.Has_Rpe == false)
+		if (set.Is_Warmup || !set.Done || !set.Has_Rpe)
 			continue;
 
-		if (out_has_value == false || set.Rpe > out_value)
+		if (!out_has_value || set.Rpe > out_value)
 		{
 			out_value = set.Rpe;
 			out_has_value = true;
 		}
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsRule_Engine::Compute_Progression_Value(const QVector<SSet_Log> &in_sets, double &out_value,
                                               bool &out_has_value) const
 {
@@ -326,7 +326,7 @@ void AsRule_Engine::Compute_Progression_Value(const QVector<SSet_Log> &in_sets, 
 	{
 		const SSet_Log &set = in_sets.at(i);
 
-		if (set.Is_Warmup || set.Has_Target_Reps == false)
+		if (set.Is_Warmup || !set.Has_Target_Reps)
 			continue;
 
 		++planned;
@@ -341,7 +341,7 @@ void AsRule_Engine::Compute_Progression_Value(const QVector<SSet_Log> &in_sets, 
 	out_value = reached * 100.0 / planned;
 	out_has_value = true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsRule_Engine::Compute_Rest_Hours(const SWorkout_Session &in_session,
                                        const QVector<SWorkout_Session> &in_earlier_sessions, double &out_value,
                                        bool &out_has_value) const
@@ -352,7 +352,7 @@ void AsRule_Engine::Compute_Rest_Hours(const SWorkout_Session &in_session,
 	out_value = 0;
 	out_has_value = false;
 
-	if (current.isValid() == false)
+	if (!current.isValid())
 		return;
 
 	for (int i = 0; i < in_earlier_sessions.size(); ++i)
@@ -360,23 +360,23 @@ void AsRule_Engine::Compute_Rest_Hours(const SWorkout_Session &in_session,
 		const SWorkout_Session &earlier = in_earlier_sessions.at(i);
 		QDateTime end = QDateTime::fromString(earlier.Completed_At, Qt::ISODate);
 
-		if (end.isValid() == false)
+		if (!end.isValid())
 			end = QDateTime::fromString(earlier.Started_At, Qt::ISODate);
 
-		if (end.isValid() == false || end >= current)
+		if (!end.isValid() || end >= current)
 			continue;
 
-		if (latest_end.isValid() == false || end > latest_end)
+		if (!latest_end.isValid() || end > latest_end)
 			latest_end = end;
 	}
 
-	if (latest_end.isValid() == false)
+	if (!latest_end.isValid())
 		return;
 
 	out_value = latest_end.secsTo(current) / 3600.0;
 	out_has_value = true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsRule_Engine::Accumulate_State(ECheckin_State in_state, SRule_Stats &out_stats) const
 {
 	switch (in_state)
@@ -402,7 +402,7 @@ void AsRule_Engine::Accumulate_State(ECheckin_State in_state, SRule_Stats &out_s
 		break;
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsRule_Engine::Finalize_Stats(SRule_Stats &out_stats) const
 {
 	out_stats.Evaluated_Count =
@@ -411,4 +411,4 @@ void AsRule_Engine::Finalize_Stats(SRule_Stats &out_stats) const
 	out_stats.Adherence_Percent =
 	    out_stats.Has_Adherence_Percent ? out_stats.Done_Count * 100.0 / out_stats.Evaluated_Count : 0;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

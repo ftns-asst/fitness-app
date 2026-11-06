@@ -1,4 +1,4 @@
-#include "Domain/Program_Model.h"
+﻿#include "Domain/Program_Model.h"
 
 #include <QtTest>
 
@@ -27,7 +27,7 @@ private slots:
 	void adviceTextMustHaveNonSpaceCharacter();
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Model_Test::enumRoundTrip()
 {
 	// Строковые значения обязаны совпадать с CHECK-ограничениями schema
@@ -89,18 +89,18 @@ void AProgram_Model_Test::enumRoundTrip()
 	QVERIFY(From_String(QString("dropped"), target_state));
 	QCOMPARE(target_state, EGoal_Target_State::Dropped);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Model_Test::enumFromUnknownTextKeepsValue()
 {
 	EProgram_State state = EProgram_State::Active;
 	ERule_Metric metric = ERule_Metric::ProteinGrams;
 
-	QVERIFY(From_String(QString("wrong"), state) == false);
+	QVERIFY(!From_String(QString("wrong"), state));
 	QCOMPARE(state, EProgram_State::Active);
-	QVERIFY(From_String(QString(""), metric) == false);
+	QVERIFY(!From_String(QString(""), metric));
 	QCOMPARE(metric, ERule_Metric::ProteinGrams);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Model_Test::termComputesEndDate()
 {
 	STerm term;
@@ -126,7 +126,7 @@ void AProgram_Model_Test::termComputesEndDate()
 	term.Start_Date = "not-a-date";
 	QVERIFY(term.Compute_End_Date().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Model_Test::progressionJsonRoundTrip()
 {
 	SProgression_Rule rule;
@@ -165,24 +165,24 @@ void AProgram_Model_Test::progressionJsonRoundTrip()
 	rule.Type = EProgression_Type::Manual;
 	json = To_Progression_Json(rule);
 	QVERIFY(json.contains("manual"));
-	QVERIFY(json.contains("incrementKg") == false);
+	QVERIFY(!json.contains("incrementKg"));
 	QVERIFY(Parse_Progression_Json(json, parsed));
 	QCOMPARE(parsed.Type, EProgression_Type::Manual);
-	QVERIFY(parsed.Has_Increment_Kg == false);
-	QVERIFY(parsed.Has_Deload_Every_Weeks == false);
+	QVERIFY(!parsed.Has_Increment_Kg);
+	QVERIFY(!parsed.Has_Deload_Every_Weeks);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Model_Test::progressionJsonRejectsInvalidInput()
 {
 	SProgression_Rule keep;
 
 	keep.Type = EProgression_Type::Manual;
-	QVERIFY(Parse_Progression_Json(QString("not json"), keep) == false);
-	QVERIFY(Parse_Progression_Json(QString("[]"), keep) == false);
-	QVERIFY(Parse_Progression_Json(QString("{\"type\":\"bogus\"}"), keep) == false);
+	QVERIFY(!Parse_Progression_Json(QString("not json"), keep));
+	QVERIFY(!Parse_Progression_Json(QString("[]"), keep));
+	QVERIFY(!Parse_Progression_Json(QString("{\"type\":\"bogus\"}"), keep));
 	QCOMPARE(keep.Type, EProgression_Type::Manual); // отказ значение не меняет
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Model_Test::jsonArrayRoundTrip()
 {
 	QStringList list;
@@ -200,10 +200,10 @@ void AProgram_Model_Test::jsonArrayRoundTrip()
 	QVERIFY(Parse_Json_Array(json, parsed));
 	QVERIFY(parsed.isEmpty());
 
-	QVERIFY(Parse_Json_Array(QString("{\"a\":1}"), parsed) == false);
-	QVERIFY(Parse_Json_Array(QString("broken"), parsed) == false);
+	QVERIFY(!Parse_Json_Array(QString("{\"a\":1}"), parsed));
+	QVERIFY(!Parse_Json_Array(QString("broken"), parsed));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Категория «Другое» — то, чем пользователь пишет рекомендацию текстом.
 // Значение обязано совпадать со строкой в CHECK-ограничении схемы v3.
 void AProgram_Model_Test::otherCategoryRoundTrip()
@@ -227,7 +227,7 @@ void AProgram_Model_Test::otherCategoryRoundTrip()
 	QVERIFY(To_String(ERule_Category::Other) != To_String(ERule_Category::Nutrition));
 	QVERIFY(To_String(ERule_Category::Other) != To_String(ERule_Category::Training));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Вид правила выводится из наличия цели, а не из категории: рекомендацией
 // делается именно то правило, у которого нечего измерить. Проверка в БД
 // (CHECK в схеме v3) и проверка в репозитории (Has_Advice_Text) в этом
@@ -263,7 +263,7 @@ void AProgram_Model_Test::ruleKindFollowsTargetPresence()
 	rule.Has_Target_Exact = true;
 	QCOMPARE(Get_Rule_Kind(rule), ERule_Kind::Measurable);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Текст рекомендации должен быть содержательным. Строка из пробелов формально
 // не пуста, и без этой проверки «Другое» превратилось бы в способ завести
 // правило вообще без содержания — то самое, ради чего снималась проверка цели.
@@ -276,22 +276,22 @@ void AProgram_Model_Test::adviceTextMustHaveNonSpaceCharacter()
 	QVERIFY(Has_Advice_Text(rule));
 
 	rule.Note = "   ";
-	QVERIFY(Has_Advice_Text(rule) == false);
+	QVERIFY(!Has_Advice_Text(rule));
 
 	rule.Note = "\t\n ";
-	QVERIFY(Has_Advice_Text(rule) == false);
+	QVERIFY(!Has_Advice_Text(rule));
 
 	rule.Note = QString();
-	QVERIFY(Has_Advice_Text(rule) == false);
+	QVERIFY(!Has_Advice_Text(rule));
 
 	// У измеримого правила текста может не быть вовсе — это не рекомендация,
 	// и жаловаться тут не на что.
 	rule.Category = ERule_Category::Nutrition;
 	rule.Has_Target_Min = true;
 	rule.Note = QString();
-	QVERIFY(Has_Advice_Text(rule) == false);
+	QVERIFY(!Has_Advice_Text(rule));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Model_Test::enumMaxMarksBoundAndFullRoundTrip()
 {
 	EProgram_State state = EProgram_State::Draft;
@@ -343,7 +343,7 @@ void AProgram_Model_Test::enumMaxMarksBoundAndFullRoundTrip()
 	QVERIFY(To_String((ERule_Metric)ERule_Metric::Max).isEmpty());
 	QVERIFY(To_String((ESlot_Kind)ESlot_Kind::Max).isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(AProgram_Model_Test)
 

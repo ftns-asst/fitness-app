@@ -1,6 +1,7 @@
-#pragma once
+﻿#pragma once
 
 #include "Data/Network/Api_Error.h"
+#include "Domain/Error_State.h"
 
 #include <QByteArray>
 #include <QHash>
@@ -15,10 +16,10 @@
 class AHttp_Operation;
 class QNetworkReply;
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Единый DTO запроса transport-слоя. Path всегда относителен к API base URL.
 // Retry_Enabled позволяет API-адаптеру запретить повтор неидемпотентной операции.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 struct SHttp_Request
 {
 	QByteArray Method = "GET";
@@ -28,10 +29,10 @@ struct SHttp_Request
 	bool Retry_Enabled = false;
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Единый DTO ответа transport-слоя. JSON_Valid сообщает только результат
 // синтаксического разбора; обязательные поля endpoint проверяет его API-адаптер.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 struct SHttp_Response
 {
 	int Request_Id = 0;
@@ -46,10 +47,10 @@ struct SHttp_Response
 	AApi_Error Error;
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Асинхронный HTTP-клиент приложения. Владеет одним QNetworkAccessManager,
 // ограничивает время запроса и повторяет network/5xx ошибки с exponential backoff.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 class AsHttp_Client : public QObject
 {
 	Q_OBJECT
@@ -73,12 +74,17 @@ public:
 	int Max_Retry_Count() const;
 	void Set_Initial_Retry_Delay_Ms(int in_delay_ms);
 	int Initial_Retry_Delay_Ms() const;
+	// Предел тела ответа: больший ответ прерывается ошибкой response_too_large
+	// без повторов, чтобы сервер не мог исчерпать память клиента.
+	void Set_Max_Response_Bytes(int in_bytes);
+	int Max_Response_Bytes() const;
 
 signals:
 	void requestFinished(int requestId, const SHttp_Response &response);
 
 private slots:
 	void onReplyFinished();
+	void onReplyDownloadProgress(qint64 in_bytes_received, qint64 in_bytes_total);
 
 private:
 	bool Validate_Request(const SHttp_Request &in_request, QUrl &out_url);
@@ -92,13 +98,14 @@ private:
 	QNetworkAccessManager Network_Manager;
 	QHash<QNetworkReply *, AHttp_Operation *> Active_Replies;
 	QUrl API_Base_URL;
-	QString Last_Error_Text;
+	AError_State Error_State;
 	int Next_Request_Id = 1;
 	int Request_Timeout_Ms = 10000;
 	int Maximum_Retry_Count = 2;
 	int Initial_Retry_Delay = 250;
+	int Maximum_Response_Bytes = 8 * 1024 * 1024;
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 Q_DECLARE_METATYPE(SHttp_Request)
 Q_DECLARE_METATYPE(SHttp_Response)

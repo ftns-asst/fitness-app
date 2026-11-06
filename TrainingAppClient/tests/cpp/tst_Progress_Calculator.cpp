@@ -1,4 +1,4 @@
-#include "Domain/Progress_Calculator.h"
+﻿#include "Domain/Progress_Calculator.h"
 #include "Domain/Progress_Stats.h"
 
 #include <QJsonArray>
@@ -34,7 +34,7 @@ private:
 	SProgress_Facts Make_Facts();
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SProgram AProgress_Calculator_Test::Make_Program()
 {
 	SProgram program;
@@ -54,7 +54,7 @@ SProgram AProgress_Calculator_Test::Make_Program()
 
 	return program;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<SWeek_Slot> AProgress_Calculator_Test::Make_Schedule()
 {
 	ESlot_Kind kinds[7] = {ESlot_Kind::Workout, ESlot_Kind::Rest, ESlot_Kind::Workout, ESlot_Kind::Rest,
@@ -74,7 +74,7 @@ QVector<SWeek_Slot> AProgress_Calculator_Test::Make_Schedule()
 
 	return schedule;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SWorkout_Session AProgress_Calculator_Test::Make_Session(const QString &in_id, const QString &in_date, int in_duration,
                                                          EDeviation in_deviation)
 {
@@ -93,7 +93,7 @@ SWorkout_Session AProgress_Calculator_Test::Make_Session(const QString &in_id, c
 
 	return session;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SSet_Log AProgress_Calculator_Test::Make_Set(const QString &in_session_id, const QString &in_exercise_id,
                                              double in_weight, int in_reps, double in_rpe, bool in_done, bool in_warmup)
 {
@@ -111,7 +111,7 @@ SSet_Log AProgress_Calculator_Test::Make_Set(const QString &in_session_id, const
 
 	return set;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SProgress_Facts AProgress_Calculator_Test::Make_Facts()
 {
 	SProgress_Facts facts;
@@ -256,7 +256,7 @@ SProgress_Facts AProgress_Calculator_Test::Make_Facts()
 
 	return facts;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgress_Calculator_Test::programStatsAggregateWindowAndVolume()
 {
 	AsProgress_Calculator calculator;
@@ -296,7 +296,7 @@ void AProgress_Calculator_Test::programStatsAggregateWindowAndVolume()
 	QCOMPARE(stats.Data_Range_From, QString("2026-09-28"));
 	QCOMPARE(stats.Data_Range_To, QString("2026-10-17"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgress_Calculator_Test::programStatsStrengthBodyAndGoals()
 {
 	AsProgress_Calculator calculator;
@@ -323,20 +323,20 @@ void AProgress_Calculator_Test::programStatsStrengthBodyAndGoals()
 	QCOMPARE(stats.Measurement_Deltas.size(), 5);
 	QVERIFY(stats.Measurement_Deltas.at(0).Has_Delta_Cm);
 	QCOMPARE(stats.Measurement_Deltas.at(0).Delta_Cm, 1.0);
-	QVERIFY(stats.Measurement_Deltas.at(1).Has_Delta_Cm == false);
+	QVERIFY(!stats.Measurement_Deltas.at(1).Has_Delta_Cm);
 
 	QCOMPARE(stats.Goal_Progress.size(), 2);
 	QVERIFY(stats.Goal_Progress.at(0).Has_Current_Value);
 	QCOMPARE(stats.Goal_Progress.at(0).Current_Value, 78.0);
 	QVERIFY(stats.Goal_Progress.at(0).Has_Progress_Percent);
 	QCOMPARE(stats.Goal_Progress.at(0).Progress_Percent, 50.0);
-	QVERIFY(stats.Goal_Progress.at(0).Is_Achieved == false);
+	QVERIFY(!stats.Goal_Progress.at(0).Is_Achieved);
 	QVERIFY(stats.Goal_Progress.at(1).Has_Current_Value);
 	QCOMPARE(stats.Goal_Progress.at(1).Current_Value, 105.0);
 	QCOMPARE(stats.Goal_Progress.at(1).Progress_Percent, 50.0);
-	QVERIFY(stats.Goal_Achieved == false);
+	QVERIFY(!stats.Goal_Achieved);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgress_Calculator_Test::programStatsRulesUseRuleEngine()
 {
 	AsProgress_Calculator calculator;
@@ -366,7 +366,7 @@ void AProgress_Calculator_Test::programStatsRulesUseRuleEngine()
 	QVERIFY(stats.Has_Average_Protein_Per_Kg);
 	QCOMPARE(stats.Average_Protein_Per_Kg, (430.0 / 3.0) / 78.0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgress_Calculator_Test::lifetimeStatsAggregateAllPrograms()
 {
 	AsProgress_Calculator calculator;
@@ -423,7 +423,7 @@ void AProgress_Calculator_Test::lifetimeStatsAggregateAllPrograms()
 	QCOMPARE(stats.Summaries.at(0).Key_Lift_Delta_Kg, 105.0 * (1 + 5.0 / 30.0) - 100.0 * (1 + 5.0 / 30.0));
 	QCOMPARE(stats.Best_Program_Id, QString("p1"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgress_Calculator_Test::encodeProducesCachePayload()
 {
 	AsProgress_Calculator calculator;
@@ -476,7 +476,7 @@ void AProgress_Calculator_Test::encodeProducesCachePayload()
 	QCOMPARE(lifetime_object.value("regularity").toArray().size(), 5);
 	QCOMPARE(lifetime_object.value("programSummaries").toArray().size(), 1);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgress_Calculator_Test::incrementalEqualsFullRecalculation()
 {
 	AsProgress_Calculator calculator;
@@ -520,7 +520,7 @@ void AProgress_Calculator_Test::incrementalEqualsFullRecalculation()
 		QCOMPARE(incremental.Weeks.at(week).Tonnage_Kg, full.Weeks.at(week).Tonnage_Kg);
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgress_Calculator_Test::rejectsInvalidInput()
 {
 	AsProgress_Calculator calculator;
@@ -531,29 +531,29 @@ void AProgress_Calculator_Test::rejectsInvalidInput()
 	QString json;
 
 	facts.Program.ID.clear();
-	QVERIFY(calculator.Compute_Program_Stats(facts, stats) == false);
-	QVERIFY(calculator.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!calculator.Compute_Program_Stats(facts, stats));
+	QVERIFY(!calculator.Get_Last_Error().isEmpty());
 
 	facts = Make_Facts();
 	facts.Program.Term.Start_Date = "не-дата";
-	QVERIFY(calculator.Compute_Program_Stats(facts, stats) == false);
-	QVERIFY(calculator.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!calculator.Compute_Program_Stats(facts, stats));
+	QVERIFY(!calculator.Get_Last_Error().isEmpty());
 
 	// Инкрементальный пересчёт чужой или пустой статистики отвергается.
 	facts = Make_Facts();
 	SProgram_Stats other;
 	other.Program_Id = "p_other";
-	QVERIFY(calculator.Recompute_Week(facts, 1, other) == false);
-	QVERIFY(calculator.Recompute_Week(facts, 99, stats) == false);
-	QVERIFY(calculator.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!calculator.Recompute_Week(facts, 1, other));
+	QVERIFY(!calculator.Recompute_Week(facts, 99, stats));
+	QVERIFY(!calculator.Get_Last_Error().isEmpty());
 
-	QVERIFY(calculator.Compute_Lifetime_Stats(lifetime, QVector<SProgress_Facts>(), lifetime_stats) == false);
-	QVERIFY(calculator.Encode_Program_Stats(stats, json) == false);
+	QVERIFY(!calculator.Compute_Lifetime_Stats(lifetime, QVector<SProgress_Facts>(), lifetime_stats));
+	QVERIFY(!calculator.Encode_Program_Stats(stats, json));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Границы окна программы: обе включительные, а плановый конец срока обрезает
 // окно. Рефакторинг расчёта окна не должен изменить эти правила (§5.5).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgress_Calculator_Test::windowBoundariesAreInclusiveAndTermLimits()
 {
 	AsProgress_Calculator calculator;
@@ -584,10 +584,10 @@ void AProgress_Calculator_Test::windowBoundariesAreInclusiveAndTermLimits()
 	QCOMPARE(stats.Weeks.size(), 2);
 	QCOMPARE(stats.Completed_Sessions, 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // «Первое» и «последнее» значение находятся по датам, а не по порядку во
 // входных данных: факты приходят из БД без гарантии сортировки.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgress_Calculator_Test::extremesAreResolvedByDateNotByInputOrder()
 {
 	AsProgress_Calculator calculator;
@@ -624,10 +624,10 @@ void AProgress_Calculator_Test::extremesAreResolvedByDateNotByInputOrder()
 	QCOMPARE(stats.Body_Weight_Latest_Kg, 78.0);
 	QCOMPARE(stats.Body_Weight_Delta_Kg, -2.0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Замеры вне окна программы не участвуют ни в старте, ни в последнем значении
 // веса тела, ни в дельтах обхватов (§5.5 — окно программы).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgress_Calculator_Test::measurementsOutsideWindowAreIgnored()
 {
 	AsProgress_Calculator calculator;
@@ -651,12 +651,12 @@ void AProgress_Calculator_Test::measurementsOutsideWindowAreIgnored()
 
 	QVERIFY(calculator.Compute_Program_Stats(facts, stats));
 	QCOMPARE(stats.Body_Weight_Latest_Kg, 78.0);
-	QVERIFY(stats.Measurement_Deltas.at(1).Has_Delta_Cm == false);
+	QVERIFY(!stats.Measurement_Deltas.at(1).Has_Delta_Cm);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Черновики сессий и разминочные подходы не попадают ни в программу, ни в
 // «всё время» (§3.8: фактом считается только завершённая рабочая работа).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgress_Calculator_Test::draftSessionsAndWarmupSetsNeverCount()
 {
 	AsProgress_Calculator calculator;
@@ -693,10 +693,10 @@ void AProgress_Calculator_Test::draftSessionsAndWarmupSetsNeverCount()
 	QCOMPARE(lifetime_stats.Total_Sets, 0);
 	QVERIFY(lifetime_stats.Records.isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Метрика с данными, равными нулю, кодируется числом, а не null: «измерили и
 // получили 0» отличается от «нечего считать» (§5.5).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgress_Calculator_Test::encodeKeepsZeroWhenDataExists()
 {
 	AsProgress_Calculator calculator;
@@ -720,8 +720,8 @@ void AProgress_Calculator_Test::encodeKeepsZeroWhenDataExists()
 	// Метрика без данных остаётся null.
 	QVERIFY(zero_object.value("avgRpe").isNull());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_GUILESS_MAIN(AProgress_Calculator_Test)
 #include "tst_Progress_Calculator.moc"
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

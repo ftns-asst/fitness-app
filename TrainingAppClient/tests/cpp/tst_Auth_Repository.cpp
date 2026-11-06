@@ -1,4 +1,4 @@
-#include "Data/Auth/Auth_Repository.h"
+﻿#include "Data/Auth/Auth_Repository.h"
 #include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
@@ -32,7 +32,7 @@ private:
 	static void Close_Inspection_Database(QSqlDatabase &in_database);
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository_Test::loginSavesSessionAndUserCache()
 {
 	ATest_Http_Server server;
@@ -64,7 +64,7 @@ void AAuth_Repository_Test::loginSavesSessionAndUserCache()
 
 	arguments = spy.takeFirst();
 	error = qvariant_cast<AApi_Error>(arguments.at(2));
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!error.Is_Error());
 
 	// Сессия активна, токены и пользователь атомарно сохранены.
 	QVERIFY(session.Has_Session());
@@ -83,7 +83,7 @@ void AAuth_Repository_Test::loginSavesSessionAndUserCache()
 	QCOMPARE(query.value(2).toString(), QString("2026-09-20T12:00:00Z"));
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository_Test::signupSavesSessionAndUserCache()
 {
 	ATest_Http_Server server;
@@ -114,7 +114,7 @@ void AAuth_Repository_Test::signupSavesSessionAndUserCache()
 
 	arguments = spy.takeFirst();
 	error = qvariant_cast<AApi_Error>(arguments.at(2));
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!error.Is_Error());
 
 	QVERIFY(session.Has_Session());
 	QCOMPARE(session.User_ID(), QString("user-1"));
@@ -127,7 +127,7 @@ void AAuth_Repository_Test::signupSavesSessionAndUserCache()
 	QCOMPARE(query.value(0).toString(), QString("somename"));
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository_Test::failedLoginKeepsSessionEmpty()
 {
 	ATest_Http_Server server;
@@ -161,8 +161,8 @@ void AAuth_Repository_Test::failedLoginKeepsSessionEmpty()
 	QCOMPARE(error.Key(), QString("incorrect_password"));
 
 	// Неудачный вход не оставляет ни сессии, ни токенов, ни кэша пользователя.
-	QVERIFY(session.Has_Session() == false);
-	QVERIFY(store.Has_Tokens() == false);
+	QVERIFY(!session.Has_Session());
+	QVERIFY(!store.Has_Tokens());
 
 	inspection = Open_Inspection_Database(path, "inspect_failed");
 	query = QSqlQuery(inspection);
@@ -171,7 +171,7 @@ void AAuth_Repository_Test::failedLoginKeepsSessionEmpty()
 	QCOMPARE(query.value(0).toInt(), 0);
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository_Test::logoutClearsTokensAndKeepsUserCache()
 {
 	ATest_Http_Server server;
@@ -202,8 +202,8 @@ void AAuth_Repository_Test::logoutClearsTokensAndKeepsUserCache()
 	// Локальный logout: токены и сессия очищаются, кэш пользователя остаётся.
 	repository.Logout();
 	QCOMPARE(logout_spy.count(), 1);
-	QVERIFY(session.Has_Session() == false);
-	QVERIFY(store.Has_Tokens() == false);
+	QVERIFY(!session.Has_Session());
+	QVERIFY(!store.Has_Tokens());
 
 	inspection = Open_Inspection_Database(path, "inspect_logout");
 	query = QSqlQuery(inspection);
@@ -212,7 +212,7 @@ void AAuth_Repository_Test::logoutClearsTokensAndKeepsUserCache()
 	QCOMPARE(query.value(0).toInt(), 1);
 	Close_Inspection_Database(inspection);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository_Test::coldStartRestoresPersistedSession()
 {
 	ATest_Http_Server server;
@@ -251,7 +251,7 @@ void AAuth_Repository_Test::coldStartRestoresPersistedSession()
 	QVERIFY(second_session.Has_Session());
 	QCOMPARE(second_session.User_ID(), QString("user-1"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository_Test::forwardsSessionExpired()
 {
 	ATest_Http_Server server;
@@ -283,9 +283,9 @@ void AAuth_Repository_Test::forwardsSessionExpired()
 	QVERIFY(session.Send_Authed(request) > 0);
 	QVERIFY(expired_spy.wait(5000));
 	QCOMPARE(expired_spy.count(), 1);
-	QVERIFY(store.Has_Tokens() == false);
+	QVERIFY(!store.Has_Tokens());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Response AAuth_Repository_Test::JSON_Response(int in_status, const QByteArray &in_body)
 {
 	STest_Http_Response response;
@@ -296,14 +296,14 @@ STest_Http_Response AAuth_Repository_Test::JSON_Response(int in_status, const QB
 
 	return response;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray AAuth_Repository_Test::Session_Body()
 {
 	return "{\"user\":{\"id\":\"user-1\",\"name\":\"somename\",\"email\":\"user@example.com\","
 	       "\"created_at\":\"2026-09-20T12:00:00Z\"},"
 	       "\"tokens\":{\"access_token\":\"access-1\",\"refresh_token\":\"refresh-1\"}}";
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QSqlDatabase AAuth_Repository_Test::Open_Inspection_Database(const QString &in_path, const QString &in_name)
 {
 	QSqlDatabase database;
@@ -314,7 +314,7 @@ QSqlDatabase AAuth_Repository_Test::Open_Inspection_Database(const QString &in_p
 
 	return database;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository_Test::Close_Inspection_Database(QSqlDatabase &in_database)
 {
 	QString name;
@@ -324,7 +324,7 @@ void AAuth_Repository_Test::Close_Inspection_Database(QSqlDatabase &in_database)
 	in_database = QSqlDatabase();
 	QSqlDatabase::removeDatabase(name);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(AAuth_Repository_Test)
 

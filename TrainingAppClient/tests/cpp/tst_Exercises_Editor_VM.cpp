@@ -38,7 +38,7 @@ private:
 	void Make_VM(ATest_Http_Server &in_server, QTemporaryDir &out_dir, AExercises_Repository *&out_repository,
 	             Avm_Exercises_Editor *&out_vm);
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Response Avm_Exercises_Editor_Test::JSON_Response(int in_status, const QByteArray &in_body)
 {
 	STest_Http_Response response;
@@ -48,7 +48,7 @@ STest_Http_Response Avm_Exercises_Editor_Test::JSON_Response(int in_status, cons
 
 	return response;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray Avm_Exercises_Editor_Test::Exercise_Object_Body()
 {
 	// Ответ POST/PATCH — Exercise (объект, не тело запроса, docs/03, §3.9).
@@ -56,7 +56,7 @@ QByteArray Avm_Exercises_Editor_Test::Exercise_Object_Body()
 	                  "\"owner_id\":\"user-1\",\"muscle_groups\":[\"chest\"],\"equipment\":[\"barbell\"],"
 	                  "\"created_at\":\"2026-10-05T10:00:00Z\"}");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor_Test::Make_VM(ATest_Http_Server &in_server, QTemporaryDir &out_dir,
                                         AExercises_Repository *&out_repository, Avm_Exercises_Editor *&out_vm)
 {
@@ -81,7 +81,7 @@ void Avm_Exercises_Editor_Test::Make_VM(ATest_Http_Server &in_server, QTemporary
 	out_repository = repository;
 	out_vm = new Avm_Exercises_Editor(repository, &in_server);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor_Test::createRejectsEmptyName()
 {
 	ATest_Http_Server server;
@@ -94,12 +94,12 @@ void Avm_Exercises_Editor_Test::createRejectsEmptyName()
 
 	// Пустое имя (и из одних пробелов) не отправляет запрос вовсе.
 	vm->set_Name("   ");
-	QVERIFY(vm->submit() == false);
+	QVERIFY(!vm->submit());
 	QCOMPARE(server.Request_Count(), 0);
 	QCOMPARE(vm->Error_Key(), QString("invalid_name"));
 	QCOMPARE(saved_spy.count(), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor_Test::createPostsBodyAndSaves()
 {
 	ATest_Http_Server server;
@@ -141,7 +141,7 @@ void Avm_Exercises_Editor_Test::createPostsBodyAndSaves()
 	QVERIFY(vm->Is_Selected());
 	QVERIFY(repository->Is_Cached_Own("cccccccc-1111-2222-3333-444444444444"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor_Test::editSendsPatchWithIdAndKeepsFormOn403()
 {
 	ATest_Http_Server server;
@@ -195,7 +195,7 @@ void Avm_Exercises_Editor_Test::editSendsPatchWithIdAndKeepsFormOn403()
 	QCOMPARE(body.object().value("id").toString(), QString("cccccccc-1111-2222-3333-444444444444"));
 	QCOMPARE(body.object().value("description").toString(), QString("Новое описание"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor_Test::deleteRemovesFromCache()
 {
 	ATest_Http_Server server;
@@ -229,22 +229,22 @@ void Avm_Exercises_Editor_Test::deleteRemovesFromCache()
 	QTRY_COMPARE_WITH_TIMEOUT(vm->Is_Busy(), false, 5000);
 
 	QCOMPARE(deleted_spy.count(), 1);
-	QVERIFY(vm->Is_Selected() == false);
+	QVERIFY(!vm->Is_Selected());
 	QVERIFY(vm->Name().isEmpty());
 
 	// Удалённое не возвращается из кэша (офлайн-каталог его не покажет).
-	QVERIFY(repository->Is_Cached_Own("cccccccc-1111-2222-3333-444444444444") == false);
+	QVERIFY(!repository->Is_Cached_Own("cccccccc-1111-2222-3333-444444444444"));
 
 	QVector<SExercises_Item> cached;
 
 	QVERIFY(repository->Load_Cached_List(cached));
 	QCOMPARE(cached.size(), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Фото техники (схема v9): выбранное до сохранения стейджится (превью видно
 // сразу), коммит идёт после подтверждения сервера — с id из ответа POST.
 // Отмена формы (reset) убирает стейджинг, не оставляя файла.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor_Test::photoCommitsWithSavedExercise()
 {
 	// Файлы фото пишутся в стандартный каталог приложения: тестовый режим
@@ -265,9 +265,9 @@ void Avm_Exercises_Editor_Test::photoCommitsWithSavedExercise()
 	source.close();
 
 	// Нечитаемый источник — отказ с ключом, форма не падает.
-	QVERIFY(vm->attachPhoto(QUrl::fromLocalFile("no-such-photo.jpg")) == false);
+	QVERIFY(!vm->attachPhoto(QUrl::fromLocalFile("no-such-photo.jpg")));
 	QCOMPARE(vm->Error_Key(), QString("photo_failed"));
-	QVERIFY(vm->Has_Photo() == false);
+	QVERIFY(!vm->Has_Photo());
 
 	// Превью видно сразу, до сохранения.
 	QVERIFY(vm->attachPhoto(QUrl::fromLocalFile(source.fileName())));
@@ -291,12 +291,12 @@ void Avm_Exercises_Editor_Test::photoCommitsWithSavedExercise()
 
 	// Снятие и отмена формы: новое фото убирается сразу.
 	vm->removePhoto();
-	QVERIFY(vm->Has_Photo() == false);
+	QVERIFY(!vm->Has_Photo());
 
 	// Песочница теста не переживает тест.
 	QDir(AExercises_Repository::Photos_Directory()).removeRecursively();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor_Test::createWithoutSessionSavesLocally()
 {
 	qputenv("QT_STANDARDPATHS_TESTING", "1");
@@ -320,7 +320,7 @@ void Avm_Exercises_Editor_Test::createWithoutSessionSavesLocally()
 	QSignalSpy saved_spy(vm, &Avm_Exercises_Editor::saved);
 
 	// Сессии нет: запрос на сервер не уходит, упражнение создано.
-	QVERIFY(repository->Has_Session() == false);
+	QVERIFY(!repository->Has_Session());
 	vm->set_Name("  Своё жима  ");
 	QVERIFY(vm->toggleMuscleGroup("chest"));
 	QVERIFY(vm->submit());
@@ -331,7 +331,7 @@ void Avm_Exercises_Editor_Test::createWithoutSessionSavesLocally()
 
 	const QString id = saved_spy.takeFirst().at(0).toString();
 
-	QVERIFY(id.isEmpty() == false);
+	QVERIFY(!id.isEmpty());
 
 	// Упражнение видно в офлайн-каталоге (кэш + локальный каталог, без дублей).
 	QVector<SExercises_Item> items;

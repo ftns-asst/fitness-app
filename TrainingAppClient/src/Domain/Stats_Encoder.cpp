@@ -1,4 +1,4 @@
-#include "Domain/Stats_Encoder.h"
+﻿#include "Domain/Stats_Encoder.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -6,38 +6,38 @@
 
 Q_LOGGING_CATEGORY(STATS_Encoder_Log, "trainingapp.program.stats_encoder")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Значение метрики: число, если данные есть, иначе JSON null — «нечего считать»
 // отличается от нуля на экране (§5.5).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QJsonValue Number_Or_Null(double in_value, bool in_has)
 {
 	return in_has ? QJsonValue(in_value) : QJsonValue(QJsonValue::Null);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AStats_Encoder
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AStats_Encoder::AStats_Encoder() : Error_State(&STATS_Encoder_Log())
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AStats_Encoder::Get_Last_Error() const
 {
 	return Error_State.Get_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AStats_Encoder::Set_Last_Error(const QString &in_error)
 {
 	return Error_State.Set_Last_Error(in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AStats_Encoder::Clear_Last_Error()
 {
 	Error_State.Clear_Last_Error();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // JSON-нагрузка статистики программы для кэша `program_stats` (§5.4).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AStats_Encoder::Encode_Program_Stats(const SProgram_Stats &in_stats, QString &out_json)
 {
 	QJsonObject object;
@@ -87,7 +87,7 @@ bool AStats_Encoder::Encode_Program_Stats(const SProgram_Stats &in_stats, QStrin
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QJsonObject AStats_Encoder::Encode_Week(const SWeek_Aggregate &in_week) const
 {
 	QJsonObject object;
@@ -99,7 +99,7 @@ QJsonObject AStats_Encoder::Encode_Week(const SWeek_Aggregate &in_week) const
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QJsonObject AStats_Encoder::Encode_Strength(const SExercise_Strength &in_strength) const
 {
 	QJsonObject object;
@@ -110,7 +110,7 @@ QJsonObject AStats_Encoder::Encode_Strength(const SExercise_Strength &in_strengt
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QJsonObject AStats_Encoder::Encode_Goal(const SGoal_Progress &in_goal) const
 {
 	QJsonObject object;
@@ -127,7 +127,7 @@ QJsonObject AStats_Encoder::Encode_Goal(const SGoal_Progress &in_goal) const
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QJsonObject AStats_Encoder::Encode_Delta(const SMeasurement_Delta &in_delta) const
 {
 	QJsonObject object;
@@ -139,7 +139,7 @@ QJsonObject AStats_Encoder::Encode_Delta(const SMeasurement_Delta &in_delta) con
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QJsonObject AStats_Encoder::Encode_Rule(const SRule_Stat_Row &in_rule) const
 {
 	QJsonObject object;
@@ -156,11 +156,11 @@ QJsonObject AStats_Encoder::Encode_Rule(const SRule_Stat_Row &in_rule) const
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Скалярные поля программы. Массивы добавляются отдельно и присутствуют
 // всегда, даже когда пусты: UI различает «пусто» и «нет ключа» по флагам
 // метрик, а не по отсутствию списка.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QJsonObject AStats_Encoder::Encode_Program_Scalars(const SProgram_Stats &in_stats) const
 {
 	QJsonObject object;
@@ -207,9 +207,9 @@ QJsonObject AStats_Encoder::Encode_Program_Scalars(const SProgram_Stats &in_stat
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // JSON-нагрузка общей статистики для кэша `lifetime_stats` (§5.3, §5.4).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AStats_Encoder::Encode_Lifetime_Stats(const SLifetime_Stats &in_stats, QString &out_json)
 {
 	QJsonObject object;
@@ -242,7 +242,7 @@ bool AStats_Encoder::Encode_Lifetime_Stats(const SLifetime_Stats &in_stats, QStr
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QJsonObject AStats_Encoder::Encode_Lifetime_Scalars(const SLifetime_Stats &in_stats) const
 {
 	QJsonObject object;
@@ -270,7 +270,7 @@ QJsonObject AStats_Encoder::Encode_Lifetime_Scalars(const SLifetime_Stats &in_st
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QJsonObject AStats_Encoder::Encode_Regularity(const SRegularity_Week &in_week) const
 {
 	QJsonObject object;
@@ -280,7 +280,7 @@ QJsonObject AStats_Encoder::Encode_Regularity(const SRegularity_Week &in_week) c
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QJsonObject AStats_Encoder::Encode_Record(const SExercise_Record &in_record) const
 {
 	QJsonObject object;
@@ -295,7 +295,7 @@ QJsonObject AStats_Encoder::Encode_Record(const SExercise_Record &in_record) con
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QJsonObject AStats_Encoder::Encode_Summary(const SProgram_Summary &in_summary) const
 {
 	QJsonObject object;
@@ -314,4 +314,4 @@ QJsonObject AStats_Encoder::Encode_Summary(const SProgram_Summary &in_summary) c
 
 	return object;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

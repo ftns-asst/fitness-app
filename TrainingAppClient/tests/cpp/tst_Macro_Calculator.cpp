@@ -2,14 +2,14 @@
 
 #include <QtTest>
 
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AsMacro_Calculator: расчёт КБЖУ (спринт S7, issue 50).
 //
 // Проверяются не «числа получились», а свойства, которые обязаны выполняться
 // для любого входа: калорийность не ниже основного обмена, углеводы не
 // отрицательные, сумма вкладов макросов сходится с калорийностью. Точные
 // числа проверяются там, где формула даёт точный результат.
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 class AMacro_Calculator_Test : public QObject
 {
 	Q_OBJECT
@@ -32,7 +32,7 @@ private slots:
 private:
 	AsMacro_Calculator::SInput Valid_Input() const;
 };
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsMacro_Calculator::SInput AMacro_Calculator_Test::Valid_Input() const
 {
 	AsMacro_Calculator::SInput input;
@@ -46,7 +46,7 @@ AsMacro_Calculator::SInput AMacro_Calculator_Test::Valid_Input() const
 
 	return input;
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMacro_Calculator_Test::maleSedentaryMatchesFormula()
 {
 	AsMacro_Calculator calculator;
@@ -65,7 +65,7 @@ void AMacro_Calculator_Test::maleSedentaryMatchesFormula()
 	// Без поправки на цель калорийность равна расходу.
 	QCOMPARE(result.Calories_Kcal, 2135.0);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMacro_Calculator_Test::femaleUsesDifferentConstant()
 {
 	AsMacro_Calculator calculator;
@@ -87,7 +87,7 @@ void AMacro_Calculator_Test::femaleUsesDifferentConstant()
 	// У женщин обмен ниже — иначе константа была бы не разной.
 	QVERIFY(female_result.Bmr_Kcal < male_result.Bmr_Kcal);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMacro_Calculator_Test::activityLevelRaisesCalories()
 {
 	AsMacro_Calculator calculator;
@@ -107,7 +107,7 @@ void AMacro_Calculator_Test::activityLevelRaisesCalories()
 	QVERIFY(athlete.Tdee_Kcal > moderate.Tdee_Kcal);
 	QVERIFY(moderate.Tdee_Kcal > sedentary.Tdee_Kcal);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMacro_Calculator_Test::fatLossGoalCreatesDeficit()
 {
 	AsMacro_Calculator calculator;
@@ -127,7 +127,7 @@ void AMacro_Calculator_Test::fatLossGoalCreatesDeficit()
 	QVERIFY(fat_loss.Calories_Kcal < maintain.Tdee_Kcal);
 	QVERIFY(fat_loss.Calories_Kcal > maintain.Tdee_Kcal * 0.75);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMacro_Calculator_Test::muscleGoalCreatesSurplus()
 {
 	AsMacro_Calculator calculator;
@@ -144,7 +144,7 @@ void AMacro_Calculator_Test::muscleGoalCreatesSurplus()
 
 	QVERIFY(muscle.Calories_Kcal > maintain.Tdee_Kcal);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMacro_Calculator_Test::unknownActivityFallsBackToSedentary()
 {
 	AsMacro_Calculator calculator;
@@ -160,12 +160,12 @@ void AMacro_Calculator_Test::unknownActivityFallsBackToSedentary()
 	// минимальный. Это осознанный выбор: «считать по угадке» значило бы показать
 	// человеку норму, которой он не соответствует, и он бы ей доверился.
 	input.Activity_Level = "что-то новое";
-	QVERIFY(calculator.Calculate(input, unknown, error_key) == false);
+	QVERIFY(!calculator.Calculate(input, unknown, error_key));
 	QCOMPARE(error_key, QString("macro_activity_required"));
 	// Результат не заполняется частично: половина расчёта хуже, чем ничего.
 	QVERIFY(unknown.Tdee_Kcal == 0);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMacro_Calculator_Test::resultIsInternallyConsistent()
 {
 	AsMacro_Calculator calculator;
@@ -191,7 +191,7 @@ void AMacro_Calculator_Test::resultIsInternallyConsistent()
 				input.Weight_Kg = weight;
 				input.Height_Cm = 100.0 + (weight % 130);
 
-				if (calculator.Calculate(input, result, error_key) == false)
+				if (!calculator.Calculate(input, result, error_key))
 					continue;
 
 				++checked;
@@ -208,7 +208,7 @@ void AMacro_Calculator_Test::resultIsInternallyConsistent()
 
 	QVERIFY2(checked > 50, "перебор должен охватывать десятки комбинаций");
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMacro_Calculator_Test::outOfRangeInputIsRejected()
 {
 	AsMacro_Calculator calculator;
@@ -219,23 +219,23 @@ void AMacro_Calculator_Test::outOfRangeInputIsRejected()
 	// Ноль и отрицательные значения — незаполненная форма, а не «очень худой
 	// человек»: считать по ним можно только бессмысленное число.
 	input.Weight_Kg = 0;
-	QVERIFY(calculator.Calculate(input, result, error_key) == false);
+	QVERIFY(!calculator.Calculate(input, result, error_key));
 	QCOMPARE(error_key, QString("macro_weight_out_of_range"));
 	QVERIFY(result.Calories_Kcal == 0);
 
 	input = Valid_Input();
 	input.Height_Cm = 0;
-	QVERIFY(calculator.Calculate(input, result, error_key) == false);
+	QVERIFY(!calculator.Calculate(input, result, error_key));
 	QCOMPARE(error_key, QString("macro_height_out_of_range"));
 
 	// Возраст вне диапазона формулы: подросток до 14 лет считается по другой
 	// норме, и 100+ лет — тоже не наша методика.
 	input = Valid_Input();
 	input.Age = 10;
-	QVERIFY(calculator.Calculate(input, result, error_key) == false);
+	QVERIFY(!calculator.Calculate(input, result, error_key));
 	QCOMPARE(error_key, QString("macro_age_out_of_range"));
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMacro_Calculator_Test::missingFieldsAreRejected()
 {
 	AsMacro_Calculator calculator;
@@ -246,10 +246,10 @@ void AMacro_Calculator_Test::missingFieldsAreRejected()
 	// Без уровня активности расчёт дал бы заниженную «норму» без всяких
 	// оснований: лучше спросить, чем угадать.
 	input.Activity_Level.clear();
-	QVERIFY(calculator.Calculate(input, result, error_key) == false);
+	QVERIFY(!calculator.Calculate(input, result, error_key));
 	QCOMPARE(error_key, QString("macro_activity_required"));
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AMacro_Calculator_Test::ageIsComputedFromBirthDate()
 {
 	// День рождения в этом году ещё не наступил — человек на год моложе.
@@ -261,7 +261,7 @@ void AMacro_Calculator_Test::ageIsComputedFromBirthDate()
 	// Пустая дата — тоже отсутствие ответа.
 	QCOMPARE(AsMacro_Calculator::Age_On(QDate(), QDate(2026, 1, 1)), 0);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_GUILESS_MAIN(AMacro_Calculator_Test)
 #include "tst_Macro_Calculator.moc"

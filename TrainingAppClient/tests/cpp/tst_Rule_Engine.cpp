@@ -1,4 +1,4 @@
-#include "Domain/Program_Model.h"
+﻿#include "Domain/Program_Model.h"
 #include "Domain/Rule_Engine.h"
 
 #include <QtTest>
@@ -34,7 +34,7 @@ private:
 	SRule_Checkin Make_Checkin(const QString &in_rule_id, const QString &in_date, double in_value, bool in_has_value);
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SProgram_Rule ARule_Engine_Test::Make_Rule(const QString &in_id)
 {
 	SProgram_Rule rule;
@@ -53,7 +53,7 @@ SProgram_Rule ARule_Engine_Test::Make_Rule(const QString &in_id)
 
 	return rule;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Рекомендация отличается от обычного правила по сути, а не по значению:
 // цели у неё нет, метрика custom, а текст лежит в Note. Заводится отдельно от
 // Make_Rule, чтобы разница читалась, а не собиралась в тесте вручную.
@@ -69,7 +69,7 @@ SProgram_Rule ARule_Engine_Test::Make_Advice_Rule(const QString &in_id, const QS
 
 	return rule;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SWorkout_Session ARule_Engine_Test::Make_Session(const QString &in_id, const QString &in_started_at)
 {
 	SWorkout_Session session;
@@ -84,7 +84,7 @@ SWorkout_Session ARule_Engine_Test::Make_Session(const QString &in_id, const QSt
 
 	return session;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SSet_Log ARule_Engine_Test::Make_Set(const QString &in_session_id, int in_number, double in_rpe, bool in_warmup,
                                      bool in_done)
 {
@@ -102,7 +102,7 @@ SSet_Log ARule_Engine_Test::Make_Set(const QString &in_session_id, int in_number
 
 	return set;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SRule_Checkin ARule_Engine_Test::Make_Checkin(const QString &in_rule_id, const QString &in_date, double in_value,
                                               bool in_has_value)
 {
@@ -118,7 +118,7 @@ SRule_Checkin ARule_Engine_Test::Make_Checkin(const QString &in_rule_id, const Q
 
 	return checkin;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Engine_Test::evaluateValueHonoursTargetRange()
 {
 	AsRule_Engine engine;
@@ -155,8 +155,8 @@ void ARule_Engine_Test::evaluateValueHonoursTargetRange()
 	QCOMPARE(state, ECheckin_State::Failed);
 
 	rule.Has_Target_Max = false;
-	QVERIFY(engine.Evaluate_Value(rule, 8, state) == false);
-	QVERIFY(engine.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!engine.Evaluate_Value(rule, 8, state));
+	QVERIFY(!engine.Get_Last_Error().isEmpty());
 
 	rule.Target_Exact = 78;
 	rule.Has_Target_Exact = true;
@@ -172,9 +172,9 @@ void ARule_Engine_Test::evaluateValueHonoursTargetRange()
 	rule.Has_Target_Min = true;
 	rule.Target_Max = 8;
 	rule.Has_Target_Max = true;
-	QVERIFY(engine.Evaluate_Value(rule, 8.5, state) == false);
+	QVERIFY(!engine.Evaluate_Value(rule, 8.5, state));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Engine_Test::evaluateCheckinPreservesExplicitStates()
 {
 	AsRule_Engine engine;
@@ -214,7 +214,7 @@ void ARule_Engine_Test::evaluateCheckinPreservesExplicitStates()
 	QVERIFY(engine.Evaluate_Checkin(rule, marked, state));
 	QCOMPARE(state, ECheckin_State::Failed);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Engine_Test::computedRpeCheckinUsesWorkingSets()
 {
 	AsRule_Engine engine;
@@ -253,10 +253,10 @@ void ARule_Engine_Test::computedRpeCheckinUsesWorkingSets()
 	QVector<SSet_Log> no_rpe;
 	no_rpe.append(Make_Set("s1", 1, -1, false, true));
 	QVERIFY(engine.Build_Computed_Checkin(rule, session, no_rpe, QVector<SWorkout_Session>(), checkin));
-	QVERIFY(checkin.Has_Value == false);
+	QVERIFY(!checkin.Has_Value);
 	QCOMPARE(checkin.State, ECheckin_State::Unknown);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Engine_Test::computedProgressionCheckinCountsTargetReps()
 {
 	AsRule_Engine engine;
@@ -308,10 +308,10 @@ void ARule_Engine_Test::computedProgressionCheckinCountsTargetReps()
 	QVector<SSet_Log> no_target;
 	no_target.append(Make_Set("s1", 5, -1, false, true));
 	QVERIFY(engine.Build_Computed_Checkin(rule, session, no_target, QVector<SWorkout_Session>(), checkin));
-	QVERIFY(checkin.Has_Value == false);
+	QVERIFY(!checkin.Has_Value);
 	QCOMPARE(checkin.State, ECheckin_State::Unknown);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Engine_Test::computedRestCheckinUsesEarlierSession()
 {
 	AsRule_Engine engine;
@@ -341,10 +341,10 @@ void ARule_Engine_Test::computedRestCheckinUsesEarlierSession()
 	QCOMPARE(checkin.State, ECheckin_State::Failed);
 
 	QVERIFY(engine.Build_Computed_Checkin(rule, session, QVector<SSet_Log>(), QVector<SWorkout_Session>(), checkin));
-	QVERIFY(checkin.Has_Value == false);
+	QVERIFY(!checkin.Has_Value);
 	QCOMPARE(checkin.State, ECheckin_State::Unknown);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Engine_Test::buildComputedCheckinRejectsManualRules()
 {
 	AsRule_Engine engine;
@@ -354,7 +354,7 @@ void ARule_Engine_Test::buildComputedCheckinRejectsManualRules()
 
 	QVERIFY(engine.Build_Computed_Checkin(rule, session, QVector<SSet_Log>(), QVector<SWorkout_Session>(), checkin) ==
 	        false);
-	QVERIFY(engine.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!engine.Get_Last_Error().isEmpty());
 
 	rule.Check_Source = ERule_Check_Source::ComputedFromSets;
 	rule.Metric = ERule_Metric::MaxRpe;
@@ -363,14 +363,14 @@ void ARule_Engine_Test::buildComputedCheckinRejectsManualRules()
 
 	SWorkout_Session incomplete;
 	incomplete.ID = "s2";
-	QVERIFY(engine.Build_Computed_Checkin(rule, incomplete, QVector<SSet_Log>(), QVector<SWorkout_Session>(),
-	                                      checkin) == false);
+	QVERIFY(
+	    !engine.Build_Computed_Checkin(rule, incomplete, QVector<SSet_Log>(), QVector<SWorkout_Session>(), checkin));
 
 	rule.Metric = ERule_Metric::ProteinGrams;
 	QVERIFY(engine.Build_Computed_Checkin(rule, session, QVector<SSet_Log>(), QVector<SWorkout_Session>(), checkin) ==
 	        false);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Engine_Test::ruleStatsAggregateStatesAndAdherence()
 {
 	AsRule_Engine engine;
@@ -403,12 +403,12 @@ void ARule_Engine_Test::ruleStatsAggregateStatesAndAdherence()
 	checkins.clear();
 	QVERIFY(engine.Compute_Rule_Stats(rule, checkins, stats));
 	QCOMPARE(stats.Evaluated_Count, 0);
-	QVERIFY(stats.Has_Adherence_Percent == false);
-	QVERIFY(stats.Has_Average_Value == false);
+	QVERIFY(!stats.Has_Adherence_Percent);
+	QVERIFY(!stats.Has_Average_Value);
 
-	QVERIFY(engine.Compute_Rule_Stats(no_id, checkins, stats) == false);
+	QVERIFY(!engine.Compute_Rule_Stats(no_id, checkins, stats));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Engine_Test::overallAdherenceAggregatesRules()
 {
 	AsRule_Engine engine;
@@ -438,9 +438,9 @@ void ARule_Engine_Test::overallAdherenceAggregatesRules()
 	QCOMPARE(stats.Adherence_Percent, 200.0 / 3.0);
 
 	QVector<SProgram_Rule> empty;
-	QVERIFY(engine.Compute_Overall_Stats(empty, checkins, stats) == false);
+	QVERIFY(!engine.Compute_Overall_Stats(empty, checkins, stats));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Engine_Test::ruleActiveWindow()
 {
 	AsRule_Engine engine;
@@ -453,13 +453,13 @@ void ARule_Engine_Test::ruleActiveWindow()
 	QVERIFY(engine.Is_Rule_Active(rule, "2026-10-01"));
 	QVERIFY(engine.Is_Rule_Active(rule, "2026-10-05"));
 	QVERIFY(engine.Is_Rule_Active(rule, "2026-10-07"));
-	QVERIFY(engine.Is_Rule_Active(rule, "2026-09-30") == false);
-	QVERIFY(engine.Is_Rule_Active(rule, "2026-10-08") == false);
+	QVERIFY(!engine.Is_Rule_Active(rule, "2026-09-30"));
+	QVERIFY(!engine.Is_Rule_Active(rule, "2026-10-08"));
 
-	QVERIFY(engine.Is_Rule_Active(rule, "not-a-date") == false);
-	QVERIFY(engine.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!engine.Is_Rule_Active(rule, "not-a-date"));
+	QVERIFY(!engine.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Рекомендация — не измеримое правило. Возвращать для неё «выполнено» на
 // любое число значило бы молча подставить вердикт вместо отказа: вызывающий
 // код решил бы, что цель достигнута, хотя цели нет.
@@ -469,8 +469,8 @@ void ARule_Engine_Test::adviceRuleHasNoVerdictByValue()
 	SProgram_Rule advice = Make_Advice_Rule("adv", "Пей воду натощак");
 	ECheckin_State state = ECheckin_State::Failed;
 
-	QVERIFY(engine.Evaluate_Value(advice, 8, state) == false);
-	QVERIFY(engine.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!engine.Evaluate_Value(advice, 8, state));
+	QVERIFY(!engine.Get_Last_Error().isEmpty());
 
 	// С числовой целью то же правило измеримо и вердикт выдаёт — значит отказ
 	// выше вызван отсутствием цели, а не самой категорией.
@@ -479,7 +479,7 @@ void ARule_Engine_Test::adviceRuleHasNoVerdictByValue()
 	QVERIFY(engine.Evaluate_Value(advice, 8, state));
 	QCOMPARE(state, ECheckin_State::Done);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Отметка рекомендации — это «прочитал совет», а не результат измерения.
 // Поэтому она не должна ни попадать в adherence, ни портить процент по
 // остальным правилам: пользователь отметил текст, и цифра выполнения
@@ -522,11 +522,11 @@ void ARule_Engine_Test::adviceCheckinsDoNotAffectAdherence()
 	// Собственная сводка рекомендации пуста: оценивать нечего.
 	QVERIFY(engine.Compute_Rule_Stats(advice, checkins, stats));
 	QCOMPARE(stats.Evaluated_Count, 0);
-	QVERIFY(stats.Has_Adherence_Percent == false);
+	QVERIFY(!stats.Has_Adherence_Percent);
 
 	// Прогресс сам по себе не восстанавливается: у рекомендации нет ни цели,
 	// ни чисел, из которых считается среднее.
-	QVERIFY(stats.Has_Average_Value == false);
+	QVERIFY(!stats.Has_Average_Value);
 }
 
 QTEST_GUILESS_MAIN(ARule_Engine_Test)

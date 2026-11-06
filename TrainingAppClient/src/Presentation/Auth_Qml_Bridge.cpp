@@ -1,12 +1,12 @@
-#include "Presentation/Auth_Qml_Bridge.h"
+﻿#include "Presentation/Auth_Qml_Bridge.h"
 
 #include <QLoggingCategory>
 
 Q_LOGGING_CATEGORY(AUTH_Bridge_Log, "trainingapp.auth.bridge")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Avm_Auth_Bridge
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Auth_Bridge::Avm_Auth_Bridge(AAuth_Repository *in_auth_repository, AUsers_Repository *in_users_repository,
                                  AsAuth_Session *in_session, QObject *in_parent)
     : QObject(in_parent), Auth_Repository_Instance(in_auth_repository), Users_Repository_Instance(in_users_repository),
@@ -19,7 +19,7 @@ Avm_Auth_Bridge::Avm_Auth_Bridge(AAuth_Repository *in_auth_repository, AUsers_Re
 	connect(Auth_Repository_Instance, &AAuth_Repository::loggedOut, this, &Avm_Auth_Bridge::on_Logged_Out);
 	connect(Auth_Repository_Instance, &AAuth_Repository::sessionExpired, this, &Avm_Auth_Bridge::on_Session_Expired);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int Avm_Auth_Bridge::checkEmail(const QString &in_email)
 {
 	int request_id;
@@ -33,7 +33,7 @@ int Avm_Auth_Bridge::checkEmail(const QString &in_email)
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int Avm_Auth_Bridge::login(const QString &in_email, const QString &in_password)
 {
 	int request_id;
@@ -47,7 +47,7 @@ int Avm_Auth_Bridge::login(const QString &in_email, const QString &in_password)
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int Avm_Auth_Bridge::signup(const QVariantMap &in_request)
 {
 	int request_id;
@@ -63,18 +63,18 @@ int Avm_Auth_Bridge::signup(const QVariantMap &in_request)
 
 	return request_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Auth_Bridge::logout()
 {
 	Auth_Repository_Instance->Logout();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Auth_Bridge::restoreSession()
 {
 	QVariantMap user;
 	SUsers_User cached_user;
 
-	if (Auth_Repository_Instance->Restore_Local_Session() == false)
+	if (!Auth_Repository_Instance->Restore_Local_Session())
 		return false;
 
 	if (Session_Instance != 0)
@@ -91,7 +91,7 @@ bool Avm_Auth_Bridge::restoreSession()
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Auth_Bridge::saveLocalProfile(const QVariantMap &in_local_profile)
 {
 	QString status;
@@ -106,7 +106,7 @@ bool Avm_Auth_Bridge::saveLocalProfile(const QVariantMap &in_local_profile)
 	                                                     in_local_profile.value("goal").toString(),
 	                                                     in_local_profile.value("workoutsPerWeek").toInt(), status);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Auth_Bridge::clearLocalProfile()
 {
 	if (Users_Repository_Instance == 0 || Current_User_ID.isEmpty())
@@ -114,7 +114,7 @@ void Avm_Auth_Bridge::clearLocalProfile()
 
 	Users_Repository_Instance->Clear_Local_Profile(Current_User_ID);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Auth_Bridge::on_Check_Email_Finished(int in_request_id, bool in_free, const AApi_Error &in_error)
 {
 	QString operation = Take_Operation(in_request_id);
@@ -124,7 +124,7 @@ void Avm_Auth_Bridge::on_Check_Email_Finished(int in_request_id, bool in_free, c
 
 	Finish_Check_Email(in_request_id, in_free, in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Auth_Bridge::on_Signup_Finished(int in_request_id, const SAuth_User &in_user, const AApi_Error &in_error)
 {
 	QString operation = Take_Operation(in_request_id);
@@ -134,7 +134,7 @@ void Avm_Auth_Bridge::on_Signup_Finished(int in_request_id, const SAuth_User &in
 
 	Finish_Session_Operation(operation, in_request_id, in_user, in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Auth_Bridge::on_Login_Finished(int in_request_id, const SAuth_User &in_user, const AApi_Error &in_error)
 {
 	QString operation = Take_Operation(in_request_id);
@@ -144,43 +144,43 @@ void Avm_Auth_Bridge::on_Login_Finished(int in_request_id, const SAuth_User &in_
 
 	Finish_Session_Operation(operation, in_request_id, in_user, in_error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Auth_Bridge::on_Logged_Out()
 {
 	Current_User_ID.clear();
 	emit loggedOut();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Auth_Bridge::on_Session_Expired()
 {
 	Current_User_ID.clear();
 	emit sessionExpired();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Auth_Bridge::Finish_Session_Operation(const QString &in_operation, int in_request_id,
                                                const SAuth_User &in_user, const AApi_Error &in_error)
 {
 	QVariantMap data;
 
-	if (in_error.Is_Error() == false)
+	if (!in_error.Is_Error())
 	{
 		Current_User_ID = in_user.ID;
 		data.insert("user", User_DTO(in_user));
 	}
 
-	emit requestFinished(in_request_id, in_operation, in_error.Is_Error() == false, data, Error_DTO(in_error));
+	emit requestFinished(in_request_id, in_operation, !in_error.Is_Error(), data, Error_DTO(in_error));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Auth_Bridge::Finish_Check_Email(int in_request_id, bool in_free, const AApi_Error &in_error)
 {
 	QVariantMap data;
 
-	if (in_error.Is_Error() == false)
+	if (!in_error.Is_Error())
 		data.insert("free", in_free);
 
-	emit requestFinished(in_request_id, "checkEmail", in_error.Is_Error() == false, data, Error_DTO(in_error));
+	emit requestFinished(in_request_id, "checkEmail", !in_error.Is_Error(), data, Error_DTO(in_error));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVariantMap Avm_Auth_Bridge::User_DTO(const SAuth_User &in_user)
 {
 	QVariantMap user;
@@ -192,7 +192,7 @@ QVariantMap Avm_Auth_Bridge::User_DTO(const SAuth_User &in_user)
 
 	return user;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVariantMap Avm_Auth_Bridge::User_DTO(const SUsers_User &in_user)
 {
 	QVariantMap user;
@@ -204,12 +204,12 @@ QVariantMap Avm_Auth_Bridge::User_DTO(const SUsers_User &in_user)
 
 	return user;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVariantMap Avm_Auth_Bridge::Error_DTO(const AApi_Error &in_error)
 {
 	QVariantMap error;
 
-	if (in_error.Is_Error() == false)
+	if (!in_error.Is_Error())
 		return error;
 
 	error.insert("key", in_error.Key());
@@ -218,12 +218,12 @@ QVariantMap Avm_Auth_Bridge::Error_DTO(const AApi_Error &in_error)
 
 	return error;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Auth_Bridge::Take_Operation(int in_request_id)
 {
-	if (Pending_Operations.contains(in_request_id) == false)
+	if (!Pending_Operations.contains(in_request_id))
 		return QString();
 
 	return Pending_Operations.take(in_request_id);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

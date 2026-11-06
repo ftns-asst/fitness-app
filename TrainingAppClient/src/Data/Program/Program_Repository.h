@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Data/Program/Program_Repository_Base.h"
 #include "Domain/Program_Service.h"
@@ -10,7 +10,7 @@
 
 using namespace Program_Model;
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Локальный репозиторий модели программы (срез W3, issue 23). Оркестрирует
 // programs / goal_targets / program_schedule / program_days /
 // program_day_exercises / program_revisions поверх AsSql_Database.
@@ -28,8 +28,8 @@ using namespace Program_Model;
 // отвергают (инвариант 24 §4, Is_Read_Only_State в базе). Ошибки —
 // возврат false + Get_Last_Error(); журнал ревизий и оптимистическая
 // блокировка — общие для всех репозиториев (AProgram_Repository_Base).
-//----------------------------------------------------------------------------
-class AProgram_Repository : public AProgram_Repository_Base, public IProgram_Repository
+//-------------------------------------------------------------------------------------------------------------
+class AProgram_Repository : public AProgram_Repository_Base, public AProgram_Repository_Port
 {
 	Q_OBJECT
 
@@ -128,4 +128,4 @@ private:
 	// чтения старого состояния) → откат, а не тихая запись без истории.
 	bool Require_Snapshot(const QString &in_snapshot, const QString &in_section);
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

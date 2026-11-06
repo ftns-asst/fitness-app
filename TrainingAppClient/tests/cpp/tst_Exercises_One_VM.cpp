@@ -1,4 +1,4 @@
-#include "Data/Auth/Auth_Session.h"
+﻿#include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Exercises/Exercises_Repository.h"
@@ -37,7 +37,7 @@ private:
 	             AExercises_Repository *&out_repository);
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Response Avm_Exercises_One_Test::JSON_Response(int in_status, const QByteArray &in_body)
 {
 	STest_Http_Response response;
@@ -48,7 +48,7 @@ STest_Http_Response Avm_Exercises_One_Test::JSON_Response(int in_status, const Q
 	return response;
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray Avm_Exercises_One_Test::Own_Exercise_Body()
 {
 	return QByteArray("{\"id\":\"cccccccc-1111-2222-3333-444444444444\","
@@ -57,7 +57,7 @@ QByteArray Avm_Exercises_One_Test::Own_Exercise_Body()
 	                  "\"equipment\":[\"barbell\"],\"created_at\":\"2026-10-15T09:00:00Z\"}");
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray Avm_Exercises_One_Test::Two_Exercise_Body()
 {
 	// Прогрев кэша: второе упражнение — своё (owner_id = user-1).
@@ -71,7 +71,7 @@ QByteArray Avm_Exercises_One_Test::Two_Exercise_Body()
 	                  "]");
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_One_Test::Make_VM(ATest_Http_Server &in_server, QTemporaryDir &out_dir, Avm_Exercises_One *&out_vm,
                                      AExercises_Repository *&out_repository)
 {
@@ -96,7 +96,7 @@ void Avm_Exercises_One_Test::Make_VM(ATest_Http_Server &in_server, QTemporaryDir
 	out_repository = repository;
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_One_Test::ownExerciseLoadsFromServer()
 {
 	ATest_Http_Server server;
@@ -118,7 +118,7 @@ void Avm_Exercises_One_Test::ownExerciseLoadsFromServer()
 	QCOMPARE(vm->Description(), QString("Техника выполнения."));
 	QVERIFY(vm->Muscle_Groups().contains("chest"));
 	QVERIFY(vm->Equipments().contains("barbell"));
-	QVERIFY(vm->Is_From_Cache() == false);
+	QVERIFY(!vm->Is_From_Cache());
 	QVERIFY(vm->Error_Key().isEmpty());
 
 	// Своё: владелец совпадает с сессией — правка доступна.
@@ -127,7 +127,7 @@ void Avm_Exercises_One_Test::ownExerciseLoadsFromServer()
 	QVERIFY(spy.count() >= 2);
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_One_Test::foreignExerciseRefusesWithReadableText()
 {
 	ATest_Http_Server server;
@@ -146,12 +146,12 @@ void Avm_Exercises_One_Test::foreignExerciseRefusesWithReadableText()
 	// Чужое публичное детально не открывается: понятный текст вместо общего
 	// «Не удалось выполнить операцию» (docs/08, §4 U6).
 	QCOMPARE(vm->Error_Key(), QString("forbidden_exercise"));
-	QVERIFY(vm->Has_Exercise() == false);
+	QVERIFY(!vm->Has_Exercise());
 	QVERIFY(vm->Name().isEmpty());
-	QVERIFY(vm->Is_Own() == false);
+	QVERIFY(!vm->Is_Own());
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_One_Test::offlineServesCachedOwn()
 {
 	ATest_Http_Server server;
@@ -180,7 +180,7 @@ void Avm_Exercises_One_Test::offlineServesCachedOwn()
 	QVERIFY(vm->Has_Exercise());
 }
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_One_Test::emptyIdStartsNothing()
 {
 	ATest_Http_Server server;
@@ -198,7 +198,7 @@ void Avm_Exercises_One_Test::emptyIdStartsNothing()
 	// приглушённое «Упражнение не выбрано».
 	QCOMPARE(vm->Is_Loading(), false);
 	QVERIFY(vm->Error_Key().isEmpty());
-	QVERIFY(vm->Has_Exercise() == false);
+	QVERIFY(!vm->Has_Exercise());
 	QCOMPARE(spy.count(), 1);
 }
 

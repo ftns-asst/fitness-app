@@ -1,4 +1,4 @@
-#include "Data/Database/Sql_Database.h"
+﻿#include "Data/Database/Sql_Database.h"
 #include "Data/Program/Program_Repository.h"
 #include "Data/Program/Rule_Repository.h"
 #include "Domain/Program_Model.h"
@@ -45,14 +45,14 @@ private:
 	int Counter = 0;
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString ARule_Repository_Test::Make_Database_Path()
 {
 	++Counter;
 
 	return Directory.filePath(QString("rules_%1.sqlite3").arg(Counter));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SProgram ARule_Repository_Test::Make_Program(const QString &in_id, EProgram_State in_state)
 {
 	SProgram program;
@@ -72,13 +72,13 @@ SProgram ARule_Repository_Test::Make_Program(const QString &in_id, EProgram_Stat
 
 	return program;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Repository_Test::Seed_Program(AProgram_Repository &in_repository, const QString &in_id,
                                          EProgram_State in_state)
 {
 	QVERIFY(in_repository.Insert_Program(Make_Program(in_id, in_state)));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SProgram_Rule ARule_Repository_Test::Make_Rule(const QString &in_id, const QString &in_code)
 {
 	SProgram_Rule rule;
@@ -101,7 +101,7 @@ SProgram_Rule ARule_Repository_Test::Make_Rule(const QString &in_id, const QStri
 
 	return rule;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SProgram_Rule ARule_Repository_Test::Make_Advice_Rule(const QString &in_id, const QString &in_text)
 {
 	SProgram_Rule rule;
@@ -122,7 +122,7 @@ SProgram_Rule ARule_Repository_Test::Make_Advice_Rule(const QString &in_id, cons
 
 	return rule;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SRule_Checkin ARule_Repository_Test::Make_Checkin(const QString &in_rule_id, const QString &in_date, double in_value,
                                                   ECheckin_Source in_source)
 {
@@ -140,7 +140,7 @@ SRule_Checkin ARule_Repository_Test::Make_Checkin(const QString &in_rule_id, con
 
 	return checkin;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Repository_Test::replaceRulesAndReload()
 {
 	AsSql_Database database;
@@ -188,14 +188,14 @@ void ARule_Repository_Test::replaceRulesAndReload()
 	QCOMPARE(loaded.at(0).Periodicity, ERule_Periodicity::PerDay);
 	QVERIFY(loaded.at(0).Has_Target_Min);
 	QCOMPARE(loaded.at(0).Target_Min, 145.0);
-	QVERIFY(loaded.at(0).Has_Target_Max == false);
+	QVERIFY(!loaded.at(0).Has_Target_Max);
 	QCOMPARE(loaded.at(0).Target_Unit, ERule_Display_Unit::G);
 	QCOMPARE(loaded.at(0).Check_Source, ERule_Check_Source::Mixed);
 	QCOMPARE(loaded.at(0).Enforcement, ERule_Enforcement::Soft);
 	QVERIFY(loaded.at(0).Active_From.isEmpty());
 
 	QCOMPARE(loaded.at(1).ID, QString("r2"));
-	QVERIFY(loaded.at(1).Has_Target_Min == false);
+	QVERIFY(!loaded.at(1).Has_Target_Min);
 	QVERIFY(loaded.at(1).Has_Target_Max);
 	QCOMPARE(loaded.at(1).Target_Max, 3000.0);
 	QCOMPARE(loaded.at(1).Applies_To, ERule_Applies_To::CustomDays);
@@ -230,7 +230,7 @@ void ARule_Repository_Test::replaceRulesAndReload()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toInt(), 3);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Repository_Test::replaceRulesValidatesInput()
 {
 	AsSql_Database database;
@@ -246,32 +246,32 @@ void ARule_Repository_Test::replaceRulesValidatesInput()
 	rule = Make_Rule("r1", "protein");
 	rule.Has_Target_Min = false;
 	rules.append(rule);
-	QVERIFY(repository.Replace_Rules("p1", rules) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Replace_Rules("p1", rules));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 
 	// Правило без идентификатора и без заголовка — тоже.
 	rules.clear();
 	rules.append(Make_Rule(QString(), "protein"));
-	QVERIFY(repository.Replace_Rules("p1", rules) == false);
+	QVERIFY(!repository.Replace_Rules("p1", rules));
 
 	rules.clear();
 	rule = Make_Rule("r1", "protein");
 	rule.Title = QString();
 	rules.append(rule);
-	QVERIFY(repository.Replace_Rules("p1", rules) == false);
+	QVERIFY(!repository.Replace_Rules("p1", rules));
 
 	// Несуществующая программа и закрытая база.
 	rules.clear();
 	rules.append(Make_Rule("r1", "protein"));
-	QVERIFY(repository.Replace_Rules("missing", rules) == false);
+	QVERIFY(!repository.Replace_Rules("missing", rules));
 
 	AsSql_Database closed;
 	ARule_Repository closed_repository(&closed);
-	QVERIFY(closed_repository.Replace_Rules("p1", rules) == false);
-	QVERIFY(closed_repository.Load_Rules("p1", rules) == false);
-	QVERIFY(closed_repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!closed_repository.Replace_Rules("p1", rules));
+	QVERIFY(!closed_repository.Load_Rules("p1", rules));
+	QVERIFY(!closed_repository.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Repository_Test::replaceRulesKeepsPreviousSnapshot()
 {
 	AsSql_Database database;
@@ -307,9 +307,9 @@ void ARule_Repository_Test::replaceRulesKeepsPreviousSnapshot()
 	QVERIFY(snapshot.contains("r1"));
 	QVERIFY(snapshot.contains("protein"));
 	QVERIFY(snapshot.contains("\"targetMin\":145"));
-	QVERIFY(snapshot.contains("r2") == false);
+	QVERIFY(!snapshot.contains("r2"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Repository_Test::replaceRulesRejectsReadOnlyPrograms()
 {
 	AsSql_Database database;
@@ -329,7 +329,7 @@ void ARule_Repository_Test::replaceRulesRejectsReadOnlyPrograms()
 	// Инвариант 24 (§4): завершённая программа правку правил запрещает...
 	rules.clear();
 	rules.append(Make_Rule("r2", "sleep"));
-	QVERIFY(repository.Replace_Rules("p1", rules) == false);
+	QVERIFY(!repository.Replace_Rules("p1", rules));
 	QVERIFY(repository.Get_Last_Error().contains("запрещена"));
 
 	// ...но отметки в ней доступны: ретроспектива правил не теряется (§3.7).
@@ -339,7 +339,7 @@ void ARule_Repository_Test::replaceRulesRejectsReadOnlyPrograms()
 	QVERIFY(repository.Find_Checkin("r1", "2026-09-29", checkin));
 	QCOMPARE(checkin.Value, 150.0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Repository_Test::replaceRulesRollsBackOnInvalidSet()
 {
 	AsSql_Database database;
@@ -364,8 +364,8 @@ void ARule_Repository_Test::replaceRulesRollsBackOnInvalidSet()
 	rule = Make_Rule("r2", "water");
 	rule.Title = "Дубль";
 	rules.append(rule);
-	QVERIFY(repository.Replace_Rules("p1", rules) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Replace_Rules("p1", rules));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 
 	QVERIFY(repository.Load_Rules("p1", loaded));
 	QCOMPARE(loaded.size(), 1);
@@ -378,7 +378,7 @@ void ARule_Repository_Test::replaceRulesRollsBackOnInvalidSet()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toInt(), 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Целое требование снимается с рекомендации: она отвечает не «сколько», а
 // «что делать», и измеримой цели у неё нет по природе.
 void ARule_Repository_Test::replaceRulesAcceptsAdviceWithoutTarget()
@@ -402,7 +402,7 @@ void ARule_Repository_Test::replaceRulesAcceptsAdviceWithoutTarget()
 	rules.append(Make_Advice_Rule("r3", "Пей воду натощак"));
 	QVERIFY2(repository.Replace_Rules("p1", rules), qPrintable(repository.Get_Last_Error()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Снятие требования не должно превращать «Другое» в мусор: пустой текст —
 // не рекомендация.
 void ARule_Repository_Test::replaceRulesRejectsAdviceWithoutText()
@@ -419,8 +419,8 @@ void ARule_Repository_Test::replaceRulesRejectsAdviceWithoutText()
 	rule = Make_Advice_Rule("r1", "Совет");
 	rule.Note = QString();
 	rules.append(rule);
-	QVERIFY(repository.Replace_Rules("p1", rules) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Replace_Rules("p1", rules));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 
 	// Измеримое правило без цели по-прежнему отвергается: «Другое» — это
 	// про текст, а не послабление для всех.
@@ -428,9 +428,9 @@ void ARule_Repository_Test::replaceRulesRejectsAdviceWithoutText()
 	rule = Make_Rule("r2", "protein");
 	rule.Has_Target_Min = false;
 	rules.append(rule);
-	QVERIFY(repository.Replace_Rules("p1", rules) == false);
+	QVERIFY(!repository.Replace_Rules("p1", rules));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Текст рекомендации обязан пережить цикл сохранения: иначе пользователь
 // вернётся к записанному совету и не найдёт его.
 void ARule_Repository_Test::loadRulesKeepsAdviceText()
@@ -456,9 +456,9 @@ void ARule_Repository_Test::loadRulesKeepsAdviceText()
 	QCOMPARE(loaded.at(0).Category, ERule_Category::Other);
 	QCOMPARE(loaded.at(0).Metric, ERule_Metric::Custom);
 	QCOMPARE(loaded.at(0).Note, QString("Пей воду натощак каждое утро"));
-	QVERIFY(loaded.at(0).Has_Target_Min == false);
+	QVERIFY(!loaded.at(0).Has_Target_Min);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Repository_Test::checkinUpsertAndManualWins()
 {
 	AsSql_Database database;
@@ -479,7 +479,7 @@ void ARule_Repository_Test::checkinUpsertAndManualWins()
 	QVERIFY(repository.Find_Checkin("r1", "2026-09-29", loaded));
 	QCOMPARE(loaded.Source, ECheckin_Source::Computed);
 	QCOMPARE(loaded.Program_Id, QString("p1"));
-	QVERIFY(loaded.Created_At.isEmpty() == false);
+	QVERIFY(!loaded.Created_At.isEmpty());
 	first_id = loaded.ID;
 
 	checkin = Make_Checkin("r1", "2026-09-29", 150, ECheckin_Source::Manual);
@@ -499,28 +499,28 @@ void ARule_Repository_Test::checkinUpsertAndManualWins()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toInt(), 1);
 
-	QVERIFY(repository.Save_Checkin(Make_Checkin("r1", "2026-09-29", 90, ECheckin_Source::Computed)) == false);
+	QVERIFY(!repository.Save_Checkin(Make_Checkin("r1", "2026-09-29", 90, ECheckin_Source::Computed)));
 	QVERIFY(repository.Get_Last_Error().contains("ручную"));
 	QVERIFY(repository.Find_Checkin("r1", "2026-09-29", loaded));
 	QCOMPARE(loaded.Value, 155.0);
 
 	checkin = Make_Checkin("r1", "2026-09-30", 100, ECheckin_Source::Manual);
 	checkin.Program_Id = "different-program";
-	QVERIFY(repository.Save_Checkin(checkin) == false);
-	QVERIFY(repository.Find_Checkin("r1", "2026-09-30", loaded) == false);
-	QVERIFY(repository.Save_Checkin(Make_Checkin("r1", "2026-02-30", 100, ECheckin_Source::Manual)) == false);
-	QVERIFY(repository.Save_Checkin(Make_Checkin("r1", QString(), 1, ECheckin_Source::Manual)) == false);
+	QVERIFY(!repository.Save_Checkin(checkin));
+	QVERIFY(!repository.Find_Checkin("r1", "2026-09-30", loaded));
+	QVERIFY(!repository.Save_Checkin(Make_Checkin("r1", "2026-02-30", 100, ECheckin_Source::Manual)));
+	QVERIFY(!repository.Save_Checkin(Make_Checkin("r1", QString(), 1, ECheckin_Source::Manual)));
 	checkin = Make_Checkin("r1", "2026-09-30", 1, ECheckin_Source::Manual);
 	checkin.Unit.clear();
-	QVERIFY(repository.Save_Checkin(checkin) == false);
-	QVERIFY(repository.Save_Checkin(Make_Checkin("missing", "2026-09-30", 1, ECheckin_Source::Manual)) == false);
+	QVERIFY(!repository.Save_Checkin(checkin));
+	QVERIFY(!repository.Save_Checkin(Make_Checkin("missing", "2026-09-30", 1, ECheckin_Source::Manual)));
 
 	AsSql_Database closed;
 	ARule_Repository closed_repository(&closed);
-	QVERIFY(closed_repository.Save_Checkin(Make_Checkin("r1", "2026-09-30", 1, ECheckin_Source::Manual)) == false);
-	QVERIFY(closed_repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!closed_repository.Save_Checkin(Make_Checkin("r1", "2026-09-30", 1, ECheckin_Source::Manual)));
+	QVERIFY(!closed_repository.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void ARule_Repository_Test::checkinRangesUseProgramAndRule()
 {
 	AsSql_Database database;
@@ -556,10 +556,10 @@ void ARule_Repository_Test::checkinRangesUseProgramAndRule()
 	QVERIFY(checkins.isEmpty());
 	QVERIFY(repository.Load_Program_Checkins_Range("missing", "2026-09-01", "2026-09-30", checkins));
 	QVERIFY(checkins.isEmpty());
-	QVERIFY(repository.Find_Checkin("r1", "2026-09-29", missing) == false);
-	QVERIFY(repository.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!repository.Find_Checkin("r1", "2026-09-29", missing));
+	QVERIFY(!repository.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QTEST_MAIN(ARule_Repository_Test)
 
 #include "tst_Rule_Repository.moc"
