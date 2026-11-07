@@ -5,11 +5,13 @@ on:
     branches: 
       - '**'
     paths:
+      - '.github/workflows/backend.yaml'
       - 'backend/**' # run when edit files with path
   pull_request:
     branches: 
       - '**'
     paths:
+      - '.github/workflows/backend.yaml'
       - 'backend/**'
 
 jobs:
@@ -51,4 +53,5 @@ jobs:
           push: false      # don't push image
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
+          build-contexts: data=./data
+          target: run
