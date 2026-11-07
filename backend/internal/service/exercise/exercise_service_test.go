@@ -20,22 +20,32 @@ type deps struct {
 	repo *MockExerciseRepo
 }
 
+// service with test muscle groups and equipment providers
+func newTestService(repo ExerciseRepo) *ExerciseService {
+	svc := NewService(&config.Config{}, repo, nil)
+	svc.muscleGroupProvider = model.NewTestMuscleGroupProvider()
+	svc.equipmentProvider = model.NewTestEquipmentProvider()
+	return svc
+}
+
 func TestGetMuscleGroups(t *testing.T) {
 	t.Parallel()
 
-	svc := NewService(&config.Config{}, nil, nil)
+	svc := newTestService(nil)
 	res := svc.GetMuscleGroups()
 
-	require.ElementsMatch(t, slices.Collect(maps.Keys(model.MuscleGroupList)), res)
+	keys := util.Map(res, func(m model.MuscleGroup) model.MuscleGroupKey { return m.Key })
+	require.ElementsMatch(t, slices.Collect(maps.Keys(model.TestMuscleGroupList)), keys)
 }
 
 func TestGetEquipment(t *testing.T) {
 	t.Parallel()
 
-	svc := NewService(&config.Config{}, nil, nil)
+	svc := newTestService(nil)
 	res := svc.GetEquipment()
 
-	require.ElementsMatch(t, slices.Collect(maps.Keys(model.EquipmentList)), res)
+	keys := util.Map(res, func(e model.Equipment) model.EquipmentKey { return e.Key })
+	require.ElementsMatch(t, slices.Collect(maps.Keys(model.TestEquipmentList)), keys)
 }
 
 func TestCreateExercise(t *testing.T) {
@@ -48,7 +58,7 @@ func TestCreateExercise(t *testing.T) {
 	d.repo.EXPECT().CreateExercise(mock.Anything, exercise).
 		Return(created, nil)
 
-	svc := NewService(&config.Config{}, d.repo, nil)
+	svc := newTestService(d.repo)
 	res, err := svc.CreateExercise(context.Background(), userID, exercise)
 	require.NoError(t, err)
 	require.Equal(t, created, res)
@@ -58,7 +68,7 @@ func TestCreateExerciseInvalid(t *testing.T) {
 	t.Parallel()
 
 	d := deps{repo: NewMockExerciseRepo(t)}
-	svc := NewService(&config.Config{}, d.repo, nil)
+	svc := newTestService(d.repo)
 	_, err := svc.CreateExercise(context.Background(), uuid.New(), &model.Exercise{Name: "  "})
 	require.ErrorIs(t, err, model.ErrBadRequest)
 }
@@ -67,10 +77,10 @@ func TestUpdateExerciseInvalid(t *testing.T) {
 	t.Parallel()
 
 	d := deps{repo: NewMockExerciseRepo(t)}
-	svc := NewService(&config.Config{}, d.repo, nil)
+	svc := newTestService(d.repo)
 	_, err := svc.UpdateExercise(context.Background(), uuid.New(), &model.UpdateExerciseInput{
 		ID:            uuid.New(),
-		ExerciseInput: model.ExerciseInput{MuscleGroups: []model.MuscleGroup{"unknown"}},
+		ExerciseInput: model.ExerciseInput{MuscleGroups: []model.MuscleGroupKey{"unknown"}},
 	})
 	require.ErrorIs(t, err, model.ErrBadRequest)
 }
@@ -119,7 +129,7 @@ func TestGetExerciseByID(t *testing.T) {
 			d := deps{repo: NewMockExerciseRepo(t)}
 			test.setupMock(d)
 
-			svc := NewService(&config.Config{}, d.repo, nil)
+			svc := newTestService(d.repo)
 			res, err := svc.GetExerciseByID(context.Background(), userID, exerciseID)
 			if test.ErrorExpected != nil {
 				require.ErrorIs(t, err, test.ErrorExpected)
@@ -166,7 +176,7 @@ func TestGetExercises(t *testing.T) {
 				test.setupMock(d)
 			}
 
-			svc := NewService(&config.Config{}, d.repo, nil)
+			svc := newTestService(d.repo)
 			res, err := svc.GetExercises(context.Background(), test.Filters,
 				&model.PageInfo{Limit: util.Ptr(10), Offset: util.Ptr(0)})
 			if test.ErrorExpected != nil {
@@ -229,7 +239,7 @@ func TestUpdateExercise(t *testing.T) {
 			d := deps{repo: NewMockExerciseRepo(t)}
 			test.setupMock(d)
 
-			svc := NewService(&config.Config{}, d.repo, nil)
+			svc := newTestService(d.repo)
 			res, err := svc.UpdateExercise(context.Background(), userID, input)
 			if test.ErrorExpected != nil {
 				require.ErrorIs(t, err, test.ErrorExpected)
@@ -286,7 +296,7 @@ func TestDeleteExercise(t *testing.T) {
 			d := deps{repo: NewMockExerciseRepo(t)}
 			test.setupMock(d)
 
-			svc := NewService(&config.Config{}, d.repo, nil)
+			svc := newTestService(d.repo)
 			err := svc.DeleteExercise(context.Background(), userID, exerciseID)
 			if test.ErrorExpected != nil {
 				require.ErrorIs(t, err, test.ErrorExpected)
