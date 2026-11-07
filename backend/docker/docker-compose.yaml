@@ -14,23 +14,26 @@ services:
   ftns-backend:
     build:
       context: ..
+      additional_contexts:
+        data: ../../data
       dockerfile: ./docker/Dockerfile
 
     image: ftns-backend
 
     ports:
       - "8181:8181"
-      
+
     networks:
       default:
       proxy:
 
     env_file:
       - ../.env
-      
+
     environment:
       POSTGRES_HOST: "postgres"
       POSTGRES_PORT: "5432"
+      EXERCISE_CATALOG_PATH: "./exercise_catalog.xlsx"
 
     depends_on:
       - postgres
