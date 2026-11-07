@@ -29,6 +29,15 @@ definitions:
       name:
         type: string
     type: object
+  Equipment:
+    properties:
+      key:
+        description: unique key
+        type: string
+      name:
+        description: readable name
+        type: string
+    type: object
   ErrorResponse:
     properties:
       key:
@@ -77,6 +86,15 @@ definitions:
         $ref: '#/definitions/Tokens'
       user:
         $ref: '#/definitions/User'
+    type: object
+  MuscleGroup:
+    properties:
+      key:
+        description: unique key
+        type: string
+      name:
+        description: readable name
+        type: string
     type: object
   PasswordRecoveryRequestBody:
     properties:
@@ -487,7 +505,7 @@ paths:
           description: OK
           schema:
             items:
-              type: string
+              $ref: '#/definitions/Equipment'
             type: array
       summary: Get all equipment types
       tags:
@@ -735,7 +753,7 @@ paths:
           description: OK
           schema:
             items:
-              type: string
+              $ref: '#/definitions/MuscleGroup'
             type: array
       summary: Get all muscle groups
       tags:

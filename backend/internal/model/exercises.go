@@ -11,25 +11,35 @@ import (
 )
 
 type (
-	MuscleGroup string
-	Equipment   string
-	Exercise    struct {
-		ID           uuid.UUID     `db:"id"`
-		OwnerID      *uuid.UUID    `db:"owner_id"`
-		IsPublic     bool          `db:"is_public"`
-		Name         string        `db:"name"`
-		Description  *string       `db:"description"`
-		MuscleGroups []MuscleGroup `db:"muscle_group"`
-		Equipments   []Equipment   `db:"equipment"`
-		CreatedAt    time.Time     `db:"created_at"`
-		DeletedAt    *time.Time    `db:"deleted_at"`
+	MuscleGroupKey string
+	MuscleGroup    struct {
+		Key  MuscleGroupKey // unique key
+		Name string         // readable name
+	}
+
+	EquipmentKey string
+	Equipment    struct {
+		Key  EquipmentKey // unique key
+		Name string       // readable name
+	}
+
+	Exercise struct {
+		ID           uuid.UUID        `db:"id"`
+		OwnerID      *uuid.UUID       `db:"owner_id"`
+		IsPublic     bool             `db:"is_public"`
+		Name         string           `db:"name"`
+		Description  *string          `db:"description"`
+		MuscleGroups []MuscleGroupKey `db:"muscle_group"`
+		Equipments   []EquipmentKey   `db:"equipment"`
+		CreatedAt    time.Time        `db:"created_at"`
+		DeletedAt    *time.Time       `db:"deleted_at"`
 	}
 	ExerciseListType string
 	ExerciseFilters  struct {
 		ListType     ExerciseListType
-		UserID       *uuid.UUID    // for own and user list types
-		MuscleGroups []MuscleGroup // filter by muscle groups
-		Equipments   []Equipment   // filter by available equipments
+		UserID       *uuid.UUID       // for own and user list types
+		MuscleGroups []MuscleGroupKey // filter by muscle groups
+		Equipments   []EquipmentKey   // filter by available equipments
 		Search       *string
 	}
 
@@ -37,14 +47,19 @@ type (
 		IsPublic     *bool
 		Name         *string
 		Description  *string
-		MuscleGroups []MuscleGroup
-		Equipments   []Equipment
+		MuscleGroups []MuscleGroupKey
+		Equipments   []EquipmentKey
 	}
 
 	UpdateExerciseInput struct {
 		ID uuid.UUID
 		ExerciseInput
 	}
+
+	// readonly reader for muscle groups
+	MuscleGroupProvider util.DataReader[MuscleGroup]
+	// readonly reader for equipment
+	EquipmentProvider util.DataReader[Equipment]
 )
 
 const (
@@ -72,86 +87,81 @@ func validateExerciseName(name string) error {
 	return nil
 }
 
-func validateMuscleGroups(groups []MuscleGroup) error {
+func validateMuscleGroups(groups []MuscleGroupKey, allowed MuscleGroupProvider) error {
 	for _, group := range groups {
-		if _, ok := MuscleGroupList[group]; !ok {
+		if _, ok := allowed.Get(string(group)); !ok {
 			return fmt.Errorf("unknown muscle group %q: %w", group, ErrBadRequest)
 		}
 	}
 	return nil
 }
 
-func validateEquipments(equipments []Equipment) error {
+func validateEquipments(equipments []EquipmentKey, allowed EquipmentProvider) error {
 	for _, equipment := range equipments {
-		if _, ok := EquipmentList[equipment]; !ok {
+		if _, ok := allowed.Get(string(equipment)); !ok {
 			return fmt.Errorf("unknown equipment %q: %w", equipment, ErrBadRequest)
 		}
 	}
 	return nil
 }
 
-func (e *Exercise) Validate() error {
+func (e *Exercise) Validate(muscleGroupProvider MuscleGroupProvider, equipmentProvider EquipmentProvider) error {
 	if err := validateExerciseName(e.Name); err != nil {
 		return err
 	}
-	if err := validateMuscleGroups(e.MuscleGroups); err != nil {
+	if err := validateMuscleGroups(e.MuscleGroups, muscleGroupProvider); err != nil {
 		return err
 	}
-	return validateEquipments(e.Equipments)
+	return validateEquipments(e.Equipments, equipmentProvider)
 }
 
 // validate partial update, nil fields are not changed
-func (i *ExerciseInput) Validate() error {
+func (i *ExerciseInput) Validate(muscleGroupProvider MuscleGroupProvider, equipmentProvider EquipmentProvider) error {
 	if i.Name != nil {
 		if err := validateExerciseName(*i.Name); err != nil {
 			return err
 		}
 	}
-	if err := validateMuscleGroups(i.MuscleGroups); err != nil {
+	if err := validateMuscleGroups(i.MuscleGroups, muscleGroupProvider); err != nil {
 		return err
 	}
-	return validateEquipments(i.Equipments)
+	return validateEquipments(i.Equipments, equipmentProvider)
 }
 
 func (e *ExerciseFilters) ValidateAndDedup() error {
 	if e.UserID == nil && (e.ListType == ExerciseListTypeOwn || e.ListType == ExerciseListTypePublicUser) {
 		return ErrUserIDRequired
 	}
-	if err := validateMuscleGroups(e.MuscleGroups); err != nil {
-		return err
-	}
-	if err := validateEquipments(e.Equipments); err != nil {
-		return err
-	}
-	e.MuscleGroups = util.Dedup(e.MuscleGroups, func(m MuscleGroup) MuscleGroup { return m })
-	e.Equipments = util.Dedup(e.Equipments, func(e Equipment) Equipment { return e })
+
+	e.MuscleGroups = util.Dedup(e.MuscleGroups, func(m MuscleGroupKey) MuscleGroupKey { return m })
+	e.Equipments = util.Dedup(e.Equipments, func(e EquipmentKey) EquipmentKey { return e })
 	return nil
 }
 
 const (
-	MuscleGroupChest      MuscleGroup = "chest"       // грудные
-	MuscleGroupUpperBack  MuscleGroup = "upper_back"  // верх спины
-	MuscleGroupLowerBack  MuscleGroup = "lower_back"  // широчайшие
-	MuscleGroupLats       MuscleGroup = "lats"        // поясница
-	MuscleGroupFrontDelts MuscleGroup = "front_delts" // передние дельты
-	MuscleGroupSideDelts  MuscleGroup = "side_delts"  // средние дельты
-	MuscleGroupRearDelts  MuscleGroup = "rear_delts"  // задние дельты
-	MuscleGroupBiceps     MuscleGroup = "biceps"      // бицепс
-	MuscleGroupTriceps    MuscleGroup = "triceps"     // трицепс
-	MuscleGroupTraps      MuscleGroup = "traps"       // трапеции
-	MuscleGroupForearms   MuscleGroup = "forearms"    // предплечья
-	MuscleGroupAbs        MuscleGroup = "abs"         // пресс
-	MuscleGroupOblique    MuscleGroup = "obliques"    // косые мышцы живота
-	MuscleGroupHamstrings MuscleGroup = "hamstrings"  // бицепс бедра
-	MuscleGroupGlutes     MuscleGroup = "glutes"      // ягодицы
-	MuscleGroupQuads      MuscleGroup = "quads"       // квадрицепсы
-	MuscleGroupAdductors  MuscleGroup = "adductors"   // приводящие мышцы бедра
-	MuscleGroupAbductors  MuscleGroup = "abductors"   // отводящие мышцы бедра
-	MuscleGroupCalves     MuscleGroup = "calves"      // икры
-	MuscleGroupCardio     MuscleGroup = "cardio"      // кардио (сердечно-сосудистая система)
+	MuscleGroupChest      MuscleGroupKey = "chest"       // грудные
+	MuscleGroupUpperBack  MuscleGroupKey = "upper_back"  // верх спины
+	MuscleGroupLowerBack  MuscleGroupKey = "lower_back"  // широчайшие
+	MuscleGroupLats       MuscleGroupKey = "lats"        // поясница
+	MuscleGroupFrontDelts MuscleGroupKey = "front_delts" // передние дельты
+	MuscleGroupSideDelts  MuscleGroupKey = "side_delts"  // средние дельты
+	MuscleGroupRearDelts  MuscleGroupKey = "rear_delts"  // задние дельты
+	MuscleGroupBiceps     MuscleGroupKey = "biceps"      // бицепс
+	MuscleGroupTriceps    MuscleGroupKey = "triceps"     // трицепс
+	MuscleGroupTraps      MuscleGroupKey = "traps"       // трапеции
+	MuscleGroupForearms   MuscleGroupKey = "forearms"    // предплечья
+	MuscleGroupAbs        MuscleGroupKey = "abs"         // пресс
+	MuscleGroupOblique    MuscleGroupKey = "obliques"    // косые мышцы живота
+	MuscleGroupHamstrings MuscleGroupKey = "hamstrings"  // бицепс бедра
+	MuscleGroupGlutes     MuscleGroupKey = "glutes"      // ягодицы
+	MuscleGroupQuads      MuscleGroupKey = "quads"       // квадрицепсы
+	MuscleGroupAdductors  MuscleGroupKey = "adductors"   // приводящие мышцы бедра
+	MuscleGroupAbductors  MuscleGroupKey = "abductors"   // отводящие мышцы бедра
+	MuscleGroupCalves     MuscleGroupKey = "calves"      // икры
+	MuscleGroupCardio     MuscleGroupKey = "cardio"      // кардио (сердечно-сосудистая система)
 )
 
-var MuscleGroupList = NewSet(
+var TestMuscleGroupList = NewSet(
 	MuscleGroupChest,
 	MuscleGroupUpperBack,
 	MuscleGroupLowerBack,
@@ -175,40 +185,40 @@ var MuscleGroupList = NewSet(
 )
 
 const (
-	EquipmentBodyweight          Equipment = "bodyweight"            // Собственный вес
-	EquipmentBarbell             Equipment = "barbell"               // Штанга
-	EquipmentEZBar               Equipment = "ez_bar"                // EZ-гриф
-	EquipmentDumbbell            Equipment = "dumbbell"              // Гантели
-	EquipmentKettlebell          Equipment = "kettlebell"            // Гиря
-	EquipmentBench               Equipment = "bench"                 // Скамья
-	EquipmentInclineBench        Equipment = "incline_bench"         // Наклонная скамья
-	EquipmentSquatRack           Equipment = "squat_rack"            // Силовая рама / стойки
-	EquipmentSmithMachine        Equipment = "smith_machine"         // Машина Смита
-	EquipmentCableMachine        Equipment = "cable_machine"         // Блочный тренажёр (кроссовер)
-	EquipmentLatPulldownMachine  Equipment = "lat_pulldown_machine"  // Тренажёр верхней тяги
-	EquipmentSeatedRowMachine    Equipment = "seated_row_machine"    // Тренажёр горизонтальной тяги
-	EquipmentLegPressMachine     Equipment = "leg_press_machine"     // Тренажёр для жима ногами
-	EquipmentLegExtensionMachine Equipment = "leg_extension_machine" // Тренажёр для разгибания ног
-	EquipmentLegCurlMachine      Equipment = "leg_curl_machine"      // Тренажёр для сгибания ног
-	EquipmentChestPressMachine   Equipment = "chest_press_machine"   // Тренажёр для жима от груди
-	EquipmentPecDeckMachine      Equipment = "pec_deck_machine"      // Тренажёр «Бабочка»
-	EquipmentHackSquatMachine    Equipment = "hack_squat_machine"    // Гакк-тренажёр
-	EquipmentCalfRaiseMachine    Equipment = "calf_raise_machine"    // Тренажёр для икр
-	EquipmentPullUpBar           Equipment = "pull_up_bar"           // Турник
-	EquipmentDipBars             Equipment = "dip_bars"              // Брусья
-	EquipmentRomanChair          Equipment = "roman_chair"           // Римский стул / гиперэкстензия
-	EquipmentResistanceBand      Equipment = "resistance_band"       // Резиновая лента
-	EquipmentMedicineBall        Equipment = "medicine_ball"         // Медбол
-	EquipmentAbWheel             Equipment = "ab_wheel"              // Ролик для пресса
-	EquipmentJumpRope            Equipment = "jump_rope"             // Скакалка
-	EquipmentTreadmill           Equipment = "treadmill"             // Беговая дорожка
-	EquipmentExerciseBike        Equipment = "exercise_bike"         // Велотренажёр
-	EquipmentRowingMachine       Equipment = "rowing_machine"        // Гребной тренажёр
-	EquipmentElliptical          Equipment = "elliptical"            // Эллипсоид
-	EquipmentMat                 Equipment = "mat"                   // Коврик
+	EquipmentBodyweight          EquipmentKey = "bodyweight"            // Собственный вес
+	EquipmentBarbell             EquipmentKey = "barbell"               // Штанга
+	EquipmentEZBar               EquipmentKey = "ez_bar"                // EZ-гриф
+	EquipmentDumbbell            EquipmentKey = "dumbbell"              // Гантели
+	EquipmentKettlebell          EquipmentKey = "kettlebell"            // Гиря
+	EquipmentBench               EquipmentKey = "bench"                 // Скамья
+	EquipmentInclineBench        EquipmentKey = "incline_bench"         // Наклонная скамья
+	EquipmentSquatRack           EquipmentKey = "squat_rack"            // Силовая рама / стойки
+	EquipmentSmithMachine        EquipmentKey = "smith_machine"         // Машина Смита
+	EquipmentCableMachine        EquipmentKey = "cable_machine"         // Блочный тренажёр (кроссовер)
+	EquipmentLatPulldownMachine  EquipmentKey = "lat_pulldown_machine"  // Тренажёр верхней тяги
+	EquipmentSeatedRowMachine    EquipmentKey = "seated_row_machine"    // Тренажёр горизонтальной тяги
+	EquipmentLegPressMachine     EquipmentKey = "leg_press_machine"     // Тренажёр для жима ногами
+	EquipmentLegExtensionMachine EquipmentKey = "leg_extension_machine" // Тренажёр для разгибания ног
+	EquipmentLegCurlMachine      EquipmentKey = "leg_curl_machine"      // Тренажёр для сгибания ног
+	EquipmentChestPressMachine   EquipmentKey = "chest_press_machine"   // Тренажёр для жима от груди
+	EquipmentPecDeckMachine      EquipmentKey = "pec_deck_machine"      // Тренажёр «Бабочка»
+	EquipmentHackSquatMachine    EquipmentKey = "hack_squat_machine"    // Гакк-тренажёр
+	EquipmentCalfRaiseMachine    EquipmentKey = "calf_raise_machine"    // Тренажёр для икр
+	EquipmentPullUpBar           EquipmentKey = "pull_up_bar"           // Турник
+	EquipmentDipBars             EquipmentKey = "dip_bars"              // Брусья
+	EquipmentRomanChair          EquipmentKey = "roman_chair"           // Римский стул / гиперэкстензия
+	EquipmentResistanceBand      EquipmentKey = "resistance_band"       // Резиновая лента
+	EquipmentMedicineBall        EquipmentKey = "medicine_ball"         // Медбол
+	EquipmentAbWheel             EquipmentKey = "ab_wheel"              // Ролик для пресса
+	EquipmentJumpRope            EquipmentKey = "jump_rope"             // Скакалка
+	EquipmentTreadmill           EquipmentKey = "treadmill"             // Беговая дорожка
+	EquipmentExerciseBike        EquipmentKey = "exercise_bike"         // Велотренажёр
+	EquipmentRowingMachine       EquipmentKey = "rowing_machine"        // Гребной тренажёр
+	EquipmentElliptical          EquipmentKey = "elliptical"            // Эллипсоид
+	EquipmentMat                 EquipmentKey = "mat"                   // Коврик
 )
 
-var EquipmentList = NewSet(
+var TestEquipmentList = NewSet(
 	EquipmentBodyweight,
 	EquipmentBarbell,
 	EquipmentEZBar,
@@ -242,6 +252,24 @@ var EquipmentList = NewSet(
 	EquipmentMat,
 )
 
+// muscle groups provider with all keys from TestMuscleGroupList
+func NewTestMuscleGroupProvider() MuscleGroupProvider {
+	items := make([]MuscleGroup, 0, len(TestMuscleGroupList))
+	for key := range TestMuscleGroupList {
+		items = append(items, MuscleGroup{Key: key, Name: string(key)})
+	}
+	return util.NewDataReader(items, func(m MuscleGroup) string { return string(m.Key) })
+}
+
+// equipment provider with all keys from TestEquipmentList
+func NewTestEquipmentProvider() EquipmentProvider {
+	items := make([]Equipment, 0, len(TestEquipmentList))
+	for key := range TestEquipmentList {
+		items = append(items, Equipment{Key: key, Name: string(key)})
+	}
+	return util.NewDataReader(items, func(e Equipment) string { return string(e.Key) })
+}
+
 var createdAt = time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 var TestExercises = []*Exercise{
@@ -249,64 +277,64 @@ var TestExercises = []*Exercise{
 		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e01"),
 		IsPublic:     true,
 		Name:         "Жим штанги лёжа",
-		MuscleGroups: []MuscleGroup{MuscleGroupChest, MuscleGroupTriceps, MuscleGroupFrontDelts},
-		Equipments:   []Equipment{EquipmentBarbell, EquipmentBench},
+		MuscleGroups: []MuscleGroupKey{MuscleGroupChest, MuscleGroupTriceps, MuscleGroupFrontDelts},
+		Equipments:   []EquipmentKey{EquipmentBarbell, EquipmentBench},
 		CreatedAt:    createdAt,
 	},
 	{
 		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e02"),
 		IsPublic:     true,
 		Name:         "Приседания со штангой",
-		MuscleGroups: []MuscleGroup{MuscleGroupQuads, MuscleGroupGlutes, MuscleGroupHamstrings},
-		Equipments:   []Equipment{EquipmentBarbell, EquipmentSquatRack},
+		MuscleGroups: []MuscleGroupKey{MuscleGroupQuads, MuscleGroupGlutes, MuscleGroupHamstrings},
+		Equipments:   []EquipmentKey{EquipmentBarbell, EquipmentSquatRack},
 		CreatedAt:    createdAt,
 	},
 	{
 		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e03"),
 		IsPublic:     true,
 		Name:         "Становая тяга",
-		MuscleGroups: []MuscleGroup{MuscleGroupLowerBack, MuscleGroupHamstrings, MuscleGroupGlutes, MuscleGroupTraps},
-		Equipments:   []Equipment{EquipmentBarbell},
+		MuscleGroups: []MuscleGroupKey{MuscleGroupLowerBack, MuscleGroupHamstrings, MuscleGroupGlutes, MuscleGroupTraps},
+		Equipments:   []EquipmentKey{EquipmentBarbell},
 		CreatedAt:    createdAt,
 	},
 	{
 		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e04"),
 		IsPublic:     true,
 		Name:         "Подтягивания",
-		MuscleGroups: []MuscleGroup{MuscleGroupLats, MuscleGroupBiceps, MuscleGroupUpperBack},
-		Equipments:   []Equipment{EquipmentPullUpBar},
+		MuscleGroups: []MuscleGroupKey{MuscleGroupLats, MuscleGroupBiceps, MuscleGroupUpperBack},
+		Equipments:   []EquipmentKey{EquipmentPullUpBar},
 		CreatedAt:    createdAt,
 	},
 	{
 		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e05"),
 		IsPublic:     true,
 		Name:         "Жим гантелей сидя",
-		MuscleGroups: []MuscleGroup{MuscleGroupFrontDelts, MuscleGroupSideDelts, MuscleGroupTriceps},
-		Equipments:   []Equipment{EquipmentDumbbell, EquipmentBench},
+		MuscleGroups: []MuscleGroupKey{MuscleGroupFrontDelts, MuscleGroupSideDelts, MuscleGroupTriceps},
+		Equipments:   []EquipmentKey{EquipmentDumbbell, EquipmentBench},
 		CreatedAt:    createdAt,
 	},
 	{
 		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e06"),
 		IsPublic:     true,
 		Name:         "Отжимания",
-		MuscleGroups: []MuscleGroup{MuscleGroupChest, MuscleGroupTriceps, MuscleGroupFrontDelts},
-		Equipments:   []Equipment{EquipmentBodyweight},
+		MuscleGroups: []MuscleGroupKey{MuscleGroupChest, MuscleGroupTriceps, MuscleGroupFrontDelts},
+		Equipments:   []EquipmentKey{EquipmentBodyweight},
 		CreatedAt:    createdAt,
 	},
 	{
 		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e07"),
 		IsPublic:     true,
 		Name:         "Сгибание рук с гантелями",
-		MuscleGroups: []MuscleGroup{MuscleGroupBiceps, MuscleGroupForearms},
-		Equipments:   []Equipment{EquipmentDumbbell},
+		MuscleGroups: []MuscleGroupKey{MuscleGroupBiceps, MuscleGroupForearms},
+		Equipments:   []EquipmentKey{EquipmentDumbbell},
 		CreatedAt:    createdAt,
 	},
 	{
 		ID:           uuid.MustParse("6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e08"),
 		IsPublic:     true,
 		Name:         "Скручивания на ролике",
-		MuscleGroups: []MuscleGroup{MuscleGroupAbs, MuscleGroupOblique},
-		Equipments:   []Equipment{EquipmentAbWheel, EquipmentMat},
+		MuscleGroups: []MuscleGroupKey{MuscleGroupAbs, MuscleGroupOblique},
+		Equipments:   []EquipmentKey{EquipmentAbWheel, EquipmentMat},
 		CreatedAt:    createdAt,
 	},
 }

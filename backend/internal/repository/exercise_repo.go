@@ -111,9 +111,17 @@ func (r *ExerciseRepo) FillExercises(ctx context.Context, exercises []*model.Exe
 	}
 
 	_, err = conn.Exec(ctx, `
-        INSERT INTO exercises 
-        SELECT * FROM tmp_exercises
-        ON CONFLICT (id) DO NOTHING
+        INSERT INTO exercises (id, owner_id, is_public, name, description, muscle_group, equipment)
+		SELECT id, NULL, TRUE, name, description, muscle_group, equipment
+		FROM tmp_exercises
+		ON CONFLICT (id) DO UPDATE SET
+		    name         = EXCLUDED.name,
+		    description  = EXCLUDED.description,
+		    muscle_group = EXCLUDED.muscle_group,
+		    equipment    = EXCLUDED.equipment,
+		    is_public    = TRUE,
+		    deleted_at   = NULL
+		WHERE exercises.owner_id IS NULL
     `)
 
 	if err != nil {

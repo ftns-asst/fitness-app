@@ -18,10 +18,10 @@ func ConvertExerciseToDTO(m *model.Exercise) *dto.ExerciseDTO {
 		Description: m.Description,
 		IsPublic:    m.IsPublic,
 		OwnerID:     m.OwnerID,
-		MuscleGroups: util.Map(m.MuscleGroups, func(m model.MuscleGroup) string {
+		MuscleGroups: util.Map(m.MuscleGroups, func(m model.MuscleGroupKey) string {
 			return string(m)
 		}),
-		Equipment: util.Map(m.Equipments, func(m model.Equipment) string {
+		Equipment: util.Map(m.Equipments, func(m model.EquipmentKey) string {
 			return string(m)
 		}),
 		CreatedAt: m.CreatedAt,
@@ -37,11 +37,11 @@ func ConvertExerciseFromDTO(dto *dto.ExerciseDTO) *model.Exercise {
 		Name:        dto.Name,
 		Description: dto.Description,
 		OwnerID:     dto.OwnerID,
-		MuscleGroups: util.Map(dto.MuscleGroups, func(s string) model.MuscleGroup {
-			return model.MuscleGroup(s)
+		MuscleGroups: util.Map(dto.MuscleGroups, func(s string) model.MuscleGroupKey {
+			return model.MuscleGroupKey(s)
 		}),
-		Equipments: util.Map(dto.Equipment, func(s string) model.Equipment {
-			return model.Equipment(s)
+		Equipments: util.Map(dto.Equipment, func(s string) model.EquipmentKey {
+			return model.EquipmentKey(s)
 		}),
 		CreatedAt: dto.CreatedAt,
 	}
@@ -56,11 +56,11 @@ func ConvertExerciseFromCreateDTO(dto *dto.CreateExerciseRequestBody, userID *uu
 		Description: dto.Description,
 		OwnerID:     userID,
 		IsPublic:    dto.IsPublic,
-		MuscleGroups: util.Map(dto.MuscleGroups, func(s string) model.MuscleGroup {
-			return model.MuscleGroup(s)
+		MuscleGroups: util.Map(dto.MuscleGroups, func(s string) model.MuscleGroupKey {
+			return model.MuscleGroupKey(s)
 		}),
-		Equipments: util.Map(dto.Equipment, func(s string) model.Equipment {
-			return model.Equipment(s)
+		Equipments: util.Map(dto.Equipment, func(s string) model.EquipmentKey {
+			return model.EquipmentKey(s)
 		}),
 	}
 }
@@ -72,11 +72,11 @@ func ConvertExerciseInputFromDTO(d *dto.ExerciseInfoDTO) *model.ExerciseInput {
 		Name:        d.Name,
 		Description: d.Description,
 		IsPublic:    d.IsPublic,
-		MuscleGroups: util.Map(d.MuscleGroups, func(s string) model.MuscleGroup {
-			return model.MuscleGroup(s)
+		MuscleGroups: util.Map(d.MuscleGroups, func(s string) model.MuscleGroupKey {
+			return model.MuscleGroupKey(s)
 		}),
-		Equipments: util.Map(d.Equipment, func(s string) model.Equipment {
-			return model.Equipment(s)
+		Equipments: util.Map(d.Equipment, func(s string) model.EquipmentKey {
+			return model.EquipmentKey(s)
 		}),
 	}
 }
@@ -100,8 +100,8 @@ func ConvertListExerciseQueryParams(p *dto.ListExerciseQueryParams, userID *uuid
 	}
 	return &model.ExerciseFilters{
 			UserID:       userID,
-			MuscleGroups: util.Map(p.MuscleGroups, func(s string) model.MuscleGroup { return model.MuscleGroup(s) }),
-			Equipments:   util.Map(p.Equipment, func(s string) model.Equipment { return model.Equipment(s) }),
+			MuscleGroups: util.Map(p.MuscleGroups, func(s string) model.MuscleGroupKey { return model.MuscleGroupKey(s) }),
+			Equipments:   util.Map(p.Equipment, func(s string) model.EquipmentKey { return model.EquipmentKey(s) }),
 			ListType:     model.ExerciseListType(p.Type),
 			Search:       p.Search,
 		},
@@ -109,4 +109,22 @@ func ConvertListExerciseQueryParams(p *dto.ListExerciseQueryParams, userID *uuid
 			Limit:  p.Limit,
 			Offset: p.Offset,
 		}
+}
+
+func ConvertMuscleGroupListToDTO(d []model.MuscleGroup) []dto.MuscleGroup {
+	return util.Map(d, func(m model.MuscleGroup) dto.MuscleGroup {
+		return dto.MuscleGroup{
+			Key:  string(m.Key),
+			Name: m.Name,
+		}
+	})
+}
+
+func ConvertEquipmentListToDTO(d []model.Equipment) []dto.Equipment {
+	return util.Map(d, func(m model.Equipment) dto.Equipment {
+		return dto.Equipment{
+			Key:  string(m.Key),
+			Name: m.Name,
+		}
+	})
 }

@@ -7,16 +7,16 @@ import (
 	"ftns-asst/internal/config"
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/repository"
-	"maps"
-	"slices"
 
 	"github.com/google/uuid"
 )
 
 type ExerciseService struct {
-	cfg  *config.Config
-	repo ExerciseRepo
-	tx   model.Transactor
+	cfg                 *config.Config
+	repo                ExerciseRepo
+	muscleGroupProvider model.MuscleGroupProvider
+	equipmentProvider   model.EquipmentProvider
+	tx                  model.Transactor
 }
 
 func NewService(cfg *config.Config,
@@ -32,7 +32,7 @@ func NewService(cfg *config.Config,
 
 func (s *ExerciseService) Start(ctx context.Context) error {
 	// TODO: add loading from file
-	err := s.fillExercises(ctx, model.TestExercises)
+	err := s.fillExercises(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fill exercises: %w", err)
 	}
@@ -41,17 +41,15 @@ func (s *ExerciseService) Start(ctx context.Context) error {
 }
 
 func (s *ExerciseService) GetMuscleGroups() []model.MuscleGroup {
-	mg := model.MuscleGroupList
-	return slices.Collect(maps.Keys(mg))
+	return s.muscleGroupProvider.List()
 }
 
 func (s *ExerciseService) GetEquipment() []model.Equipment {
-	mg := model.EquipmentList
-	return slices.Collect(maps.Keys(mg))
+	return s.equipmentProvider.List()
 }
 
 func (s *ExerciseService) CreateExercise(ctx context.Context, userID uuid.UUID, exercise *model.Exercise) (*model.Exercise, error) {
-	if err := exercise.Validate(); err != nil {
+	if err := exercise.Validate(s.muscleGroupProvider, s.equipmentProvider); err != nil {
 		return nil, err
 	}
 
@@ -62,8 +60,16 @@ func (s *ExerciseService) CreateExercise(ctx context.Context, userID uuid.UUID, 
 	return created, nil
 }
 
-func (s *ExerciseService) fillExercises(ctx context.Context, exercises []*model.Exercise) error {
-	err := s.repo.FillExercises(ctx, exercises)
+func (s *ExerciseService) fillExercises(ctx context.Context) error {
+
+	loaded, err := s.loadExercises(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load exercises: %w", err)
+	}
+	s.muscleGroupProvider = loaded.muscleGroups
+	s.equipmentProvider = loaded.equipment
+
+	err = s.repo.FillExercises(ctx, loaded.exercises)
 	if err != nil {
 		return fmt.Errorf("failed to fill exercises: %w", err)
 	}
@@ -126,7 +132,7 @@ func (s *ExerciseService) UpdateExercise(ctx context.Context, userID uuid.UUID, 
 	if input == nil {
 		return nil, fmt.Errorf("update exercise input can't be nil")
 	}
-	if err := input.Validate(); err != nil {
+	if err := input.Validate(s.muscleGroupProvider, s.equipmentProvider); err != nil {
 		return nil, err
 	}
 

@@ -46,4 +46,13 @@ type (
 		Limit  *int `form:"limit" binding:"omitempty,min=1,max=1000"`
 		Offset *int `form:"offset" binding:"omitempty,min=0,max=100000"`
 	} // @Name PageQueryParams
+	MuscleGroup struct {
+		Key  string `json:"key"`  // unique key
+		Name string `json:"name"` // readable name
+	} // @Name MuscleGroup
+
+	Equipment struct {
+		Key  string `json:"key"`  // unique key
+		Name string `json:"name"` // readable name
+	} // @Name Equipment
 )
