@@ -278,7 +278,7 @@ func (h *ExerciseHandler) DeleteExercise(c *gin.Context) {
 // @Id updateExerciseMedia
 // @Tags exercises
 // @Summary Get url for uploading exercise media
-// @Description Creates media if exercise has none. The file must be uploaded to upload_url with PUT, media type must match the existing one
+// @Description Creates media if exercise has none. The file must be uploaded to upload_url with PUT, the stored media type is updated if it differs
 // @Accept json
 // @Produce json
 // @Security BearerAuth

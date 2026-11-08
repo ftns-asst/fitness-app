@@ -321,6 +321,69 @@ func (_c *MockFileRepo_GetMediaByIDs_Call) RunAndReturn(run func(ctx context.Con
 	return _c
 }
 
+// UpdateMediaType provides a mock function for the type MockFileRepo
+func (_mock *MockFileRepo) UpdateMediaType(ctx context.Context, id uuid.UUID, mediaType model.MediaType) error {
+	ret := _mock.Called(ctx, id, mediaType)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateMediaType")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, model.MediaType) error); ok {
+		r0 = returnFunc(ctx, id, mediaType)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockFileRepo_UpdateMediaType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateMediaType'
+type MockFileRepo_UpdateMediaType_Call struct {
+	*mock.Call
+}
+
+// UpdateMediaType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+//   - mediaType model.MediaType
+func (_e *MockFileRepo_Expecter) UpdateMediaType(ctx any, id any, mediaType any) *MockFileRepo_UpdateMediaType_Call {
+	return &MockFileRepo_UpdateMediaType_Call{Call: _e.mock.On("UpdateMediaType", ctx, id, mediaType)}
+}
+
+func (_c *MockFileRepo_UpdateMediaType_Call) Run(run func(ctx context.Context, id uuid.UUID, mediaType model.MediaType)) *MockFileRepo_UpdateMediaType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		var arg2 model.MediaType
+		if args[2] != nil {
+			arg2 = args[2].(model.MediaType)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFileRepo_UpdateMediaType_Call) Return(err error) *MockFileRepo_UpdateMediaType_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockFileRepo_UpdateMediaType_Call) RunAndReturn(run func(ctx context.Context, id uuid.UUID, mediaType model.MediaType) error) *MockFileRepo_UpdateMediaType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockFileStorage creates a new instance of MockFileStorage. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockFileStorage(t interface {

@@ -70,8 +70,7 @@ func (s *FileService) CreateMedia(ctx context.Context, mediaType model.MediaType
 	return media, putURL, nil
 }
 
-// returns url for replacing the file of existing media, the record is not changed,
-// so media type must match the stored one
+// returns url for replacing the file of existing media, the stored media type is updated if it differs
 func (s *FileService) UpdateMedia(ctx context.Context, id uuid.UUID, mediaType model.MediaType) (*model.Media, string, error) {
 	if err := validateMediaType(mediaType); err != nil {
 		return nil, "", err
@@ -86,7 +85,14 @@ func (s *FileService) UpdateMedia(ctx context.Context, id uuid.UUID, mediaType m
 	}
 
 	if media.Type != mediaType {
-		return nil, "", fmt.Errorf("media type %q does not match stored type %q: %w", mediaType, media.Type, model.ErrBadRequest)
+		err = s.repo.UpdateMediaType(ctx, id, mediaType)
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, "", fmt.Errorf("media not found: %w", model.ErrNotFound)
+		}
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to update media type: %w", err)
+		}
+		media.Type = mediaType
 	}
 
 	putURL, err := s.storage.CreatePresignedPutUrl(ctx, media.ObjectKey, putURLExpiry)

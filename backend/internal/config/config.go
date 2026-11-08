@@ -35,11 +35,13 @@ func (c *Config) SMTP() *util.SMTPConfig {
 }
 
 type MinioConfig struct {
-	Endpoint     string `env:"MINIO_ENDPOINT,required"`
-	RootUser     string `env:"MINIO_ROOT_USER,required"`
-	RootPassword string `env:"MINIO_ROOT_PASSWORD,required"`
-	BucketName   string `env:"MINIO_BUCKET,required"`
-	UseSSL       bool   `env:"MINIO_USE_SSL,required"`
+	Endpoint       string `env:"MINIO_ENDPOINT,required"`
+	RootUser       string `env:"MINIO_ROOT_USER,required"`
+	RootPassword   string `env:"MINIO_ROOT_PASSWORD,required"`
+	BucketName     string `env:"MINIO_BUCKET,required"`
+	UseSSL         bool   `env:"MINIO_USE_SSL,required"`
+	PublicEndpoint string `env:"MINIO_PUBLIC_ENDPOINT"`
+	PublicUseSSL   bool   `env:"MINIO_PUBLIC_USE_SSL"`
 }
 type PostgresConfig struct {
 	Host     string `env:"POSTGRES_HOST,required"`

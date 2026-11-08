@@ -22,5 +22,5 @@ const (
 )
 
 func ExerciseMediaObjectName(exerciseID uuid.UUID) string {
-	return fmt.Sprintf("exercise_%s.%s", exerciseID.String())
+	return fmt.Sprintf("exercise_%s", exerciseID.String())
 }

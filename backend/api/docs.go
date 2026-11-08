@@ -22,7 +22,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates media if exercise has none. The file must be uploaded to upload_url with PUT, media type must match the existing one",
+                "description": "Creates media if exercise has none. The file must be uploaded to upload_url with PUT, the stored media type is updated if it differs",
                 "consumes": [
                     "application/json"
                 ],

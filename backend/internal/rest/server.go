@@ -34,10 +34,9 @@ func NewServer(cfg *config.Config, services service.Services) *http.Server {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fileServer := gin.WrapH(http.FileServer(http.FS(staticUI)))
+	fileServer := gin.WrapH(http.StripPrefix("/admin", http.FileServer(http.FS(staticUI))))
 
-	r.GET("/", fileServer)
-	r.GET("/admin")
+	r.GET("/admin/*filepath", fileServer)
 
 	api := r.Group("/api/v1")
 	handlers.RegisterRoutes(api)

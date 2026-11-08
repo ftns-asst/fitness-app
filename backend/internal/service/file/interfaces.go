@@ -12,6 +12,7 @@ type FileRepo interface {
 	CreateMedia(ctx context.Context, media *model.Media) (*model.Media, error)
 	GetMediaByID(ctx context.Context, id uuid.UUID) (*model.Media, error)
 	GetMediaByIDs(ctx context.Context, ids []uuid.UUID) ([]*model.Media, error)
+	UpdateMediaType(ctx context.Context, id uuid.UUID, mediaType model.MediaType) error
 	DeleteMedia(ctx context.Context, id uuid.UUID) (*model.Media, error)
 }
 

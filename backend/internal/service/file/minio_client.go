@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"ftns-asst/internal/config"
 	"ftns-asst/internal/model"
-	"log"
 	"net/url"
 	"time"
 
@@ -13,11 +12,13 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-// обертка для minio.Client
 type MinioClient struct {
-	Client     *minio.Client
-	BucketName string
+	Client        *minio.Client
+	presignClient *minio.Client
+	BucketName    string
 }
+
+const presignRegion = "us-east-1"
 
 func NewMinioClient(config *config.MinioConfig) (*MinioClient, error) {
 	client, err := minio.New(config.Endpoint, &minio.Options{
@@ -28,7 +29,6 @@ func NewMinioClient(config *config.MinioConfig) (*MinioClient, error) {
 		return nil, err
 	}
 
-	// проверяем, есть ли бакет, если нет — создаём
 	ctx := context.Background()
 	exists, errBucketExists := client.BucketExists(ctx, config.BucketName)
 	if errBucketExists != nil {
@@ -40,12 +40,24 @@ func NewMinioClient(config *config.MinioConfig) (*MinioClient, error) {
 		}
 	}
 
-	return &MinioClient{Client: client, BucketName: config.BucketName}, nil
+	presignClient := client
+	if config.PublicEndpoint != "" && config.PublicEndpoint != config.Endpoint {
+		presignClient, err = minio.New(config.PublicEndpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(config.RootUser, config.RootPassword, ""),
+			Secure: config.PublicUseSSL,
+			Region: presignRegion,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &MinioClient{Client: client, presignClient: presignClient, BucketName: config.BucketName}, nil
 }
 
 // creates new url for uploading
 func (mc *MinioClient) CreatePresignedPutUrl(ctx context.Context, objectName string, expiry time.Duration) (string, error) {
-	presignedURL, err := mc.Client.PresignedPutObject(ctx, mc.BucketName, objectName, expiry)
+	presignedURL, err := mc.presignClient.PresignedPutObject(ctx, mc.BucketName, objectName, expiry)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate presigned url: %w", err)
 	}
@@ -62,12 +74,10 @@ func (mc *MinioClient) CreatePresignedGetURL(ctx context.Context, objectName str
 		return "", fmt.Errorf("failed to stat object: %w", err)
 	}
 	reqParams := make(url.Values)
-	url, err := mc.Client.PresignedGetObject(ctx, mc.BucketName, objectName, expiry, reqParams)
+	url, err := mc.presignClient.PresignedGetObject(ctx, mc.BucketName, objectName, expiry, reqParams)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate presigned url: %w", err)
 	}
-	log.Printf("generated URL: %s", url.String())
-	log.Printf("client endpoint: %s", mc.Client.EndpointURL())
 
 	return url.String(), nil
 }

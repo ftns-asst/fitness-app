@@ -71,6 +71,17 @@ func (r *FileRepo) GetMediaByIDs(ctx context.Context, ids []uuid.UUID) ([]*model
 	return res, nil
 }
 
+func (r *FileRepo) UpdateMediaType(ctx context.Context, id uuid.UUID, mediaType model.MediaType) error {
+	tag, err := r.db(ctx).Exec(ctx, `UPDATE media SET type = $1 WHERE id = $2`, mediaType, id)
+	if err != nil {
+		return fmt.Errorf("update failed: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // delete media record and return it, exercises referencing it lose media_id (ON DELETE SET NULL)
 func (r *FileRepo) DeleteMedia(ctx context.Context, id uuid.UUID) (*model.Media, error) {
 	rows, err := r.db(ctx).Query(ctx, `DELETE FROM media WHERE id = $1 RETURNING id, type, object_key`, id)

@@ -326,7 +326,7 @@ paths:
       consumes:
       - application/json
       description: Creates media if exercise has none. The file must be uploaded to
-        upload_url with PUT, media type must match the existing one
+        upload_url with PUT, the stored media type is updated if it differs
       operationId: updateExerciseMedia
       parameters:
       - description: exercise id

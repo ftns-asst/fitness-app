@@ -15,6 +15,9 @@ server-dbg:
 server-down:
 	docker compose --env-file ./.env -f ./docker/docker-compose.yaml -p ftns-backend down
 
+nginx-up:
+	docker compose --env-file ./.env -f ./docker/nginx-docker-compose.yaml -p ftns-backend up -d
+
 migrate-create: 
 ifndef MIGRATE_NAME
 	echo $(error migrate name is required, use `make migrate-create MIGRATE_NAME=your_migration_name`)

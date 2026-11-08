@@ -166,7 +166,7 @@ func TestUpdateMedia(t *testing.T) {
 	ctx := context.Background()
 	media := &model.Media{ID: uuid.New(), Type: model.MediaTypeImage, ObjectKey: "a.png"}
 
-	t.Run("returns put url for the same object, record is not changed", func(t *testing.T) {
+	t.Run("same type returns put url without updating the record", func(t *testing.T) {
 		svc, d := newTestService(t)
 		d.repo.EXPECT().GetMediaByID(ctx, media.ID).Return(media, nil)
 		d.storage.EXPECT().CreatePresignedPutUrl(ctx, "a.png", putURLExpiry).Return("http://put", nil)
@@ -185,12 +185,27 @@ func TestUpdateMedia(t *testing.T) {
 		require.ErrorIs(t, err, model.ErrNotFound)
 	})
 
-	t.Run("type mismatch", func(t *testing.T) {
+	t.Run("type mismatch updates the record", func(t *testing.T) {
 		svc, d := newTestService(t)
-		d.repo.EXPECT().GetMediaByID(ctx, media.ID).Return(media, nil)
+		stored := &model.Media{ID: media.ID, Type: model.MediaTypeImage, ObjectKey: "a.png"}
+		d.repo.EXPECT().GetMediaByID(ctx, media.ID).Return(stored, nil)
+		d.repo.EXPECT().UpdateMediaType(ctx, media.ID, model.MediaTypeVideo).Return(nil)
+		d.storage.EXPECT().CreatePresignedPutUrl(ctx, "a.png", putURLExpiry).Return("http://put", nil)
+
+		got, url, err := svc.UpdateMedia(ctx, media.ID, model.MediaTypeVideo)
+		require.NoError(t, err)
+		require.Equal(t, model.MediaTypeVideo, got.Type)
+		require.Equal(t, "http://put", url)
+	})
+
+	t.Run("type update fails", func(t *testing.T) {
+		svc, d := newTestService(t)
+		stored := &model.Media{ID: media.ID, Type: model.MediaTypeImage, ObjectKey: "a.png"}
+		d.repo.EXPECT().GetMediaByID(ctx, media.ID).Return(stored, nil)
+		d.repo.EXPECT().UpdateMediaType(ctx, media.ID, model.MediaTypeVideo).Return(errors.New("db"))
 
 		_, _, err := svc.UpdateMedia(ctx, media.ID, model.MediaTypeVideo)
-		require.ErrorIs(t, err, model.ErrBadRequest)
+		require.Error(t, err)
 	})
 
 	t.Run("unknown type", func(t *testing.T) {
