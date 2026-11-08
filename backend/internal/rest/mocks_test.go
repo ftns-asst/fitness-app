@@ -48,6 +48,72 @@ func (_m *MockAuthService) EXPECT() *MockAuthService_Expecter {
 	return &MockAuthService_Expecter{mock: &_m.Mock}
 }
 
+// AuthAdmin provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) AuthAdmin(ctx context.Context, data *model.AdminAuthInput) (string, error) {
+	ret := _mock.Called(ctx, data)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AuthAdmin")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.AdminAuthInput) (string, error)); ok {
+		return returnFunc(ctx, data)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.AdminAuthInput) string); ok {
+		r0 = returnFunc(ctx, data)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *model.AdminAuthInput) error); ok {
+		r1 = returnFunc(ctx, data)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockAuthService_AuthAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AuthAdmin'
+type MockAuthService_AuthAdmin_Call struct {
+	*mock.Call
+}
+
+// AuthAdmin is a helper method to define mock.On call
+//   - ctx context.Context
+//   - data *model.AdminAuthInput
+func (_e *MockAuthService_Expecter) AuthAdmin(ctx any, data any) *MockAuthService_AuthAdmin_Call {
+	return &MockAuthService_AuthAdmin_Call{Call: _e.mock.On("AuthAdmin", ctx, data)}
+}
+
+func (_c *MockAuthService_AuthAdmin_Call) Run(run func(ctx context.Context, data *model.AdminAuthInput)) *MockAuthService_AuthAdmin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *model.AdminAuthInput
+		if args[1] != nil {
+			arg1 = args[1].(*model.AdminAuthInput)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_AuthAdmin_Call) Return(s string, err error) *MockAuthService_AuthAdmin_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockAuthService_AuthAdmin_Call) RunAndReturn(run func(ctx context.Context, data *model.AdminAuthInput) (string, error)) *MockAuthService_AuthAdmin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LogIn provides a mock function for the type MockAuthService
 func (_mock *MockAuthService) LogIn(ctx context.Context, data *model.LogInInput) (*model.SuccessLogInResult, error) {
 	ret := _mock.Called(ctx, data)
@@ -1014,6 +1080,63 @@ func (_c *MockExerciseService_DeleteExercise_Call) RunAndReturn(run func(ctx con
 	return _c
 }
 
+// DeleteMedia provides a mock function for the type MockExerciseService
+func (_mock *MockExerciseService) DeleteMedia(ctx context.Context, exerciseID uuid.UUID) error {
+	ret := _mock.Called(ctx, exerciseID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteMedia")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) error); ok {
+		r0 = returnFunc(ctx, exerciseID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockExerciseService_DeleteMedia_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteMedia'
+type MockExerciseService_DeleteMedia_Call struct {
+	*mock.Call
+}
+
+// DeleteMedia is a helper method to define mock.On call
+//   - ctx context.Context
+//   - exerciseID uuid.UUID
+func (_e *MockExerciseService_Expecter) DeleteMedia(ctx any, exerciseID any) *MockExerciseService_DeleteMedia_Call {
+	return &MockExerciseService_DeleteMedia_Call{Call: _e.mock.On("DeleteMedia", ctx, exerciseID)}
+}
+
+func (_c *MockExerciseService_DeleteMedia_Call) Run(run func(ctx context.Context, exerciseID uuid.UUID)) *MockExerciseService_DeleteMedia_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockExerciseService_DeleteMedia_Call) Return(err error) *MockExerciseService_DeleteMedia_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockExerciseService_DeleteMedia_Call) RunAndReturn(run func(ctx context.Context, exerciseID uuid.UUID) error) *MockExerciseService_DeleteMedia_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetEquipment provides a mock function for the type MockExerciseService
 func (_mock *MockExerciseService) GetEquipment() []model.Equipment {
 	ret := _mock.Called()
@@ -1324,6 +1447,86 @@ func (_c *MockExerciseService_UpdateExercise_Call) Return(exercise *model.Exerci
 }
 
 func (_c *MockExerciseService_UpdateExercise_Call) RunAndReturn(run func(ctx context.Context, userID uuid.UUID, input *model.UpdateExerciseInput) (*model.Exercise, error)) *MockExerciseService_UpdateExercise_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateMedia provides a mock function for the type MockExerciseService
+func (_mock *MockExerciseService) UpdateMedia(ctx context.Context, exerciseID uuid.UUID, mediaType model.MediaType) (*model.Media, string, error) {
+	ret := _mock.Called(ctx, exerciseID, mediaType)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateMedia")
+	}
+
+	var r0 *model.Media
+	var r1 string
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, model.MediaType) (*model.Media, string, error)); ok {
+		return returnFunc(ctx, exerciseID, mediaType)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, model.MediaType) *model.Media); ok {
+		r0 = returnFunc(ctx, exerciseID, mediaType)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.Media)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID, model.MediaType) string); ok {
+		r1 = returnFunc(ctx, exerciseID, mediaType)
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context, uuid.UUID, model.MediaType) error); ok {
+		r2 = returnFunc(ctx, exerciseID, mediaType)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
+}
+
+// MockExerciseService_UpdateMedia_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateMedia'
+type MockExerciseService_UpdateMedia_Call struct {
+	*mock.Call
+}
+
+// UpdateMedia is a helper method to define mock.On call
+//   - ctx context.Context
+//   - exerciseID uuid.UUID
+//   - mediaType model.MediaType
+func (_e *MockExerciseService_Expecter) UpdateMedia(ctx any, exerciseID any, mediaType any) *MockExerciseService_UpdateMedia_Call {
+	return &MockExerciseService_UpdateMedia_Call{Call: _e.mock.On("UpdateMedia", ctx, exerciseID, mediaType)}
+}
+
+func (_c *MockExerciseService_UpdateMedia_Call) Run(run func(ctx context.Context, exerciseID uuid.UUID, mediaType model.MediaType)) *MockExerciseService_UpdateMedia_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		var arg2 model.MediaType
+		if args[2] != nil {
+			arg2 = args[2].(model.MediaType)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockExerciseService_UpdateMedia_Call) Return(media *model.Media, s string, err error) *MockExerciseService_UpdateMedia_Call {
+	_c.Call.Return(media, s, err)
+	return _c
+}
+
+func (_c *MockExerciseService_UpdateMedia_Call) RunAndReturn(run func(ctx context.Context, exerciseID uuid.UUID, mediaType model.MediaType) (*model.Media, string, error)) *MockExerciseService_UpdateMedia_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -22,7 +22,7 @@ type deps struct {
 
 // service with test muscle groups and equipment providers
 func newTestService(repo ExerciseRepo) *ExerciseService {
-	svc := NewService(&config.Config{}, repo, nil)
+	svc := NewService(&config.Config{}, repo, nil, nil)
 	svc.muscleGroupProvider = model.NewTestMuscleGroupProvider()
 	svc.equipmentProvider = model.NewTestEquipmentProvider()
 	return svc
@@ -305,4 +305,117 @@ func TestDeleteExercise(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestGetExercisesFillsMedia(t *testing.T) {
+	t.Parallel()
+	userID := uuid.New()
+	mediaID := uuid.New()
+	media := &model.Media{ID: mediaID, ObjectKey: "a.png", URL: "http://get"}
+	withMedia := &model.Exercise{ID: uuid.New(), MediaID: &mediaID}
+	withoutMedia := &model.Exercise{ID: uuid.New()}
+	missingFile := &model.Exercise{ID: uuid.New(), MediaID: new(uuid.New())}
+
+	repo := NewMockExerciseRepo(t)
+	repo.EXPECT().GetExercises(mock.Anything, mock.Anything, mock.Anything).
+		Return([]*model.Exercise{withMedia, withoutMedia, missingFile}, nil)
+	provider := NewMockMediaProvider(t)
+	provider.EXPECT().GetMediaList(mock.Anything, []uuid.UUID{mediaID, *missingFile.MediaID}).
+		Return(map[uuid.UUID]*model.Media{mediaID: media}, nil)
+
+	svc := NewService(&config.Config{}, repo, provider, nil)
+	res, err := svc.GetExercises(t.Context(), &model.ExerciseFilters{ListType: model.ExerciseListTypeAll, UserID: &userID}, &model.PageInfo{})
+	require.NoError(t, err)
+	require.Equal(t, media, res[0].Media)
+	require.Nil(t, res[1].Media)
+	require.Nil(t, res[2].Media)
+}
+
+func TestUpdateMedia(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	mediaID := uuid.New()
+	media := &model.Media{ID: mediaID, Type: model.MediaTypeImage}
+
+	newSvc := func(t *testing.T) (*ExerciseService, *MockExerciseRepo, *MockMediaProvider) {
+		repo := NewMockExerciseRepo(t)
+		provider := NewMockMediaProvider(t)
+		return NewService(&config.Config{}, repo, provider, &testutil.MockTransactor{}), repo, provider
+	}
+
+	t.Run("creates media and links it to exercise", func(t *testing.T) {
+		svc, repo, provider := newSvc(t)
+		ex := &model.Exercise{ID: uuid.New()}
+		repo.EXPECT().GetExerciseByID(mock.Anything, ex.ID).Return(ex, nil)
+		provider.EXPECT().UpsertMedia(mock.Anything, (*uuid.UUID)(nil), model.MediaTypeImage).Return(media, "http://put", nil)
+		repo.EXPECT().UpdateMediaID(mock.Anything, ex.ID, mediaID).Return(nil)
+
+		got, url, err := svc.UpdateMedia(ctx, ex.ID, model.MediaTypeImage)
+		require.NoError(t, err)
+		require.Equal(t, media, got)
+		require.Equal(t, "http://put", url)
+	})
+
+	t.Run("existing media is not relinked", func(t *testing.T) {
+		svc, repo, provider := newSvc(t)
+		ex := &model.Exercise{ID: uuid.New(), MediaID: &mediaID}
+		repo.EXPECT().GetExerciseByID(mock.Anything, ex.ID).Return(ex, nil)
+		provider.EXPECT().UpsertMedia(mock.Anything, &mediaID, model.MediaTypeImage).Return(media, "http://put", nil)
+
+		_, _, err := svc.UpdateMedia(ctx, ex.ID, model.MediaTypeImage)
+		require.NoError(t, err)
+	})
+
+	t.Run("exercise not found", func(t *testing.T) {
+		svc, repo, _ := newSvc(t)
+		id := uuid.New()
+		repo.EXPECT().GetExerciseByID(mock.Anything, id).Return(nil, repository.ErrNotFound)
+
+		_, _, err := svc.UpdateMedia(ctx, id, model.MediaTypeImage)
+		require.ErrorIs(t, err, model.ErrNotFound)
+	})
+
+	t.Run("exercise disappeared while linking", func(t *testing.T) {
+		svc, repo, provider := newSvc(t)
+		ex := &model.Exercise{ID: uuid.New()}
+		repo.EXPECT().GetExerciseByID(mock.Anything, ex.ID).Return(ex, nil)
+		provider.EXPECT().UpsertMedia(mock.Anything, (*uuid.UUID)(nil), model.MediaTypeImage).Return(media, "http://put", nil)
+		repo.EXPECT().UpdateMediaID(mock.Anything, ex.ID, mediaID).Return(repository.ErrNoAffectedRows)
+
+		_, _, err := svc.UpdateMedia(ctx, ex.ID, model.MediaTypeImage)
+		require.ErrorIs(t, err, model.ErrNotFound)
+	})
+}
+
+func TestDeleteMedia(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	mediaID := uuid.New()
+
+	t.Run("deletes media of exercise", func(t *testing.T) {
+		repo := NewMockExerciseRepo(t)
+		provider := NewMockMediaProvider(t)
+		ex := &model.Exercise{ID: uuid.New(), MediaID: &mediaID}
+		repo.EXPECT().GetExerciseByID(mock.Anything, ex.ID).Return(ex, nil)
+		provider.EXPECT().DeleteMedia(mock.Anything, mediaID).Return(nil)
+
+		require.NoError(t, NewService(&config.Config{}, repo, provider, nil).DeleteMedia(ctx, ex.ID))
+	})
+
+	t.Run("exercise without media", func(t *testing.T) {
+		repo := NewMockExerciseRepo(t)
+		ex := &model.Exercise{ID: uuid.New()}
+		repo.EXPECT().GetExerciseByID(mock.Anything, ex.ID).Return(ex, nil)
+
+		require.NoError(t, NewService(&config.Config{}, repo, NewMockMediaProvider(t), nil).DeleteMedia(ctx, ex.ID))
+	})
+
+	t.Run("exercise not found", func(t *testing.T) {
+		repo := NewMockExerciseRepo(t)
+		id := uuid.New()
+		repo.EXPECT().GetExerciseByID(mock.Anything, id).Return(nil, repository.ErrNotFound)
+
+		err := NewService(&config.Config{}, repo, NewMockMediaProvider(t), nil).DeleteMedia(ctx, id)
+		require.ErrorIs(t, err, model.ErrNotFound)
+	})
 }

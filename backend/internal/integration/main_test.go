@@ -96,7 +96,7 @@ func run(m *testing.M) int {
 		ExerciseCatalogPath:           exerciseCatalogPath,
 	}
 	repos = repository.NewRepositories(db)
-	services = service.NewServices(cfg, *repos, mailer, db)
+	services = service.NewServices(cfg, *repos, mailer, db, nil)
 	if err := services.Exercise().Start(ctx); err != nil {
 		log.Printf("failed to start exercise service: %s", err)
 		return 1

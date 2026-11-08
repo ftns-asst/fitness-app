@@ -59,6 +59,8 @@ definitions:
         type: string
       is_public:
         type: boolean
+      media:
+        $ref: '#/definitions/Media'
       muscle_groups:
         items:
           type: string
@@ -86,6 +88,16 @@ definitions:
         $ref: '#/definitions/Tokens'
       user:
         $ref: '#/definitions/User'
+    type: object
+  Media:
+    properties:
+      id:
+        type: string
+      type:
+        type: string
+      url:
+        description: temporary url for downloading
+        type: string
     type: object
   MuscleGroup:
     properties:
@@ -156,6 +168,24 @@ definitions:
       access_token:
         type: string
       refresh_token:
+        type: string
+    type: object
+  UpdateExerciseMediaRequestBody:
+    properties:
+      media_type:
+        enum:
+        - image
+        - video
+        type: string
+    required:
+    - media_type
+    type: object
+  UpdateExerciseMediaResponse:
+    properties:
+      media:
+        $ref: '#/definitions/Media'
+      upload_url:
+        description: temporary url for uploading the file with PUT
         type: string
     type: object
   UpdateExerciseRequestBody:
@@ -258,6 +288,87 @@ info:
   title: Fitness Assistant API
   version: "1.0"
 paths:
+  /admin/exercise/{id}/media:
+    delete:
+      operationId: deleteExerciseMedia
+      parameters:
+      - description: exercise id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete exercise media
+      tags:
+      - exercises
+    put:
+      consumes:
+      - application/json
+      description: Creates media if exercise has none. The file must be uploaded to
+        upload_url with PUT, media type must match the existing one
+      operationId: updateExerciseMedia
+      parameters:
+      - description: exercise id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: media body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateExerciseMediaRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UpdateExerciseMediaResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get url for uploading exercise media
+      tags:
+      - exercises
   /auth/check-email:
     post:
       consumes:

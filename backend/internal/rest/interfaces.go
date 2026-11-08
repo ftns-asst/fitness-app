@@ -15,6 +15,7 @@ type (
 		SignUp(ctx context.Context, data *model.SignUpInput) (*model.SuccessSignUpResult, error)
 		StartPasswordRecovery(ctx context.Context, email string) error
 		VerifyCode(ctx context.Context, email string, codeValue string) (resetToken string, err error)
+		AuthAdmin(ctx context.Context, data *model.AdminAuthInput) (string, error)
 	}
 	UserService interface {
 		CheckUserWithEmailExists(ctx context.Context, email string) (exists bool, err error)
@@ -31,5 +32,7 @@ type (
 		GetExercises(ctx context.Context, filters *model.ExerciseFilters, page *model.PageInfo) ([]*model.Exercise, error)
 		UpdateExercise(ctx context.Context, userID uuid.UUID, input *model.UpdateExerciseInput) (*model.Exercise, error)
 		DeleteExercise(ctx context.Context, userID uuid.UUID, id uuid.UUID) error
+		UpdateMedia(ctx context.Context, exerciseID uuid.UUID, mediaType model.MediaType) (*model.Media, string, error)
+		DeleteMedia(ctx context.Context, exerciseID uuid.UUID) error
 	}
 )

@@ -470,3 +470,16 @@ func (s *AuthService) ResetPassword(ctx context.Context, newPassword string, res
 		},
 	}, nil
 }
+
+func (s *AuthService) AuthAdmin(ctx context.Context, data *model.AdminAuthInput) (string, error) {
+	if s.cfg.AdminAuthPassword != data.Password {
+		return "", model.ErrUnauthorized
+	}
+
+	tokens, err := s.genTokens(uuid.New())
+	if err != nil {
+		return "", err
+	}
+
+	return tokens.AccessToken.Token, nil
+}

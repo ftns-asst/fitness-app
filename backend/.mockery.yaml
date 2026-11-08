@@ -16,3 +16,5 @@ packages:
     { config: { all: true } }
   ftns-asst/internal/service/exercise:
     { config: { all: true } }
+  ftns-asst/internal/service/file:
+    { config: { all: true } }

@@ -24,7 +24,19 @@ func ConvertExerciseToDTO(m *model.Exercise) *dto.ExerciseDTO {
 		Equipment: util.Map(m.Equipments, func(m model.EquipmentKey) string {
 			return string(m)
 		}),
+		Media:     ConvertMediaToDTO(m.Media),
 		CreatedAt: m.CreatedAt,
+	}
+}
+
+func ConvertMediaToDTO(m *model.Media) *dto.MediaDTO {
+	if m == nil {
+		return nil
+	}
+	return &dto.MediaDTO{
+		ID:   m.ID,
+		Type: string(m.Type),
+		URL:  m.URL,
 	}
 }
 

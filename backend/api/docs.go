@@ -15,6 +15,129 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/exercise/{id}/media": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates media if exercise has none. The file must be uploaded to upload_url with PUT, media type must match the existing one",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "exercises"
+                ],
+                "summary": "Get url for uploading exercise media",
+                "operationId": "updateExerciseMedia",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "exercise id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "media body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UpdateExerciseMediaRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/UpdateExerciseMediaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "exercises"
+                ],
+                "summary": "Delete exercise media",
+                "operationId": "deleteExerciseMedia",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "exercise id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/check-email": {
             "post": {
                 "consumes": [
@@ -1022,6 +1145,9 @@ const docTemplate = `{
                 "is_public": {
                     "type": "boolean"
                 },
+                "media": {
+                    "$ref": "#/definitions/Media"
+                },
                 "muscle_groups": {
                     "type": "array",
                     "items": {
@@ -1061,6 +1187,21 @@ const docTemplate = `{
                 },
                 "user": {
                     "$ref": "#/definitions/User"
+                }
+            }
+        },
+        "Media": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "url": {
+                    "description": "temporary url for downloading",
+                    "type": "string"
                 }
             }
         },
@@ -1166,6 +1307,33 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "UpdateExerciseMediaRequestBody": {
+            "type": "object",
+            "required": [
+                "media_type"
+            ],
+            "properties": {
+                "media_type": {
+                    "type": "string",
+                    "enum": [
+                        "image",
+                        "video"
+                    ]
+                }
+            }
+        },
+        "UpdateExerciseMediaResponse": {
+            "type": "object",
+            "properties": {
+                "media": {
+                    "$ref": "#/definitions/Media"
+                },
+                "upload_url": {
+                    "description": "temporary url for uploading the file with PUT",
                     "type": "string"
                 }
             }

@@ -21,6 +21,10 @@ func NewExerciseRepo(db db) *ExerciseRepo {
 	}
 }
 
+const exerciseColumns = `
+	id, owner_id, media_id, is_public, name, description,
+	muscle_group, equipment, created_at, deleted_at`
+
 // try get tx from ctx
 func (r *ExerciseRepo) db(ctx context.Context) db {
 	res := r.database
@@ -58,6 +62,12 @@ func (r *ExerciseRepo) CreateExercise(ctx context.Context, exercise *model.Exerc
 		return nil, fmt.Errorf("insert failed: %w", err)
 	}
 
+	if exercise.MuscleGroups == nil {
+		exercise.MuscleGroups = []model.MuscleGroupKey{}
+	}
+	if exercise.Equipments == nil {
+		exercise.Equipments = []model.EquipmentKey{}
+	}
 	return exercise, nil
 }
 
@@ -136,20 +146,10 @@ func (r *ExerciseRepo) FillExercises(ctx context.Context, exercises []*model.Exe
 }
 
 func (r *ExerciseRepo) GetExerciseByID(ctx context.Context, id uuid.UUID) (*model.Exercise, error) {
-	conn := r.db(ctx)
-
-	query := `
-		SELECT *
-		FROM exercises
-		WHERE id = $1
-	`
-
-	rows, err := conn.Query(ctx, query, id)
+	rows, err := r.db(ctx).Query(ctx, `SELECT `+exerciseColumns+` FROM exercises WHERE id = $1`, id)
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
-
-	defer rows.Close()
 
 	res, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByName[model.Exercise])
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -164,11 +164,7 @@ func (r *ExerciseRepo) GetExerciseByID(ctx context.Context, id uuid.UUID) (*mode
 func (r *ExerciseRepo) GetExercises(ctx context.Context, filters *model.ExerciseFilters, page *model.PageInfo) ([]*model.Exercise, error) {
 	args := []interface{}{}
 	query := strings.Builder{}
-	query.WriteString(`
-		SELECT *
-		FROM exercises
-		WHERE deleted_at IS NULL
-	`)
+	query.WriteString(`SELECT ` + exerciseColumns + ` FROM exercises WHERE deleted_at IS NULL`)
 
 	switch filters.ListType {
 	case model.ExerciseListTypeOwn:
@@ -226,8 +222,6 @@ func (r *ExerciseRepo) GetExercises(ctx context.Context, filters *model.Exercise
 }
 
 func (r *ExerciseRepo) UpdateExercise(ctx context.Context, input *model.UpdateExerciseInput) (*model.Exercise, error) {
-	conn := r.db(ctx)
-
 	query := `
 		UPDATE exercises
 		SET
@@ -237,24 +231,19 @@ func (r *ExerciseRepo) UpdateExercise(ctx context.Context, input *model.UpdateEx
 			muscle_group = COALESCE($5, muscle_group),
 			equipment = COALESCE($6, equipment)
 		WHERE id = $1
-		RETURNING *
-	`
-	muscleGroups := input.MuscleGroups
-	equipments := input.Equipments
+		RETURNING ` + exerciseColumns
 
-	rows, err := conn.Query(ctx, query,
+	rows, err := r.db(ctx).Query(ctx, query,
 		input.ID,
 		input.IsPublic,
 		input.Name,
 		input.Description,
-		muscleGroups,
-		equipments,
+		input.MuscleGroups,
+		input.Equipments,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("update failed: %w", err)
 	}
-
-	defer rows.Close()
 
 	res, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByName[model.Exercise])
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -313,4 +302,22 @@ func (r *ExerciseRepo) IsUserOwnerCheck(ctx context.Context, userID uuid.UUID, e
 		return false, ErrNotFound
 	}
 	return isOwner, nil
+}
+
+func (r *ExerciseRepo) UpdateMediaID(ctx context.Context, id uuid.UUID, mediaID uuid.UUID) error {
+	conn := r.db(ctx)
+	query := `
+			UPDATE exercises
+			SET
+				media_id = $1
+			WHERE id = $2`
+	res, err := conn.Exec(ctx, query, mediaID, id)
+	if res.RowsAffected() == 0 {
+		return ErrNoAffectedRows
+	}
+	if err != nil {
+		return fmt.Errorf("update failed: %w", err)
+	}
+
+	return nil
 }

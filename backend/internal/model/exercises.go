@@ -26,6 +26,8 @@ type (
 	Exercise struct {
 		ID           uuid.UUID        `db:"id"`
 		OwnerID      *uuid.UUID       `db:"owner_id"`
+		MediaID      *uuid.UUID       `db:"media_id"`
+		Media        *Media           `db:"-"`
 		IsPublic     bool             `db:"is_public"`
 		Name         string           `db:"name"`
 		Description  *string          `db:"description"`
@@ -60,6 +62,12 @@ type (
 	MuscleGroupProvider util.DataReader[MuscleGroup]
 	// readonly reader for equipment
 	EquipmentProvider util.DataReader[Equipment]
+
+	ExerciseMedia struct {
+		ExerciseID uuid.UUID `db:"exercise_id"`
+		Type       MediaType `db:"type"`
+		ObjectKey  string    `db:"object_key"`
+	}
 )
 
 const (
