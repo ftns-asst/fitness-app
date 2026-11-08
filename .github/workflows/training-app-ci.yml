@@ -31,7 +31,19 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install --yes clang-format ninja-build libgl1-mesa-dev
+          sudo apt-get install --yes ninja-build libgl1-mesa-dev
+
+      - name: Set up Python for formatting tools
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned clang-format
+        run: |
+          $formatVersion = (Get-Content ../.clang-format-version -Raw).Trim()
+          python -m pip install "clang-format==$formatVersion"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          clang-format --version
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -41,6 +53,9 @@ jobs:
           target: desktop
           cache: true
           install-deps: true
+
+      - name: Test formatter version guard
+        run: ./tests/scripts/test-format-cpp.ps1
 
       - name: Run project gates
         run: ./scripts/run-gates.ps1 -BuildDir build/ci -Generator Ninja -QtPrefix $env:QT_ROOT_DIR

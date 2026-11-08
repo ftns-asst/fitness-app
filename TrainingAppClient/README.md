@@ -130,7 +130,19 @@ C++- и QML-тесты, проверки геометрии и UI smoke-сцен
 ctest --test-dir build/desktop --output-on-failure
 ```
 
-Единый скрипт проверяет форматирование, конфигурацию, `qmllint`, сборку и тесты:
+Проверка включает форматирование, конфигурацию, `qmllint`, сборку и тесты.
+
+Для C++ нужна версия `clang-format` из корневого `.clang-format-version`.
+Установить её и применить форматирование можно из `TrainingAppClient`:
+
+```powershell
+$formatVersion = (Get-Content ../.clang-format-version -Raw).Trim()
+python -m pip install "clang-format==$formatVersion"
+.\scripts\format-cpp.ps1
+.\scripts\format-cpp.ps1 -Check
+```
+
+Полная проверка:
 
 ```powershell
 .\scripts\run-gates.ps1 -BuildDir build/ci -Generator Ninja -QtPrefix D:\Qt\6.11.2\mingw_64
