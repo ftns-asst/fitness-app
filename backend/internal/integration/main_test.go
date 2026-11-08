@@ -30,10 +30,11 @@ import (
 )
 
 var (
-	db     *pgxpool.Pool
-	repos  *repository.Repositories
-	mailer = newMailer()
-	server *httptest.Server
+	db       *pgxpool.Pool
+	repos    *repository.Repositories
+	services *service.Services
+	mailer   = newMailer()
+	server   *httptest.Server
 )
 
 func TestMain(m *testing.M) {
@@ -92,9 +93,14 @@ func run(m *testing.M) int {
 		RefreshTokenHashSecretKey:     "refresh-hash-secret",
 		VerificationCodeHashSecretKey: "code-hash-secret",
 		ResetTokenHashSecretKey:       "reset-hash-secret",
+		ExerciseCatalogPath:           exerciseCatalogPath,
 	}
 	repos = repository.NewRepositories(db)
-	services := service.NewServices(cfg, *repos, mailer, db)
+	services = service.NewServices(cfg, *repos, mailer, db)
+	if err := services.Exercise().Start(ctx); err != nil {
+		log.Printf("failed to start exercise service: %s", err)
+		return 1
+	}
 	server = httptest.NewServer(rest.NewServer(cfg, *services).Handler)
 	defer server.Close()
 

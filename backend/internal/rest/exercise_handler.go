@@ -38,10 +38,13 @@ func (h *ExerciseHandler) RegisterRoutes(r *gin.RouterGroup, authMid gin.Handler
 // @Tags exercises
 // @Summary Get all muscle groups
 // @Produce json
-// @Success 200 {array} string
+// @Success 200 {array} dto.MuscleGroup
 // @Router /muscle-groups [get]
 func (h *ExerciseHandler) GetMuscleGroups(c *gin.Context) {
-	res := h.exerciseService.GetMuscleGroups()
+	res := mapper.ConvertMuscleGroupListToDTO(h.exerciseService.GetMuscleGroups())
+	if res == nil {
+		res = make([]dto.MuscleGroup, 0)
+	}
 
 	c.JSON(http.StatusOK, res)
 }
@@ -51,11 +54,13 @@ func (h *ExerciseHandler) GetMuscleGroups(c *gin.Context) {
 // @Tags exercises
 // @Summary Get all equipment types
 // @Produce json
-// @Success 200 {array} string
+// @Success 200 {array} dto.Equipment
 // @Router /equipments [get]
 func (h *ExerciseHandler) GetEquipments(c *gin.Context) {
-	res := h.exerciseService.GetEquipment()
-
+	res := mapper.ConvertEquipmentListToDTO(h.exerciseService.GetEquipment())
+	if res == nil {
+		res = make([]dto.Equipment, 0)
+	}
 	c.JSON(http.StatusOK, res)
 }
 
@@ -87,14 +92,18 @@ func (h *ExerciseHandler) ListExercises(c *gin.Context) {
 	}
 	// log.Printf("%v", params)
 	filters, page := mapper.ConvertListExerciseQueryParams(&params, &userID)
-	res, err := h.exerciseService.GetExercises(c.Request.Context(),
+	list, err := h.exerciseService.GetExercises(c.Request.Context(),
 		filters, page)
 	if err != nil {
 		handleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, util.Map(res, mapper.ConvertExerciseToDTO))
+	res := util.Map(list, mapper.ConvertExerciseToDTO)
+	if res == nil {
+		res = make([]*dto.ExerciseDTO, 0)
+	}
+	c.JSON(http.StatusOK, res)
 }
 
 // CreateExercise godoc

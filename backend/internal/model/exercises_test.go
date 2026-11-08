@@ -19,8 +19,8 @@ func TestExerciseValidation(t *testing.T) {
 			Name: "good exercise",
 			Exercise: Exercise{
 				Name:         "Отжимания",
-				MuscleGroups: []MuscleGroup{MuscleGroupChest},
-				Equipments:   []Equipment{EquipmentBodyweight},
+				MuscleGroups: []MuscleGroupKey{MuscleGroupChest},
+				Equipments:   []EquipmentKey{EquipmentBodyweight},
 			},
 		},
 		{
@@ -39,12 +39,12 @@ func TestExerciseValidation(t *testing.T) {
 		},
 		{
 			Name:          "error unknown muscle group",
-			Exercise:      Exercise{Name: "Push ups", MuscleGroups: []MuscleGroup{"unknown"}},
+			Exercise:      Exercise{Name: "Push ups", MuscleGroups: []MuscleGroupKey{"unknown"}},
 			ExpectedError: ErrBadRequest,
 		},
 		{
 			Name:          "error unknown equipment",
-			Exercise:      Exercise{Name: "Push ups", Equipments: []Equipment{"unknown"}},
+			Exercise:      Exercise{Name: "Push ups", Equipments: []EquipmentKey{"unknown"}},
 			ExpectedError: ErrBadRequest,
 		},
 	}
@@ -52,7 +52,7 @@ func TestExerciseValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			t.Parallel()
-			err := test.Exercise.Validate()
+			err := test.Exercise.Validate(NewTestMuscleGroupProvider(), NewTestEquipmentProvider())
 
 			require.ErrorIs(t, err, test.ExpectedError)
 		})
@@ -74,8 +74,8 @@ func TestExerciseInputValidation(t *testing.T) {
 			Name: "good input",
 			Input: ExerciseInput{
 				Name:         util.Ptr("Push ups"),
-				MuscleGroups: []MuscleGroup{MuscleGroupChest},
-				Equipments:   []Equipment{EquipmentBodyweight},
+				MuscleGroups: []MuscleGroupKey{MuscleGroupChest},
+				Equipments:   []EquipmentKey{EquipmentBodyweight},
 			},
 		},
 		{
@@ -90,12 +90,12 @@ func TestExerciseInputValidation(t *testing.T) {
 		},
 		{
 			Name:          "error unknown muscle group",
-			Input:         ExerciseInput{MuscleGroups: []MuscleGroup{"unknown"}},
+			Input:         ExerciseInput{MuscleGroups: []MuscleGroupKey{"unknown"}},
 			ExpectedError: ErrBadRequest,
 		},
 		{
 			Name:          "error unknown equipment",
-			Input:         ExerciseInput{Equipments: []Equipment{"unknown"}},
+			Input:         ExerciseInput{Equipments: []EquipmentKey{"unknown"}},
 			ExpectedError: ErrBadRequest,
 		},
 	}
@@ -103,7 +103,7 @@ func TestExerciseInputValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			t.Parallel()
-			err := test.Input.Validate()
+			err := test.Input.Validate(NewTestMuscleGroupProvider(), NewTestEquipmentProvider())
 
 			require.ErrorIs(t, err, test.ExpectedError)
 		})
@@ -121,24 +121,14 @@ func TestExerciseFiltersValidation(t *testing.T) {
 			Name: "good filters with duplicates",
 			Filters: ExerciseFilters{
 				ListType:     ExerciseListTypeBasic,
-				MuscleGroups: []MuscleGroup{MuscleGroupChest, MuscleGroupChest},
-				Equipments:   []Equipment{EquipmentBarbell},
+				MuscleGroups: []MuscleGroupKey{MuscleGroupChest, MuscleGroupChest},
+				Equipments:   []EquipmentKey{EquipmentBarbell},
 			},
 		},
 		{
 			Name:          "error user id required",
 			Filters:       ExerciseFilters{ListType: ExerciseListTypeOwn},
 			ExpectedError: ErrUserIDRequired,
-		},
-		{
-			Name:          "error unknown muscle group",
-			Filters:       ExerciseFilters{ListType: ExerciseListTypeBasic, MuscleGroups: []MuscleGroup{"unknown"}},
-			ExpectedError: ErrBadRequest,
-		},
-		{
-			Name:          "error unknown equipment",
-			Filters:       ExerciseFilters{ListType: ExerciseListTypeBasic, Equipments: []Equipment{"unknown"}},
-			ExpectedError: ErrBadRequest,
 		},
 	}
 

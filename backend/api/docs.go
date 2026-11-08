@@ -392,7 +392,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "type": "string"
+                                "$ref": "#/definitions/Equipment"
                             }
                         }
                     }
@@ -765,7 +765,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "type": "string"
+                                "$ref": "#/definitions/MuscleGroup"
                             }
                         }
                     }
@@ -977,6 +977,19 @@ const docTemplate = `{
                 }
             }
         },
+        "Equipment": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "description": "unique key",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "readable name",
+                    "type": "string"
+                }
+            }
+        },
         "ErrorResponse": {
             "type": "object",
             "properties": {
@@ -1048,6 +1061,19 @@ const docTemplate = `{
                 },
                 "user": {
                     "$ref": "#/definitions/User"
+                }
+            }
+        },
+        "MuscleGroup": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "description": "unique key",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "readable name",
+                    "type": "string"
                 }
             }
         },

@@ -24,8 +24,9 @@ import (
 const testSecret = "access-secret"
 
 type deps struct {
-	auth *MockAuthService
-	user *MockUserService
+	auth     *MockAuthService
+	user     *MockUserService
+	exercise *MockExerciseService
 }
 
 func TestMain(m *testing.M) {
@@ -35,17 +36,19 @@ func TestMain(m *testing.M) {
 
 func newDeps(t *testing.T) *deps {
 	return &deps{
-		auth: NewMockAuthService(t),
-		user: NewMockUserService(t),
+		auth:     NewMockAuthService(t),
+		user:     NewMockUserService(t),
+		exercise: NewMockExerciseService(t),
 	}
 }
 
 func newRouter(d *deps) *gin.Engine {
 	r := gin.New()
 	h := &Handlers{
-		cfg:  &config.Config{AccessTokenJWTSecretKey: testSecret},
-		auth: NewAuthHandler(d.auth, d.user),
-		user: NewUserHandler(d.user),
+		cfg:      &config.Config{AccessTokenJWTSecretKey: testSecret},
+		auth:     NewAuthHandler(d.auth, d.user),
+		user:     NewUserHandler(d.user),
+		exercise: NewExerciseHandler(d.exercise),
 	}
 	h.RegisterRoutes(r.Group("/api/v1"))
 	return r

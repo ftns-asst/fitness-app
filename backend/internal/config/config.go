@@ -15,6 +15,7 @@ type Config struct {
 	RefreshTokenHashSecretKey     string        `env:"REFRESH_TOKEN_HASH_SECRET,required"`
 	VerificationCodeHashSecretKey string        `env:"VERIFICATION_CODE_HASH_SECRET,required"`
 	ResetTokenHashSecretKey       string        `env:"RESET_TOKEN_HASH_SECERT,required"`
+	ExerciseCatalogPath           string        `env:"EXERCISE_CATALOG_PATH,required"`
 	postgres                      *PostgresConfig
 	smtp                          *util.SMTPConfig
 }
