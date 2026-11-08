@@ -1,33 +1,39 @@
-#include "App/App_Logger.h"
+﻿#include "App/App_Logger.h"
 
 #include <QByteArray>
 #include <QDateTime>
 #include <QDir>
 #include <QMutexLocker>
+#include <QRecursiveMutex>
 
 #include <cstdio>
 
 static AsApp_Logger *Active_Logger_Instance = 0;
+// Охраняет Active_Logger_Instance и файл активного логгера. Рекурсивный:
+// QFile при ротации может сам выдать предупреждение, и handler войдёт сюда
+// повторно из того же потока.
+static QRecursiveMutex Logger_Mutex;
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AsApp_Logger
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsApp_Logger::AsApp_Logger(QObject *in_parent) : QObject(in_parent)
 {
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsApp_Logger::~AsApp_Logger()
 {
 	Close();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsApp_Logger::Open(const QString &in_directory, int in_max_bytes)
 {
+	QMutexLocker<QRecursiveMutex> locker(&Logger_Mutex);
 	QDir directory(in_directory);
 
 	Close();
 
-	Max_Bytes = in_max_bytes > 0 ? in_max_bytes : (int)EDefault_Max_Bytes;
+	Max_Bytes = in_max_bytes > 0 ? in_max_bytes : Default_Max_Bytes;
 
 	// Каталог может создаваться параллельным процессом (урок issue 6).
 	if (directory.exists() || directory.mkpath(".") || directory.exists())
@@ -44,9 +50,11 @@ bool AsApp_Logger::Open(const QString &in_directory, int in_max_bytes)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsApp_Logger::Close()
 {
+	QMutexLocker<QRecursiveMutex> locker(&Logger_Mutex);
+
 	if (Active_Logger_Instance == this)
 		Active_Logger_Instance = 0;
 
@@ -55,18 +63,19 @@ void AsApp_Logger::Close()
 
 	Backup_File_Path.clear();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AsApp_Logger::Handle_Message(QtMsgType in_type, const QMessageLogContext &in_context, const QString &in_message)
 {
+	// Под мьютексом и stderr: строки разных потоков не перемешиваются.
+	QMutexLocker<QRecursiveMutex> locker(&Logger_Mutex);
 	QString line;
 	QByteArray utf8;
-	AsApp_Logger *logger = Active_Logger_Instance;
 
+	// Многоаргументный arg() подставляет за один проход: «%1» внутри
+	// сообщения не будет заменён следующим аргументом.
 	line = QString("%1 %2 %3: %4")
-	           .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz"))
-	           .arg(Level_Name(in_type))
-	           .arg(QString::fromLatin1(in_context.category))
-	           .arg(in_message);
+	           .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz"), Level_Name(in_type),
+	                QString::fromLatin1(in_context.category), in_message);
 	utf8 = line.toUtf8();
 
 	// stderr сохраняем всегда: консоль, CI и offscreen-прогоны читают его.
@@ -74,28 +83,28 @@ void AsApp_Logger::Handle_Message(QtMsgType in_type, const QMessageLogContext &i
 	fwrite("\n", 1, 1, stderr);
 	fflush(stderr);
 
-	if (logger != 0)
-		logger->Append(line);
+	if (Active_Logger_Instance != 0)
+		Active_Logger_Instance->Append(line);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+// Вызывается под Logger_Mutex (Handle_Message).
 void AsApp_Logger::Append(const QString &in_line)
 {
-	QMutexLocker locker(&Write_Mutex);
 	QByteArray utf8;
 
-	if (Log_File.isOpen() == false)
+	if (!Log_File.isOpen())
 		return;
 
 	utf8 = in_line.toUtf8();
 	utf8.append('\n');
 
-	if (Log_File.size() + utf8.size() > Max_Bytes && Rotate() == false)
+	if (Log_File.size() + utf8.size() > Max_Bytes && !Rotate())
 		return;
 
 	Log_File.write(utf8);
 	Log_File.flush();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsApp_Logger::Rotate()
 {
 	Log_File.close();
@@ -108,7 +117,7 @@ bool AsApp_Logger::Rotate()
 
 	return Log_File.open(QIODevice::Append | QIODevice::Text);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AsApp_Logger::Level_Name(QtMsgType in_type)
 {
 	switch (in_type)
@@ -129,4 +138,4 @@ QString AsApp_Logger::Level_Name(QtMsgType in_type)
 
 	return "unknown";
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

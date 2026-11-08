@@ -32,7 +32,7 @@ private:
 	AsSql_Database Database;
 	AWorkout_Repository *Repository = 0;
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Repository_Test::initTestCase()
 {
 	QVERIFY(Directory.isValid());
@@ -41,7 +41,7 @@ void AWorkout_Repository_Test::initTestCase()
 	Seed_Exercise();
 	Seed_Program();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Repository_Test::Seed_Exercise()
 {
 	QSqlQuery query(Database.Sql_Connection());
@@ -52,10 +52,10 @@ void AWorkout_Repository_Test::Seed_Exercise()
 	              "VALUES('ex_squat', 'Присед', 'legs', 'barbell', 0, '2026-09-29T00:00:00Z')");
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Минимальная программа: workouts.program_id ссылается на programs(id), без
 // реальной строки FK не пустит сессию (инвариант структуры, §4).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Repository_Test::Seed_Program()
 {
 	QSqlQuery query(Database.Sql_Connection());
@@ -66,7 +66,7 @@ void AWorkout_Repository_Test::Seed_Program()
 	              "'2026-09-28', 4, 'fixedWeeks', '2026-09-28T00:00:00Z', '2026-09-28T00:00:00Z', 'local')");
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Repository_Test::Seed_Session(const QString &in_id, const QString &in_program_id, const QString &in_date,
                                             EWorkout_State in_state, const QString &in_deviation)
 {
@@ -84,7 +84,7 @@ void AWorkout_Repository_Test::Seed_Session(const QString &in_id, const QString 
 	query.addBindValue(in_deviation.isEmpty() ? QVariant() : QVariant(in_deviation));
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Repository_Test::Seed_Set(const QString &in_id, const QString &in_session_id, double in_weight,
                                         int in_reps, double in_rpe, bool in_done, bool in_warmup)
 {
@@ -104,7 +104,7 @@ void AWorkout_Repository_Test::Seed_Set(const QString &in_id, const QString &in_
 	query.addBindValue(in_done ? 1 : 0);
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Repository_Test::loadsSessionsWithAllFields()
 {
 	QVector<SWorkout_Session> sessions;
@@ -124,7 +124,7 @@ void AWorkout_Repository_Test::loadsSessionsWithAllFields()
 	QCOMPARE(sessions.at(0).Program_Revision, 3);
 	QCOMPARE(sessions.at(0).Tonnage_Kg, 500.0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Repository_Test::filtersSessionsByProgramAndDate()
 {
 	QVector<SWorkout_Session> sessions;
@@ -141,7 +141,7 @@ void AWorkout_Repository_Test::filtersSessionsByProgramAndDate()
 	QVERIFY(Repository->Load_Sessions("u1", QString(), QString(), QString(), sessions));
 	QVERIFY(sessions.size() >= 3);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Repository_Test::loadsSetsForGivenSessions()
 {
 	QVector<SSet_Log> sets;
@@ -158,14 +158,14 @@ void AWorkout_Repository_Test::loadsSetsForGivenSessions()
 	QCOMPARE(sets.at(0).Weight_Kg, 105.0);
 	QCOMPARE(sets.at(0).Reps, 3);
 	// RPE не введён — Has_Rpe = false, а не 0 (§3.8).
-	QVERIFY(sets.at(0).Has_Rpe == false);
+	QVERIFY(!sets.at(0).Has_Rpe);
 	QCOMPARE(sets.at(0).Is_Warmup, false);
 	// Снимок предписания сохраняется: правка плана не переписывает факт.
 	QVERIFY(sets.at(0).Has_Target_Weight_Kg);
 	QCOMPARE(sets.at(0).Target_Weight_Kg, 100.0);
 	QCOMPARE(sets.at(1).Is_Warmup, true);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Repository_Test::programFactsExcludeSoloSessions()
 {
 	QVector<SWorkout_Session> sessions;
@@ -195,13 +195,13 @@ void AWorkout_Repository_Test::programFactsExcludeSoloSessions()
 	}
 
 	QVERIFY(has_program_session);
-	QVERIFY(has_solo_session == false);
+	QVERIFY(!has_solo_session);
 
 	// Подходы соло-сессии в факты программы не подмешиваются.
 	for (int i = 0; i < sets.size(); ++i)
 		QVERIFY(sets.at(i).Session_Id != "s6");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Repository_Test::emptyDatabaseReturnsEmptyLists()
 {
 	QVector<SWorkout_Session> sessions;

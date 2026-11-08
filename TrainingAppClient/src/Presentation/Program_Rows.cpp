@@ -14,14 +14,14 @@ QVariant Null_Variant()
 
 namespace Program_Rows
 {
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Каталог типовых правил (§5.7). Живёт здесь, а не в QML-разметке редактора:
 // пресеты, объявленные в экране, нельзя ни проверить, ни отфильтровать по
 // категории, а экран выбора правил обязан показывать именно этот набор.
 //
 // Порядок строк значим: он и есть порядок «по смыслу» (питание → активность →
 // восстановление → тренировки), и экран не должен его перетасовывать.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 namespace
 {
 struct SPreset
@@ -53,7 +53,7 @@ const SPreset Rule_Presets[] = {
      ERule_Display_Unit::Rpe, -1, 8, false, true},
 };
 } // namespace
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // category — строка из To_String (как у строк правил); пустая означает «все».
 // Пресеты не переводятся: enum отдаётся числом (§7 QML-контракт).
 QVector<QVariantMap> Build_Rule_Catalog(const QString &in_category)
@@ -67,7 +67,7 @@ QVector<QVariantMap> Build_Rule_Catalog(const QString &in_category)
 		const QString category = To_String(preset.Category);
 		QVariantMap row;
 
-		if (in_category.isEmpty() == false && category != in_category)
+		if (!in_category.isEmpty() && category != in_category)
 			continue;
 
 		row.insert("code", QString::fromLatin1(preset.Code));
@@ -88,32 +88,32 @@ QVector<QVariantMap> Build_Rule_Catalog(const QString &in_category)
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Роли списков (§7). Порядок объявления значим: он задаёт значения ролей.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Week_Slot_Roles()
 {
 	return QStringList{"id", "dayOfWeek", "kind", "programDayId", "dayTitle", "isAnchor", "isToday", "note"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Program_Day_Roles()
 {
 	return QStringList{"id", "title", "kind", "focus", "exerciseCount", "estimatedMinutes", "orderIndex"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Day_Exercise_Roles()
 {
 	return QStringList{"id",          "programDayId",  "exerciseId", "title",          "orderIndex",
 	                   "sets",        "repsText",      "weightMode", "targetWeightKg", "rpeTarget",
 	                   "restSeconds", "supersetGroup", "isOptional"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Goal_Target_Roles()
 {
 	return QStringList{"id",          "metric",       "exerciseId",   "unit",      "startValue",
 	                   "targetValue", "currentValue", "progressText", "direction", "state"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Rule_Roles()
 {
 	// Имя роли не «id»: QML отвергает свойство с именем id (reserved), и
@@ -124,7 +124,7 @@ QStringList Rule_Roles()
 	                   "targetValue", "targetUnit", "displayText", "checkSource", "enforcement", "todayState",
 	                   "isAdvice",    "todayValue", "goalMin",     "goalMax"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Роли строки каталога правил. Совпадают с ключами Build_Rule_Catalog и
 // объявлены здесь, а не внутри функции: порядок ролей задаёт их значения в
 // модели, и он обязан быть стабильным между вызовами.
@@ -166,7 +166,7 @@ const SMetric Rule_Metrics[] = {
     {"Алкоголь", ERule_Metric::AlcoholUnits, ERule_Display_Unit::Units, ERule_Periodicity::PerWeek, true, true, false},
 };
 } // namespace
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Custom в каталоге нет намеренно: произвольное измерение — это рекомендация,
 // у неё другой вход (§3.6). Список метрик покрыт тестом
 // metricCatalogCoversEveryRuleMetric, чтобы забытая метрика не исчезла молча.
@@ -192,7 +192,7 @@ QVector<QVariantMap> Build_Metric_Catalog()
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Единица проверяется по той же таблице, что и отдаётся формой. Проверка в UI
 // означала бы две копии правила, и они разошлись бы при добавлении метрики.
 bool Is_Unit_Valid_For_Metric(int in_metric, int in_unit)
@@ -200,8 +200,8 @@ bool Is_Unit_Valid_For_Metric(int in_metric, int in_unit)
 	const int total = int(sizeof(Rule_Metrics) / sizeof(Rule_Metrics[0]));
 
 	// Произвольная метрика: единицу задаёт пользователь, ограничений нет.
-	if (in_metric == int(ERule_Metric::Custom))
-		return in_unit >= 0 && in_unit < int(ERule_Display_Unit::Max);
+	if (in_metric == (int)ERule_Metric::Custom)
+		return in_unit >= 0 && in_unit < (int)ERule_Display_Unit::Max;
 
 	for (int i = 0; i < total; ++i)
 	{
@@ -211,28 +211,28 @@ bool Is_Unit_Valid_For_Metric(int in_metric, int in_unit)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Rule_Catalog_Roles()
 {
 	return QStringList{"code",      "title",        "category",  "metric",       "periodicity", "unit",
 	                   "targetMin", "hasTargetMin", "targetMax", "hasTargetMax", "isAdvice"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Metric_Catalog_Roles()
 {
 	return QStringList{"title", "metric", "unit", "periodicity", "allowsMin", "allowsMax", "allowsExact"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Checkin_Roles()
 {
 	return QStringList{"id", "ruleId", "date", "value", "unit", "state", "source", "note"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Measurement_Roles()
 {
 	return QStringList{"id", "date", "weightKg", "chestCm", "waistCm", "hipCm", "armCm", "thighCm"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Catalog_Program_Roles()
 {
 	// weeksTotal и updatedAt — единственные числа, которые каталог берёт из
@@ -241,7 +241,7 @@ QStringList Catalog_Program_Roles()
 	// дешёвой, а не превращаться в N запросов статистики.
 	return QStringList{"id", "title", "goal", "state", "weeksTotal", "startDate", "updatedAt", "canEdit"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Program_Summary_Roles()
 {
 	return QStringList{"id",
@@ -256,39 +256,39 @@ QStringList Program_Summary_Roles()
 	                   "keyLiftDeltaKg",
 	                   "isBest"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Rule_Stat_Roles()
 {
 	return QStringList{"id",         "ruleId",     "title", "adherencePercent", "avgValueText", "doneDays",
 	                   "failedDays", "streakDays", "trend"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Exercise_Strength_Roles()
 {
 	return QStringList{"id", "workingWeightKg", "e1rmKg"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Goal_Progress_Roles()
 {
 	return QStringList{"id",           "metric",      "exerciseId",      "startValue",
 	                   "currentValue", "targetValue", "progressPercent", "isAchieved"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Week_Aggregate_Roles()
 {
 	return QStringList{"weekIndex", "plannedSessions", "completedSessions", "adherencePercent", "tonnageKg"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Необязательное число → null. «Нет данных» и «ноль» на экране различаются,
 // поэтому флаг Has_ обязателен: -1 в роли означал бы «минус килограмм».
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QVariant Optional_Number(double in_value, bool in_has)
 {
 	return in_has ? QVariant(in_value) : Null_Variant();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // «5» или «5–8»: диапазон повностей одной строкой, как в карточке упражнения.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QString Reps_Text(int in_min, int in_max)
 {
 	if (in_min <= 0 && in_max <= 0)
@@ -299,9 +299,9 @@ static QString Reps_Text(int in_min, int in_max)
 
 	return QString("%1–%2").arg(in_min).arg(in_max);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Целевое значение правила: min/max/exact — одна роль, приоритет у exact.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QVariant Rule_Target_Value(const SProgram_Rule &in_rule)
 {
 	if (in_rule.Has_Target_Exact)
@@ -315,12 +315,12 @@ static QVariant Rule_Target_Value(const SProgram_Rule &in_rule)
 
 	return Null_Variant();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // «≥ 140 г», «≤ 8», «7–9 h»: подпись цели для карточки правила. Перевод
 // единиц в словари — в UI, здесь только форма и диапазон (§7).
 // У рекомендации цели нет, поэтому подписью становится сам совет — иначе в
 // списке рядом с «≥ 140 г» стояла бы пустая строка.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static QString Rule_Display_Text(const SProgram_Rule &in_rule)
 {
 	QString value;
@@ -341,14 +341,14 @@ static QString Rule_Display_Text(const SProgram_Rule &in_rule)
 
 	return QString("%1 %2").arg(value, To_String(in_rule.Display_Unit));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Week_Slots(const QVector<SWeek_Slot> &in_slots, const QHash<QString, QString> &in_day_titles,
                                       const QString &in_today)
 {
 	QVector<QVariantMap> rows;
 	QDate today;
 
-	if (in_today.isEmpty() == false)
+	if (!in_today.isEmpty())
 		today = QDate::fromString(in_today, Qt::ISODate);
 
 	for (int i = 0; i < in_slots.size(); ++i)
@@ -371,7 +371,7 @@ QVector<QVariantMap> Build_Week_Slots(const QVector<SWeek_Slot> &in_slots, const
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Program_Days(const QVector<SProgram_Day> &in_days, int in_exercise_count)
 {
 	QVector<QVariantMap> rows;
@@ -393,7 +393,7 @@ QVector<QVariantMap> Build_Program_Days(const QVector<SProgram_Day> &in_days, in
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Day_Exercises(const QVector<SDay_Exercise> &in_exercises,
                                          const QHash<QString, QString> &in_titles)
 {
@@ -422,7 +422,7 @@ QVector<QVariantMap> Build_Day_Exercises(const QVector<SDay_Exercise> &in_exerci
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Goal_Targets(const QVector<SGoal_Target> &in_targets,
                                         const QHash<QString, double> &in_current_values)
 {
@@ -456,7 +456,7 @@ QVector<QVariantMap> Build_Goal_Targets(const QVector<SGoal_Target> &in_targets,
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const QHash<QString, QString> &in_today_state,
                                  const QHash<QString, double> &in_today_values)
 {
@@ -495,7 +495,7 @@ QVector<QVariantMap> Build_Rules(const QVector<SProgram_Rule> &in_rules, const Q
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Checkins(const QVector<SRule_Checkin> &in_checkins)
 {
 	QVector<QVariantMap> rows;
@@ -518,7 +518,7 @@ QVector<QVariantMap> Build_Checkins(const QVector<SRule_Checkin> &in_checkins)
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Measurements(const QVector<SBody_Measurement> &in_measurements)
 {
 	QVector<QVariantMap> rows;
@@ -541,7 +541,7 @@ QVector<QVariantMap> Build_Measurements(const QVector<SBody_Measurement> &in_mea
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Catalog_Programs(const QVector<SProgram> &in_programs)
 {
 	QVector<QVariantMap> rows;
@@ -566,7 +566,7 @@ QVector<QVariantMap> Build_Catalog_Programs(const QVector<SProgram> &in_programs
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Program_Summaries(const QVector<SProgram_Summary> &in_summaries,
                                              const QString &in_best_program_id)
 {
@@ -594,7 +594,7 @@ QVector<QVariantMap> Build_Program_Summaries(const QVector<SProgram_Summary> &in
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Rule_Stats(const QVector<SRule_Stat_Row> &in_rows, const QHash<QString, int> &in_streaks)
 {
 	QVector<QVariantMap> rows;
@@ -620,7 +620,7 @@ QVector<QVariantMap> Build_Rule_Stats(const QVector<SRule_Stat_Row> &in_rows, co
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Exercise_Strength(const QVector<SExercise_Strength> &in_strength)
 {
 	QVector<QVariantMap> rows;
@@ -640,7 +640,7 @@ QVector<QVariantMap> Build_Exercise_Strength(const QVector<SExercise_Strength> &
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Goal_Progress(const QVector<SGoal_Progress> &in_progress)
 {
 	QVector<QVariantMap> rows;
@@ -663,7 +663,7 @@ QVector<QVariantMap> Build_Goal_Progress(const QVector<SGoal_Progress> &in_progr
 
 	return rows;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Week_Aggregates(const QVector<SWeek_Aggregate> &in_weeks)
 {
 	QVector<QVariantMap> rows;
@@ -684,4 +684,4 @@ QVector<QVariantMap> Build_Week_Aggregates(const QVector<SWeek_Aggregate> &in_we
 	return rows;
 }
 } // namespace Program_Rows
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

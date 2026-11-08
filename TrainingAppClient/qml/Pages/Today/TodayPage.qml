@@ -58,6 +58,39 @@ PageScaffold {
         page.viewModel.reload(page.currentUserId());
     }
 
+    // Сутки сменились, пока приложение было открыто или лежало в фоне: «сегодня»
+    // модели иначе осталось бы вчерашним, и замеры с отметками писались бы не в
+    // тот день. Незаписанный ввод вчерашнего дня в новый день не переносится.
+    function reloadIfDayChanged() {
+        if (page.viewModel === undefined || page.viewModel === null)
+            return;
+
+        // Подставная модель тестов дерева QML этого метода не имеет.
+        if (typeof page.viewModel.reloadIfDayChanged !== "function")
+            return;
+
+        if (page.viewModel.reloadIfDayChanged(page.currentUserId()))
+            page.syncMeasurementFromModel(true);
+    }
+
+    Connections {
+        function onStateChanged() {
+            if (Application.state === Qt.ApplicationActive)
+                page.reloadIfDayChanged();
+        }
+
+        target: Application
+    }
+
+    // Приложение, открытое на этом экране в полночь, на возврат из фона не
+    // реагирует: минутной проверки хватает, чтобы день не отставал надолго.
+    Timer {
+        interval: 60000
+        repeat: true
+        running: page.visible
+        onTriggered: page.reloadIfDayChanged()
+    }
+
     // — Состояние «программы нет»: приглашение создать, а не пустой план —
     AppCard {
         width: parent.width

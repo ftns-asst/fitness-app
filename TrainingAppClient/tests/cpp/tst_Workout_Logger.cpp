@@ -1,4 +1,4 @@
-#include "Data/Database/Sql_Database.h"
+﻿#include "Data/Database/Sql_Database.h"
 #include "Data/Program/Program_Repository.h"
 #include "Data/Program/Workout_Repository.h"
 #include "Domain/Workout_Logger.h"
@@ -8,11 +8,11 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AsWorkout_Logger: запись фактов тренировки — черновик, подходы, завершение
 // (§3.8). Факты — единственный источник статистики (§5.4), поэтому проверяется
 // именно то, что потом посчитает AsProgress_Calculator.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 class AWorkout_Logger_Test : public QObject
 {
 	Q_OBJECT
@@ -40,7 +40,7 @@ private:
 	AWorkout_Repository *Workout_Repository = 0;
 	AProgram_Repository *Program_Repository = 0;
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::initTestCase()
 {
 	QVERIFY(Directory.isValid());
@@ -50,7 +50,7 @@ void AWorkout_Logger_Test::initTestCase()
 	Seed_Exercise();
 	Seed_Program();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::Seed_Exercise()
 {
 	QSqlQuery query(Database.Sql_Connection());
@@ -61,7 +61,7 @@ void AWorkout_Logger_Test::Seed_Exercise()
 	              "VALUES('ex_squat', 'Присед', 'legs', 'barbell', 0, '2026-09-28T00:00:00Z')");
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::Seed_Program()
 {
 	SProgram program;
@@ -117,14 +117,14 @@ void AWorkout_Logger_Test::Seed_Program()
 	QVERIFY(Program_Repository->Change_State("p1", EProgram_State::Active));
 	// Активация поднимает ревизию до 2 — её и запоминает тренировка (§3.8).
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::startCreatesDraftForDate()
 {
 	AsWorkout_Logger logger(Workout_Repository, Program_Repository);
 	SWorkout_Session session;
 
 	QVERIFY(logger.Start_Session("u1", "2026-10-07", "p1", "d3", "заметка", session));
-	QVERIFY(session.ID.isEmpty() == false);
+	QVERIFY(!session.ID.isEmpty());
 	QCOMPARE(session.State, EWorkout_State::Draft);
 	QCOMPARE(session.Program_Id, QString("p1"));
 	QCOMPARE(session.Program_Day_Id, QString("d3"));
@@ -132,9 +132,9 @@ void AWorkout_Logger_Test::startCreatesDraftForDate()
 	QCOMPARE(session.Note, QString("заметка"));
 	QCOMPARE(session.Program_Revision, 2);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Повторное открытие дня возвращает тот же черновик, а не плодит сессии.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::startIsIdempotentForSameDay()
 {
 	AsWorkout_Logger logger(Workout_Repository, Program_Repository);
@@ -145,20 +145,20 @@ void AWorkout_Logger_Test::startIsIdempotentForSameDay()
 	QVERIFY(logger.Start_Session("u1", "2026-10-08", "p1", "d3", "уточнение", second));
 	QCOMPARE(second.ID, first.ID);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::startRejectsUnknownExerciseDay()
 {
 	AsWorkout_Logger logger(Workout_Repository, Program_Repository);
 	SWorkout_Session session;
 
 	// День не принадлежит программе — привязка была бы фиктивной.
-	QVERIFY(logger.Start_Session("u1", "2026-10-09", "p1", "ghost", "", session) == false);
-	QVERIFY(logger.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!logger.Start_Session("u1", "2026-10-09", "p1", "ghost", "", session));
+	QVERIFY(!logger.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // §3.8: подход хранит снимок предписания, поэтому правка плана потом не
 // перепишет историю выполненного.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::savesSetWithPlanSnapshot()
 {
 	AsWorkout_Logger logger(Workout_Repository, Program_Repository);
@@ -179,7 +179,7 @@ void AWorkout_Logger_Test::savesSetWithPlanSnapshot()
 	QCOMPARE(sets.first().Target_Reps, 5);
 	QVERIFY(sets.first().Has_Target_Reps);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::setMustBelongToOwnDraft()
 {
 	AsWorkout_Logger logger(Workout_Repository, Program_Repository);
@@ -190,10 +190,10 @@ void AWorkout_Logger_Test::setMustBelongToOwnDraft()
 	set = Make_Set(session.ID, "ex_squat", 1);
 
 	// Чужой пользователь не может дописать в чужую сессию.
-	QVERIFY(logger.Save_Set("u_other", set) == false);
-	QVERIFY(logger.Get_Last_Error().isEmpty() == false);
+	QVERIFY(!logger.Save_Set("u_other", set));
+	QVERIFY(!logger.Get_Last_Error().isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::setValidationRejectsBadValues()
 {
 	AsWorkout_Logger logger(Workout_Repository, Program_Repository);
@@ -205,18 +205,18 @@ void AWorkout_Logger_Test::setValidationRejectsBadValues()
 	set = Make_Set(session.ID, "ex_squat", 1);
 	set.Rpe = 12;
 	set.Has_Rpe = true;
-	QVERIFY(logger.Save_Set("u1", set) == false);
+	QVERIFY(!logger.Save_Set("u1", set));
 
 	set = Make_Set(session.ID, "ex_squat", 1);
 	set.Weight_Kg = -5;
-	QVERIFY(logger.Save_Set("u1", set) == false);
+	QVERIFY(!logger.Save_Set("u1", set));
 
 	set = Make_Set(session.ID, "ex_squat", 0);
-	QVERIFY(logger.Save_Set("u1", set) == false);
+	QVERIFY(!logger.Save_Set("u1", set));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Итоги сессии считает сам логгер: статистике W7 они нужны готовыми.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::finishRecalculatesSummary()
 {
 	AsWorkout_Logger logger(Workout_Repository, Program_Repository);
@@ -243,20 +243,20 @@ void AWorkout_Logger_Test::finishRecalculatesSummary()
 	QCOMPARE(session.Tonnage_Kg, 1050.0);
 	QVERIFY(session.Has_Avg_Rpe);
 	QCOMPARE(session.Avg_Rpe, 8.5);
-	QVERIFY(session.Completed_At.isEmpty() == false);
+	QVERIFY(!session.Completed_At.isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::finishRejectsForeignSession()
 {
 	AsWorkout_Logger logger(Workout_Repository, Program_Repository);
 	SWorkout_Session session;
 
 	QVERIFY(logger.Start_Session("u1", "2026-10-14", "p1", "d3", "", session));
-	QVERIFY(logger.Finish_Session("u_other", session.ID, session) == false);
+	QVERIFY(!logger.Finish_Session("u_other", session.ID, session));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Черновик переживает перезапуск: пользователь не теряет начатое (офлайн).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::draftRecoversAfterRestart()
 {
 	AsWorkout_Logger writer(Workout_Repository, Program_Repository);
@@ -271,9 +271,9 @@ void AWorkout_Logger_Test::draftRecoversAfterRestart()
 	QCOMPARE(recovered.ID, started.ID);
 	QCOMPARE(recovered.Note, QString("черновик"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Соло-тренировка вне программы — законный случай (§4 инвариант 18).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AWorkout_Logger_Test::soloSessionHasNoProgramLinks()
 {
 	AsWorkout_Logger logger(Workout_Repository, Program_Repository);
@@ -284,9 +284,9 @@ void AWorkout_Logger_Test::soloSessionHasNoProgramLinks()
 	QVERIFY(session.Program_Day_Id.isEmpty());
 	QCOMPARE(session.Program_Revision, 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 SSet_Log AWorkout_Logger_Test::Make_Set(const QString &in_session_id, const QString &in_exercise_id,
                                         int in_number) const
 {
@@ -301,8 +301,8 @@ SSet_Log AWorkout_Logger_Test::Make_Set(const QString &in_session_id, const QStr
 
 	return set;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_GUILESS_MAIN(AWorkout_Logger_Test)
 #include "tst_Workout_Logger.moc"
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

@@ -9,9 +9,9 @@
 
 Q_LOGGING_CATEGORY(MACRO_VM_Log, "trainingapp.macro.vm")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Avm_Macro
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Macro::Avm_Macro(AsMacro_Calculator *in_calculator, AMeasurement_Repository *in_measurement_repository,
                      AUsers_Repository *in_users_repository, QObject *in_parent)
     : QObject(in_parent), Calculator_Instance(in_calculator),
@@ -19,43 +19,61 @@ Avm_Macro::Avm_Macro(AsMacro_Calculator *in_calculator, AMeasurement_Repository 
 {
 	Today_Text = QDate::currentDate().toString("yyyy-MM-dd");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Macro::load(const QString &in_user_id)
 {
 	return Load(in_user_id);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Macro::calculate(const QString &in_user_id, double in_weight_kg, double in_height_cm, bool in_is_female,
                           const QString &in_birth_date, const QString &in_activity_level, const QString &in_goal)
 {
 	return Calculate(in_user_id, in_weight_kg, in_height_cm, in_is_female, in_birth_date, in_activity_level, in_goal);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Avm_Macro::activityLevels() const
 {
 	return AsMacro_Calculator::Activity_Levels();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Macro::activityCaption(const QString &in_level) const
 {
 	return AsMacro_Calculator::Activity_Level_Caption(in_level);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Macro::setToday(const QString &in_date)
 {
 	Set_Today(in_date);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Macro::Set_Today(const QString &in_date)
 {
 	// Невалидная дата оставляет локальную: от неё считается возраст, и пустая
 	// строка дала бы нулевой возраст вместо сегодняшнего.
-	if (QDate::fromString(in_date, Qt::ISODate).isValid() == false)
+	if (!QDate::fromString(in_date, Qt::ISODate).isValid())
 		return;
 
 	Today_Text = in_date;
+	Today_Is_Pinned = true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Macro::Refresh_Today()
+{
+	QString current;
+
+	if (Today_Is_Pinned)
+		return false;
+
+	current = QDate::currentDate().toString("yyyy-MM-dd");
+
+	if (current == Today_Text)
+		return false;
+
+	Today_Text = current;
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Macro::Load(const QString &in_user_id)
 {
 	SBody_Measurement measurement;
@@ -83,7 +101,7 @@ bool Avm_Macro::Load(const QString &in_user_id)
 		SUsers_User user;
 
 		if (Users_Repository_Instance->Get_Cached_User(in_user_id, user) && user.Has_Profile &&
-		    user.Profile.Gender.isEmpty() == false)
+		    !user.Profile.Gender.isEmpty())
 		{
 			Female_Value = user.Profile.Gender == QLatin1String("female");
 			Has_Gender_Value = true;
@@ -116,8 +134,7 @@ bool Avm_Macro::Load(const QString &in_user_id)
 
 	// Вес и рост берутся из последнего замера: спрашивать их отдельно значило бы
 	// завести второй источник правды о том же весе.
-	if (Measurement_Repository_Instance != 0 &&
-	    Measurement_Repository_Instance->Load_Latest(in_user_id, measurement) == true)
+	if (Measurement_Repository_Instance != 0 && Measurement_Repository_Instance->Load_Latest(in_user_id, measurement))
 	{
 		if (measurement.Has_Weight_Kg)
 		{
@@ -130,7 +147,7 @@ bool Avm_Macro::Load(const QString &in_user_id)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Macro::Resolve_Weight(double in_weight_kg) const
 {
 	// Введённый вес приоритетнее замера, но не всегда задан: форма может быть
@@ -140,7 +157,7 @@ double Avm_Macro::Resolve_Weight(double in_weight_kg) const
 
 	return Has_Weight_Value ? Weight_Value : 0;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Macro::Calculate(const QString &in_user_id, double in_weight_kg, double in_height_cm, bool in_is_female,
                           const QString &in_birth_date, const QString &in_activity_level, const QString &in_goal)
 {
@@ -148,6 +165,7 @@ bool Avm_Macro::Calculate(const QString &in_user_id, double in_weight_kg, double
 	const QDate birth_date = QDate::fromString(in_birth_date, Qt::ISODate);
 	QString error_key;
 
+	Refresh_Today();
 	Clear_Error();
 	Clear_Result();
 
@@ -173,7 +191,7 @@ bool Avm_Macro::Calculate(const QString &in_user_id, double in_weight_kg, double
 		Has_Weight_Value = true;
 	}
 
-	if (Calculator_Instance == 0 || Calculator_Instance->Calculate(input, Result, error_key) == false)
+	if (Calculator_Instance == 0 || !Calculator_Instance->Calculate(input, Result, error_key))
 	{
 		Error_Key_Text = error_key.isEmpty() ? QString("undefined_error") : error_key;
 		qCInfo(MACRO_VM_Log).noquote() << "macro calculation failed:" << Error_Key_Text;
@@ -185,9 +203,9 @@ bool Avm_Macro::Calculate(const QString &in_user_id, double in_weight_kg, double
 	// Параметры сохраняются только при успешном расчёте: так в базу не попадает
 	// мусор из недозаполненной формы, который потом пришлось бы отличать от
 	// настоящих данных.
-	if (Users_Repository_Instance != 0 && in_user_id.isEmpty() == false)
+	if (Users_Repository_Instance != 0 && !in_user_id.isEmpty())
 	{
-		if (Users_Repository_Instance->Save_Macro_Params(in_user_id, Birth_Date_Text, Activity_Level_Text) == false)
+		if (!Users_Repository_Instance->Save_Macro_Params(in_user_id, Birth_Date_Text, Activity_Level_Text))
 		{
 			Error_Key_Text = "macro_params_save_failed";
 			Clear_Result();
@@ -200,7 +218,7 @@ bool Avm_Macro::Calculate(const QString &in_user_id, double in_weight_kg, double
 		// строке profile_local, не вызывая домен. Сбой записи не отменяет расчёт —
 		// числа уже посчитаны и видны на экране, и терять их из-за базы хуже, чем
 		// не показать их на главной.
-		if (Users_Repository_Instance->Save_Macro_Result(in_user_id, Result) == false)
+		if (!Users_Repository_Instance->Save_Macro_Result(in_user_id, Result))
 			qCWarning(MACRO_VM_Log).noquote() << "macro result is not persisted:" << in_user_id;
 	}
 
@@ -210,109 +228,109 @@ bool Avm_Macro::Calculate(const QString &in_user_id, double in_weight_kg, double
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Macro::Clear_Result()
 {
 	Result = AsMacro_Calculator::SResult();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Macro::Clear_Error()
 {
 	Error_Key_Text.clear();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Macro::Has_Result() const
 {
 	return Result.Calories_Kcal > 0;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Macro::bmr_kcal() const
 {
 	return Result.Bmr_Kcal;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Macro::tdee_kcal() const
 {
 	return Result.Tdee_Kcal;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Macro::calories_kcal() const
 {
 	return Result.Calories_Kcal;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Macro::protein_g() const
 {
 	return Result.Protein_G;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Macro::fat_g() const
 {
 	return Result.Fat_G;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Macro::carbs_g() const
 {
 	return Result.Carbs_G;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Macro::weight_kg() const
 {
 	return Weight_Value;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double Avm_Macro::height_cm() const
 {
 	return Height_Value;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Macro::is_female() const
 {
 	return Female_Value;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Macro::activity_level() const
 {
 	return Activity_Level_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Macro::goal() const
 {
 	return Goal_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Macro::Has_Weight() const
 {
 	return Has_Weight_Value;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Macro::Has_Height() const
 {
 	return Has_Height_Value;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Macro::Has_Birth_Date() const
 {
-	return Birth_Date_Text.isEmpty() == false;
+	return !Birth_Date_Text.isEmpty();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Macro::Has_Gender() const
 {
 	return Has_Gender_Value;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Macro::birth_date() const
 {
 	return Birth_Date_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Macro::error_key() const
 {
 	return Error_Key_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Macro::calculated_at() const
 {
 	return Calculated_At_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

@@ -40,7 +40,7 @@ private:
 	AMeasurement_Repository *Measurement_Repository = 0;
 	AStats_Repository *Stats_Repository = 0;
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Stats_VM_Test::initTestCase()
 {
 	QVERIFY(Directory.isValid());
@@ -53,7 +53,7 @@ void AProgram_Stats_VM_Test::initTestCase()
 	Seed_Exercise();
 	Seed_Program();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QVariant AProgram_Stats_VM_Test::Row_By_Role(const AList_Model *in_model, int in_row, const QString &in_role) const
 {
 	// Значения ролей Qt начинаются с Qt::UserRole + 1, поэтому перебираются
@@ -68,7 +68,7 @@ QVariant AProgram_Stats_VM_Test::Row_By_Role(const AList_Model *in_model, int in
 
 	return QVariant();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Stats_VM_Test::Seed_Exercise()
 {
 	QSqlQuery query(Database.Sql_Connection());
@@ -79,7 +79,7 @@ void AProgram_Stats_VM_Test::Seed_Exercise()
 	              "VALUES('ex_squat', 'Присед', 'legs', 'barbell', 0, '2026-09-28T00:00:00Z')");
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Stats_VM_Test::Seed_Program()
 {
 	SProgram program;
@@ -134,7 +134,7 @@ void AProgram_Stats_VM_Test::Seed_Program()
 	QVERIFY2(Program_Repository->Insert_Program_Full(program, QVector<SGoal_Target>(), days, exercises, week_slots),
 	         qPrintable(Program_Repository->Get_Last_Error()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Stats_VM_Test::Seed_Session(const QString &in_id, const QString &in_date)
 {
 	QSqlQuery query(Database.Sql_Connection());
@@ -148,7 +148,7 @@ void AProgram_Stats_VM_Test::Seed_Session(const QString &in_id, const QString &i
 	query.addBindValue(in_date + "T19:00:00Z");
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Stats_VM_Test::Seed_Set(const QString &in_id, const QString &in_session_id, double in_weight, int in_reps,
                                       double in_rpe)
 {
@@ -163,7 +163,7 @@ void AProgram_Stats_VM_Test::Seed_Set(const QString &in_id, const QString &in_se
 	query.addBindValue(in_rpe);
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Stats_VM_Test::aggregatesFactsIntoKpi()
 {
 	Avm_Program_Stats vm(Program_Repository, Workout_Repository, Rule_Repository, Measurement_Repository,
@@ -193,7 +193,7 @@ void AProgram_Stats_VM_Test::aggregatesFactsIntoKpi()
 	QCOMPARE(Row_By_Role(vm.weeks(), 0, "tonnageKg").toDouble(), 500.0);
 	QCOMPARE(Row_By_Role(vm.weeks(), 1, "tonnageKg").toDouble(), 0.0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Stats_VM_Test::writesCacheOnRefresh()
 {
 	Avm_Program_Stats vm(Program_Repository, Workout_Repository, Rule_Repository, Measurement_Repository,
@@ -206,21 +206,21 @@ void AProgram_Stats_VM_Test::writesCacheOnRefresh()
 	// Кэш пишется после пересчёта и помечает ревизию структуры (§5.4).
 	QVERIFY(Stats_Repository->Load_Program_Stats("p1", entry));
 	QCOMPARE(entry.Owner_Id, QString("p1"));
-	QVERIFY(entry.Computed_At.isEmpty() == false);
+	QVERIFY(!entry.Computed_At.isEmpty());
 	QVERIFY(entry.Payload_Json.contains("programId"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Stats_VM_Test::refreshWithoutProgramFails()
 {
 	Avm_Program_Stats vm(Program_Repository, Workout_Repository, Rule_Repository, Measurement_Repository,
 	                     Stats_Repository, this);
 
-	QVERIFY(vm.Refresh("нет-программы") == false);
-	QVERIFY(vm.Has_Stats() == false);
-	QVERIFY(vm.errorKey().isEmpty() == false);
+	QVERIFY(!vm.Refresh("нет-программы"));
+	QVERIFY(!vm.Has_Stats());
+	QVERIFY(!vm.errorKey().isEmpty());
 	QCOMPARE(vm.weeks()->Row_Count(), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Stats_VM_Test::refreshEmitsChanged()
 {
 	Avm_Program_Stats vm(Program_Repository, Workout_Repository, Rule_Repository, Measurement_Repository,

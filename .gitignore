@@ -1,3 +1,4 @@
+
 # C++ objects and libs
 *.slo
 *.lo
@@ -58,3 +59,6 @@ TrainingAppClient/build/
 *.aab
 *.pro.user
 .gradle/
+
+
+*.vscode

@@ -1,4 +1,4 @@
-#include "Data/Auth/Auth_Api.h"
+﻿#include "Data/Auth/Auth_Api.h"
 #include "Data/Network/Http_Client.h"
 #include "Support/Test_Http_Server.h"
 
@@ -24,7 +24,7 @@ private:
 	static QByteArray Session_Body();
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Api_Test::checkEmailParsesFreeFlag()
 {
 	ATest_Http_Server server;
@@ -49,7 +49,7 @@ void AAuth_Api_Test::checkEmailParsesFreeFlag()
 	free_flag = arguments.at(1).toBool();
 	error = qvariant_cast<AApi_Error>(arguments.at(2));
 	QVERIFY(free_flag);
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!error.Is_Error());
 
 	captured = server.Request_At(0);
 	QCOMPARE(captured.Method, QByteArray("POST"));
@@ -57,7 +57,7 @@ void AAuth_Api_Test::checkEmailParsesFreeFlag()
 	QCOMPARE(captured.Headers.value("content-type"), QByteArray("application/json"));
 	QVERIFY(captured.Body.contains("user@example.com"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Api_Test::checkEmailReportsTakenFlag()
 {
 	ATest_Http_Server server;
@@ -81,10 +81,10 @@ void AAuth_Api_Test::checkEmailReportsTakenFlag()
 	arguments = spy.takeFirst();
 	free_flag = arguments.at(1).toBool();
 	error = qvariant_cast<AApi_Error>(arguments.at(2));
-	QVERIFY(free_flag == false);
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!free_flag);
+	QVERIFY(!error.Is_Error());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Api_Test::checkEmailPreservesBackendErrorKey()
 {
 	ATest_Http_Server server;
@@ -108,7 +108,7 @@ void AAuth_Api_Test::checkEmailPreservesBackendErrorKey()
 	QCOMPARE(error.Key(), QString("invalid_email"));
 	QCOMPARE(error.HTTP_Status_Code(), 400);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Api_Test::checkEmailWithoutFreeFlagReportsUndefinedError()
 {
 	ATest_Http_Server server;
@@ -132,10 +132,10 @@ void AAuth_Api_Test::checkEmailWithoutFreeFlagReportsUndefinedError()
 	arguments = spy.takeFirst();
 	free_flag = arguments.at(1).toBool();
 	error = qvariant_cast<AApi_Error>(arguments.at(2));
-	QVERIFY(free_flag == false);
+	QVERIFY(!free_flag);
 	QCOMPARE(error.Key(), QString("undefined_error"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Api_Test::loginParsesUserAndTokens()
 {
 	ATest_Http_Server server;
@@ -164,14 +164,14 @@ void AAuth_Api_Test::loginParsesUserAndTokens()
 	QCOMPARE(data.User.Created_At, QString("2026-09-20T12:00:00Z"));
 	QCOMPARE(data.Access_Token, QString("access-1"));
 	QCOMPARE(data.Refresh_Token, QString("refresh-1"));
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!error.Is_Error());
 
 	STest_Http_Request captured = server.Request_At(0);
 	QCOMPARE(captured.Target, QByteArray("/api/v1/auth/login"));
 	QVERIFY(captured.Body.contains("user@example.com"));
 	QVERIFY(captured.Body.contains("pass-1"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Api_Test::loginWithoutTokensReportsUndefinedError()
 {
 	ATest_Http_Server server;
@@ -200,7 +200,7 @@ void AAuth_Api_Test::loginWithoutTokensReportsUndefinedError()
 	QVERIFY(data.Access_Token.isEmpty());
 	QVERIFY(data.Refresh_Token.isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Api_Test::signupParsesUserAndTokens()
 {
 	ATest_Http_Server server;
@@ -227,13 +227,13 @@ void AAuth_Api_Test::signupParsesUserAndTokens()
 	QCOMPARE(data.User.Name, QString("somename"));
 	QCOMPARE(data.Access_Token, QString("access-1"));
 	QCOMPARE(data.Refresh_Token, QString("refresh-1"));
-	QVERIFY(error.Is_Error() == false);
+	QVERIFY(!error.Is_Error());
 
 	STest_Http_Request captured = server.Request_At(0);
 	QCOMPARE(captured.Target, QByteArray("/api/v1/auth/signup"));
 	QVERIFY(captured.Body.contains("somename"));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Api_Test::backendErrorKeyPassesThrough()
 {
 	ATest_Http_Server server;
@@ -261,7 +261,7 @@ void AAuth_Api_Test::backendErrorKeyPassesThrough()
 	QVERIFY(data.Access_Token.isEmpty());
 	QVERIFY(data.Refresh_Token.isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Response AAuth_Api_Test::JSON_Response(int in_status, const QByteArray &in_body)
 {
 	STest_Http_Response response;
@@ -272,14 +272,14 @@ STest_Http_Response AAuth_Api_Test::JSON_Response(int in_status, const QByteArra
 
 	return response;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray AAuth_Api_Test::Session_Body()
 {
 	return "{\"user\":{\"id\":\"user-1\",\"name\":\"somename\",\"email\":\"user@example.com\","
 	       "\"created_at\":\"2026-09-20T12:00:00Z\"},"
 	       "\"tokens\":{\"access_token\":\"access-1\",\"refresh_token\":\"refresh-1\"}}";
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(AAuth_Api_Test)
 

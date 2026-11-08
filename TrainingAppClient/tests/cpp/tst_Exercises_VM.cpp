@@ -1,4 +1,4 @@
-#include "Data/Auth/Auth_Session.h"
+﻿#include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
 #include "Data/Database/Sql_Database.h"
 #include "Data/Exercises/Exercises_Repository.h"
@@ -37,7 +37,7 @@ private:
 	void Make_VM(ATest_Http_Server &in_server, QTemporaryDir &out_dir, int in_page_size, Avm_Exercises *&out_vm);
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 STest_Http_Response Avm_Exercises_Test::JSON_Response(int in_status, const QByteArray &in_body)
 {
 	STest_Http_Response response;
@@ -47,7 +47,7 @@ STest_Http_Response Avm_Exercises_Test::JSON_Response(int in_status, const QByte
 
 	return response;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray Avm_Exercises_Test::Two_Exercise_Body()
 {
 	return QByteArray("["
@@ -59,7 +59,7 @@ QByteArray Avm_Exercises_Test::Two_Exercise_Body()
 	                  "\"equipment\":[],\"created_at\":\"2026-10-02T10:00:00Z\"}"
 	                  "]");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QByteArray Avm_Exercises_Test::Fifty_Exercise_Body()
 {
 	QString body = "[";
@@ -73,7 +73,7 @@ QByteArray Avm_Exercises_Test::Fifty_Exercise_Body()
 
 	return body.toUtf8() + "]";
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Test::Make_VM(ATest_Http_Server &in_server, QTemporaryDir &out_dir, int in_page_size,
                                  Avm_Exercises *&out_vm)
 {
@@ -92,7 +92,7 @@ void Avm_Exercises_Test::Make_VM(ATest_Http_Server &in_server, QTemporaryDir &ou
 
 	out_vm = new Avm_Exercises(repository, in_page_size, &in_server);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Test::rolesMatchMockContract()
 {
 	ATest_Http_Server server;
@@ -107,9 +107,9 @@ void Avm_Exercises_Test::rolesMatchMockContract()
 	QTRY_COMPARE_WITH_TIMEOUT(vm->Is_Loading(), false, 5000);
 
 	QCOMPARE(vm->exercise_list()->Row_Count(), 2);
-	QVERIFY(vm->Is_From_Cache() == false);
+	QVERIFY(!vm->Is_From_Cache());
 	QVERIFY(vm->Error_Key().isEmpty());
-	QVERIFY(vm->Can_Load_More() == false);
+	QVERIFY(!vm->Can_Load_More());
 
 	// Роли — mock-контракт CatalogExerciseRow: title/subtitle (docs/08, §4 U3).
 	row = vm->exercise_list()->get(0);
@@ -137,7 +137,7 @@ void Avm_Exercises_Test::rolesMatchMockContract()
 	QTRY_COMPARE_WITH_TIMEOUT(vm->Muscle_Groups(), QStringList({"chest", "biceps"}), 5000);
 	QTRY_COMPARE_WITH_TIMEOUT(vm->Equipments(), QStringList({"barbell"}), 5000);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Test::debounceCoalescesTyping()
 {
 	ATest_Http_Server server;
@@ -164,7 +164,7 @@ void Avm_Exercises_Test::debounceCoalescesTyping()
 
 	QVERIFY(captured.Target.contains(QByteArray("search=")));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Test::filterChangeResetsOffset()
 {
 	ATest_Http_Server server;
@@ -199,7 +199,7 @@ void Avm_Exercises_Test::filterChangeResetsOffset()
 	QVERIFY(filtered.Target.contains(QByteArray("offset=0")));
 	QVERIFY(filtered.Target.contains(QByteArray("muscle_group=chest")));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Test::shortPageEndsPagination()
 {
 	ATest_Http_Server server;
@@ -213,8 +213,8 @@ void Avm_Exercises_Test::shortPageEndsPagination()
 	QVERIFY(vm->reload());
 	QTRY_COMPARE_WITH_TIMEOUT(vm->Is_Loading(), false, 5000);
 
-	QVERIFY(vm->Can_Load_More() == false);
-	QVERIFY(vm->loadMore() == false);
+	QVERIFY(!vm->Can_Load_More());
+	QVERIFY(!vm->loadMore());
 	QCOMPARE(server.Request_Count(), 1);
 
 	// Повторный reload с полной страницей включает пагинацию снова.
@@ -224,7 +224,7 @@ void Avm_Exercises_Test::shortPageEndsPagination()
 
 	QVERIFY(vm->Can_Load_More());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Test::offlineShowsCacheWithMarker()
 {
 	ATest_Http_Server server;
@@ -263,7 +263,7 @@ void Avm_Exercises_Test::offlineShowsCacheWithMarker()
 
 	QVERIFY(has_local_catalog_row);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 QTEST_MAIN(Avm_Exercises_Test)
 #include "tst_Exercises_VM.moc"

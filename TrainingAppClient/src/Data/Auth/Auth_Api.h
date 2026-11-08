@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Data/Auth/Token_Store.h"
 #include "Data/Network/Api_Error.h"
@@ -9,10 +9,10 @@
 #include <QObject>
 #include <QString>
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // User DTO успешных auth-ответов. snake case конвертируется на границе Data
 // (docs/03-api-contract.md, §4), QML/ViewModel имён backend не видят.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 struct SAuth_User
 {
 	QString ID;
@@ -21,9 +21,9 @@ struct SAuth_User
 	QString Created_At;
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Пользователь и пара токенов успешного signup/login.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 struct SAuth_Session_Data
 {
 	SAuth_User User;
@@ -31,12 +31,12 @@ struct SAuth_Session_Data
 	QString Refresh_Token;
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // HTTP-адаптер публичных auth endpoints: check-email, signup, login. Refresh
 // выполняется AsAuth_Session и сюда не входит. POST-операции неидемпотентны,
 // transport retry запрещён. Обязательные поля валидируются; неполный
 // успешный ответ даёт undefined_error (docs/03, §2).
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 class AAuth_Api : public QObject
 {
 	Q_OBJECT
@@ -58,12 +58,13 @@ private slots:
 
 private:
 	// Вид публичной auth-операции, ожидающей ответа (ключ — transport id).
-	enum EAuth_Operation
+	enum class EAuth_Operation : unsigned char
 	{
-		EOp_None = 0,
-		EOp_Check_Email,
-		EOp_Signup,
-		EOp_Login
+		None,
+		Check_Email,
+		Signup,
+		Login,
+		Max
 	};
 
 	void Finish_Check_Email(int in_request_id, const SHttp_Response &in_response);
@@ -72,9 +73,9 @@ private:
 	                               AApi_Error &out_error);
 
 	AsHttp_Client *HTTP_Client_Instance;
-	QHash<int, int> Pending_Operations;
+	QHash<int, EAuth_Operation> Pending_Operations;
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 Q_DECLARE_METATYPE(SAuth_User)
 Q_DECLARE_METATYPE(SAuth_Session_Data)

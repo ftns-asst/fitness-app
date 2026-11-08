@@ -24,12 +24,12 @@
 #include <QStandardPaths>
 #include <QVariant>
 
-//---------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Регистрация начертаний Inter из ресурсов (§3.2 дизайн-дока). Загружаем до
 // создания QML-движка, чтобы первый кадр рисовался Inter, а не системным
 // шрифтом. Аргументы: нет. Возврат: число загруженных начертаний (ожидаем 4;
 // меньше — ресурс не собран, UI остаётся рабочим на системном шрифте).
-//---------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 static int Load_Inter_Fonts()
 {
 	QStringList font_files;
@@ -51,7 +51,7 @@ static int Load_Inter_Fonts()
 
 	return loaded;
 }
-//---------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int main(int argc, char *argv[])
 {
 	// Локальные объекты объявлены до исполняемого кода (§5.2).
@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 	log_directory = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/logs";
 	logger_opened = logger.Open(log_directory);
 
-	if (logger_opened == false)
+	if (!logger_opened)
 		qWarning("Logger: файл лога недоступен, продолжаем только в stderr");
 
 	qInstallMessageHandler(&AsApp_Logger::Handle_Message);
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
 
 	context_initialized = app_context.Initialize(arguments);
 
-	if (context_initialized == false)
+	if (!context_initialized)
 	{
 		qCritical("App context initialization failed: %s", qUtf8Printable(app_context.Last_Error()));
 		return 2;
@@ -135,28 +135,26 @@ int main(int argc, char *argv[])
 	// Передаются как QObject*: контекстное свойство QML хранится в QVariant,
 	// а пользовательские указатели на QObject конвертируются всегда, тогда как
 	// типы, не объявленные метай-типами, — нет.
-	engine.rootContext()->setContextProperty("ProgramVM", static_cast<QObject *>(app_context.Program_VM()));
-	engine.rootContext()->setContextProperty("ProgramCatalogVM",
-	                                         static_cast<QObject *>(app_context.Program_Catalog_VM()));
-	engine.rootContext()->setContextProperty("ProgramStatsVM", static_cast<QObject *>(app_context.Program_Stats_VM()));
-	engine.rootContext()->setContextProperty("ProgramRulesVM", static_cast<QObject *>(app_context.Program_Rules_VM()));
-	engine.rootContext()->setContextProperty("ProgramEditVM", static_cast<QObject *>(app_context.Program_Edit_VM()));
+	engine.rootContext()->setContextProperty("ProgramVM", (QObject *)app_context.Program_VM());
+	engine.rootContext()->setContextProperty("ProgramCatalogVM", (QObject *)app_context.Program_Catalog_VM());
+	engine.rootContext()->setContextProperty("ProgramStatsVM", (QObject *)app_context.Program_Stats_VM());
+	engine.rootContext()->setContextProperty("ProgramRulesVM", (QObject *)app_context.Program_Rules_VM());
+	engine.rootContext()->setContextProperty("ProgramEditVM", (QObject *)app_context.Program_Edit_VM());
 	// Главный экран «Сегодня» на данных (issue 27): C++-слой готов, разметка
 	// TodayPage переводится на него отдельным шагом.
-	engine.rootContext()->setContextProperty("TodayVM", static_cast<QObject *>(app_context.Today_VM()));
+	engine.rootContext()->setContextProperty("TodayVM", (QObject *)app_context.Today_VM());
 	// Экран «Рассчитать» КБЖУ (спринт S7): модель считает по формулам домена и
 	// хранит дату рождения и активность в profile_local (схема v5).
-	engine.rootContext()->setContextProperty("MacroVM", static_cast<QObject *>(app_context.Macro_VM()));
+	engine.rootContext()->setContextProperty("MacroVM", (QObject *)app_context.Macro_VM());
 	// Каталог упражнений на живом API (спринт U4, issue 30).
-	engine.rootContext()->setContextProperty("ExercisesVM", static_cast<QObject *>(app_context.Exercises_VM()));
+	engine.rootContext()->setContextProperty("ExercisesVM", (QObject *)app_context.Exercises_VM());
 	// Форма своего упражнения (спринт U5): создание, правка, удаление.
-	engine.rootContext()->setContextProperty("ExercisesEditorVM",
-	                                         static_cast<QObject *>(app_context.Exercises_Editor_VM()));
+	engine.rootContext()->setContextProperty("ExercisesEditorVM", (QObject *)app_context.Exercises_Editor_VM());
 	// Детальная карточка упражнения (спринт U6).
-	engine.rootContext()->setContextProperty("ExercisesOneVM", static_cast<QObject *>(app_context.Exercises_One_VM()));
+	engine.rootContext()->setContextProperty("ExercisesOneVM", (QObject *)app_context.Exercises_One_VM());
 
 	engine.loadFromModule("TrainingAppClient", "Main");
 
 	return QGuiApplication::exec();
 }
-//---------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

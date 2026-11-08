@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Domain/Program_Model.h"
 #include "Presentation/List_Model.h"
@@ -12,7 +12,7 @@ class ARule_Repository;
 
 using namespace Program_Model;
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // ViewModel глобальной программы (срез W8, issue 26, §7
 // `02-program-model.md`). Доменное имя сущности — `SProgram`; «Моя
 // программа» — её название в UI (§1 термины), в коде оно не используется.
@@ -30,7 +30,7 @@ using namespace Program_Model;
 //
 // Регистрация в QML: тип объявляется в qml-модуле приложения
 // (`QML_NAMED_ELEMENT(Program)`), а не здесь — ядро не зависит от QML.
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 class Avm_Program : public QObject
 {
 	Q_OBJECT
@@ -104,14 +104,14 @@ private:
 	void Clear_Error();
 	// Причина отказа нужна, чтобы отличить «нет активной программы» от
 	// «программа не найдена или принадлежит другому пользователю».
-	enum EReason
+	enum class EReason : unsigned char
 	{
-		Reason_Unspecified,
-
-		Reason_Not_Owned
+		Unspecified,
+		Not_Owned,
+		Max
 	};
 
-	void Set_Error(EReason in_reason = Reason_Unspecified);
+	void Set_Error(EReason in_reason = EReason::Unspecified);
 
 	// today — локальная дата устройства (YYYY-MM-dd), §5.5.
 	QString Today_Text() const;
@@ -131,4 +131,4 @@ private:
 	QString Selected_Day_Id;
 	QString Error_Key_Text;
 };
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-#include "Data/Auth/Auth_Api.h"
+﻿#include "Data/Auth/Auth_Api.h"
 
 #include <QJsonObject>
 #include <QLoggingCategory>
@@ -6,9 +6,9 @@
 
 Q_LOGGING_CATEGORY(AUTH_Api_Log, "trainingapp.auth.api")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AAuth_Api
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AAuth_Api::AAuth_Api(AsHttp_Client *in_http_client, QObject *in_parent)
     : QObject(in_parent), HTTP_Client_Instance(in_http_client)
 {
@@ -18,7 +18,7 @@ AAuth_Api::AAuth_Api(AsHttp_Client *in_http_client, QObject *in_parent)
 	if (HTTP_Client_Instance != 0)
 		connect(HTTP_Client_Instance, &AsHttp_Client::requestFinished, this, &AAuth_Api::on_Http_Finished);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AAuth_Api::Check_Email(const QString &in_email)
 {
 	QJsonObject body;
@@ -33,12 +33,12 @@ int AAuth_Api::Check_Email(const QString &in_email)
 	if (transport_id == 0)
 		return 0;
 
-	Pending_Operations.insert(transport_id, EOp_Check_Email);
+	Pending_Operations.insert(transport_id, EAuth_Operation::Check_Email);
 	qCInfo(AUTH_Api_Log).noquote() << "check-email started" << transport_id;
 
 	return transport_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AAuth_Api::Signup(const QString &in_email, const QString &in_name, const QString &in_password)
 {
 	QJsonObject body;
@@ -55,12 +55,12 @@ int AAuth_Api::Signup(const QString &in_email, const QString &in_name, const QSt
 	if (transport_id == 0)
 		return 0;
 
-	Pending_Operations.insert(transport_id, EOp_Signup);
+	Pending_Operations.insert(transport_id, EAuth_Operation::Signup);
 	qCInfo(AUTH_Api_Log).noquote() << "signup started" << transport_id;
 
 	return transport_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AAuth_Api::Login(const QString &in_email, const QString &in_password)
 {
 	QJsonObject body;
@@ -76,45 +76,45 @@ int AAuth_Api::Login(const QString &in_email, const QString &in_password)
 	if (transport_id == 0)
 		return 0;
 
-	Pending_Operations.insert(transport_id, EOp_Login);
+	Pending_Operations.insert(transport_id, EAuth_Operation::Login);
 	qCInfo(AUTH_Api_Log).noquote() << "login started" << transport_id;
 
 	return transport_id;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Api::on_Http_Finished(int in_request_id, const SHttp_Response &in_response)
 {
-	int operation;
+	EAuth_Operation operation;
 
-	if (Pending_Operations.contains(in_request_id) == false)
+	if (!Pending_Operations.contains(in_request_id))
 		return;
 
 	operation = Pending_Operations.take(in_request_id);
 
 	switch (operation)
 	{
-	case EOp_Check_Email:
+	case EAuth_Operation::Check_Email:
 		Finish_Check_Email(in_request_id, in_response);
 		break;
-	case EOp_Signup:
-	case EOp_Login:
-		Finish_Session_Operation((EAuth_Operation)operation, in_request_id, in_response);
+	case EAuth_Operation::Signup:
+	case EAuth_Operation::Login:
+		Finish_Session_Operation(operation, in_request_id, in_response);
 		break;
 	default:
 		break;
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Api::Finish_Check_Email(int in_request_id, const SHttp_Response &in_response)
 {
 	AApi_Error error;
 	bool free_flag = false;
 
-	if (in_response.Success == false)
+	if (!in_response.Success)
 	{
 		error = in_response.Error;
 	}
-	else if (in_response.JSON_Valid == false || in_response.JSON.object().value("free").isBool() == false)
+	else if (!in_response.JSON_Valid || !in_response.JSON.object().value("free").isBool())
 	{
 		// Обязательное поле free отсутствует — неполный успешный ответ.
 		error = AApi_Error("undefined_error", "Incomplete check-email response", in_response.HTTP_Status_Code,
@@ -131,7 +131,7 @@ void AAuth_Api::Finish_Check_Email(int in_request_id, const SHttp_Response &in_r
 
 	emit checkEmailFinished(in_request_id, free_flag, error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Api::Finish_Session_Operation(EAuth_Operation in_operation, int in_request_id,
                                          const SHttp_Response &in_response)
 {
@@ -142,18 +142,20 @@ void AAuth_Api::Finish_Session_Operation(EAuth_Operation in_operation, int in_re
 
 	// Обязательные поля валидируются выше; в лог — только исход и ключ ошибки.
 	if (error.Is_Error())
-		qCInfo(AUTH_Api_Log).noquote() << (in_operation == EOp_Signup ? "signup finished" : "login finished")
+		qCInfo(AUTH_Api_Log).noquote() << (in_operation == EAuth_Operation::Signup ? "signup finished"
+		                                                                           : "login finished")
 		                               << in_request_id << "error key=" << error.Key();
 	else
-		qCInfo(AUTH_Api_Log).noquote() << (in_operation == EOp_Signup ? "signup finished" : "login finished")
+		qCInfo(AUTH_Api_Log).noquote() << (in_operation == EAuth_Operation::Signup ? "signup finished"
+		                                                                           : "login finished")
 		                               << in_request_id << "ok";
 
-	if (in_operation == EOp_Signup)
+	if (in_operation == EAuth_Operation::Signup)
 		emit signupFinished(in_request_id, data, error);
 	else
 		emit loginFinished(in_request_id, data, error);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AAuth_Api::Parse_Session_Data(const SHttp_Response &in_response, SAuth_Session_Data &out_data,
                                    AApi_Error &out_error)
 {
@@ -164,7 +166,7 @@ void AAuth_Api::Parse_Session_Data(const SHttp_Response &in_response, SAuth_Sess
 	out_data = SAuth_Session_Data();
 	out_error = AApi_Error();
 
-	if (in_response.Success == false)
+	if (!in_response.Success)
 	{
 		out_error = in_response.Error;
 		return;
@@ -181,7 +183,7 @@ void AAuth_Api::Parse_Session_Data(const SHttp_Response &in_response, SAuth_Sess
 	out_data.Refresh_Token = tokens.value("refresh_token").toString();
 
 	// Обязательные поля успешного auth-ответа (docs/03, сценарий 2).
-	if (in_response.JSON_Valid == false || out_data.User.ID.isEmpty() || out_data.Access_Token.isEmpty() ||
+	if (!in_response.JSON_Valid || out_data.User.ID.isEmpty() || out_data.Access_Token.isEmpty() ||
 	    out_data.Refresh_Token.isEmpty())
 	{
 		out_data = SAuth_Session_Data();
@@ -189,4 +191,4 @@ void AAuth_Api::Parse_Session_Data(const SHttp_Response &in_response, SAuth_Sess
 		                       in_response.Network_Error_Code);
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

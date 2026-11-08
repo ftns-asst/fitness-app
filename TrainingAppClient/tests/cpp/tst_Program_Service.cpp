@@ -1,4 +1,4 @@
-#include "Data/Database/Sql_Database.h"
+﻿#include "Data/Database/Sql_Database.h"
 #include "Data/Program/Program_Repository.h"
 #include "Domain/Program_Service.h"
 
@@ -34,7 +34,7 @@ private:
 	AsProgram_Service *Service = 0;
 };
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Service_Test::initTestCase()
 {
 	QVERIFY(Directory.isValid());
@@ -43,7 +43,7 @@ void AProgram_Service_Test::initTestCase()
 	Service = new AsProgram_Service(Repository, this);
 	Seed_Exercise("ex_squat");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Service_Test::Seed_Exercise(const QString &in_id)
 {
 	QSqlQuery query(Database.Sql_Connection());
@@ -53,7 +53,7 @@ void AProgram_Service_Test::Seed_Exercise(const QString &in_id)
 	query.addBindValue(in_id);
 	QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Service_Test::Make_Snapshot(SProgram &out_program, QVector<SProgram_Day> &out_days,
                                           QVector<SDay_Exercise> &out_exercises, QVector<SWeek_Slot> &out_slots)
 {
@@ -109,7 +109,7 @@ void AProgram_Service_Test::Make_Snapshot(SProgram &out_program, QVector<SProgra
 		out_slots.append(slot);
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Service_Test::createFromScratchWritesOneAtomicRevision()
 {
 	SProgram program;
@@ -146,7 +146,7 @@ void AProgram_Service_Test::createFromScratchWritesOneAtomicRevision()
 
 	QVERIFY2(Service->Create_From_Scratch(program, targets, days, exercises, week_slots, created),
 	         qPrintable(Service->Get_Last_Error()));
-	QVERIFY(created.ID.isEmpty() == false);
+	QVERIFY(!created.ID.isEmpty());
 	QVERIFY(
 	    Repository->Load_Program_Full(created.ID, stored, stored_targets, stored_days, stored_exercises, stored_slots));
 	QCOMPARE(stored.User_Id, QString("scratch_user"));
@@ -162,7 +162,7 @@ void AProgram_Service_Test::createFromScratchWritesOneAtomicRevision()
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toInt(), 1);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Service_Test::createFromSnapshotCopiesStructureWithNewIdentity()
 {
 	SProgram snapshot;
@@ -185,7 +185,7 @@ void AProgram_Service_Test::createFromSnapshotCopiesStructureWithNewIdentity()
 	request.State = EProgram_State::Draft;
 	QVERIFY2(Service->Create_From_Snapshot(request, snapshot, targets, days, exercises, week_slots, created),
 	         qPrintable(Service->Get_Last_Error()));
-	QVERIFY(created.ID.isEmpty() == false);
+	QVERIFY(!created.ID.isEmpty());
 	QVERIFY(created.ID != snapshot.ID);
 	QCOMPARE(created.Source_Kind, EProgram_Source_Kind::Copy);
 	QCOMPARE(created.Source_Template_Id, snapshot.ID);
@@ -209,7 +209,7 @@ void AProgram_Service_Test::createFromSnapshotCopiesStructureWithNewIdentity()
 	QCOMPARE(stored_days.at(0).ID, days.at(0).ID);
 	QCOMPARE(stored_slots.at(0).Program_Day_Id, days.at(0).ID);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Service_Test::snapshotCreationRollsBackOnInvalidReference()
 {
 	SProgram snapshot;
@@ -225,16 +225,16 @@ void AProgram_Service_Test::snapshotCreationRollsBackOnInvalidReference()
 	request.User_Id = "rollback_user";
 	request.Title = "Не должно сохраниться";
 	exercises[0].Exercise_Id = "missing_exercise";
-	QVERIFY(Service->Create_From_Snapshot(request, snapshot, targets, days, exercises, week_slots, created) == false);
+	QVERIFY(!Service->Create_From_Snapshot(request, snapshot, targets, days, exercises, week_slots, created));
 	QVERIFY(created.ID.isEmpty());
-	QVERIFY(Service->Get_Last_Error().isEmpty() == false);
+	QVERIFY(!Service->Get_Last_Error().isEmpty());
 	query.prepare("SELECT COUNT(*) FROM programs WHERE user_id = ?");
 	query.addBindValue(request.User_Id);
 	QVERIFY(query.exec());
 	QVERIFY(query.next());
 	QCOMPARE(query.value(0).toInt(), 0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Service_Test::stateTransitionsDelegateToRepository()
 {
 	SProgram program;
@@ -253,14 +253,14 @@ void AProgram_Service_Test::stateTransitionsDelegateToRepository()
 	QVERIFY(Service->Activate(created.ID));
 	QVERIFY(Repository->Load_Program(created.ID, loaded));
 	QCOMPARE(loaded.State, EProgram_State::Active);
-	QVERIFY(loaded.Actual_Start_Date.isEmpty() == false);
+	QVERIFY(!loaded.Actual_Start_Date.isEmpty());
 	QVERIFY(Service->Pause(created.ID));
 	QVERIFY(Service->Resume(created.ID));
 	QVERIFY(Service->Complete(created.ID));
 	QVERIFY(Service->Archive(created.ID));
-	QVERIFY(Service->Activate(created.ID) == false);
+	QVERIFY(!Service->Activate(created.ID));
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // §2.3: активная программа у пользователя одна. Включение второй программы
 // переводит прежнюю в паузу той же операцией — иначе вторая активация упиралась
 // бы в частичный уникальный индекс programs_one_active_per_user, и пользователь
@@ -313,7 +313,7 @@ void AProgram_Service_Test::activateExclusivePausesPreviousProgram()
 	QVERIFY(Repository->Load_Program(second_created.ID, loaded));
 	QCOMPARE(loaded.State, EProgram_State::Paused);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Service_Test::recommendLinearProgressionAfterSuccessfulSets()
 {
 	SDay_Exercise exercise;
@@ -335,7 +335,7 @@ void AProgram_Service_Test::recommendLinearProgressionAfterSuccessfulSets()
 	QVERIFY(Service->Recommend_Weight(exercise, 80, 3, 8, 9, 1, recommendation));
 	QCOMPARE(recommendation, 80.0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Service_Test::recommendationHonoursDoubleProgressionAndRpe()
 {
 	SDay_Exercise exercise;
@@ -359,7 +359,7 @@ void AProgram_Service_Test::recommendationHonoursDoubleProgressionAndRpe()
 	QVERIFY(Service->Recommend_Weight(exercise, 60, 3, 10, 8.5, 1, recommendation));
 	QCOMPARE(recommendation, 60.0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Service_Test::recommendationAppliesDeloadAndWeeklyPercent()
 {
 	SDay_Exercise exercise;
@@ -378,7 +378,7 @@ void AProgram_Service_Test::recommendationAppliesDeloadAndWeeklyPercent()
 	QVERIFY(Service->Recommend_Weight(exercise, 100, 0, 0, 0, 3, recommendation));
 	QCOMPARE(recommendation, 106.1208);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void AProgram_Service_Test::recommendationRejectsInvalidInputsAndManualRules()
 {
 	SDay_Exercise exercise;
@@ -386,9 +386,9 @@ void AProgram_Service_Test::recommendationRejectsInvalidInputsAndManualRules()
 
 	exercise.Has_Progression = true;
 	exercise.Progression.Type = EProgression_Type::Manual;
-	QVERIFY(Service->Recommend_Weight(exercise, 60, 3, 10, 7, 1, recommendation) == false);
-	QVERIFY(Service->Recommend_Weight(exercise, -1, 3, 10, 7, 1, recommendation) == false);
-	QVERIFY(Service->Recommend_Weight(exercise, 60, 3, 10, 7, 0, recommendation) == false);
+	QVERIFY(!Service->Recommend_Weight(exercise, 60, 3, 10, 7, 1, recommendation));
+	QVERIFY(!Service->Recommend_Weight(exercise, -1, 3, 10, 7, 1, recommendation));
+	QVERIFY(!Service->Recommend_Weight(exercise, 60, 3, 10, 7, 0, recommendation));
 }
 
 QTEST_GUILESS_MAIN(AProgram_Service_Test)

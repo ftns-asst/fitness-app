@@ -3,9 +3,9 @@
 #include <QObject>
 
 #include <cmath>
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // AsMacro_Calculator
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 namespace
 {
 // Границы значений: не «на всякий случай», а по формуле. Вес 300 кг или
@@ -18,30 +18,30 @@ const double Max_Height_Cm = 250.0;
 
 // Округление «до 5 ккал»: число кратно пяти, и глазу его легче принять как
 // оценку, а не как точное измерение.
-double Round_To_Five(double in_value)
+static double Round_To_Five(double in_value)
 {
 	return std::round(in_value / 5.0) * 5.0;
 }
 } // namespace
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsMacro_Calculator::AsMacro_Calculator(const QString &in_logging_category) : Logging_Category(in_logging_category)
 {
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Деструктор объявлен явно: калькулятор владеет только строкой, но создаётся
 // через new в composition root, и без него компилятор счёл бы удаление через
 // невидимый оператор без noexcept — а такой оператор бросает исключение при
 // удалении.
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 AsMacro_Calculator::~AsMacro_Calculator() = default;
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList AsMacro_Calculator::Activity_Levels()
 {
 	// Порядок значим: он же порядок выбора на экране, и он идёт от
 	// наименее активного к самому активному.
 	return QStringList{"sedentary", "light", "moderate", "active", "athlete"};
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double AsMacro_Calculator::Activity_Factor(const QString &in_level)
 {
 	// Канонические коэффициенты активности.
@@ -62,7 +62,7 @@ double AsMacro_Calculator::Activity_Factor(const QString &in_level)
 
 	return 1.2;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString AsMacro_Calculator::Activity_Level_Caption(const QString &in_level)
 {
 	if (in_level == "athlete")
@@ -76,10 +76,10 @@ QString AsMacro_Calculator::Activity_Level_Caption(const QString &in_level)
 
 	return QObject::tr("Минимальная");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 int AsMacro_Calculator::Age_On(const QDate &in_birth_date, const QDate &in_date)
 {
-	if (in_birth_date.isValid() == false)
+	if (!in_birth_date.isValid())
 		return 0;
 
 	int age = in_date.year() - in_birth_date.year();
@@ -93,7 +93,7 @@ int AsMacro_Calculator::Age_On(const QDate &in_birth_date, const QDate &in_date)
 	// проверка входа отвергнет с понятным ключом.
 	return age < 0 ? 0 : age;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsMacro_Calculator::Is_Valid_Input(const SInput &in_input, QString &out_error_key)
 {
 	out_error_key.clear();
@@ -121,7 +121,7 @@ bool AsMacro_Calculator::Is_Valid_Input(const SInput &in_input, QString &out_err
 		return false;
 	}
 
-	if (in_input.Activity_Level.isEmpty() || Activity_Levels().contains(in_input.Activity_Level) == false)
+	if (in_input.Activity_Level.isEmpty() || !Activity_Levels().contains(in_input.Activity_Level))
 	{
 		out_error_key = "macro_activity_required";
 
@@ -130,14 +130,14 @@ bool AsMacro_Calculator::Is_Valid_Input(const SInput &in_input, QString &out_err
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double AsMacro_Calculator::Bmr(const SInput &in_input) const
 {
 	// Миффлин–Сан Жеор: у мужчин константа 5, у женщин −161, вес в кг, рост в см.
 	return 10.0 * in_input.Weight_Kg + 6.25 * in_input.Height_Cm - 5.0 * in_input.Age +
 	       (in_input.Is_Female ? -161.0 : 5.0);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 double AsMacro_Calculator::Goal_Adjust(const QString &in_goal)
 {
 	// Поправка задана долей от расхода, а не от нормы: −20 % от TDEE даёт
@@ -150,12 +150,12 @@ double AsMacro_Calculator::Goal_Adjust(const QString &in_goal)
 	// maintain и пустая цель — поддержание без поправки.
 	return 0.0;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool AsMacro_Calculator::Calculate(const SInput &in_input, SResult &out_result, QString &out_error_key)
 {
 	out_result = SResult();
 
-	if (Is_Valid_Input(in_input, out_error_key) == false)
+	if (!Is_Valid_Input(in_input, out_error_key))
 		return false;
 
 	out_result.Bmr_Kcal = Round_To_Five(Bmr(in_input));
@@ -196,4 +196,4 @@ bool AsMacro_Calculator::Calculate(const SInput &in_input, SResult &out_result, 
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------

@@ -1,10 +1,10 @@
-#include "Presentation/Exercises_Editor_VM.h"
+﻿#include "Presentation/Exercises_Editor_VM.h"
 
 #include <QLoggingCategory>
 
 Q_LOGGING_CATEGORY(EXERCISES_Editor_Log, "trainingapp.exercises.editor")
 
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 Avm_Exercises_Editor::Avm_Exercises_Editor(AExercises_Repository *in_repository, QObject *in_parent)
     : QObject(in_parent), Repository_Instance(in_repository)
 {
@@ -20,77 +20,76 @@ Avm_Exercises_Editor::Avm_Exercises_Editor(AExercises_Repository *in_repository,
 		        &Avm_Exercises_Editor::on_Public_List_Finished);
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Exercises_Editor::Name() const
 {
 	return Name_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Exercises_Editor::Description() const
 {
 	return Description_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises_Editor::Is_Public() const
 {
 	return Is_Public_Flag;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises_Editor::Is_Selected() const
 {
-	return Editing_Id.isEmpty() == false;
+	return !Editing_Id.isEmpty();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Avm_Exercises_Editor::Available_Muscle_Groups() const
 {
 	return Known_Groups;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Avm_Exercises_Editor::Available_Equipments() const
 {
 	return Known_Equipments;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Avm_Exercises_Editor::Selected_Muscle_Groups() const
 {
 	return Selected_Groups;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QStringList Avm_Exercises_Editor::Selected_Equipments() const
 {
 	return Selected_Equipment_List;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 QString Avm_Exercises_Editor::Error_Key() const
 {
 	return Error_Key_Text;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises_Editor::Is_Busy() const
 {
 	return Busy_Flag;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Превью: новое фото видно сразу (стейджинг), снятое прежнее — исчезает.
 // file://-URL: Image в QML принимает и локальный путь, но URL не зависит от
 // не-ASCII путей на Windows.
 QString Avm_Exercises_Editor::Photo_Url() const
 {
-	if (Staged_Photo_File.isEmpty() == false)
+	if (!Staged_Photo_File.isEmpty())
 		return QUrl::fromLocalFile(Staged_Photo_File).toString();
 
-	if (Photo_Removed_Flag == false && Existing_Photo_File.isEmpty() == false)
+	if (!Photo_Removed_Flag && !Existing_Photo_File.isEmpty())
 		return QUrl::fromLocalFile(Existing_Photo_File).toString();
 
 	return QString("");
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises_Editor::Has_Photo() const
 {
-	return Staged_Photo_File.isEmpty() == false ||
-	       (Photo_Removed_Flag == false && Existing_Photo_File.isEmpty() == false);
+	return !Staged_Photo_File.isEmpty() || (!Photo_Removed_Flag && !Existing_Photo_File.isEmpty());
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::set_Name(const QString &in_name)
 {
 	if (Name_Text == in_name)
@@ -99,7 +98,7 @@ void Avm_Exercises_Editor::set_Name(const QString &in_name)
 	Name_Text = in_name;
 	emit fieldsChanged();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::set_Description(const QString &in_description)
 {
 	if (Description_Text == in_description)
@@ -108,7 +107,7 @@ void Avm_Exercises_Editor::set_Description(const QString &in_description)
 	Description_Text = in_description;
 	emit fieldsChanged();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::set_Is_Public(bool in_is_public)
 {
 	if (Is_Public_Flag == in_is_public)
@@ -117,11 +116,11 @@ void Avm_Exercises_Editor::set_Is_Public(bool in_is_public)
 	Is_Public_Flag = in_is_public;
 	emit fieldsChanged();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::reset()
 {
 	// Стейджинг не переживает сброс: незакоммиченное фото — мусор.
-	if (Staged_Photo_File.isEmpty() == false && Repository_Instance != 0)
+	if (!Staged_Photo_File.isEmpty() && Repository_Instance != 0)
 		Repository_Instance->Cancel_Staged_Photo(Staged_Photo_File);
 
 	Clear_Photo_State();
@@ -135,14 +134,14 @@ void Avm_Exercises_Editor::reset()
 	emit fieldsChanged();
 	emit stateChanged();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises_Editor::loadExisting(const QString &in_exercise_id)
 {
 	QVector<SExercises_Item> cached;
 	int i;
 
 	// Поля читаются из кэша репозитория: правка доступна офлайн.
-	if (Repository_Instance == 0 || Repository_Instance->Load_Cached_List(cached) == false)
+	if (Repository_Instance == 0 || !Repository_Instance->Load_Cached_List(cached))
 		return false;
 
 	for (i = 0; i < cached.size(); ++i)
@@ -158,7 +157,7 @@ bool Avm_Exercises_Editor::loadExisting(const QString &in_exercise_id)
 		Is_Public_Flag = false;
 
 		// Фото правки читается локально (схема v9): превью видно сразу.
-		if (Repository_Instance->Photo_File(Editing_Id, Existing_Photo_File) == false)
+		if (!Repository_Instance->Photo_File(Editing_Id, Existing_Photo_File))
 			Existing_Photo_File.clear();
 
 		Photo_Removed_Flag = false;
@@ -177,7 +176,7 @@ bool Avm_Exercises_Editor::loadExisting(const QString &in_exercise_id)
 
 	return false;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises_Editor::toggleMuscleGroup(const QString &in_group)
 {
 	int index = Selected_Groups.indexOf(in_group);
@@ -191,7 +190,7 @@ bool Avm_Exercises_Editor::toggleMuscleGroup(const QString &in_group)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises_Editor::toggleEquipment(const QString &in_equipment)
 {
 	int index = Selected_Equipment_List.indexOf(in_equipment);
@@ -205,7 +204,7 @@ bool Avm_Exercises_Editor::toggleEquipment(const QString &in_equipment)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises_Editor::Values_Known(const QStringList &in_values, const QStringList &in_known,
                                         QString &out_error_key) const
 {
@@ -220,13 +219,13 @@ bool Avm_Exercises_Editor::Values_Known(const QStringList &in_values, const QStr
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::Set_Error(const QString &in_key)
 {
 	Error_Key_Text = in_key;
 	emit stateChanged();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises_Editor::submit()
 {
 	QString unknown_key;
@@ -247,15 +246,15 @@ bool Avm_Exercises_Editor::submit()
 		return false;
 	}
 
-	if (Repository_Instance->Load_Cached_Muscle_Groups(Known_Groups) == false ||
-	    Repository_Instance->Load_Cached_Equipments(Known_Equipments) == false)
+	if (!Repository_Instance->Load_Cached_Muscle_Groups(Known_Groups) ||
+	    !Repository_Instance->Load_Cached_Equipments(Known_Equipments))
 	{
 		Set_Error("undefined_error");
 		return false;
 	}
 
-	if (Values_Known(Selected_Groups, Known_Groups, unknown_key) == false ||
-	    Values_Known(Selected_Equipment_List, Known_Equipments, unknown_key) == false)
+	if (!Values_Known(Selected_Groups, Known_Groups, unknown_key) ||
+	    !Values_Known(Selected_Equipment_List, Known_Equipments, unknown_key))
 	{
 		Set_Error(unknown_key);
 		return false;
@@ -264,7 +263,7 @@ bool Avm_Exercises_Editor::submit()
 	// Без входа сервер мутации не принимает: своё упражнение живёт локально
 	// (кэш + зеркало FK), иначе форма отвечала «нужен вход» и создать его
 	// было невозможно.
-	if (Repository_Instance->Has_Session() == false)
+	if (!Repository_Instance->Has_Session())
 		return Save_Locally();
 
 	Busy_Flag = true;
@@ -289,7 +288,7 @@ bool Avm_Exercises_Editor::submit()
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises_Editor::Save_Locally()
 {
 	QString exercise_id = Editing_Id;
@@ -297,8 +296,8 @@ bool Avm_Exercises_Editor::Save_Locally()
 	Busy_Flag = false;
 
 	if (Repository_Instance == 0 ||
-	    Repository_Instance->Save_Local_Exercise(exercise_id, Name_Text, Description_Text.trimmed(), Selected_Groups,
-	                                             Selected_Equipment_List) == false)
+	    !Repository_Instance->Save_Local_Exercise(exercise_id, Name_Text, Description_Text.trimmed(), Selected_Groups,
+	                                              Selected_Equipment_List))
 	{
 		Set_Error("undefined_error");
 		return false;
@@ -311,13 +310,13 @@ bool Avm_Exercises_Editor::Save_Locally()
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises_Editor::remove()
 {
-	if (Is_Selected() == false)
+	if (!Is_Selected())
 		return false;
 
-	if (Repository_Instance != 0 && Repository_Instance->Has_Session() == false)
+	if (Repository_Instance != 0 && !Repository_Instance->Has_Session())
 	{
 		QString closed_id = Editing_Id;
 
@@ -344,7 +343,7 @@ bool Avm_Exercises_Editor::remove()
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Справочники чипов: сначала кэш (мгновенная отрисовка), затем свежий
 // запрос — Unknown-ключи не «всплывают» при росте справочников.
 void Avm_Exercises_Editor::loadCatalogs()
@@ -352,16 +351,16 @@ void Avm_Exercises_Editor::loadCatalogs()
 	if (Repository_Instance == 0)
 		return;
 
-	if (Repository_Instance->Load_Cached_Muscle_Groups(Known_Groups) && Known_Groups.isEmpty() == false)
+	if (Repository_Instance->Load_Cached_Muscle_Groups(Known_Groups) && !Known_Groups.isEmpty())
 		emit catalogsChanged();
 
-	if (Repository_Instance->Load_Cached_Equipments(Known_Equipments) && Known_Equipments.isEmpty() == false)
+	if (Repository_Instance->Load_Cached_Equipments(Known_Equipments) && !Known_Equipments.isEmpty())
 		emit catalogsChanged();
 
 	Repository_Instance->Load_Muscle_Groups();
 	Repository_Instance->Load_Equipments();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::on_Muscle_Groups_Finished(int in_request_id, const QStringList &in_groups,
                                                      const AApi_Error &in_error)
 {
@@ -373,7 +372,7 @@ void Avm_Exercises_Editor::on_Muscle_Groups_Finished(int in_request_id, const QS
 	Known_Groups = in_groups;
 	emit catalogsChanged();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::on_Equipments_Finished(int in_request_id, const QStringList &in_equipments,
                                                   const AApi_Error &in_error)
 {
@@ -385,7 +384,7 @@ void Avm_Exercises_Editor::on_Equipments_Finished(int in_request_id, const QStri
 	Known_Equipments = in_equipments;
 	emit catalogsChanged();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::on_Create_Finished(int in_request_id, const SExercises_Item &in_item,
                                               const AApi_Error &in_error)
 {
@@ -414,7 +413,7 @@ void Avm_Exercises_Editor::on_Create_Finished(int in_request_id, const SExercise
 	emit saved(in_item.ID);
 	emit stateChanged();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::on_Update_Finished(int in_request_id, const SExercises_Item &in_item,
                                               const AApi_Error &in_error)
 {
@@ -440,7 +439,7 @@ void Avm_Exercises_Editor::on_Update_Finished(int in_request_id, const SExercise
 	emit saved(in_item.ID);
 	emit stateChanged();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::on_Delete_Finished(int in_request_id, const AApi_Error &in_error)
 {
 	if (in_request_id != Delete_Request_Id)
@@ -471,13 +470,13 @@ void Avm_Exercises_Editor::on_Delete_Finished(int in_request_id, const AApi_Erro
 	emit deleted();
 	emit saved(closed_id);
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::on_Public_List_Finished(int in_request_id, const QVector<SExercises_Item> &in_items,
                                                    bool in_from_cache, const AApi_Error &in_error)
 {
 	Q_UNUSED(in_from_cache);
 
-	if (in_request_id != Public_Request_Id || Is_Selected() == false)
+	if (in_request_id != Public_Request_Id || !Is_Selected())
 		return;
 
 	Public_Request_Id = 0;
@@ -498,7 +497,7 @@ void Avm_Exercises_Editor::on_Public_List_Finished(int in_request_id, const QVec
 		}
 	}
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Выбор фото: копия в app data под временным именем — id упражнения при
 // создании неизвестен до ответа сервера, поэтому коммит отложен. Превью
 // показывается сразу, до сохранения.
@@ -507,7 +506,7 @@ bool Avm_Exercises_Editor::attachPhoto(const QUrl &in_source)
 	QString staged_file;
 	QString error;
 
-	if (Repository_Instance == 0 || Repository_Instance->Stage_Photo(in_source, staged_file, error) == false)
+	if (Repository_Instance == 0 || !Repository_Instance->Stage_Photo(in_source, staged_file, error))
 	{
 		Set_Error(error.isEmpty() ? QString("photo_failed") : error);
 
@@ -524,18 +523,18 @@ bool Avm_Exercises_Editor::attachPhoto(const QUrl &in_source)
 
 	return true;
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::removePhoto()
 {
 	// Стейджинг отменяется сразу: файл больше не нужен ни превью, ни сохранению.
-	if (Staged_Photo_File.isEmpty() == false)
+	if (!Staged_Photo_File.isEmpty())
 	{
 		if (Repository_Instance != 0)
 			Repository_Instance->Cancel_Staged_Photo(Staged_Photo_File);
 
 		Staged_Photo_File.clear();
 	}
-	else if (Existing_Photo_File.isEmpty() == false)
+	else if (!Existing_Photo_File.isEmpty())
 	{
 		// Прежнее фото удаляется сохранением: снимать до него нельзя — отмена
 		// формы оставила бы фото, а карточка уже без него.
@@ -544,7 +543,7 @@ void Avm_Exercises_Editor::removePhoto()
 
 	emit photoChanged();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 // Сохранение подтверждено сервером: стейджинг коммитится, снятое прежнее
 // удаляется. Отказ коммита не рушит сохранение: упражнение уже на сервере,
 // фото можно выбрать снова — сообщение в лог, а не ошибка формы.
@@ -553,16 +552,16 @@ void Avm_Exercises_Editor::Commit_Photo_For(const QString &in_exercise_id)
 	if (Repository_Instance == 0)
 		return;
 
-	if (Staged_Photo_File.isEmpty() == false)
+	if (!Staged_Photo_File.isEmpty())
 	{
-		if (Repository_Instance->Commit_Photo(in_exercise_id, Staged_Photo_File) == false)
+		if (!Repository_Instance->Commit_Photo(in_exercise_id, Staged_Photo_File))
 			qCWarning(EXERCISES_Editor_Log).nospace() << "photo commit failed: " << in_exercise_id;
 
 		Staged_Photo_File.clear();
 	}
 	else if (Photo_Removed_Flag)
 	{
-		if (Repository_Instance->Delete_Photo(in_exercise_id) == false)
+		if (!Repository_Instance->Delete_Photo(in_exercise_id))
 			qCWarning(EXERCISES_Editor_Log).nospace() << "photo removal failed: " << in_exercise_id;
 	}
 
@@ -570,14 +569,14 @@ void Avm_Exercises_Editor::Commit_Photo_For(const QString &in_exercise_id)
 
 	QString committed;
 
-	if (Repository_Instance->Photo_File(in_exercise_id, committed) == false)
+	if (!Repository_Instance->Photo_File(in_exercise_id, committed))
 		committed.clear();
 
 	Existing_Photo_File = committed;
 
 	emit photoChanged();
 }
-//----------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_Editor::Clear_Photo_State()
 {
 	Staged_Photo_File.clear();
