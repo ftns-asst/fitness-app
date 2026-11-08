@@ -17,6 +17,7 @@ services:
       additional_contexts:
         data: ../../data
       dockerfile: ./docker/Dockerfile
+      target: run
 
     image: ftns-backend
 
@@ -33,14 +34,30 @@ services:
     environment:
       POSTGRES_HOST: "postgres"
       POSTGRES_PORT: "5432"
+      MINIO_ENDPOINT: "minio:9000"
       EXERCISE_CATALOG_PATH: "./exercise_catalog.xlsx"
 
     depends_on:
       - postgres
+      - minio
     stop_grace_period: ${SERVER_GRACEFUL_SHUTDOWN_TIMEOUT}
+
+  minio:
+    image: alpine/minio:latest-release
+    container_name: minio_storage
+    user: root
+    env_file:
+      - ../.env
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_store:/data
+    command: server /data --console-address ":9001"
 
 volumes:
   ftns-data:
+  minio_store:
 
 
 networks:

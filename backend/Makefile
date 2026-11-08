@@ -34,13 +34,28 @@ test-full: test-run test-integration-run
 test-run:
 	go test -v -cover ./...
 
-test-integration-run: test-db-up test-integration test-db-down
+test-integration-run: test-db-up test-minio-up test-integration test-db-down test-minio-down
 
 test-db-up:
 	docker run -d --rm --name ftns-test-pg -e POSTGRES_PASSWORD=postgres -p 5435:5432 postgres:18
 
+test-minio-up:
+	docker run -d --rm \
+      -p 9000:9000 \
+      -p 9001:9001 \
+      -u root \
+      --name ftns-test-minio \
+      -e "MINIO_ROOT_USER=minio" \
+      -e "MINIO_ROOT_PASSWORD=miniotest" \
+      alpine/minio:latest-release server /data --console-address ":9001"
+
+test-minio-down:
+	docker stop ftns-test-minio
+	docker rm ftns-test-minio
+
 test-db-down:
 	docker stop ftns-test-pg
+	docker rm ftns-test-pg
 
 test-integration:
 	go test -tags integration -count=1 -v ./internal/integration/...

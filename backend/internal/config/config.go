@@ -18,16 +18,28 @@ type Config struct {
 	ExerciseCatalogPath           string        `env:"EXERCISE_CATALOG_PATH,required"`
 	postgres                      *PostgresConfig
 	smtp                          *util.SMTPConfig
+	minio                         *MinioConfig
 }
 
 func (c *Config) Postgres() *PostgresConfig {
 	return c.postgres
 }
 
+func (c *Config) Minio() *MinioConfig {
+	return c.minio
+}
+
 func (c *Config) SMTP() *util.SMTPConfig {
 	return c.smtp
 }
 
+type MinioConfig struct {
+	Endpoint     string `env:"MINIO_ENDPOINT,required"`
+	RootUser     string `env:"MINIO_ROOT_USER,required"`
+	RootPassword string `env:"MINIO_ROOT_PASSWORD,required"`
+	BucketName   string `env:"MINIO_BUCKET,required"`
+	UseSSL       bool   `env:"MINIO_USE_SSL,required"`
+}
 type PostgresConfig struct {
 	Host     string `env:"POSTGRES_HOST,required"`
 	Port     string `env:"POSTGRES_PORT,required"`
@@ -47,5 +59,6 @@ func MustRead() *Config {
 	cfg := util.Ptr(util.MustReadFromEnv[Config]())
 	cfg.postgres = util.Ptr(util.MustReadFromEnv[PostgresConfig]())
 	cfg.smtp = util.Ptr(util.MustReadFromEnv[util.SMTPConfig]())
+	cfg.minio = util.Ptr(util.MustReadFromEnv[MinioConfig]())
 	return cfg
 }
