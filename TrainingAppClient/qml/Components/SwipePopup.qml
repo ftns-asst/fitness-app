@@ -14,6 +14,12 @@ Popup {
         if (dragHandle !== null)
             dragHandle.reset();
     }
+    background: Rectangle {
+        color: Theme.surface
+        border.color: Theme.border
+        border.width: Theme.borderWidth
+        radius: Theme.radiusLg
+    }
     enter: Transition {
         NumberAnimation {
             target: sheet.dragHandle

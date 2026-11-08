@@ -27,6 +27,8 @@ class Avm_Exercises_Test : public QObject
 	Q_OBJECT
 
 private slots:
+	void catalogSectionsUseServerTypeAndResetForPicker();
+	void offlineSectionsDoNotMixPrivateAndPublicExercises();
 	void rolesMatchMockContract();
 	void debounceCoalescesTyping();
 	void filterChangeResetsOffset();
@@ -554,5 +556,72 @@ void Avm_Exercises_Test::cachedDepthSurvivesInitialRefresh()
 	QVERIFY(!vm.Is_From_Cache());
 }
 
+void Avm_Exercises_Test::catalogSectionsUseServerTypeAndResetForPicker()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	Avm_Exercises *vm = 0;
+	Make_VM(server, directory, 50, vm);
+	SStored_Tokens tokens;
+	tokens.User_ID = "user-1";
+	tokens.Access_Token = "access";
+	tokens.Refresh_Token = "refresh";
+	QVERIFY(server.findChild<AsAuth_Session *>()->Adopt_Session(tokens));
+	server.Enqueue_Response(JSON_Response(200, "[]"));
+	QVERIFY(vm->setCatalogType("own"));
+	QTRY_COMPARE_WITH_TIMEOUT(vm->Is_Loading(), false, 5000);
+	QVERIFY(server.Request_At(0).Target.contains("type=own"));
+	server.Enqueue_Response(JSON_Response(200, "[]"));
+	QVERIFY(vm->setCatalogType("public"));
+	QTRY_COMPARE_WITH_TIMEOUT(vm->Is_Loading(), false, 5000);
+	QVERIFY(server.Request_At(1).Target.contains("type=public"));
+	QVERIFY(!vm->setCatalogType("invalid"));
+	QVERIFY(vm->resetFilters());
+	server.Enqueue_Response(JSON_Response(200, "[]"));
+	QVERIFY(vm->reload());
+	QTRY_COMPARE_WITH_TIMEOUT(vm->Is_Loading(), false, 5000);
+	QVERIFY(server.Request_At(2).Target.contains("type=all"));
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Exercises_Test::offlineSectionsDoNotMixPrivateAndPublicExercises()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	Avm_Exercises *vm = 0;
+	Make_VM(server, directory, 50, vm);
+	QByteArray body = Two_Exercise_Body();
+	body.replace("\"owner_id\":\"user-1\"", "\"owner_id\":\"user-1\",\"is_public\":true");
+	server.Enqueue_Response(JSON_Response(200, body));
+	QVERIFY(vm->reload());
+	QTRY_VERIFY(!vm->Is_Loading());
+	AExercises_Repository *repository = server.findChild<AExercises_Repository *>();
+	QString local_id;
+	QVERIFY(repository->Save_Local_Exercise(local_id, "My local exercise", "", QStringList(), QStringList()));
+	server.Stop();
+	QVERIFY(vm->setCatalogType("public"));
+	QTRY_VERIFY(!vm->Is_Loading());
+	QCOMPARE(vm->exercise_list()->Row_Count(), 1);
+	QCOMPARE(vm->exercise_list()->get(0).value("title").toString(), QString("Push up"));
+	QVERIFY(vm->setCatalogType("own"));
+	QVERIFY(!vm->Is_Loading());
+	QCOMPARE(vm->exercise_list()->Row_Count(), 1);
+	QCOMPARE(vm->exercise_list()->get(0).value("id").toString(), local_id);
+	QVERIFY(vm->Error_Key().isEmpty());
+	QVERIFY(vm->setCatalogType("all"));
+	QTRY_VERIFY(!vm->Is_Loading());
+	QVERIFY(vm->setFilters(QStringList({"back", "chest"}), QStringList({"barbell", "dumbbell"})));
+	QTRY_VERIFY(!vm->Is_Loading());
+	QStringList titles;
+	for (int i = 0; i < vm->exercise_list()->Row_Count(); ++i)
+	{
+		const QVariantMap row = vm->exercise_list()->get(i);
+		const QStringList groups = row.value("muscleGroups").toStringList();
+		QVERIFY(groups.contains("chest") || groups.contains("back"));
+		titles.append(row.value("title").toString());
+	}
+	// Базовый офлайн-каталог тоже может содержать подходящие упражнения.
+	QVERIFY(titles.contains("Bench press"));
+}
+//-------------------------------------------------------------------------------------------------------------
 QTEST_MAIN(Avm_Exercises_Test)
 #include "tst_Exercises_VM.moc"

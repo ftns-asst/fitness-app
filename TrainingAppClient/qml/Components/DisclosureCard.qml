@@ -28,6 +28,7 @@ AppCard {
 
     AbstractButton {
         id: heading
+        objectName: "disclosureHeading"
 
         width: parent.width
         height: Math.max(Theme.buttonPrimary, contentItem.implicitHeight)
@@ -60,6 +61,7 @@ AppCard {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
+                Layout.preferredWidth: 0
                 spacing: 4
                 RowLayout {
                     Layout.fillWidth: true
@@ -90,11 +92,12 @@ AppCard {
                     elide: Text.ElideRight
                 }
             }
-            Label {
-                text: "›"
-                font: Typography.sectionTitle
-                color: Theme.textMuted
-                rotation: card.expanded ? -90 : 90
+            AppIcon {
+                Layout.preferredWidth: 24
+                Layout.preferredHeight: 24
+                name: "chevronDown"
+                iconColor: card.expanded ? Theme.accent : Theme.textMuted
+                rotation: card.expanded ? 180 : 0
                 Behavior on rotation {
                     NumberAnimation {
                         duration: Theme.pageTransitionDuration

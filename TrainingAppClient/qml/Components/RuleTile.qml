@@ -187,51 +187,14 @@ Item {
 
         onClicked: tile.toggled()
 
-        Rectangle {
+        SelectionMark {
             anchors.right: parent.right
             anchors.rightMargin: Spacing.listGap
             anchors.top: parent.top
             anchors.topMargin: Spacing.listGap
-            border.color: tile.done ? Theme.accent : (tile.failed ? Theme.negative : Theme.border)
-            border.width: tile.done || tile.failed ? 0 : 2
-            color: tile.done ? Theme.accent : (tile.failed ? Theme.negative : "transparent")
-            height: 28
-            radius: 14
-            scale: markArea.pressed ? 0.88 : 1.0
-            width: 28
-
-            Behavior on color {
-                ColorAnimation {
-                    duration: 160
-                }
-            }
-            Behavior on scale {
-                NumberAnimation {
-                    duration: 90
-                    easing.type: Easing.OutCubic
-                }
-            }
-
-            Label {
-                anchors.centerIn: parent
-                color: Theme.accentForeground
-                font: Typography.captionStrong
-                opacity: tile.done || tile.failed ? 1 : 0
-                scale: tile.done || tile.failed ? 1 : 0.4
-                text: tile.done ? "\u2713" : "\u2715"
-
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: 120
-                    }
-                }
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: 220
-                        easing.type: Easing.OutBack
-                    }
-                }
-            }
+            checked: tile.done
+            failed: tile.failed
+            pressed: markArea.pressed
         }
     }
 }

@@ -116,12 +116,6 @@ Item {
         dim: true
         padding: Spacing.listGap
         width: Math.min(380, parent !== null ? parent.width - Spacing.safeGap * 2 : field.width)
-        background: Rectangle {
-            color: Theme.surface
-            border.color: Theme.border
-            border.width: Theme.borderWidth
-            radius: Theme.radiusLg
-        }
         contentItem: ColumnLayout {
             spacing: Spacing.itemGap
             SwipeDismissHandle {

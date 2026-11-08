@@ -16,6 +16,7 @@ set(SINGLETON_QML_NAMES
     ApiErrorText
     AuthViewModel
     ExerciseTexts
+    RuleTexts
     MeasurementTexts
     BackRouter
     Demo

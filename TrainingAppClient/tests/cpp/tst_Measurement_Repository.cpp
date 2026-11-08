@@ -1,6 +1,6 @@
 ﻿#include "Data/Database/Sql_Database.h"
-#include "Data/Program/Measurement_Repository.h"
 #include "Data/Exercises/Exercises_Repository.h"
+#include "Data/Program/Measurement_Repository.h"
 #include "Domain/Program_Model.h"
 
 #include <QSqlError>

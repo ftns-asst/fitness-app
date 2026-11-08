@@ -3,8 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import TrainingAppClient
 
-// Экран «Упражнения» (§2.2): поиск + «+ Своё» в одной строке, chips-фильтры
-// мышечных групп, каталог отдельными карточками.
+// Каталог: разделы, поиск, карточки и закрываемая панель фильтров.
 //
 // Данные — с живого API через Avm_Exercises (спринт U4): поиск и фильтры —
 // серверные параметры, пагинация автодогружается при доскролле. Без сети
@@ -22,11 +21,15 @@ PageScaffold {
     readonly property bool failed: page.hasViewModel && page.viewModel.errorKey !== ""
     readonly property bool showList: page.hasViewModel && page.viewModel.exercise_list.count > 0
     // Ключи справочников выбранных фильтров (multi): пустой набор — «Все».
+    property string catalogType: "all"
+    property alias filterPopup: filtersSheet
+    readonly property int activeFilterCount: groupFilters.length + equipmentFilters.length
     property string searchText: ""
     property var groupFilters: []
     property var equipmentFilters: []
 
     title: qsTr("Упражнения")
+    largeTitle: true
     caption: page.viewModel !== undefined && page.viewModel !== null && page.viewModel.fromCache ? qsTr("Показан сохранённый каталог") : ""
 
     Component.onCompleted: page.reload()
@@ -42,6 +45,7 @@ PageScaffold {
         // Фильтры вкладки — источник истины при показе: мини-окно выбора
         // делит каталог с вкладкой и сбрасывает общий поиск на время выбора.
         // Неизменённые значения уходят no-op'ами, лишних запросов нет.
+        page.viewModel.setCatalogType(page.catalogType);
         page.viewModel.setQuery(page.searchText);
         page.viewModel.setMuscleGroups(page.groupFilters);
         page.viewModel.setEquipments(page.equipmentFilters);
@@ -49,31 +53,27 @@ PageScaffold {
         page.viewModel.reload();
         page.viewModel.loadCatalogs();
     }
-    // Автодогрузка: доскроллили до конца — запрашиваем следующую страницу.
-    // Переключает ключ в наборе фильтра; индекс 0 («Все») набор очищает.
-    function toggledFilter(current, keys, index) {
-        if (index === 0)
-            return [];
-
-        const key = keys[index - 1];
-        const next = current.slice();
-        const at = next.indexOf(key);
-
-        if (at >= 0)
-            next.splice(at, 1);
-        else
-            next.push(key);
-
-        return next;
+    function selectSection(index) {
+        catalogType = ["all", "own", "public"][index];
+        if (hasViewModel)
+            viewModel.setCatalogType(catalogType);
+        revealCatalogStart();
     }
-    // Индексы чипов набора: «Все» (0) активен, пока набор пуст.
-    function activeChipIndices(current, keys) {
-        if (current.length === 0)
-            return [0];
-
-        return current.map(function (key) {
-            return keys.indexOf(key) + 1;
-        });
+    function revealCatalogStart() {
+        if (page.pageFlickable !== null) {
+            page.pageFlickable.forceLayout();
+            page.pageFlickable.positionViewAtBeginning();
+        }
+    }
+    function openFilters() {
+        filtersSheet.openFor(groupFilters, equipmentFilters);
+    }
+    function clearFilters() {
+        groupFilters = [];
+        equipmentFilters = [];
+        if (hasViewModel)
+            viewModel.setFilters([], []);
+        revealCatalogStart();
     }
     function maybeLoadMore() {
         if (page.hasViewModel === false)
@@ -130,6 +130,25 @@ PageScaffold {
             ScrollIndicator {
                 id: scrollIndicator
             }
+            Row {
+                parent: catalogGrid
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: Spacing.itemGap
+                spacing: Spacing.itemGap
+                z: 3
+                visible: catalogGrid.contentY > catalogGrid.cellHeight
+                AppButton {
+                    text: qsTr("Поиск")
+                    compact: true
+                    onClicked: catalogGrid.positionViewAtBeginning()
+                }
+                AppButton {
+                    text: qsTr("Фильтры")
+                    compact: true
+                    onClicked: page.openFilters()
+                }
+            }
             CatalogExerciseTile {
                 id: tileSizer
                 visible: false
@@ -138,12 +157,21 @@ PageScaffold {
             header: Column {
                 width: catalogGrid.width
                 spacing: Spacing.sectionGap
+                SegmentedControl {
+                    objectName: "exerciseCatalogSections"
+                    width: parent.width
+                    items: [qsTr("Все"), qsTr("Мои"), qsTr("Сообщество")]
+                    currentIndex: ["all", "own", "public"].indexOf(page.catalogType)
+                    onSelected: function (index) {
+                        page.selectSection(index);
+                    }
+                }
                 // — Поиск и добавление своего упражнения в одной строке —
                 RowLayout {
                     spacing: Spacing.itemGap
                     width: parent.width
 
-                    TextField {
+                    AppInput {
                         id: searchField
                         objectName: "exerciseSearchInput"
                         text: page.searchText
@@ -151,21 +179,24 @@ PageScaffold {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 140
                         Layout.preferredHeight: Theme.touchMin
-                        color: Theme.textPrimary
-                        font: Typography.body
                         leftPadding: Spacing.screenPadding
                         placeholderText: qsTr("Поиск упражнения")
-                        placeholderTextColor: Theme.textMuted
-                        rightPadding: Spacing.screenPadding
-                        verticalAlignment: Text.AlignVCenter
+                        rightPadding: text.length > 0 ? Theme.touchMin : Spacing.screenPadding
 
-                        background: Rectangle {
-                            border.color: searchField.activeFocus ? Theme.accent : Theme.border
-                            border.width: Theme.borderWidth
-                            color: Theme.surface
-                            radius: Theme.radiusMd
+                        surfaceColor: Theme.surface
+
+                        AppButton {
+                            objectName: "exerciseSearchClear"
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "×"
+                            width: Theme.touchMin
+                            variant: AppButton.Ghost
+                            visible: searchField.text.length > 0
+                            Accessible.name: qsTr("Очистить поиск")
+                            onClicked: searchField.clear()
                         }
-
+                        onAccepted: Qt.inputMethod.hide()
                         onTextChanged: {
                             page.searchText = text;
                             if (page.hasViewModel)
@@ -180,47 +211,35 @@ PageScaffold {
                         onClicked: page.createOwnRequested()
                     }
                 }
-                FilterChips {
-                    objectName: "muscleGroupChips"
-                    items: [qsTr("Все")].concat(page.hasViewModel ? page.viewModel.muscleGroups.map(function (key) {
-                        return ExerciseTexts.muscleGroupTitle(key);
-                    }) : [])
-                    selectedIndices: page.hasViewModel ? page.activeChipIndices(page.groupFilters, page.viewModel.muscleGroups) : [0]
+                RowLayout {
                     width: parent.width
-
-                    onSelected: function (index) {
-                        if (page.hasViewModel === false)
-                            return;
-
-                        page.groupFilters = page.toggledFilter(page.groupFilters, page.viewModel.muscleGroups, index);
-                        page.viewModel.setMuscleGroups(page.groupFilters);
+                    spacing: Spacing.itemGap
+                    AppButton {
+                        objectName: "exerciseFiltersButton"
+                        Layout.fillWidth: true
+                        text: page.activeFilterCount > 0 ? qsTr("Фильтры · %1").arg(page.activeFilterCount) : qsTr("Мышцы и инвентарь")
+                        variant: page.activeFilterCount > 0 ? AppButton.Primary : AppButton.Secondary
+                        compact: true
+                        onClicked: page.openFilters()
+                    }
+                    AppButton {
+                        objectName: "exerciseFiltersClear"
+                        text: qsTr("Сбросить")
+                        variant: AppButton.Ghost
+                        visible: page.activeFilterCount > 0
+                        onClicked: page.clearFilters()
                     }
                 }
-                FilterChips {
-                    objectName: "equipmentChips"
-                    items: [qsTr("Любой инвентарь")].concat(page.hasViewModel ? page.viewModel.equipments.map(function (key) {
-                        return ExerciseTexts.equipmentTitle(key);
-                    }) : [])
-                    selectedIndices: page.hasViewModel ? page.activeChipIndices(page.equipmentFilters, page.viewModel.equipments) : [0]
-                    // Строка «Любой инвентарь» сохраняет высоту заголовка,
-                    // пока справочники загружаются. Иначе GridView удерживал
-                    // карточки на месте, сдвигая поиск за верхнюю границу.
+                Label {
                     width: parent.width
-
-                    onSelected: function (index) {
-                        if (page.hasViewModel === false)
-                            return;
-
-                        page.equipmentFilters = page.toggledFilter(page.equipmentFilters, page.viewModel.equipments, index);
-                        page.viewModel.setEquipments(page.equipmentFilters);
-                    }
-                }
-
-                Item {
-                    width: parent.width
-                    height: Spacing.sectionGap
+                    text: page.catalogType === "own" ? qsTr("Созданные вами упражнения") : page.catalogType === "public" ? qsTr("Опубликованные пользователями") : qsTr("Встроенные, ваши и упражнения сообщества")
+                    font: Typography.caption
+                    color: Theme.textMuted
+                    wrapMode: Text.WordWrap
+                    bottomPadding: Spacing.itemGap
                 }
             }
+
             delegate: Item {
                 required property int index
                 required property var model
@@ -265,7 +284,8 @@ PageScaffold {
                         color: Theme.textMuted
                         font: Typography.caption
                         horizontalAlignment: Text.AlignHCenter
-                        text: qsTr("Ничего не найдено")
+                        text: page.catalogType === "own" && page.searchText.length === 0 && page.activeFilterCount === 0 ? qsTr("Ваши упражнения появятся здесь. Нажмите «+ Своё», чтобы добавить первое.") : qsTr("Ничего не найдено. Попробуйте изменить запрос или сбросить фильтры.")
+                        wrapMode: Text.WordWrap
                         width: parent.width
                     }
                 }
@@ -293,6 +313,18 @@ PageScaffold {
                     }
                 }
             }
+        }
+    }
+    ExerciseFiltersPopup {
+        id: filtersSheet
+        muscleGroups: page.hasViewModel ? page.viewModel.muscleGroups : []
+        equipments: page.hasViewModel ? page.viewModel.equipments : []
+        onApplied: function (groups, equipment) {
+            page.groupFilters = groups;
+            page.equipmentFilters = equipment;
+            if (page.hasViewModel)
+                page.viewModel.setFilters(groups, equipment);
+            page.revealCatalogStart();
         }
     }
 }

@@ -37,36 +37,23 @@ Column {
         visible: text.length > 0
         width: parent.width
     }
-    TextField {
+    AppInput {
         id: input
 
         activeFocusOnTab: true
         hoverEnabled: !Theme.touchPlatform
-        color: Theme.textPrimary
-        font: Typography.body
         height: Theme.buttonPrimary
         leftPadding: Spacing.cardPadding
-        placeholderTextColor: Theme.textMuted
         rightPadding: Spacing.cardPadding
         selectedTextColor: Theme.textPrimary
         selectionColor: Theme.accentSoft
-        verticalAlignment: Text.AlignVCenter
         width: parent.width
 
-        background: Rectangle {
-            border.color: field.errorText.length > 0 ? Theme.negative : input.activeFocus ? Theme.accent : input.hovered ? Theme.textMuted : Theme.border
-            border.width: field.errorText.length > 0 || input.activeFocus ? 2 : Theme.borderWidth
-            color: Theme.surfaceMuted
-            radius: Theme.radiusMd
-
-            Behavior on border.color {
-                // Рамка — главный отклик на касание поля; переход плавный.
-                ColorAnimation {
-                    duration: Theme.pressFeedbackDuration
-                    easing.type: Easing.OutCubic
-                }
-            }
-        }
+        invalid: field.errorText.length > 0
+        errorBorderWidth: 2
+        focusBorderWidth: 2
+        hoverBorderColor: Theme.textMuted
+        borderAnimationDuration: Theme.pressFeedbackDuration
 
         onAccepted: field.accepted()
         onEditingFinished: field.editingFinished()

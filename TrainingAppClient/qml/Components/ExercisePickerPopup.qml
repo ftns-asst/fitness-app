@@ -7,9 +7,9 @@ import TrainingAppClient
 //
 // Выпадающий список не тянул настоящий каталог: сотни упражнений в закрытом
 // списке не видно, искать перебором неудобно. Здесь — поиск (тот же дебаунс
-// Avm_Exercises, что и на вкладке «Упражнения»), chips-фильтр по группам мышц
-// и список, где упражнение раскрывается по нажатию: появляются подходы, вес
-// и кнопка «Добавить» справа — выбрать можно, не выходя из окна.
+// Avm_Exercises, что и на вкладке «Упражнения»), разделы каталога и фильтры
+// и настройки нагрузки для выбранного упражнения. Возврат к списку сохраняет
+// введённые значения; кнопка добавления закреплена под прокручиваемой формой.
 //
 // Каталог приходит контекстным свойством ExercisesVM (Avm_Exercises); в
 // qmltestrunner его нет — typeof безопасен, окно откатывается в пустое
@@ -23,11 +23,46 @@ SwipePopup {
     readonly property bool hasCatalog: picker.catalog !== undefined && picker.catalog !== null
     readonly property bool failed: picker.hasCatalog && picker.catalog.errorKey !== ""
     readonly property bool showList: picker.hasCatalog && picker.catalog.exercise_list.count > 0
-    // Раскрытая строка: одна за раз, повторное нажатие сворачивает.
+    // Выбор плитки открывает нагрузку; −1 возвращает каталог.
     property int expandedIndex: -1
+    property string selectedIdText: ""
+    property string selectedTitleText: ""
+    property string catalogType: "all"
+    property var groupFilters: []
+    property var equipmentFilters: []
+    readonly property var filtersPopup: filterSheet
+    readonly property int filterCount: groupFilters.length + equipmentFilters.length
     onExpandedIndexChanged: {
-        if (expandedIndex >= 0)
-            prescriptionGrip.reset();
+        if (expandedIndex < 0 || !hasCatalog || expandedIndex >= catalog.exercise_list.count)
+            return;
+        const item = catalog.exercise_list.get(expandedIndex);
+        selectedIdText = String(item.id);
+        selectedTitleText = String(item.title);
+        if (configuredExerciseId !== selectedIdText) {
+            configuredExerciseId = selectedIdText;
+            pickedSets = 4;
+            pickedWeight = 40;
+            pickedRepsMin = 5;
+            pickedRepsMax = 8;
+        }
+        Qt.inputMethod.hide();
+    }
+    function selectSection(index) {
+        catalogType = ["all", "own", "public"][index];
+        expandedIndex = -1;
+        if (hasCatalog)
+            catalog.setCatalogType(catalogType);
+        list.positionViewAtBeginning();
+    }
+    function openFilters() {
+        filterSheet.openFor(groupFilters, equipmentFilters);
+    }
+    function clearFilters() {
+        groupFilters = [];
+        equipmentFilters = [];
+        if (hasCatalog)
+            catalog.setFilters([], []);
+        list.positionViewAtBeginning();
     }
     property string configuredExerciseId: ""
     // Значения раскрытой строки: подходы и вес по умолчанию — как на экране дня.
@@ -38,7 +73,7 @@ SwipePopup {
 
     signal picked(string exerciseId, string title, real weightKg, int sets, int repsMin, int repsMax)
 
-    // Popup центрируется и размеряется относительно parentItem. Родителя
+    // Popup размеряется относительно parentItem. Родителя
     // задаёт хостящий экран (ProgramDayPage — корень страницы): Popup,
     // объявленный внутри карточки, без явного родителя сжимался до ширины
     // этой карточки (~290×99) и список упражнений в него не помещался —
@@ -47,8 +82,15 @@ SwipePopup {
     // быть null и ронял Popup обратно в карточку-объявление.
     // Тест-хук: Popup ищется по objectName (id снаружи не виден).
     objectName: "exercisePickerPopup"
-    width: picker.parent !== null ? Math.min(picker.parent.width - Spacing.screenPadding * 2, 560) : 360
-    height: picker.parent !== null ? Math.min(picker.parent.height - Spacing.screenPadding * 2, 640) : 480
+    width: picker.parent !== null ? Math.min(picker.parent.width - Spacing.safeGap * 2, 560) : 360
+    height: picker.parent !== null ? Math.min(picker.parent.height - Spacing.safeGap * 2, picker.expandedIndex >= 0 ? 500 : 740) : 480
+    restingY: picker.parent !== null ? picker.parent.height - height - Spacing.safeGap : 0
+    Behavior on height {
+        NumberAnimation {
+            duration: Theme.pageTransitionDuration
+            easing.type: Easing.OutCubic
+        }
+    }
     x: picker.parent !== null ? Math.round((picker.parent.width - picker.width) / 2) : 0
     modal: true
     padding: Spacing.listGap
@@ -57,16 +99,8 @@ SwipePopup {
 
     // Закрытие продолжает траекторию перетаскивания вниз.
 
-    background: Rectangle {
-        border.color: Theme.border
-        border.width: Theme.borderWidth
-        color: Theme.surface
-        radius: Theme.radiusLg
-    }
-
     onAboutToShow: {
         popupGrip.reset();
-        prescriptionGrip.reset();
         picker.expandedIndex = -1;
 
         if (picker.hasCatalog) {
@@ -79,14 +113,16 @@ SwipePopup {
             // Локальные контролы синхронно: их onTextChanged/свойства уйдут
             // в каталог no-op'ами, потому что состояние уже сброшено.
             searchField.text = "";
-            groupChips.groupKey = "";
+            picker.catalogType = "all";
+            picker.groupFilters = [];
+            picker.equipmentFilters = [];
 
             // Сброс фильтров или первое открытие без прогрева: перечитываем.
             // Повторные открытия без фильтров показывают уже загруженные строки.
             if ((filtersReset || picker.catalog.exercise_list.count === 0) && picker.catalog.loading === false)
                 picker.catalog.reload();
 
-            if (picker.catalog.muscleGroups.length === 0)
+            if (picker.catalog.muscleGroups.length === 0 || (picker.catalog.equipments !== undefined && picker.catalog.equipments.length === 0))
                 picker.catalog.loadCatalogs();
         }
     }
@@ -110,7 +146,7 @@ SwipePopup {
                 Layout.minimumWidth: 0
                 color: Theme.textPrimary
                 font: Typography.sectionTitle
-                text: qsTr("Выбор упражнения")
+                text: picker.expandedIndex < 0 ? qsTr("Выбор упражнения") : qsTr("Нагрузка")
                 wrapMode: Text.WordWrap
             }
             AppButton {
@@ -118,65 +154,62 @@ SwipePopup {
                 onClicked: picker.close()
                 padding: Spacing.itemGap
                 text: qsTr("Закрыть")
-                variant: AppButton.Secondary
+                variant: AppButton.Ghost
+            }
+        }
+        SegmentedControl {
+            objectName: "exercisePickerSections"
+            Layout.fillWidth: true
+            visible: picker.expandedIndex < 0
+            items: [qsTr("Все"), qsTr("Мои"), qsTr("Сообщество")]
+            currentIndex: ["all", "own", "public"].indexOf(picker.catalogType)
+            onSelected: function (index) {
+                picker.selectSection(index);
             }
         }
         // — Поиск: тот же дебаунс 300 мс, что и на вкладке каталога —
-        TextField {
+        AppInput {
             id: searchField
+            visible: picker.expandedIndex < 0
 
             Layout.fillWidth: true
             Layout.minimumWidth: 0
             Layout.preferredHeight: Theme.touchMin
-            color: Theme.textPrimary
-            font: Typography.body
             leftPadding: Spacing.screenPadding
             objectName: "exercisePickerSearch"
             placeholderText: qsTr("Поиск упражнения")
-            placeholderTextColor: Theme.textMuted
             rightPadding: Spacing.screenPadding
-            verticalAlignment: Text.AlignVCenter
 
-            background: Rectangle {
-                border.color: searchField.activeFocus ? Theme.accent : Theme.border
-                border.width: Theme.borderWidth
-                color: Theme.surface
-                radius: Theme.radiusMd
-            }
+            surfaceColor: Theme.surface
 
             onTextChanged: {
                 picker.expandedIndex = -1;
 
                 if (picker.hasCatalog)
                     picker.catalog.setQuery(text);
+                list.positionViewAtBeginning();
             }
         }
-        // — Фильтр по группе мышц: «Все» + группы из справочника —
-        FilterChips {
-            id: groupChips
-
+        RowLayout {
             Layout.fillWidth: true
-            // Ключ фильтра хранится отдельно: chips показывают перевод
-            // (ExerciseTexts), а в каталог уходит ключ справочника.
-            property string groupKey: ""
-
-            currentIndex: groupKey.length === 0 ? 0 : (picker.hasCatalog ? picker.catalog.muscleGroups.indexOf(groupKey) + 1 : 0)
-            items: [qsTr("Все")].concat(picker.hasCatalog ? picker.catalog.muscleGroups.map(function (key) {
-                return ExerciseTexts.muscleGroupTitle(key);
-            }) : [])
-            objectName: "exercisePickerGroups"
-
-            onSelected: function (index) {
-                groupKey = index === 0 ? "" : picker.catalog.muscleGroups[index - 1];
-                picker.expandedIndex = -1;
-
-                if (picker.hasCatalog)
-                    picker.catalog.setMuscleGroups(groupKey.length === 0 ? [] : [groupKey]);
+            visible: picker.expandedIndex < 0
+            AppButton {
+                Layout.fillWidth: true
+                text: picker.filterCount > 0 ? qsTr("Фильтры · %1").arg(picker.filterCount) : qsTr("Мышцы и инвентарь")
+                variant: AppButton.Secondary
+                onClicked: picker.openFilters()
+            }
+            AppButton {
+                visible: picker.filterCount > 0
+                variant: AppButton.Ghost
+                text: qsTr("Сбросить")
+                onClicked: picker.clearFilters()
             }
         }
         // — Каталог плитками по две в строке; выбранная плитка открывает панель добавления —
         GridView {
             id: list
+            visible: picker.expandedIndex < 0
 
             readonly property real gap: Spacing.listGap
 
@@ -194,6 +227,7 @@ SwipePopup {
             // Образец плитки: высота ячейки считается по нему, а не по делегатам.
             CatalogExerciseTile {
                 id: tileSizer
+                imageHeightRatio: 0.7
 
                 visible: false
                 width: list.cellWidth - list.gap
@@ -213,6 +247,7 @@ SwipePopup {
                 width: list.cellWidth
 
                 CatalogExerciseTile {
+                    imageHeightRatio: 0.7
                     height: tileSizer.implicitHeight
                     photoUrl: row.model.photoUrl !== undefined && row.model.photoUrl !== null ? row.model.photoUrl : ""
                     selected: picker.expandedIndex === row.index
@@ -222,32 +257,28 @@ SwipePopup {
 
                     onClicked: {
                         picker.expandedIndex = picker.expandedIndex === row.index ? -1 : row.index;
-
-                        if (picker.expandedIndex !== -1 && picker.configuredExerciseId !== String(row.model.id)) {
-                            picker.configuredExerciseId = String(row.model.id);
-                            // Значения по умолчанию — как на экране дня: выбор
-                            // всегда начинается с честной заготовки, а не с прошлой.
-                            picker.pickedSets = 4;
-                            picker.pickedWeight = 40;
-                            picker.pickedRepsMin = 5;
-                            picker.pickedRepsMax = 8;
-                        }
                     }
                 }
             }
         }
         // — Панель добавления: подходы, вес и «Добавить» для выбранной плитки —
-        Item {
+        Flickable {
             id: addPanel
-            readonly property bool hasSelection: picker.expandedIndex >= 0 && picker.showList && picker.expandedIndex < picker.catalog.exercise_list.count
-            readonly property string selectedId: hasSelection ? String(picker.catalog.exercise_list.get(picker.expandedIndex).id) : ""
-            readonly property string selectedTitle: hasSelection ? String(picker.catalog.exercise_list.get(picker.expandedIndex).title) : ""
+            readonly property bool hasSelection: picker.expandedIndex >= 0 && picker.selectedIdText.length > 0
+            readonly property string selectedId: hasSelection ? picker.selectedIdText : ""
+            readonly property string selectedTitle: hasSelection ? picker.selectedTitleText : ""
             property string displayTitle: ""
             onSelectedTitleChanged: {
                 if (selectedTitle.length > 0)
                     displayTitle = selectedTitle;
             }
             Layout.fillWidth: true
+            Layout.fillHeight: hasSelection
+            contentHeight: prescriptionBody.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+            flickableDirection: Flickable.VerticalFlick
+            flickDeceleration: Theme.flickDeceleration
+            ScrollIndicator.vertical: ScrollIndicator {}
             Layout.minimumHeight: 0
             Layout.preferredHeight: hasSelection ? prescriptionBody.implicitHeight : 0
             visible: Layout.preferredHeight > 0
@@ -263,7 +294,6 @@ SwipePopup {
                 width: parent.width
                 height: implicitHeight
                 spacing: Spacing.itemGap
-                y: prescriptionGrip.offset
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 1
@@ -271,14 +301,7 @@ SwipePopup {
                 }
                 Item {
                     Layout.fillWidth: true
-                    implicitHeight: Theme.touchMin + Spacing.itemGap * 2
-                    SwipeDismissHandle {
-                        id: prescriptionGrip
-                        anchors.fill: parent
-                        objectName: "exercisePrescriptionGrip"
-                        accessibleName: qsTr("Свернуть параметры упражнения")
-                        onDismissed: picker.expandedIndex = -1
-                    }
+                    implicitHeight: Theme.touchMin
                     Label {
                         anchors.left: parent.left
                         anchors.right: collapseButton.left
@@ -294,7 +317,7 @@ SwipePopup {
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
                         objectName: "exercisePickerCollapse"
-                        text: qsTr("Свернуть")
+                        text: qsTr("К списку")
                         variant: AppButton.Ghost
                         onClicked: picker.expandedIndex = -1
                     }
@@ -371,15 +394,16 @@ SwipePopup {
                     color: Theme.textSecondary
                     wrapMode: Text.WordWrap
                 }
-                AppButton {
-                    Layout.fillWidth: true
-                    objectName: "exercisePickerAdd"
-                    enabled: addPanel.hasSelection && picker.pickedRepsMin > 0 && picker.pickedRepsMax >= picker.pickedRepsMin
-                    onClicked: picker.picked(addPanel.selectedId, addPanel.selectedTitle, picker.pickedWeight, picker.pickedSets, picker.pickedRepsMin, picker.pickedRepsMax)
-                    text: qsTr("Добавить в день")
-                    variant: AppButton.Primary
-                }
             }
+        }
+        AppButton {
+            Layout.fillWidth: true
+            visible: addPanel.hasSelection
+            objectName: "exercisePickerAdd"
+            enabled: addPanel.hasSelection && picker.pickedRepsMin > 0 && picker.pickedRepsMax >= picker.pickedRepsMin
+            onClicked: picker.picked(addPanel.selectedId, addPanel.selectedTitle, picker.pickedWeight, picker.pickedSets, picker.pickedRepsMin, picker.pickedRepsMax)
+            text: qsTr("Добавить в день")
+            variant: AppButton.Primary
         }
         // — Загрузка первой страницы —
         Label {
@@ -418,6 +442,19 @@ SwipePopup {
             text: qsTr("Загрузить ещё")
             variant: AppButton.Secondary
             visible: picker.hasCatalog && picker.catalog.canLoadMore && picker.catalog.loading === false
+        }
+    }
+    ExerciseFiltersPopup {
+        id: filterSheet
+        parent: picker.parent
+        muscleGroups: picker.hasCatalog ? picker.catalog.muscleGroups : []
+        equipments: picker.hasCatalog && picker.catalog.equipments !== undefined ? picker.catalog.equipments : []
+        onApplied: function (groups, equipment) {
+            picker.groupFilters = groups;
+            picker.equipmentFilters = equipment;
+            if (picker.hasCatalog)
+                picker.catalog.setFilters(groups, equipment);
+            list.positionViewAtBeginning();
         }
     }
 }

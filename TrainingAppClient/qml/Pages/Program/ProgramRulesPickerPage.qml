@@ -468,19 +468,7 @@ PageScaffold {
     // машинные значения («g», «ml», «count»), и в подписи они выглядели бы
     // как технический сбой (§7: перевод единиц — в UI).
     function unitLabel(unit) {
-        const labels = {
-            g: qsTr("г"),
-            gPerKg: qsTr("г/кг"),
-            kg: qsTr("кг"),
-            kcal: qsTr("ккал"),
-            ml: qsTr("мл"),
-            hours: qsTr("ч"),
-            count: "",
-            rpe: "RPE",
-            units: ""
-        };
-
-        return labels[unit] !== undefined ? labels[unit] : unit;
+        return unit === "count" || unit === "units" ? "" : RuleTexts.unitLabel(unit, unit);
     }
 
     // Число выбранных правил: привязка читает `count` модели, а не зовёт метод

@@ -54,6 +54,8 @@ public:
 
 	// QML-мост (§2 CODE_STYLE: имена контракта — lowerCamelCase).
 	Q_INVOKABLE bool reload();
+	Q_INVOKABLE bool setCatalogType(const QString &in_type);
+	Q_INVOKABLE bool setFilters(const QStringList &in_groups, const QStringList &in_equipments);
 	Q_INVOKABLE bool loadMore();
 	Q_INVOKABLE void setQuery(const QString &in_query);
 	Q_INVOKABLE bool setMuscleGroups(const QStringList &in_groups);
@@ -92,6 +94,7 @@ private:
 	AList_Model *Exercise_List;
 	QTimer *Debounce_Timer;
 	QString Query_Text;
+	QString Catalog_Type = "all";
 	QStringList Muscle_Group_Filter;
 	QStringList Equipment_Filter;
 	QVector<QVariantMap> Accumulated_Rows;

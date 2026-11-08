@@ -89,16 +89,18 @@ static void Save_Screenshot(QQmlApplicationEngine *in_engine, const QStringList 
 	if (window == 0)
 		return;
 
-	QTimer::singleShot(delay, window, [window, path]() {
-		const QImage image = window->grabWindow();
+	QTimer::singleShot(delay, window,
+	                   [window, path]()
+	                   {
+		                   const QImage image = window->grabWindow();
 
-		if (!image.isNull() && image.save(path))
-			qInfo("shot saved: %s (%dx%d)", qUtf8Printable(path), image.width(), image.height());
-		else
-			qWarning("shot failed: %s", qUtf8Printable(path));
+		                   if (!image.isNull() && image.save(path))
+			                   qInfo("shot saved: %s (%dx%d)", qUtf8Printable(path), image.width(), image.height());
+		                   else
+			                   qWarning("shot failed: %s", qUtf8Printable(path));
 
-		QCoreApplication::quit();
-	});
+		                   QCoreApplication::quit();
+	                   });
 }
 //-------------------------------------------------------------------------------------------------------------
 int main(int argc, char *argv[])

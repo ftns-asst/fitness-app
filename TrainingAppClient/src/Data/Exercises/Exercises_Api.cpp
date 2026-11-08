@@ -404,6 +404,7 @@ bool AExercises_Api::Parse_Item(const QJsonObject &in_row, SExercises_Item &out_
 	    in_row.value("description").isString() ? in_row.value("description").toString() : QString("");
 	out_item.Owner_ID = in_row.value("owner_id").isString() ? in_row.value("owner_id").toString() : QString("");
 	out_item.Has_Owner = !out_item.Owner_ID.isEmpty();
+	out_item.Is_Public = in_row.value("is_public").toBool();
 	out_item.Created_At = in_row.value("created_at").isString() ? in_row.value("created_at").toString() : QString("");
 
 	groups = in_row.value("muscle_groups").toArray();
@@ -480,6 +481,7 @@ void AExercises_Api::Parse_List(const SHttp_Response &in_response, QVector<SExer
 		item.Description = row.value("description").isString() ? row.value("description").toString() : QString("");
 		item.Owner_ID = row.value("owner_id").isString() ? row.value("owner_id").toString() : QString("");
 		item.Has_Owner = !item.Owner_ID.isEmpty();
+		item.Is_Public = row.value("is_public").toBool();
 		item.Created_At = row.value("created_at").isString() ? row.value("created_at").toString() : QString("");
 
 		QJsonArray groups = row.value("muscle_groups").toArray();

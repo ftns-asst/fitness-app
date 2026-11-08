@@ -54,12 +54,6 @@ SwipePopup {
     padding: Spacing.cardPadding
     width: parent !== null ? Math.min(parent.width - Spacing.screenPadding * 2, 420) : 320
 
-    background: Rectangle {
-        border.color: Theme.border
-        border.width: Theme.borderWidth
-        color: Theme.surface
-        radius: Theme.radiusLg
-    }
     contentItem: ColumnLayout {
         SwipeDismissHandle {
             id: ruleGrip
@@ -92,26 +86,19 @@ SwipePopup {
 
                 onActivated: popup.shift(-popup.step)
             }
-            TextField {
+            AppInput {
                 id: input
 
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 Layout.preferredHeight: Theme.buttonPrimary
-                color: Theme.textPrimary
                 font: Typography.sectionTitle
                 horizontalAlignment: Text.AlignHCenter
                 inputMethodHints: Qt.ImhFormattedNumbersOnly
                 objectName: "ruleValueInput"
                 placeholderText: "0"
-                placeholderTextColor: Theme.textMuted
 
-                background: Rectangle {
-                    border.color: input.activeFocus ? Theme.accent : Theme.border
-                    border.width: input.activeFocus ? 2 : Theme.borderWidth
-                    color: Theme.surfaceMuted
-                    radius: Theme.radiusMd
-                }
+                focusBorderWidth: 2
                 validator: DoubleValidator {
                     bottom: 0
                     decimals: 2

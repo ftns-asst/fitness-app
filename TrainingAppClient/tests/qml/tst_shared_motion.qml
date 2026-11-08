@@ -24,7 +24,16 @@ TestCase {
 
         AppComboBox {
             width: 280
-            model: [{id: "one", title: "One"}, {id: "two", title: "Two"}]
+            model: [
+                {
+                    id: "one",
+                    title: "One"
+                },
+                {
+                    id: "two",
+                    title: "Two"
+                }
+            ]
         }
     }
     Component {

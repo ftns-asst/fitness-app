@@ -3,3 +3,6 @@
 *.sh text eol=lf
 .githooks/* text eol=lf
 *.yml text eol=lf
+
+# qmlformat checks compare bytes on desktop and Linux CI.
+*.qml text eol=lf

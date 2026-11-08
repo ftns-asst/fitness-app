@@ -2,10 +2,7 @@ import QtQuick
 import QtTest
 import TrainingAppClient 1.0
 
-// Фильтры каталога упражнений (ExercisesPage): группы мышц и инвентарь —
-// multi-выбор. Тап по чипу переключает ключ в наборе и отправляет в
-// ViewModel весь набор; чип «Все» (индекс 0) набор очищает и активен, пока
-// набор пуст.
+// Каталог: разделы, поиск фильтров, черновик множественного выбора и применение.
 TestCase {
     id: testCase
 
@@ -26,9 +23,21 @@ TestCase {
         property string errorKey: ""
         property bool canLoadMore: false
         property int loadMoreCalls: 0
+        property string lastType: "all"
+        property int filterCalls: 0
         property var lastGroups: []
         property var lastEquipments: []
 
+        function setCatalogType(value) {
+            lastType = value;
+            return true;
+        }
+        function setFilters(groups, equipment) {
+            lastGroups = groups;
+            lastEquipments = equipment;
+            ++filterCalls;
+            return true;
+        }
         function reload() {
             return true;
         }
@@ -65,6 +74,8 @@ TestCase {
         catalogStub.canLoadMore = false;
         catalogStub.loading = false;
         catalogStub.loadMoreCalls = 0;
+        catalogStub.lastType = "all";
+        catalogStub.filterCalls = 0;
         catalogStub.lastGroups = [];
         catalogStub.lastEquipments = [];
         page = createTemporaryObject(pageComponent, testCase, {
@@ -132,37 +143,62 @@ TestCase {
         grid.positionViewAtEnd();
         tryCompare(catalogStub, "loadMoreCalls", 1);
     }
-    function test_groupsAreMultiSelect() {
-        const chips = chipsNamed("muscleGroupChips");
-
-        compare(chips.selectedIndices, [0]);
-
-        chips.selected(1);
-        chips.selected(3);
-        compare(catalogStub.lastGroups, ["chest", "back"]);
-        compare(chips.selectedIndices, [1, 3]);
-
-        chips.selected(1);
-        compare(catalogStub.lastGroups, ["back"]);
+    function test_sectionsChangeServerSelection() {
+        const sections = findChild(page, "exerciseCatalogSections");
+        verify(sections !== null);
+        sections.selected(1);
+        compare(catalogStub.lastType, "own");
+        sections.selected(2);
+        compare(catalogStub.lastType, "public");
+        sections.selected(0);
+        compare(catalogStub.lastType, "all");
     }
-
-    function test_allChipClearsSet() {
-        const chips = chipsNamed("muscleGroupChips");
-
-        chips.selected(2);
-        chips.selected(0);
+    function test_filterDraftAppliesOnceAndCancelDiscardsChanges() {
+        page.openFilters();
+        page.filterPopup.toggleDraft("group", "chest");
+        page.filterPopup.toggleDraft("equipment", "dumbbell");
         compare(catalogStub.lastGroups, []);
-        compare(chips.selectedIndices, [0]);
+        page.filterPopup.close();
+        page.openFilters();
+        compare(page.filterPopup.draftGroups, []);
+        page.filterPopup.toggleDraft("group", "back");
+        page.filterPopup.toggleDraft("group", "chest");
+        page.filterPopup.toggleDraft("equipment", "barbell");
+        page.filterPopup.apply();
+        compare(catalogStub.lastGroups, ["back", "chest"]);
+        compare(catalogStub.lastEquipments, ["barbell"]);
+        compare(catalogStub.filterCalls, 1);
     }
-
-    function test_equipmentFilterIsIndependent() {
-        const groups = chipsNamed("muscleGroupChips");
-        const equipment = chipsNamed("equipmentChips");
-
-        groups.selected(1);
-        equipment.selected(2);
-        compare(catalogStub.lastGroups, ["chest"]);
-        compare(catalogStub.lastEquipments, ["dumbbell"]);
-        compare(equipment.selectedIndices, [2]);
+    function test_filterSearchAndReset() {
+        page.openFilters();
+        page.filterPopup.query = "гант";
+        compare(page.filterPopup.filterKeys("equipment"), ["dumbbell"]);
+        compare(page.filterPopup.filterKeys("group"), []);
+        page.filterPopup.query = "";
+        page.filterPopup.toggleDraft("group", "chest");
+        page.filterPopup.apply();
+        compare(page.activeFilterCount, 1);
+        page.clearFilters();
+        compare(page.activeFilterCount, 0);
+        compare(catalogStub.lastGroups, []);
+    }
+    function test_equipmentSectionIsOneTapAway() {
+        page.openFilters();
+        const sections = findChild(page.filterPopup.contentItem, "exerciseFilterSections");
+        verify(sections !== null);
+        sections.selected(1);
+        compare(page.filterPopup.kind, "equipment");
+        verify(findChild(page.filterPopup.contentItem, "exerciseFilter_equipment_barbell") !== null);
+        verify(findChild(page.filterPopup.contentItem, "exerciseFilter_group_chest") === null);
+    }
+    function test_openSheetIsDestroyedWithPage() {
+        page.openFilters();
+        const popup = page.filterPopup;
+        verify(Qt.isQtObject(popup));
+        page.destroy();
+        page = null;
+        tryVerify(function () {
+            return !Qt.isQtObject(popup);
+        });
     }
 }

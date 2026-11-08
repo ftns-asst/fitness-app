@@ -151,4 +151,18 @@ TestCase {
         stepper.change(-1);
         compare(editedSpy.count, 0, "степпер вышел за нижнюю границу");
     }
+    function test_ruleMarkKeepsQuickToggleAndVerdictStates() {
+        const tile = createTemporaryObject(tileComponent, testCase);
+        const mark = findChild(tile, "selectionMark");
+        verify(mark !== null);
+        toggledSpy.target = tile;
+        toggledSpy.clear();
+        findChild(tile, "tileMark").clicked(null);
+        compare(toggledSpy.count, 1);
+        tile.checkinState = "done";
+        verify(mark.checked);
+        tile.checkinState = "failed";
+        verify(!mark.checked);
+        verify(mark.failed);
+    }
 }

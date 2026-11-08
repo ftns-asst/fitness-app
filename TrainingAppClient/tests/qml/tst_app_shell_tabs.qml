@@ -37,6 +37,10 @@ TestCase {
         property bool fromCache: false
         property bool canLoadMore: false
         property string errorKey: ""
+        function setCatalogType(value) {
+        }
+        function setFilters(groups, equipment) {
+        }
         function reload() {
         }
         function loadCatalogs() {
@@ -93,8 +97,16 @@ TestCase {
     }
 
     function test_overviewSelectedProgramContext_data() {
-        return [{ tag: "rules", signal: "rulesRequested" },
-                { tag: "stats", signal: "statsRequested" }];
+        return [
+            {
+                tag: "rules",
+                signal: "rulesRequested"
+            },
+            {
+                tag: "stats",
+                signal: "statsRequested"
+            }
+        ];
     }
 
     function test_overviewSelectedProgramContext(data) {
@@ -116,8 +128,16 @@ TestCase {
     }
 
     function test_activeProgramRouteRestoresEmptyContext_data() {
-        return [{ tag: "rules", open: "openProgramRules" },
-                { tag: "stats", open: "openProgramStats" }];
+        return [
+            {
+                tag: "rules",
+                open: "openProgramRules"
+            },
+            {
+                tag: "stats",
+                open: "openProgramStats"
+            }
+        ];
     }
 
     function test_activeProgramRouteRestoresEmptyContext(data) {
@@ -180,18 +200,19 @@ TestCase {
         compare(shell.pushedDepth, 2);
         compare(shell.stackBusy, false);
     }
-    function test_horizontalFilterScrollDoesNotChangeTab() {
+    function test_filterSheetGesturesDoNotChangeTab() {
         shell.showTab(3);
         const view = findChild(shell, "mainSwipeView");
         view.currentItem.viewModel = swipeCatalog;
         tryVerify(() => Math.abs(view.contentItem.contentX - 3 * view.width) < 1);
-        waitForRendering(view);
-        const chips = findChild(view.currentItem, "muscleGroupChips");
-        verify(chips !== null);
-        const flick = chips.children[0];
-        mouseDrag(chips, chips.width - 25, chips.height / 2, -220, 0);
-        tryVerify(() => flick.contentX > 0);
+        view.currentItem.openFilters();
+        const popup = view.currentItem.filterPopup;
+        tryCompare(popup, "opened", true);
+        mouseDrag(popup.contentItem, popup.width - 40, popup.height / 2, -160, 0);
         compare(shell.currentTab, 3);
+        verify(popup.visible);
+        popup.close();
+        tryCompare(popup, "visible", false);
     }
     // Дневник — вкладка, а не экран поверх: диагностический переход приводит
     // на неё же и не увеличивает глубину стека.

@@ -62,7 +62,6 @@ TestCase {
         compare(createdObject.labelText(), "Нет отметки");
     }
 
-
     // Ввод веса с главной убран: «В фокусе» только читает модель, а изменение
     // живёт в дневнике — два места записи одного факта расходились.
     function test_todayFocusReadsWeightWithoutInput() {

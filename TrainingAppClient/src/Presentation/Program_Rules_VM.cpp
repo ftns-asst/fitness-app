@@ -130,8 +130,7 @@ bool Avm_Program_Rules::Load_Program_Id(const QString &in_user_id, const QString
 	if (Program_Repository_Instance == 0)
 		return false;
 
-	if (Program_Id_Text.isEmpty() &&
-	    !Program_Repository_Instance->Get_Active_Program_Id(in_user_id, Program_Id_Text))
+	if (Program_Id_Text.isEmpty() && !Program_Repository_Instance->Get_Active_Program_Id(in_user_id, Program_Id_Text))
 		return false;
 
 	return Refresh_Program_State();
@@ -142,8 +141,7 @@ bool Avm_Program_Rules::Refresh_Program_State()
 	SProgram program;
 
 	if (Program_Repository_Instance == 0 || Program_Id_Text.isEmpty() ||
-	    !Program_Repository_Instance->Load_Program(Program_Id_Text, program) ||
-	    program.User_Id != User_Id_Text)
+	    !Program_Repository_Instance->Load_Program(Program_Id_Text, program) || program.User_Id != User_Id_Text)
 		return false;
 
 	Program_State = program.State;

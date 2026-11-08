@@ -140,8 +140,9 @@ bool AExercises_Repository::Load_Cached_List(QVector<SExercises_Item> &out_items
 	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
-	query.prepare("SELECT id, name, description, owner_id, is_own, muscle_groups, equipment FROM exercises_cache "
-	              "ORDER BY name");
+	query.prepare(
+	    "SELECT id, name, description, owner_id, is_own, muscle_groups, equipment, is_public FROM exercises_cache "
+	    "ORDER BY name");
 
 	if (!query.exec())
 	{
@@ -160,6 +161,7 @@ bool AExercises_Repository::Load_Cached_List(QVector<SExercises_Item> &out_items
 		item.Has_Owner = !item.Owner_ID.isEmpty();
 		item.Muscle_Groups = query.value(5).toString().split(',', Qt::SkipEmptyParts);
 		item.Equipment = query.value(6).toString().split(',', Qt::SkipEmptyParts);
+		item.Is_Public = query.value(7).toBool();
 
 		out_items.append(item);
 	}
@@ -176,7 +178,7 @@ bool AExercises_Repository::Load_Cached_One(const QString &in_exercise_id, SExer
 	if (Database_Instance == 0 || !Database_Instance->Is_Open() || in_exercise_id.isEmpty())
 		return false;
 
-	query.prepare("SELECT id, name, description, owner_id, muscle_groups, equipment FROM exercises_cache "
+	query.prepare("SELECT id, name, description, owner_id, muscle_groups, equipment, is_public FROM exercises_cache "
 	              "WHERE id = ?");
 	query.addBindValue(in_exercise_id);
 
@@ -190,6 +192,7 @@ bool AExercises_Repository::Load_Cached_One(const QString &in_exercise_id, SExer
 	out_item.Has_Owner = !out_item.Owner_ID.isEmpty();
 	out_item.Muscle_Groups = query.value(4).toString().split(',', Qt::SkipEmptyParts);
 	out_item.Equipment = query.value(5).toString().split(',', Qt::SkipEmptyParts);
+	out_item.Is_Public = query.value(6).toBool();
 
 	return true;
 }
@@ -755,11 +758,12 @@ bool AExercises_Repository::Persist_List(const QVector<SExercises_Item> &in_item
 		const SExercises_Item &item = in_items.at(i);
 		bool is_own = item.Has_Owner && item.Owner_ID == user_id;
 
-		query.prepare("INSERT INTO exercises_cache(id, name, description, owner_id, is_own, muscle_groups, "
-		              "equipment, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?) "
-		              "ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description, "
-		              "owner_id = excluded.owner_id, is_own = excluded.is_own, muscle_groups = excluded.muscle_groups, "
-		              "equipment = excluded.equipment, updated_at = excluded.updated_at");
+		query.prepare(
+		    "INSERT INTO exercises_cache(id, name, description, owner_id, is_own, muscle_groups, "
+		    "equipment, updated_at, is_public) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) "
+		    "ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description, "
+		    "owner_id = excluded.owner_id, is_own = excluded.is_own, muscle_groups = excluded.muscle_groups, "
+		    "equipment = excluded.equipment, updated_at = excluded.updated_at, is_public = excluded.is_public");
 		query.addBindValue(item.ID);
 		query.addBindValue(item.Name);
 		query.addBindValue(item.Description);
@@ -768,6 +772,7 @@ bool AExercises_Repository::Persist_List(const QVector<SExercises_Item> &in_item
 		query.addBindValue(Joined_List(item.Muscle_Groups));
 		query.addBindValue(Joined_List(item.Equipment));
 		query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+		query.addBindValue(item.Is_Public ? 1 : 0);
 
 		if (!query.exec())
 		{

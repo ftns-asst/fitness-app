@@ -199,6 +199,6 @@ private:
 	AsAuth_Session *Session_Instance;
 	AExercises_Api *Exercises_Api_Instance;
 	QHash<int, SPending_Call> Pending_Calls; // request id → вид запроса
-	AError_State Error_State; // без категории: ошибки API уже залогированы самим API
+	AError_State Error_State;                // без категории: ошибки API уже залогированы самим API
 };
 //-------------------------------------------------------------------------------------------------------------

@@ -96,6 +96,19 @@ bool Avm_Exercises::Start_Load(int in_offset)
 	if (Repository_Instance == 0)
 		return false;
 
+	// Гостевые свои упражнения существуют только локально: type=own требует токен.
+	if (Catalog_Type == "own" && !Repository_Instance->Has_Session())
+	{
+		Current_Request_Id = 0;
+		Loading_Flag = false;
+		Error_Key_Text.clear();
+		Has_All_Rows = true;
+		Selection_Changed = false;
+		Show_Cache();
+		emit stateChanged();
+		return true;
+	}
+
 	// Кэш нужен при открытии и смене фильтров. При обновлении той же выборки
 	// оставляем видимые строки: кэш может иметь другой порядок и локальные id.
 	if (in_offset == 0 && (Selection_Changed || Exercise_List->Row_Count() == 0))
@@ -108,8 +121,8 @@ bool Avm_Exercises::Start_Load(int in_offset)
 	// Отмена не нужна: устаревший ответ игнорируется по идентификатору, а
 	// загрузка страницы (offset > 0) не мешает новому reload — их ответы
 	// расходятся по Current_Request_Id.
-	request_id =
-	    Repository_Instance->Load_List("all", Muscle_Group_Filter, Equipment_Filter, Query_Text, Page_Size, in_offset);
+	request_id = Repository_Instance->Load_List(Catalog_Type, Muscle_Group_Filter, Equipment_Filter, Query_Text,
+	                                            Page_Size, in_offset);
 
 	if (request_id == 0)
 		return false;
@@ -158,26 +171,33 @@ void Avm_Exercises::setQuery(const QString &in_query)
 	Debounce_Timer->start();
 }
 //-------------------------------------------------------------------------------------------------------------
+bool Avm_Exercises::setCatalogType(const QString &in_type)
+{
+	if ((in_type != "all" && in_type != "own" && in_type != "public") || Catalog_Type == in_type)
+		return false;
+	Catalog_Type = in_type;
+	Selection_Changed = true;
+	return reload();
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Exercises::setFilters(const QStringList &in_groups, const QStringList &in_equipments)
+{
+	if (Muscle_Group_Filter == in_groups && Equipment_Filter == in_equipments)
+		return false;
+	Muscle_Group_Filter = in_groups;
+	Equipment_Filter = in_equipments;
+	Selection_Changed = true;
+	return reload();
+}
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises::setMuscleGroups(const QStringList &in_groups)
 {
-	if (Muscle_Group_Filter == in_groups)
-		return false;
-
-	Muscle_Group_Filter = in_groups;
-	Selection_Changed = true;
-
-	return reload();
+	return setFilters(in_groups, Equipment_Filter);
 }
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises::setEquipments(const QStringList &in_equipments)
 {
-	if (Equipment_Filter == in_equipments)
-		return false;
-
-	Equipment_Filter = in_equipments;
-	Selection_Changed = true;
-
-	return reload();
+	return setFilters(Muscle_Group_Filter, in_equipments);
 }
 //-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises::loadCatalogs()
@@ -262,23 +282,30 @@ void Avm_Exercises::Show_Cache()
 bool Avm_Exercises::Matches_Filters(const SExercises_Item &in_item) const
 {
 	const QString query = Query_Text.trimmed();
+	bool matches_group = Muscle_Group_Filter.isEmpty();
+	bool matches_equipment = Equipment_Filter.isEmpty();
+	if (Catalog_Type == "public" && !in_item.Is_Public)
+		return false;
+	if (Catalog_Type == "own" && Repository_Instance != 0 && !Repository_Instance->Is_Own_Owner(in_item.Owner_ID) &&
+	    !(!Repository_Instance->Has_Session() && in_item.Owner_ID == AExercises_Repository::Local_Owner_Id()))
+		return false;
 
 	if (!query.isEmpty() && !in_item.Name.contains(query, Qt::CaseInsensitive))
 		return false;
 
 	for (int i = 0; i < Muscle_Group_Filter.size(); ++i)
 	{
-		if (!in_item.Muscle_Groups.contains(Muscle_Group_Filter.at(i)))
-			return false;
+		if (in_item.Muscle_Groups.contains(Muscle_Group_Filter.at(i)))
+			matches_group = true;
 	}
 
 	for (int i = 0; i < Equipment_Filter.size(); ++i)
 	{
-		if (!in_item.Equipment.contains(Equipment_Filter.at(i)))
-			return false;
+		if (in_item.Equipment.contains(Equipment_Filter.at(i)))
+			matches_equipment = true;
 	}
 
-	return true;
+	return matches_group && matches_equipment;
 }
 //-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises::on_Debounce_Timeout()
@@ -292,8 +319,10 @@ void Avm_Exercises::on_Debounce_Timeout()
 // Перечитывание делает вызывающий reload().
 bool Avm_Exercises::resetFilters()
 {
-	const bool had_filters = !Query_Text.isEmpty() || !Muscle_Group_Filter.isEmpty() || !Equipment_Filter.isEmpty();
+	const bool had_filters =
+	    !Query_Text.isEmpty() || !Muscle_Group_Filter.isEmpty() || !Equipment_Filter.isEmpty() || Catalog_Type != "all";
 
+	Catalog_Type = "all";
 	Query_Text.clear();
 	Muscle_Group_Filter.clear();
 	Equipment_Filter.clear();

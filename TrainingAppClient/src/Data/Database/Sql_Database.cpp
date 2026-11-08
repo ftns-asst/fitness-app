@@ -209,6 +209,14 @@ bool AsSql_Database::Migrate()
 		return false;
 	}
 
+	// v12: сервер возвращает is_public; кэш сохраняет раздел «Сообщество» офлайн.
+	if (version < 12 && (!Add_Column_If_Missing("exercises_cache", "is_public", "INTEGER NOT NULL DEFAULT 0") ||
+	                     !Write_Schema_Version(12)))
+	{
+		Database_Handle->rollback();
+		return false;
+	}
+
 	// Каталог упражнений проверяется при каждом открытии, а не только при
 	// создании схемы: базы, созданные до появления каталога, остались бы с
 	// пустой exercises, и создание любой программы молча отвергалось бы FK.
@@ -281,7 +289,7 @@ int AsSql_Database::Get_Current_Schema_Version()
 	// замера в целях. CHECK ключа не ALTER'ится, поэтому goal_targets
 	// пересоздаётся с переносом строк (приём v7 to v8).
 	// v11 — заметки дневника: отдельная запись на пользователя и дату (T3).
-	return 11;
+	return 12;
 }
 //-------------------------------------------------------------------------------------------------------------
 bool AsSql_Database::Ensure_Directory(const QString &in_path)

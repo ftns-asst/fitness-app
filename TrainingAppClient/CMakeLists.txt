@@ -165,6 +165,7 @@ set_source_files_properties(
     qml/Mock/MockTokenStore.qml
     qml/Presentation/AuthViewModel.qml
     qml/Presentation/ExerciseTexts.qml
+    qml/Presentation/RuleTexts.qml
     qml/Presentation/MeasurementTexts.qml
     qml/Presentation/PlansViewModel.qml
     qml/Presentation/ProfileViewModel.qml
@@ -220,6 +221,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Presentation/AuthFormController.qml
         qml/Presentation/AuthViewModel.qml
         qml/Presentation/ExerciseTexts.qml
+        qml/Presentation/RuleTexts.qml
         qml/Presentation/MeasurementTexts.qml
         qml/Presentation/PlansViewModel.qml
         qml/Presentation/ProfileViewModel.qml
@@ -230,6 +232,9 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/DisclosureCard.qml
         qml/Components/ProgramWeekStrip.qml
         qml/Components/AppIcon.qml
+        qml/Components/ExerciseAttributeCard.qml
+        qml/Components/AppInput.qml
+        qml/Components/ExerciseFiltersPopup.qml
         qml/Components/AppTextField.qml
         qml/Components/AppTextArea.qml
         qml/Components/AppearanceCard.qml
@@ -239,6 +244,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/CatalogExerciseRow.qml
         qml/Components/CatalogExerciseTile.qml
         qml/Components/CompactStepper.qml
+        qml/Components/SelectionMark.qml
         qml/Components/RuleTile.qml
         qml/Components/RuleValuePopup.qml
         qml/Components/ShiftButton.qml

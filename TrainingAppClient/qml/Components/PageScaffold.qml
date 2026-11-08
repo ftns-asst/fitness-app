@@ -25,7 +25,7 @@ Rectangle {
     property string profileInitials: ""
     property bool profileActionVisible: false
 
-    signal profileActionRequested()
+    signal profileActionRequested
     property bool pageActive: visible
     default property alias content: bodyColumn.data
     // Содержимое закреплённой нижней панели: страница задаёт его как

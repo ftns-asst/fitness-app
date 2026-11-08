@@ -1,7 +1,7 @@
 ﻿#include "Data/Auth/Auth_Session.h"
 #include "Data/Auth/Token_Store.h"
-#include "Data/Exercises/Exercises_Repository.h"
 #include "Data/Database/Sql_Database.h"
+#include "Data/Exercises/Exercises_Repository.h"
 #include "Data/Network/Http_Client.h"
 #include "Data/Program/Measurement_Repository.h"
 #include "Data/Program/Program_Repository.h"

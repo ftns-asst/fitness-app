@@ -175,16 +175,7 @@ PageScaffold {
         return page.verdicts[verdict] || page.verdicts.unknown;
     }
     function unitLabel(unit) {
-        const labels = {
-            g: qsTr("г"),
-            gPerKg: qsTr("г/кг"),
-            kg: qsTr("кг"),
-            kcal: qsTr("ккал"),
-            ml: qsTr("мл"),
-            hours: qsTr("ч"),
-            rpe: "RPE"
-        };
-        return labels[unit] !== undefined ? labels[unit] : unit;
+        return RuleTexts.unitLabel(unit, unit);
     }
     function dateTitle(date) {
         const value = Date.fromLocaleString(Qt.locale("en_US"), date, "yyyy-MM-dd");
@@ -1264,12 +1255,6 @@ PageScaffold {
         padding: Spacing.cardPadding
         modal: true
         dim: true
-        background: Rectangle {
-            color: Theme.surface
-            border.color: Theme.border
-            border.width: Theme.borderWidth
-            radius: Theme.radiusLg
-        }
         contentItem: ColumnLayout {
             spacing: Spacing.itemGap
             SwipeDismissHandle {
@@ -1300,24 +1285,17 @@ PageScaffold {
                 color: Theme.textSecondary
                 wrapMode: Text.WordWrap
             }
-            TextField {
+            AppInput {
                 id: numberInput
 
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 objectName: "diaryNumberInput"
                 inputMethodHints: Qt.ImhFormattedNumbersOnly
-                font: Typography.body
-                color: Theme.textPrimary
                 selectByMouse: true
                 padding: Spacing.cardPadding
                 placeholderText: numberPopup.isWeight ? qsTr("Например, 75,5") : qsTr("Введите значение")
-                background: Rectangle {
-                    color: Theme.surfaceMuted
-                    radius: Theme.radiusMd
-                    border.width: Theme.borderWidth
-                    border.color: numberInput.activeFocus ? Theme.accent : Theme.border
-                }
+
                 onAccepted: {
                     if (numberPopup.validNumber)
                         numberSave.clicked();
@@ -1413,12 +1391,6 @@ PageScaffold {
             validationError = "";
         }
         onClosed: Qt.inputMethod.hide()
-        background: Rectangle {
-            color: Theme.surface
-            border.color: Theme.border
-            border.width: Theme.borderWidth
-            radius: Theme.radiusLg
-        }
         contentItem: ColumnLayout {
             spacing: Spacing.itemGap
             SwipeDismissHandle {
@@ -1508,13 +1480,12 @@ PageScaffold {
                                 color: Theme.textSecondary
                                 wrapMode: Text.WordWrap
                             }
-                            TextField {
+                            AppInput {
                                 id: measurementInput
                                 objectName: "diaryMeasurementInput_" + measurementField.key
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
                                 Layout.preferredHeight: measurementField.isWeight ? Theme.buttonPrimary : Theme.touchMin
-                                color: Theme.textPrimary
                                 font: Typography.bodyStrong
                                 inputMethodHints: Qt.ImhFormattedNumbersOnly
                                 padding: Spacing.listGap
@@ -1524,12 +1495,7 @@ PageScaffold {
                                 text: measurementPopup.values[measurementField.key] !== undefined ? String(measurementPopup.values[measurementField.key]) : ""
                                 EnterKey.type: measurementField.index + 1 < measurementRepeater.count ? Qt.EnterKeyNext : Qt.EnterKeyDone
                                 Accessible.name: MeasurementTexts.title(measurementField.key) + ", " + MeasurementTexts.unit(measurementField.key)
-                                background: Rectangle {
-                                    color: Theme.surfaceMuted
-                                    radius: Theme.radiusMd
-                                    border.width: Theme.borderWidth
-                                    border.color: measurementPopup.fieldErrors[measurementField.key] ? Theme.negative : measurementInput.activeFocus ? Theme.accent : Theme.border
-                                }
+                                invalid: Boolean(measurementPopup.fieldErrors[measurementField.key])
                                 Label {
                                     anchors.right: parent.right
                                     anchors.rightMargin: Spacing.listGap

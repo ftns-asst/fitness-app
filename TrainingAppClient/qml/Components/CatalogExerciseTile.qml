@@ -12,6 +12,7 @@ Item {
     property string photoUrl: ""
     // Выбранная плитка (окно выбора) подсвечивается акцентной рамкой.
     property bool selected: false
+    property real imageHeightRatio: 1.2
     property string title: ""
 
     signal clicked
@@ -54,7 +55,7 @@ Item {
         anchors.topMargin: Spacing.listGap
         clip: true
         color: Theme.surfaceMuted
-        height: Math.round(width * 1.2)
+        height: Math.round(width * tile.imageHeightRatio)
         radius: Theme.radiusMd
 
         Image {

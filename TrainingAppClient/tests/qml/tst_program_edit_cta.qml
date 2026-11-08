@@ -335,4 +335,17 @@ TestCase {
             goal = value;
         }
     }
+    function test_setupHintExplainsMissingTitle() {
+        programEditStub.title = "";
+        const hint = findChild(page, "programSetupHint");
+        verify(hint !== null);
+        verify(hint.text.toLowerCase().indexOf("название") >= 0);
+    }
+    function test_longSectionSummaryUsesFlexibleHeading() {
+        const card = findChild(page, "programEditRules");
+        card.summary = "Длинное описание правил программы ".repeat(12);
+        const heading = findChild(card, "disclosureHeading");
+        verify(heading !== null);
+        verify(heading.implicitWidth <= card.width);
+    }
 }

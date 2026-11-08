@@ -508,11 +508,9 @@ PageScaffold {
         onValueSaved: (ruleId, value) => page.saveRuleValue(ruleId, value)
     }
 
-
     // Имена дней недели в ISO-порядке 1…7 (§3.4): номер приходит из C++, а
     // название переводит разметка.
     readonly property var weekdayNames: [qsTr("Понедельник"), qsTr("Вторник"), qsTr("Среда"), qsTr("Четверг"), qsTr("Пятница"), qsTr("Суббота"), qsTr("Воскресенье")]
-
 
     // Сколько правил можно отметить вручную. Пересчитывается при изменении
     // модели: обращения к ней внутри функции QML не отслеживает, поэтому
@@ -598,17 +596,7 @@ PageScaffold {
 
     // Подпись единицы правила; значения приходят строкой из домена.
     function unitLabel(unit) {
-        const labels = {
-            g: qsTr("г"),
-            gPerKg: qsTr("г/кг"),
-            kg: qsTr("кг"),
-            kcal: qsTr("ккал"),
-            ml: qsTr("мл"),
-            hours: qsTr("ч"),
-            rpe: "RPE"
-        };
-
-        return labels[unit] !== undefined ? labels[unit] : "";
+        return RuleTexts.unitLabel(unit, "");
     }
 
     // Шаг кнопок «−/+» в окне ввода: калории по 50, вода по 100 мл — по
@@ -681,7 +669,6 @@ PageScaffold {
 
         return qsTr("Следующий замер — %1").arg(page.formatShortDate(next));
     }
-
 
     // Подпись hero: программа и её срок — то, что человек выбрал сам. Срок не
     // повторяется, если он уже в названии («Сила 8 недель · 8 недель» — то же

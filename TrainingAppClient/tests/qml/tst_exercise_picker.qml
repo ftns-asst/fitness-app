@@ -37,6 +37,16 @@ TestCase {
 
         property var exercise_list: catalogList
         property var muscleGroups: ["legs", "chest"]
+        property var equipments: ["barbell", "dumbbell"]
+        property int catalogLoads: 0
+        property string lastType: "all"
+        property var lastEquipment: []
+        function setCatalogType(type) {
+            lastType = type;
+        }
+        function setFilters(groups, equipment) {
+            lastEquipment = equipment;
+        }
         property bool loading: false
         property string errorKey: ""
         property bool canLoadMore: false
@@ -52,6 +62,7 @@ TestCase {
         function setMuscleGroups(g) {
         }
         function loadCatalogs() {
+            ++catalogLoads;
         }
         function resetFilters() {
         }
@@ -209,7 +220,7 @@ TestCase {
         compare(popup.pickedRepsMin, 12);
         compare(popup.pickedRepsMax, 12);
     }
-    function test_dragPrescriptionCollapsesOnlyParameters() {
+    function test_dragClosesPickerAndKeepsPrescription() {
         const oldWidth = testCase.Window.window.width;
         const oldHeight = testCase.Window.window.height;
         testCase.Window.window.width = 390;
@@ -222,7 +233,7 @@ TestCase {
         row.children[0].clicked();
         testCase.findByName(popup.contentItem, "exerciseRepsMin").edited(12);
         wait(250);
-        const grip = testCase.findByName(popup.contentItem, "exercisePrescriptionGrip");
+        const grip = testCase.findByName(popup.contentItem, "exercisePickerGrip");
         const surface = testCase.Window.window.contentItem;
         const start = grip.mapToItem(surface, grip.width / 2, grip.height / 2);
         mousePress(surface, start.x, start.y);
@@ -230,8 +241,9 @@ TestCase {
         mouseMove(surface, start.x, start.y + 50, 30);
         mouseMove(surface, start.x, start.y + 120, 30);
         mouseRelease(surface, start.x, start.y + 120);
-        compare(popup.expandedIndex, -1);
-        verify(popup.visible);
+        tryCompare(popup, "visible", false);
+        popup.open();
+        tryCompare(popup, "opened", true);
         row.children[0].clicked();
         compare(popup.pickedRepsMin, 12);
         compare(popup.pickedRepsMax, 12);
@@ -284,5 +296,51 @@ TestCase {
         }
     }
 
+    function test_selectionHasOwnScreenAndStableIdentity() {
+        const popup = page.exercisePickerItem;
+        popup.catalog = catalogStub;
+        popup.open();
+        tryCompare(popup, "opened", true);
+        popup.expandedIndex = 0;
+        verify(!findChild(popup.contentItem, "exercisePickerList").visible);
+        try {
+            catalogList.setProperty(0, "id", "different-exercise");
+            signalSpy.target = popup;
+            signalSpy.signalName = "picked";
+            signalSpy.clear();
+            findChild(popup.contentItem, "exercisePickerAdd").clicked();
+            compare(signalSpy.signalArguments[0][0], "builtin-squat");
+        } finally {
+            catalogList.setProperty(0, "id", "builtin-squat");
+        }
+    }
+    function test_catalogSectionsAndEquipmentFilters() {
+        const popup = page.exercisePickerItem;
+        popup.catalog = catalogStub;
+        popup.open();
+        tryCompare(popup, "opened", true);
+        const sections = findChild(popup.contentItem, "exercisePickerSections");
+        verify(sections !== null);
+        sections.selected(2);
+        compare(catalogStub.lastType, "public");
+        popup.openFilters();
+        popup.filtersPopup.toggleDraft("equipment", "dumbbell");
+        popup.filtersPopup.apply();
+        compare(catalogStub.lastEquipment, ["dumbbell"]);
+    }
+
+    function test_openingLoadsMissingEquipmentCatalog() {
+        const saved = catalogStub.equipments;
+        catalogStub.equipments = [];
+        catalogStub.catalogLoads = 0;
+        try {
+            const popup = page.exercisePickerItem;
+            popup.catalog = catalogStub;
+            popup.open();
+            compare(catalogStub.catalogLoads, 1);
+        } finally {
+            catalogStub.equipments = saved;
+        }
+    }
     name: "ExercisePicker"
 }

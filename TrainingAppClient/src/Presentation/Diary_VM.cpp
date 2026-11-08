@@ -16,7 +16,7 @@ constexpr int kPersonalWindowWeeks = 12;
 const char *const kDefaultMeasurementKeys[] = {"chest", "waist", "hip"};
 // Шаг дельты веса: «за 7 дней» — неделя, а не календарная неделя программы.
 constexpr int kWeightDeltaDays = 7;
-}
+} // namespace
 
 //-------------------------------------------------------------------------------------------------------------
 Avm_Diary::Avm_Diary(AProgram_Repository *in_programs, ARule_Repository *in_rules, AWorkout_Repository *in_workouts,
@@ -514,8 +514,8 @@ void Avm_Diary::Set_Rows(const QVector<SDay_Log> &in_days, const QVector<SDiary_
 		// Дельта к весу неделю назад: «−1,2 за 7 дней» из макета 13. Считается
 		// только когда оба замера есть — иначе подпись обещала бы динамику,
 		// которой нет.
-		const SBody_Measurement *week_ago = Find_Measurement(
-		    QDate::fromString(day.Date, Qt::ISODate).addDays(-kWeightDeltaDays).toString(Qt::ISODate));
+		const SBody_Measurement *week_ago =
+		    Find_Measurement(QDate::fromString(day.Date, Qt::ISODate).addDays(-kWeightDeltaDays).toString(Qt::ISODate));
 		if (day.Has_Weight && week_ago != 0 && week_ago->Has_Weight_Kg)
 		{
 			has_previous = true;
@@ -659,12 +659,14 @@ void Avm_Diary::Set_Session_Rows()
 	QVector<QVariantMap> rows;
 	QVector<SWorkout_Session> ordered(Loaded_Sessions);
 
-	std::sort(ordered.begin(), ordered.end(), [](const SWorkout_Session &a, const SWorkout_Session &b) {
-		if (a.Date != b.Date)
-			return a.Date > b.Date;
+	std::sort(ordered.begin(), ordered.end(),
+	          [](const SWorkout_Session &a, const SWorkout_Session &b)
+	          {
+		          if (a.Date != b.Date)
+			          return a.Date > b.Date;
 
-		return a.Completed_At > b.Completed_At;
-	});
+		          return a.Completed_At > b.Completed_At;
+	          });
 
 	// Черновики и отменённые сессии в историю не попадают: незавершённая тренировка
 	// — не результат, а отменённая — пропущенный день, а не занятие. Оба факта
@@ -712,7 +714,7 @@ QVariantMap Avm_Diary::Session_Row(const SWorkout_Session &in_session) const
 	// Соло-тренировка вне программы (пустой Program_Id, инвариант 18 §4) — тоже
 	// тренировка: подпись говорит об этом прямо, иначе строка была бы безымянной.
 	row.insert("title", title.isEmpty() ? (in_session.Program_Id.isEmpty() ? QStringLiteral("Свободная тренировка")
-	                                                                        : QStringLiteral("Тренировка по программе"))
+	                                                                       : QStringLiteral("Тренировка по программе"))
 	                                    : title);
 	row.insert("workoutState", To_String(in_session.State));
 	row.insert("minutes", in_session.Duration_Seconds > 0 ? in_session.Duration_Seconds / 60 : 0);

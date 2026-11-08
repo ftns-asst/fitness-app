@@ -51,6 +51,8 @@ PageScaffold {
 
     function showSection(index) {
         sectionIndex = Math.max(-1, Math.min(3, index));
+        if (sectionIndex >= 0)
+            sectionRevealTimer.restart();
     }
     function toggleSection(index) {
         showSection(sectionIndex === index ? -1 : index);
@@ -96,7 +98,7 @@ PageScaffold {
         onTriggered: page.pageFlickable.returnToBounds()
     }
     Timer {
-        id: errorRevealTimer
+        id: sectionRevealTimer
         interval: Theme.pageTransitionDuration
         onTriggered: {
             const cards = [basicsCard, weekCard, goalsCard, rulesCard];
@@ -120,8 +122,10 @@ PageScaffold {
     Connections {
         target: page.pageFlickable
         function onDraggingChanged() {
-            if (page.pageFlickable.dragging)
+            if (page.pageFlickable.dragging) {
                 revealScroll.stop();
+                sectionRevealTimer.stop();
+            }
         }
     }
     // Панель возврата обязательна: экраны программы открыты поверх вкладок, где
@@ -233,11 +237,18 @@ PageScaffold {
         page.initialiseUnsetFields();
     }
 
+    Label {
+        width: parent.width
+        text: qsTr("План тренировок")
+        font: Typography.caption
+        color: Theme.textSecondary
+        topPadding: Spacing.itemGap
+    }
     DisclosureCard {
         id: basicsCard
         objectName: "programEditBasics"
         width: parent.width
-        title: qsTr("Параметры")
+        title: qsTr("Название и срок")
         summary: (page.editingTitle.length > 0 ? page.editingTitle : qsTr("Без названия")) + " · " + page.weeks + " " + qsTr("нед.")
         iconName: "settings"
         expanded: page.sectionIndex === 0
@@ -347,7 +358,7 @@ PageScaffold {
         id: weekCard
         objectName: "programEditWeek"
         width: parent.width
-        title: qsTr("Моя неделя")
+        title: qsTr("Неделя и упражнения")
         summary: page.trainingDays > 0 ? qsTr("Тренировочных дней: %1 · отдыха: %2").arg(page.trainingDays).arg(7 - page.trainingDays) : qsTr("Все дни — отдых")
         iconName: "today"
         expanded: page.sectionIndex === 1
@@ -356,6 +367,7 @@ PageScaffold {
         onDoneRequested: page.collapseSection()
         preview: ProgramWeekStrip {
             width: parent.width
+            showCount: true
             daysModel: page.hasProgram ? page.viewModel.program_days : null
             onDayRequested: (weekday, kind) => page.dayRequested(weekday, kind)
         }
@@ -686,12 +698,6 @@ PageScaffold {
         dim: true
         padding: Spacing.listGap
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        background: Rectangle {
-            color: Theme.surface
-            radius: Theme.radiusLg
-            border.color: Theme.border
-            border.width: Theme.borderWidth
-        }
         contentItem: ColumnLayout {
             width: parent.width
             spacing: Spacing.itemGap
@@ -754,12 +760,22 @@ PageScaffold {
             }
         }
     }
+    function setupHint() {
+        if (page.editingTitle.trim().length === 0)
+            return qsTr("Добавьте название программы");
+        if (page.trainingDays === 0)
+            return qsTr("Настройте хотя бы один тренировочный день");
+        if (page.requiresGoal && page.goalCount === 0)
+            return qsTr("Задайте измеримую цель программы");
+        return page.canCreate ? (page.editing ? qsTr("Изменения готовы к сохранению") : qsTr("Программа готова к созданию")) : qsTr("Добавьте упражнения в тренировочные дни");
+    }
     footer: ColumnLayout {
         spacing: Spacing.itemGap
         Label {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            text: page.errorKey.length > 0 && page.errorSection < 0 ? page.errorText() : (page.trainingDays > 0 ? qsTr("%1 нед. · тренировочных дней: %2").arg(page.weeks).arg(page.trainingDays) : qsTr("Черновик программы"))
+            objectName: "programSetupHint"
+            text: page.errorKey.length > 0 && page.errorSection < 0 ? page.errorText() : page.setupHint()
             color: page.errorKey.length > 0 && page.errorSection < 0 ? Theme.negative : Theme.textSecondary
             font: Typography.caption
             wrapMode: Text.WordWrap
@@ -1032,7 +1048,7 @@ PageScaffold {
         if (page.viewModel.create(!page.editing || page.viewModel.isDraft === true) === false) {
             if (page.errorSection >= 0) {
                 page.showSection(page.errorSection);
-                errorRevealTimer.restart();
+                sectionRevealTimer.restart();
             }
             return;
         }
