@@ -470,3 +470,16 @@ func (s *AuthService) ResetPassword(ctx context.Context, newPassword string, res
 		},
 	}, nil
 }
+
+func (s *AuthService) AuthAdmin(ctx context.Context, data *model.AdminAuthInput) (string, error) {
+	if s.cfg.AdminAuthPassword != data.Password {
+		return "", model.ErrUnauthorized
+	}
+
+	token, err := jwtutil.GenAccessToken(uuid.New(), s.cfg.AdminTokenJWTSecretKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to gen admin token: %w", err)
+	}
+
+	return token.Token, nil
+}

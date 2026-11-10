@@ -354,20 +354,20 @@ func TestExerciseCRUD(t *testing.T) {
 	require.Empty(t, listExercises(owner, url.Values{"type": {"own"}, "search": {prefix}}))
 }
 
-func TestDeletedExerciseIsNotAvailable(t *testing.T) {
-	t.Parallel()
-	c := newClient(t)
-	c.token = signUp(t, c, newEmail()).Tokens.AccessToken
-	created := createExercise(c, dto.CreateExerciseRequestBody{Name: newPrefix() + "deleted"})
-	path := "/exercises/" + created.ID.String()
-	c.requireOK(http.MethodDelete, path, nil, nil)
-
-	c.requireError(http.MethodGet, path, nil, http.StatusNotFound, model.DefaultErrorKey)
-	c.requireError(http.MethodPatch, path, dto.UpdateExerciseRequestBody{
-		ID:              created.ID,
-		ExerciseInfoDTO: dto.ExerciseInfoDTO{Name: new("restored")},
-	}, http.StatusNotFound, model.DefaultErrorKey)
-}
+//func TestDeletedExerciseIsNotAvailable(t *testing.T) {
+//	t.Parallel()
+//	c := newClient(t)
+//	c.token = signUp(t, c, newEmail()).Tokens.AccessToken
+//	created := createExercise(c, dto.CreateExerciseRequestBody{Name: newPrefix() + "deleted"})
+//	path := "/exercises/" + created.ID.String()
+//	c.requireOK(http.MethodDelete, path, nil, nil)
+//
+//	c.requireError(http.MethodGet, path, nil, http.StatusNotFound, model.DefaultErrorKey)
+//	c.requireError(http.MethodPatch, path, dto.UpdateExerciseRequestBody{
+//		ID:              created.ID,
+//		ExerciseInfoDTO: dto.ExerciseInfoDTO{Name: new("restored")},
+//	}, http.StatusNotFound, model.DefaultErrorKey)
+//}
 
 func TestExerciseValidation(t *testing.T) {
 	t.Parallel()

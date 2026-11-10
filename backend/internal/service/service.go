@@ -6,6 +6,7 @@ import (
 	"ftns-asst/internal/repository"
 	"ftns-asst/internal/service/auth"
 	"ftns-asst/internal/service/exercise"
+	file_service "ftns-asst/internal/service/file"
 	"ftns-asst/internal/service/users"
 )
 
@@ -16,16 +17,19 @@ type Services struct {
 	userService     *users.UserService
 	authService     *auth.AuthService
 	exerciseService *exercise.ExerciseService
+	fileService     *file_service.FileService
 }
 
-func NewServices(cfg *config.Config, repositories repository.Repositories, mailer model.Mailer, transactor model.Transactor) *Services {
+func NewServices(cfg *config.Config, repositories repository.Repositories, mailer model.Mailer, transactor model.Transactor, storage file_service.FileStorage) *Services {
 	user := users.NewService(cfg, repositories.User(), transactor)
 	auth := auth.NewService(cfg, user, repositories.Auth(), mailer, transactor)
-	exercise := exercise.NewService(cfg, repositories.Exercise(), transactor)
+	file := file_service.NewService(cfg, repositories.File(), storage, transactor)
+	exercise := exercise.NewService(cfg, repositories.Exercise(), file, transactor)
 	return &Services{
 		userService:     user,
 		authService:     auth,
 		exerciseService: exercise,
+		fileService:     file,
 	}
 }
 
@@ -39,4 +43,8 @@ func (s *Services) Auth() *auth.AuthService {
 
 func (s *Services) Exercise() *exercise.ExerciseService {
 	return s.exerciseService
+}
+
+func (s *Services) File() *file_service.FileService {
+	return s.fileService
 }

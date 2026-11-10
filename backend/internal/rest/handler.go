@@ -34,10 +34,11 @@ func newHandlers(cfg *config.Config, services *service.Services) *Handlers {
 func (h *Handlers) RegisterRoutes(r *gin.RouterGroup) {
 	authMid := AuthMiddleware(h.cfg.AccessTokenJWTSecretKey)
 	optionalAuthMid := OptionalAuthMiddleware(h.cfg.AccessTokenJWTSecretKey)
+	adminAuthMid := AuthMiddleware(h.cfg.AdminTokenJWTSecretKey)
 
 	h.auth.RegisterRoutes(r)
 	h.user.RegisterRoutes(r, authMid)
-	h.exercise.RegisterRoutes(r, authMid, optionalAuthMid)
+	h.exercise.RegisterRoutes(r, authMid, optionalAuthMid, adminAuthMid)
 }
 
 type ErrorResponse struct {

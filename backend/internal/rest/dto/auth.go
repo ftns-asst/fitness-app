@@ -72,3 +72,7 @@ type ResetPasswordRequestBody struct {
 } //@Name ResetPasswordRequestBody
 
 type ResetPasswordResponse AuthResponseSuccess //@Name ResetPasswordResponse
+
+type AdminAuthRequestBody struct {
+	Password string `json:"password" binding:"required,min=8,max=64"`
+}

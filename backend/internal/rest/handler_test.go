@@ -21,7 +21,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testSecret = "access-secret"
+const (
+	testSecret      = "access-secret"
+	testAdminSecret = "admin-secret"
+)
 
 type deps struct {
 	auth     *MockAuthService
@@ -45,7 +48,7 @@ func newDeps(t *testing.T) *deps {
 func newRouter(d *deps) *gin.Engine {
 	r := gin.New()
 	h := &Handlers{
-		cfg:      &config.Config{AccessTokenJWTSecretKey: testSecret},
+		cfg:      &config.Config{AccessTokenJWTSecretKey: testSecret, AdminTokenJWTSecretKey: testAdminSecret},
 		auth:     NewAuthHandler(d.auth, d.user),
 		user:     NewUserHandler(d.user),
 		exercise: NewExerciseHandler(d.exercise),

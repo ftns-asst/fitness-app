@@ -15,6 +15,7 @@ type (
 		IsPublic     bool       `json:"is_public"`
 		MuscleGroups []string   `json:"muscle_groups"`
 		Equipment    []string   `json:"equipment"`
+		Media        *MediaDTO  `json:"media,omitempty"`
 		CreatedAt    time.Time  `json:"created_at"`
 	} // @Name Exercise
 	ExerciseInfoDTO struct {
@@ -35,6 +36,18 @@ type (
 		ID uuid.UUID `json:"id"`
 		ExerciseInfoDTO
 	} // @Name UpdateExerciseRequestBody
+	MediaDTO struct {
+		ID   uuid.UUID `json:"id"`
+		Type string    `json:"type"`
+		URL  string    `json:"url,omitempty"` // temporary url for downloading
+	} // @Name Media
+	UpdateExerciseMediaRequestBody struct {
+		MediaType string `json:"media_type" binding:"required,oneof=image video"`
+	} // @Name UpdateExerciseMediaRequestBody
+	UpdateExerciseMediaResponse struct {
+		Media     MediaDTO `json:"media"`
+		UploadURL string   `json:"upload_url"` // temporary url for uploading the file with PUT
+	} // @Name UpdateExerciseMediaResponse
 	ListExerciseQueryParams struct {
 		Type         string   `form:"type" binding:"required,oneof=own public basic all"`
 		MuscleGroups []string `form:"muscle_group"`

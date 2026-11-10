@@ -1,0 +1,17 @@
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.appHeader {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 12px;
+    border-bottom: 1px solid #ccc;
+}
+
+.appContent {
+    flex: 1;
+    min-height: 0;
+}

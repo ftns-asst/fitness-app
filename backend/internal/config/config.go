@@ -12,22 +12,38 @@ type Config struct {
 	ShutdownTimeout               time.Duration `env:"SERVER_GRACEFUL_SHUTDOWN_TIMEOUT" envDefault:"10s"`
 	AccessTokenJWTSecretKey       string        `env:"ACCESS_TOKEN_JWT_SECRET_KEY,required"`
 	RefreshTokenJWTSecretKey      string        `env:"REFRESH_TOKEN_JWT_SECRET_KEY,required"`
+	AdminTokenJWTSecretKey        string        `env:"ADMIN_TOKEN_JWT_SECRET_KEY,required"`
 	RefreshTokenHashSecretKey     string        `env:"REFRESH_TOKEN_HASH_SECRET,required"`
 	VerificationCodeHashSecretKey string        `env:"VERIFICATION_CODE_HASH_SECRET,required"`
 	ResetTokenHashSecretKey       string        `env:"RESET_TOKEN_HASH_SECERT,required"`
 	ExerciseCatalogPath           string        `env:"EXERCISE_CATALOG_PATH,required"`
+	AdminAuthPassword             string        `env:"ADMIN_PANEL_PASSWORD,required"`
 	postgres                      *PostgresConfig
 	smtp                          *util.SMTPConfig
+	minio                         *MinioConfig
 }
 
 func (c *Config) Postgres() *PostgresConfig {
 	return c.postgres
 }
 
+func (c *Config) Minio() *MinioConfig {
+	return c.minio
+}
+
 func (c *Config) SMTP() *util.SMTPConfig {
 	return c.smtp
 }
 
+type MinioConfig struct {
+	Endpoint       string `env:"MINIO_ENDPOINT,required"`
+	RootUser       string `env:"MINIO_ROOT_USER,required"`
+	RootPassword   string `env:"MINIO_ROOT_PASSWORD,required"`
+	BucketName     string `env:"MINIO_BUCKET,required"`
+	UseSSL         bool   `env:"MINIO_USE_SSL,required"`
+	PublicEndpoint string `env:"MINIO_PUBLIC_ENDPOINT"`
+	PublicUseSSL   bool   `env:"MINIO_PUBLIC_USE_SSL"`
+}
 type PostgresConfig struct {
 	Host     string `env:"POSTGRES_HOST,required"`
 	Port     string `env:"POSTGRES_PORT,required"`
@@ -47,5 +63,6 @@ func MustRead() *Config {
 	cfg := util.Ptr(util.MustReadFromEnv[Config]())
 	cfg.postgres = util.Ptr(util.MustReadFromEnv[PostgresConfig]())
 	cfg.smtp = util.Ptr(util.MustReadFromEnv[util.SMTPConfig]())
+	cfg.minio = util.Ptr(util.MustReadFromEnv[MinioConfig]())
 	return cfg
 }

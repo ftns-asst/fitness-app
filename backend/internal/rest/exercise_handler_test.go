@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"fmt"
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/rest/dto"
@@ -430,6 +431,116 @@ func TestDeleteExerciseHandler(t *testing.T) {
 			Token: token,
 			Setup: func(d *deps) {
 				d.exercise.EXPECT().DeleteExercise(mock.Anything, userID, exerciseID).Return(model.ErrNotFound)
+			},
+			CodeExpected: http.StatusNotFound,
+			KeyExpected:  model.DefaultErrorKey,
+		},
+	})
+}
+
+func TestUpdateExerciseMediaHandler(t *testing.T) {
+	t.Parallel()
+	token := genAccessToken(t, uuid.New(), testAdminSecret)
+	exerciseID := uuid.New()
+	path := "/api/v1/admin/exercise/" + exerciseID.String() + "/media"
+	body := dto.UpdateExerciseMediaRequestBody{MediaType: "image"}
+	media := &model.Media{ID: uuid.New(), Type: model.MediaTypeImage, ObjectKey: "a"}
+
+	runUserHandlerTests(t, http.MethodPut, []userHandlerTest{
+		{
+			Name:         "no token",
+			Path:         path,
+			Body:         body,
+			CodeExpected: http.StatusUnauthorized,
+			KeyExpected:  model.AuthErrorInvalidTokenKey,
+		},
+		{
+			Name:         "invalid id",
+			Path:         "/api/v1/admin/exercise/123/media",
+			Body:         body,
+			Token:        token,
+			CodeExpected: http.StatusBadRequest,
+			KeyExpected:  model.DefaultErrorKey,
+		},
+		{
+			Name:         "invalid media type",
+			Path:         path,
+			Body:         dto.UpdateExerciseMediaRequestBody{MediaType: "audio"},
+			Token:        token,
+			CodeExpected: http.StatusBadRequest,
+			KeyExpected:  model.DefaultErrorKey,
+		},
+		{
+			Name:  "success",
+			Path:  path,
+			Body:  body,
+			Token: token,
+			Setup: func(d *deps) {
+				d.exercise.EXPECT().UpdateMedia(mock.Anything, exerciseID, model.MediaTypeImage).
+					Return(media, "http://put", nil)
+			},
+			CodeExpected: http.StatusOK,
+			Check: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var res dto.UpdateExerciseMediaResponse
+				require.NoError(t, json.Unmarshal(w.Body.Bytes(), &res))
+				require.Equal(t, media.ID, res.Media.ID)
+				require.Equal(t, "image", res.Media.Type)
+				require.Equal(t, "http://put", res.UploadURL)
+			},
+		},
+		{
+			Name:  "not found",
+			Path:  path,
+			Body:  body,
+			Token: token,
+			Setup: func(d *deps) {
+				d.exercise.EXPECT().UpdateMedia(mock.Anything, exerciseID, model.MediaTypeImage).
+					Return(nil, "", model.ErrNotFound)
+			},
+			CodeExpected: http.StatusNotFound,
+			KeyExpected:  model.DefaultErrorKey,
+		},
+	})
+}
+
+func TestDeleteExerciseMediaHandler(t *testing.T) {
+	t.Parallel()
+	token := genAccessToken(t, uuid.New(), testAdminSecret)
+	exerciseID := uuid.New()
+	path := "/api/v1/admin/exercise/" + exerciseID.String() + "/media"
+
+	runUserHandlerTests(t, http.MethodDelete, []userHandlerTest{
+		{
+			Name:         "no token",
+			Path:         path,
+			CodeExpected: http.StatusUnauthorized,
+			KeyExpected:  model.AuthErrorInvalidTokenKey,
+		},
+		{
+			Name:         "invalid id",
+			Path:         "/api/v1/admin/exercise/123/media",
+			Token:        token,
+			CodeExpected: http.StatusBadRequest,
+			KeyExpected:  model.DefaultErrorKey,
+		},
+		{
+			Name:  "success",
+			Path:  path,
+			Token: token,
+			Setup: func(d *deps) {
+				d.exercise.EXPECT().DeleteMedia(mock.Anything, exerciseID).Return(nil)
+			},
+			CodeExpected: http.StatusOK,
+			Check: func(t *testing.T, w *httptest.ResponseRecorder) {
+				require.Empty(t, w.Body.String())
+			},
+		},
+		{
+			Name:  "not found",
+			Path:  path,
+			Token: token,
+			Setup: func(d *deps) {
+				d.exercise.EXPECT().DeleteMedia(mock.Anything, exerciseID).Return(model.ErrNotFound)
 			},
 			CodeExpected: http.StatusNotFound,
 			KeyExpected:  model.DefaultErrorKey,

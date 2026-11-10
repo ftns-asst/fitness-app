@@ -22,7 +22,7 @@ func NewExerciseHandler(exerciseService ExerciseService) *ExerciseHandler {
 	}
 }
 
-func (h *ExerciseHandler) RegisterRoutes(r *gin.RouterGroup, authMid gin.HandlerFunc, optionalAuthMid gin.HandlerFunc) {
+func (h *ExerciseHandler) RegisterRoutes(r *gin.RouterGroup, authMid gin.HandlerFunc, optionalAuthMid gin.HandlerFunc, adminAuthMid gin.HandlerFunc) {
 	r.GET("/muscle-groups", h.GetMuscleGroups)
 	r.GET("/equipments", h.GetEquipments)
 
@@ -31,6 +31,9 @@ func (h *ExerciseHandler) RegisterRoutes(r *gin.RouterGroup, authMid gin.Handler
 	r.GET("/exercises/:id", authMid, h.GetExerciseByID)
 	r.PATCH("/exercises/:id", authMid, h.UpdateExercise)
 	r.DELETE("/exercises/:id", authMid, h.DeleteExercise)
+
+	r.PUT("/admin/exercise/:id/media", adminAuthMid, h.UpdateExerciseMedia)
+	r.DELETE("/admin/exercise/:id/media", adminAuthMid, h.DeleteExerciseMedia)
 }
 
 // GetMuscleGroups godoc
@@ -263,6 +266,76 @@ func (h *ExerciseHandler) DeleteExercise(c *gin.Context) {
 	}
 
 	err = h.exerciseService.DeleteExercise(c.Request.Context(), userID, id)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
+
+// UpdateExerciseMedia godoc
+// @Id updateExerciseMedia
+// @Tags exercises
+// @Summary Get url for uploading exercise media
+// @Description Creates media if exercise has none. The file must be uploaded to upload_url with PUT, the stored media type is updated if it differs
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "exercise id" format(uuid)
+// @Param request body dto.UpdateExerciseMediaRequestBody true "media body"
+// @Success 200 {object} dto.UpdateExerciseMediaResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /admin/exercise/{id}/media [put]
+func (h *ExerciseHandler) UpdateExerciseMedia(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to parse id param: %w: %w", err, model.ErrBadRequest))
+		return
+	}
+
+	var body dto.UpdateExerciseMediaRequestBody
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to get body from request: %w: %w", err, model.ErrBadRequest))
+		return
+	}
+
+	media, uploadURL, err := h.exerciseService.UpdateMedia(c.Request.Context(), id, model.MediaType(body.MediaType))
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.UpdateExerciseMediaResponse{
+		Media:     *mapper.ConvertMediaToDTO(media),
+		UploadURL: uploadURL,
+	})
+}
+
+// DeleteExerciseMedia godoc
+// @Id deleteExerciseMedia
+// @Tags exercises
+// @Summary Delete exercise media
+// @Security BearerAuth
+// @Param id path string true "exercise id" format(uuid)
+// @Success 200
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /admin/exercise/{id}/media [delete]
+func (h *ExerciseHandler) DeleteExerciseMedia(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to parse id param: %w: %w", err, model.ErrBadRequest))
+		return
+	}
+
+	err = h.exerciseService.DeleteMedia(c.Request.Context(), id)
 	if err != nil {
 		handleError(c, err)
 		return

@@ -8,6 +8,7 @@ import (
 	"ftns-asst/internal/repository"
 	"ftns-asst/internal/rest"
 	"ftns-asst/internal/service"
+	file_service "ftns-asst/internal/service/file"
 	"ftns-asst/internal/util"
 	"log"
 	"net/http"
@@ -28,7 +29,11 @@ func New(ctx context.Context, cfg *config.Config) *App {
 
 	mailer := util.NewSMTPClient(cfg.SMTP())
 	repositories := repository.NewRepositories(db)
-	services := service.NewServices(cfg, *repositories, mailer, db)
+	storage, err := file_service.NewMinioClient(cfg.Minio())
+	if err != nil {
+		log.Panicf("failed connect to minio: %s", err.Error())
+	}
+	services := service.NewServices(cfg, *repositories, mailer, db, storage)
 
 	httpServer := rest.NewServer(cfg, *services)
 

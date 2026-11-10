@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"ftns-asst/internal/config"
 	"ftns-asst/internal/service"
+	"ftns-asst/static"
+	"io/fs"
 	"log"
 	"net/http"
 
@@ -27,6 +29,15 @@ func NewServer(cfg *config.Config, services service.Services) *http.Server {
 		AllowCredentials: false,
 	}))
 	handlers := newHandlers(cfg, &services)
+
+	staticUI, err := fs.Sub(static.StaticFiles, "files")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fileServer := gin.WrapH(http.StripPrefix("/admin", http.FileServer(http.FS(staticUI))))
+
+	r.GET("/admin/*filepath", fileServer)
+
 	api := r.Group("/api/v1")
 	handlers.RegisterRoutes(api)
 

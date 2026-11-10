@@ -31,6 +31,7 @@ func (h *AuthHandler) RegisterRoutes(r *gin.RouterGroup) {
 	r.POST("/auth/password-recovery", h.PasswordRecovery)
 	r.POST("/auth/password-recovery/verify", h.VerifyCode)
 	r.POST("/auth/password-recovery/reset", h.ResetPassword)
+	r.POST("/admin/auth", h.AuthAdmin)
 }
 
 // CheckEmail godoc
@@ -238,4 +239,21 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, mapper.ConvertResetPasswordResultToDTO(res))
+}
+
+func (h *AuthHandler) AuthAdmin(c *gin.Context) {
+	var body dto.AdminAuthRequestBody
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to read request body: %w:%w", err, model.ErrBadRequest))
+		return
+	}
+
+	tempToken, err := h.authService.AuthAdmin(c.Request.Context(), &model.AdminAuthInput{Password: body.Password})
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, tempToken)
 }

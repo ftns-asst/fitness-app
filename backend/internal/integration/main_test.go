@@ -90,13 +90,14 @@ func run(m *testing.M) int {
 	cfg := &config.Config{
 		AccessTokenJWTSecretKey:       "access-secret",
 		RefreshTokenJWTSecretKey:      "refresh-secret",
+		AdminTokenJWTSecretKey:        "admin-secret",
 		RefreshTokenHashSecretKey:     "refresh-hash-secret",
 		VerificationCodeHashSecretKey: "code-hash-secret",
 		ResetTokenHashSecretKey:       "reset-hash-secret",
 		ExerciseCatalogPath:           exerciseCatalogPath,
 	}
 	repos = repository.NewRepositories(db)
-	services = service.NewServices(cfg, *repos, mailer, db)
+	services = service.NewServices(cfg, *repos, mailer, db, nil)
 	if err := services.Exercise().Start(ctx); err != nil {
 		log.Printf("failed to start exercise service: %s", err)
 		return 1

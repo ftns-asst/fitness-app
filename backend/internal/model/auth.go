@@ -53,6 +53,10 @@ type AuthInput struct {
 	Password string
 }
 
+type AdminAuthInput struct {
+	Password string
+}
+
 // validate auth input, email checked in dto validation
 func (i *AuthInput) Validate() error {
 	if strings.TrimSpace(i.Email) == "" || strings.TrimSpace(i.Password) == "" {
