@@ -90,6 +90,7 @@ func run(m *testing.M) int {
 	cfg := &config.Config{
 		AccessTokenJWTSecretKey:       "access-secret",
 		RefreshTokenJWTSecretKey:      "refresh-secret",
+		AdminTokenJWTSecretKey:        "admin-secret",
 		RefreshTokenHashSecretKey:     "refresh-hash-secret",
 		VerificationCodeHashSecretKey: "code-hash-secret",
 		ResetTokenHashSecretKey:       "reset-hash-secret",

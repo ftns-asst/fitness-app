@@ -440,7 +440,7 @@ func TestDeleteExerciseHandler(t *testing.T) {
 
 func TestUpdateExerciseMediaHandler(t *testing.T) {
 	t.Parallel()
-	token := genAccessToken(t, uuid.New(), testSecret)
+	token := genAccessToken(t, uuid.New(), testAdminSecret)
 	exerciseID := uuid.New()
 	path := "/api/v1/admin/exercise/" + exerciseID.String() + "/media"
 	body := dto.UpdateExerciseMediaRequestBody{MediaType: "image"}
@@ -505,7 +505,7 @@ func TestUpdateExerciseMediaHandler(t *testing.T) {
 
 func TestDeleteExerciseMediaHandler(t *testing.T) {
 	t.Parallel()
-	token := genAccessToken(t, uuid.New(), testSecret)
+	token := genAccessToken(t, uuid.New(), testAdminSecret)
 	exerciseID := uuid.New()
 	path := "/api/v1/admin/exercise/" + exerciseID.String() + "/media"
 

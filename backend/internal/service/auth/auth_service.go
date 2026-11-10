@@ -476,10 +476,10 @@ func (s *AuthService) AuthAdmin(ctx context.Context, data *model.AdminAuthInput)
 		return "", model.ErrUnauthorized
 	}
 
-	tokens, err := s.genTokens(uuid.New())
+	token, err := jwtutil.GenAccessToken(uuid.New(), s.cfg.AdminTokenJWTSecretKey)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to gen admin token: %w", err)
 	}
 
-	return tokens.AccessToken.Token, nil
+	return token.Token, nil
 }

@@ -22,7 +22,7 @@ func NewExerciseHandler(exerciseService ExerciseService) *ExerciseHandler {
 	}
 }
 
-func (h *ExerciseHandler) RegisterRoutes(r *gin.RouterGroup, authMid gin.HandlerFunc, optionalAuthMid gin.HandlerFunc) {
+func (h *ExerciseHandler) RegisterRoutes(r *gin.RouterGroup, authMid gin.HandlerFunc, optionalAuthMid gin.HandlerFunc, adminAuthMid gin.HandlerFunc) {
 	r.GET("/muscle-groups", h.GetMuscleGroups)
 	r.GET("/equipments", h.GetEquipments)
 
@@ -32,8 +32,8 @@ func (h *ExerciseHandler) RegisterRoutes(r *gin.RouterGroup, authMid gin.Handler
 	r.PATCH("/exercises/:id", authMid, h.UpdateExercise)
 	r.DELETE("/exercises/:id", authMid, h.DeleteExercise)
 
-	r.PUT("/admin/exercise/:id/media", authMid, h.UpdateExerciseMedia)
-	r.DELETE("/admin/exercise/:id/media", authMid, h.DeleteExerciseMedia)
+	r.PUT("/admin/exercise/:id/media", adminAuthMid, h.UpdateExerciseMedia)
+	r.DELETE("/admin/exercise/:id/media", adminAuthMid, h.DeleteExerciseMedia)
 }
 
 // GetMuscleGroups godoc
