@@ -4,23 +4,42 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"ftns-asst/internal/config"
 	"ftns-asst/internal/model"
 	"ftns-asst/internal/repository"
+	"log"
 	"slices"
 
 	"github.com/google/uuid"
 )
 
 type ProgramService struct {
+	cfg  *config.Config
 	repo ProgramRepo
 	tx   model.Transactor
 }
 
-func NewService(repo ProgramRepo, transactor model.Transactor) *ProgramService {
+func NewService(cfg *config.Config, repo ProgramRepo, transactor model.Transactor) *ProgramService {
 	return &ProgramService{
+		cfg:  cfg,
 		repo: repo,
 		tx:   transactor,
 	}
+}
+
+// Start fills default programs from the table, it must run after the exercises are filled
+func (s *ProgramService) Start(ctx context.Context) error {
+	templates, programs, err := loadDefaultPrograms(s.cfg.DefaultProgramsPath)
+	if err != nil {
+		return fmt.Errorf("failed to load default programs: %w", err)
+	}
+
+	if err = s.repo.FillDefaultPrograms(ctx, templates, programs); err != nil {
+		return fmt.Errorf("failed to fill default programs: %w", err)
+	}
+
+	log.Printf("Loaded %d workout templates and %d default programs", len(templates), len(programs))
+	return nil
 }
 
 // run fn in a transaction, repositories take it from ctx
