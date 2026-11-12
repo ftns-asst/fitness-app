@@ -29,7 +29,7 @@ func NewServices(cfg *config.Config, repositories repository.Repositories, maile
 	auth := auth.NewService(cfg, user, repositories.Auth(), mailer, transactor)
 	file := file_service.NewService(cfg, repositories.File(), storage, transactor)
 	exercise := exercise.NewService(cfg, repositories.Exercise(), file, transactor)
-	program := program.NewService(repositories.Program(), transactor)
+	program := program.NewService(cfg, repositories.Program(), transactor)
 	personalRecord := personalrecord.NewService(repositories.PersonalRecord(), program, transactor)
 	return &Services{
 		userService:           user,

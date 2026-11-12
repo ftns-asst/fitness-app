@@ -30,6 +30,177 @@ func (r *ProgramRepo) db(ctx context.Context) db {
 	return res
 }
 
+// FillDefaultPrograms creates or updates workout templates and default programs by their ids:
+// exercises of templates and days of programs are replaced, equipment of a template is taken
+// from its exercises. Templates and programs which are not in the lists are kept.
+func (r *ProgramRepo) FillDefaultPrograms(ctx context.Context, templates []*model.WorkoutTemplate, programs []*model.DefaultProgram) error {
+	tx, err := r.db(ctx).Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed begin transaction: %w", err)
+	}
+	defer model.CheckRollback(ctx, tx)
+
+	if err = r.fillTemplateEquipment(ctx, tx, templates); err != nil {
+		return err
+	}
+
+	templateIDs := make([]uuid.UUID, 0, len(templates))
+	exerciseRows := [][]interface{}{}
+	for _, template := range templates {
+		templateIDs = append(templateIDs, template.ID)
+
+		_, err = tx.Exec(ctx, `
+			INSERT INTO workout_templates (id, name, focus, level, equipment)
+			VALUES ($1, $2, $3, $4, $5::text[])
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name,
+				focus = EXCLUDED.focus,
+				level = EXCLUDED.level,
+				equipment = EXCLUDED.equipment
+		`, template.ID, template.Name, template.Focus, template.Level, equipmentKeysToStrings(template.Equipments))
+		if err != nil {
+			return fmt.Errorf("template %q upsert failed: %w", template.Name, err)
+		}
+
+		for _, exercise := range template.Exercises {
+			exerciseRows = append(exerciseRows, []interface{}{
+				template.ID,
+				exercise.ExerciseID,
+				exercise.OrderIndex,
+				exercise.Sets,
+				exercise.TargetReps,
+				exercise.TargetPercent1RM,
+				exercise.RestSeconds,
+			})
+		}
+	}
+
+	_, err = tx.Exec(ctx, `DELETE FROM workout_template_exercises WHERE workout_template_id = ANY($1::uuid[])`, templateIDs)
+	if err != nil {
+		return fmt.Errorf("template exercises delete failed: %w", err)
+	}
+
+	_, err = tx.CopyFrom(ctx, pgx.Identifier{"workout_template_exercises"},
+		[]string{"workout_template_id", "exercise_id", "order_index", "sets", "target_reps", "target_percent_1rm", "rest_seconds"},
+		pgx.CopyFromRows(exerciseRows),
+	)
+	if err != nil {
+		return fmt.Errorf("template exercises copy failed: %w", err)
+	}
+
+	programIDs := make([]uuid.UUID, 0, len(programs))
+	dayRows := [][]interface{}{}
+	for _, program := range programs {
+		programIDs = append(programIDs, program.ID)
+
+		_, err = tx.Exec(ctx, `
+			INSERT INTO default_programs (id, name, description, goal, level, days_per_week, weeks_count)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name,
+				description = EXCLUDED.description,
+				goal = EXCLUDED.goal,
+				level = EXCLUDED.level,
+				days_per_week = EXCLUDED.days_per_week,
+				weeks_count = EXCLUDED.weeks_count
+		`, program.ID, program.Name, program.Description, program.Goal, program.Level, program.DaysPerWeek, program.WeeksCount)
+		if err != nil {
+			return fmt.Errorf("program %q upsert failed: %w", program.Name, err)
+		}
+
+		for _, day := range program.Days {
+			dayRows = append(dayRows, []interface{}{program.ID, day.WeekNumber, day.OrderIndex, day.WorkoutTemplateID})
+		}
+	}
+
+	_, err = tx.Exec(ctx, `DELETE FROM default_program_days WHERE default_program_id = ANY($1::uuid[])`, programIDs)
+	if err != nil {
+		return fmt.Errorf("program days delete failed: %w", err)
+	}
+
+	_, err = tx.CopyFrom(ctx, pgx.Identifier{"default_program_days"},
+		[]string{"default_program_id", "week_number", "order_index", "workout_template_id"},
+		pgx.CopyFromRows(dayRows),
+	)
+	if err != nil {
+		return fmt.Errorf("program days copy failed: %w", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// fillTemplateEquipment sets equipment of each template as the union of equipment of its exercises,
+// the exercises must exist
+func (r *ProgramRepo) fillTemplateEquipment(ctx context.Context, conn db, templates []*model.WorkoutTemplate) error {
+	ids := model.NewSet[uuid.UUID]()
+	for _, template := range templates {
+		for _, exercise := range template.Exercises {
+			ids[exercise.ExerciseID] = struct{}{}
+		}
+	}
+
+	list := make([]uuid.UUID, 0, len(ids))
+	for id := range ids {
+		list = append(list, id)
+	}
+
+	rows, err := conn.Query(ctx, `
+		SELECT id, equipment
+		FROM exercises
+		WHERE id = ANY($1::uuid[])
+			AND deleted_at IS NULL
+	`, list)
+	if err != nil {
+		return fmt.Errorf("exercises query failed: %w", err)
+	}
+
+	equipmentByExercise := make(map[uuid.UUID][]string, len(list))
+	for rows.Next() {
+		var id uuid.UUID
+		var equipment []string
+		if err = rows.Scan(&id, &equipment); err != nil {
+			rows.Close()
+			return fmt.Errorf("exercises scan failed: %w", err)
+		}
+		equipmentByExercise[id] = equipment
+	}
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("exercises query failed: %w", err)
+	}
+
+	for _, template := range templates {
+		seen := model.NewSet[string]()
+		template.Equipments = []model.EquipmentKey{}
+		for _, exercise := range template.Exercises {
+			equipment, ok := equipmentByExercise[exercise.ExerciseID]
+			if !ok {
+				return fmt.Errorf("template %q: exercise %s is not found: %w", template.Name, exercise.ExerciseID, ErrNotFound)
+			}
+
+			for _, key := range equipment {
+				if _, ok = seen[key]; !ok {
+					seen[key] = struct{}{}
+					template.Equipments = append(template.Equipments, model.EquipmentKey(key))
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func equipmentKeysToStrings(keys []model.EquipmentKey) []string {
+	res := make([]string, 0, len(keys))
+	for _, key := range keys {
+		res = append(res, string(key))
+	}
+	return res
+}
+
 func (r *ProgramRepo) GetDefaultPrograms(ctx context.Context, filters *model.DefaultProgramFilters) ([]*model.DefaultProgram, error) {
 	args := []interface{}{}
 	query := strings.Builder{}

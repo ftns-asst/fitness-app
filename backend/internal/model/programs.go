@@ -214,6 +214,14 @@ func (s ProgramState) IsValid() bool {
 	return false
 }
 
+func (f WorkoutFocus) IsValid() bool {
+	switch f {
+	case WorkoutFocusFullBody, WorkoutFocusUpper, WorkoutFocusLower, WorkoutFocusPush, WorkoutFocusPull, WorkoutFocusLegs:
+		return true
+	}
+	return false
+}
+
 func validateProgramName(name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" || utf8.RuneCountInString(name) > MaxProgramNameLength {

@@ -37,6 +37,7 @@ services:
       MINIO_ENDPOINT: "minio:9000"
       MINIO_PUBLIC_ENDPOINT: "${MINIO_PUBLIC_ENDPOINT:-localhost:9000}"
       EXERCISE_CATALOG_PATH: "./exercise_catalog.xlsx"
+      DEFAULT_PROGRAMS_PATH: "./default_programs.xlsx"
 
     depends_on:
       - postgres

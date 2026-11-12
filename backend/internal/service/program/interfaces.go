@@ -8,6 +8,7 @@ import (
 )
 
 type ProgramRepo interface {
+	FillDefaultPrograms(ctx context.Context, templates []*model.WorkoutTemplate, programs []*model.DefaultProgram) error
 	GetDefaultPrograms(ctx context.Context, filters *model.DefaultProgramFilters) ([]*model.DefaultProgram, error)
 	GetDefaultProgramByID(ctx context.Context, id uuid.UUID) (*model.DefaultProgram, error)
 	CreateUserProgram(ctx context.Context, program *model.UserProgram, weeks []*model.UserProgramWeek) (*model.UserProgram, error)

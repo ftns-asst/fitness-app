@@ -50,6 +50,10 @@ func (a *App) Run(rootCtx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("exercise service start failed: %w", err)
 	}
+	err = a.services.Program().Start(rootCtx)
+	if err != nil {
+		return fmt.Errorf("program service start failed: %w", err)
+	}
 	shutdownChan := make(chan error)
 	go func() {
 		<-rootCtx.Done()
