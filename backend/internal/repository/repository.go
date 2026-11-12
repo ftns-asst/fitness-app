@@ -20,7 +20,7 @@ type db interface {
 }
 
 var (
-	ErrNotFound       = errors.New("not found repo eror")
+	ErrNotFound       = errors.New("not found repo error")
 	ErrNoAffectedRows = errors.New("no affected rows repo error")
 )
 
