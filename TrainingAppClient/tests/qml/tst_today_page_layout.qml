@@ -15,6 +15,8 @@ TestCase {
     function init() {
         page = createTemporaryObject(todayPageComponent, testCase);
         verify(page !== null);
+        page.viewModel.isRestDay = false;
+        page.viewModel.dashboard = {};
         waitForRendering(page);
     }
 
@@ -22,6 +24,38 @@ TestCase {
         page = null;
     }
 
+    function test_restDayHasOneProgramActionAndStatisticsRoute() {
+        page.viewModel.isRestDay = true;
+        const primary = findChild(page, "todayStartButton");
+        const statistics = findChild(page, "todayStatisticsLink");
+        compare(primary.text, "Открыть программу");
+        compare(statistics.text, "Статистика");
+        let programCalls = 0, statisticsCalls = 0;
+        page.programRequested.connect(() => programCalls++);
+        page.statisticsRequested.connect(id => {
+            compare(id, "p");
+            statisticsCalls++;
+        });
+        primary.clicked();
+        statistics.clicked();
+        compare(programCalls, 1);
+        compare(statisticsCalls, 1);
+        verify(findChild(page, "todayProgramLink") === null);
+    }
+    function test_weeklySummaryDistinguishesMissingValuesAndZero() {
+        const workouts = findChild(page, "todayWeeklyWorkouts");
+        const weight = findChild(page, "todayAverageWeight");
+        compare(workouts.valueText, "—");
+        compare(weight.valueText, "—");
+        page.viewModel.dashboard = {
+            completedSessions7d: 0,
+            average7Kg: 81.5,
+            weightReadings7d: 3
+        };
+        compare(workouts.valueText, "0");
+        verify(weight.valueText.includes("81"));
+        verify(weight.detail.includes("3"));
+    }
     // Крупная шапка и градиент — то, что отличает экран от остальных вкладок.
     function test_headerIsLargeWithHeroBackground() {
         verify(page.largeTitle, "шапка главной должна быть крупной");
@@ -63,7 +97,7 @@ TestCase {
         const rulesY = rules.mapToItem(page, 0, 0).y;
 
         verify(heroY < planY, "план дня должен идти после hero");
-        verify(planY < focusY, "«В фокусе» должен идти после плана дня");
+        verify(focusY < planY, "статистика должна идти перед планом дня");
         verify(focusY < rulesY, "отметки должны идти после «В фокусе»");
     }
 
@@ -71,11 +105,12 @@ TestCase {
     // карточке: второй карточки-обёртки больше нет.
     function test_heroHoldsPrimaryAction() {
         const start = findChild(page, "todayStartButton");
-        const link = findChild(page, "todayProgramLink");
+        const link = findChild(page, "todayStatisticsLink");
 
         verify(start !== null, "нет кнопки старта тренировки");
-        verify(link !== null, "нет перехода в программу");
+        verify(link !== null, "нет перехода в статистику");
         compare(start.text, "Начать тренировку");
+        compare(link.text, "Статистика");
     }
 
     // Формы замеров на главной нет: ввод веса — в дневнике.
@@ -128,6 +163,8 @@ TestCase {
 
         property bool hasMeasurement: true
         property bool hasProgram: true
+        property var dashboard: ({})
+        property string programId: "p"
         property bool isRestDay: false
         property bool sessionCompleted: false
         property int currentWeek: 3

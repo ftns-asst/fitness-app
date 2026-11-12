@@ -897,7 +897,7 @@ workouts(id PK, user_id, program_id FK NULL, program_day_id FK NULL,
 
 sets(id PK, session_id FK, day_exercise_id FK NULL, exercise_id FK,
      set_number, is_warmup, weight_kg, reps, rpe, target_weight_kg,
-     target_reps, done, note)
+     target_reps, target_reps_min NULL, target_reps_max NULL, done, note)
 
 body_measurements(id PK, user_id, date, weight_kg, chest_cm, waist_cm,
                   hip_cm, arm_cm, thigh_cm)
@@ -1011,3 +1011,18 @@ mock-версии экранов программы не создаются.
 
 До ответов на вопросы 1, 7, 13 документ считается рабочим проектом: модель
 устойчива к любому из вариантов, но схема и UI-потоки могут упроститься.
+
+### Дополнения SQLite v13 — MVP PSMF
+
+- В `programs`: `rep_tolerance` (0–20, по умолчанию 2), `paused_days`, `paused_on`.
+  Смена активной программы и обычная пауза используют один учёт времени.
+  Для старой текущей паузы миграция берёт дату из `updated_at`; длительность
+  пауз, завершившихся до v13, восстановить достоверно невозможно.
+- В `sets`: nullable `target_reps_min/max`. Старые факты сохраняются; экран
+  силы отличает полный исторический диапазон от прежнего одиночного значения.
+- `workout_runtime(session_id PK/FK, plan_json, rest_until_ms)` хранит снимок
+  названия дня, упражнений и предписаний при старте, а также абсолютный UTC-дедлайн
+  отдыха. Факты по-прежнему находятся только в `workouts` и `sets`.
+  Правка программы не меняет сохранённый план начатой тренировки.
+- Создание PSMF-черновика, правил и частичного стартового замера — одна
+  транзакция `Insert_Template_Draft`. Активная программа при этом не меняется.

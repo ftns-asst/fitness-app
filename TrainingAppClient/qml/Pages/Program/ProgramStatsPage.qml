@@ -3,345 +3,583 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import TrainingAppClient
 
-// Статистика программы (экран 44, §5.1). Данные считает AsProgress_Calculator
-// по фактам тренировок, ViewModel только отдаёт их и ведёт кэш program_stats.
-//
-// Метрика без данных показывается как «—», а не нулём: ноль выполненных
-// подходов и отсутствие тренировок — разные вещи (§5.5).
 PageScaffold {
     id: page
-
-    property var viewModel: ProgramStatsVM
-    property var programViewModel: ProgramVM
+    property var viewModel: typeof ProgramStatsVM !== "undefined" ? ProgramStatsVM : null
+    property var programViewModel: typeof ProgramVM !== "undefined" ? ProgramVM : null
     property string programId: ""
-    // Встроенный режим: страница показана внутри сегментов обзора программы,
-    // поэтому не рисует свою панель возврата и заголовок — их держит обзор.
     property bool embedded: false
-    // Панель возврата обязательна: экраны программы открыты поверх вкладок, где
-    // таб-бара нет.
-    BackBar {
-        onClicked: page.backRequested()
-        text: qsTr("Назад")
-        visible: !page.embedded
-        width: parent.width
-    }
-
-    caption: page.embedded ? "" : (page.hasData ? qsTr("По завершённым тренировкам") : qsTr("Пока нет данных"))
-    title: page.embedded ? "" : qsTr("Статистика")
-
-    // Запрос возврата: экраны программы открыты поверх вкладок, где таб-бара нет.
-    signal backRequested
-    readonly property bool hasData: page.viewModel !== undefined && page.viewModel !== null && page.viewModel.hasStats
-    // Версия данных: растёт при каждом обновлении модели. Функции, читающие списки
-    // моделей, получают её аргументом, иначе QML не знал бы, что список изменился.
+    property int sectionIndex: 0
+    property int periodIndex: 2
+    property int measurementIndex: 0
+    property int nutritionIndex: 0
     property int dataRevision: 0
-    // Динамика тела есть, когда хотя бы у одного параметра есть замер.
-    readonly property bool hasDynamics: page.hasData && page.viewModel.trends !== undefined && page.viewModel.trends.count > 0
-    readonly property bool hasWeightChart: page.weightValues(page.dataRevision).length >= 2
-
-    Connections {
-        function onChanged() {
-            page.dataRevision += 1;
+    property string forecastMeasurement: "weight"
+    readonly property var forecastTrend: trendRows.find(row => row.param === forecastMeasurement) || ({})
+    readonly property string forecastDate: dashboard.endDate || ""
+    readonly property bool forecastAvailable: forecastTrend.points >= 2 && StatisticsUi.has(forecastTrend.ratePerWeek) && StatisticsUi.has(forecastTrend.forecastAtEnd) && Number(forecastTrend.forecastAtEnd) > 0 && forecastDate > referenceDate && !isNaN(Date.parse(forecastDate))
+    readonly property string forecastMessage: explainForecast()
+    property bool changeMapExpanded: false
+    property bool detailsExpanded: false
+    property string referenceDate: Qt.formatDate(new Date(), Qt.ISODate)
+    readonly property bool hasData: viewModel !== null && viewModel !== undefined && viewModel.hasStats
+    readonly property var dashboard: hasData && viewModel.dashboard !== undefined ? viewModel.dashboard : ({})
+    readonly property var trendRows: StatisticsUi.rows(hasData ? viewModel.trends : null, dataRevision)
+    readonly property var nutritionRows: StatisticsUi.rows(hasData ? viewModel.nutritionSummary : null, dataRevision)
+    property var measurementOptions: [
+        {
+            id: "weight",
+            title: qsTr("Вес")
         }
+    ]
+    readonly property string selectedMeasurement: measurementOptions[Math.min(measurementIndex, measurementOptions.length - 1)].id
+    readonly property var selectedTrend: trendRows.find(row => row.param === selectedMeasurement) || ({})
+    readonly property int selectedDigits: ["kcal", "ml", "count"].indexOf(selectedNutrition.unit) >= 0 ? 0 : 1
+    readonly property string selectedUnit: RuleTexts.unitLabel(selectedNutrition.unit, selectedNutrition.unit === "count" ? "" : (selectedNutrition.unit || ""))
+    readonly property var selectedNutrition: nutritionRows[Math.min(nutritionIndex, nutritionRows.length - 1)] || ({})
+    readonly property var bodyPoints: selectedMeasurement === "weight" ? StatisticsUi.points(hasData ? viewModel.weight_series : null, "weightKg", "average7Kg", dataRevision) : StatisticsUi.points(hasData ? viewModel.measurements : null, selectedMeasurement + "Cm", "", dataRevision)
+    readonly property var bounds: StatisticsUi.period(referenceDate, periodIndex)
+    readonly property string periodCaption: bounds.from ? StatisticsUi.date(bounds.from) + " — " + StatisticsUi.date(bounds.to) : qsTr("За всю программу")
+    signal backRequested
+    signal strengthRequested
 
-        target: page.viewModel
+    title: embedded ? "" : qsTr("Прогресс")
+    caption: embedded ? "" : qsTr("Изменения по вашим записям")
+    showHeader: false
+    spacing: Spacing.itemGap
+    Component.onCompleted: {
+        reload();
+        updateMeasurementOptions();
     }
-
-    // Идентификатор программы для статистики. Пустой programId означает
-    // «активная программа»: тогда он берётся из ProgramVM, который умеет её
-    // находить. Раньше здесь передавался идентификатор пользователя, из-за чего
-    // refresh() читал несуществующую программу и статистика была пустой.
-    function resolvedProgramId() {
-        if (page.programId.length > 0)
-            return page.programId;
-
-        return page.programViewModel !== undefined && page.programViewModel !== null && page.programViewModel.hasProgram ? page.programViewModel.programId : "";
-    }
-
-    // Загрузка идёт при создании и при каждом показе: у страницы, открытой
-    // прямо в StackView (например, по --screen), visible не меняется.
-    Component.onCompleted: page.reload()
     onVisibleChanged: {
         if (visible)
-            page.reload();
+            reload();
+    }
+    onProgramIdChanged: {
+        detailsExpanded = false;
+        changeMapExpanded = false;
+        forecastMeasurement = "weight";
+        if (forecastPopup)
+            forecastPopup.close();
+        measurementIndex = 0;
+        measurementOptions = [
+            {
+                id: "weight",
+                title: qsTr("Вес")
+            }
+        ];
+        reload();
+    }
+    onPeriodIndexChanged: {
+        detailsExpanded = false;
+        reload();
+    }
+    onSectionIndexChanged: {
+        detailsExpanded = false;
+        pageFlickable.contentY = 0;
+    }
+    Connections {
+        target: page.viewModel
+        function onChanged() {
+            page.dataRevision += 1;
+            page.updateMeasurementOptions();
+        }
     }
 
-    // Идентификатор берётся из AppContext: литерал «u1» повторялся в четырёх
-    // экранах, и любое другое значение делало программу невидимой.
-    function currentUserId() {
-        return typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
+    function openForecast(param) {
+        forecastMeasurement = param;
+        forecastPopup.open();
     }
-
+    function explainForecast() {
+        if (!(forecastTrend.points > 0))
+            return qsTr("За выбранный период нет замеров этого показателя.");
+        if (forecastTrend.points < 2 || !StatisticsUi.has(forecastTrend.ratePerWeek))
+            return qsTr("Нужны хотя бы два замера в разные дни. Добавьте ещё один замер или выберите более длинный период.");
+        if (!forecastDate)
+            return qsTr("У программы открытый срок. Темп можно рассчитать, но даты для прогноза на конец нет.");
+        if (forecastDate <= referenceDate)
+            return qsTr("Программа завершилась %1. Показан темп по записям; прогноз на прошедшую дату не строится.").arg(StatisticsUi.fullDate(forecastDate));
+        if (StatisticsUi.has(forecastTrend.forecastAtEnd) && forecastTrend.forecastAtEnd <= 0)
+            return qsTr("Линейный прогноз неприменим: продолжение текущего темпа даёт нулевое или отрицательное значение. Проверьте записи и выбранный период.");
+        if (!forecastAvailable)
+            return qsTr("Для этих данных прогноз недоступен.");
+        return qsTr("Это продолжение темпа между первым и последним замером до %1. При изменении темпа результат будет другим.").arg(StatisticsUi.fullDate(forecastDate));
+    }
+    function updateMeasurementOptions() {
+        const known = measurementOptions.slice();
+        for (const row of StatisticsUi.rows(viewModel ? viewModel.trends : null))
+            if (row.points > 0 && !known.some(option => option.id === row.param))
+                known.push({
+                    id: row.param,
+                    title: MeasurementTexts.title(row.param)
+                });
+        measurementOptions = known;
+    }
+    function resolvedProgramId() {
+        return programId || (programViewModel && programViewModel.hasProgram ? programViewModel.programId : "");
+    }
     function reload() {
-        if (page.viewModel === undefined || page.viewModel === null)
+        if (!viewModel || !bounds)
             return;
-
-        // ProgramVM загружается здесь же: экран открыт напрямую (например, по
-        // --screen), минуя обзор, поэтому активная программа ещё не искалась.
-        // Без этого resolvedProgramId() давал пустую строку и статистика
-        // оставалась пустой при непустой базе.
-        if (page.programViewModel !== undefined && page.programViewModel !== null && page.programId.length === 0)
-            page.programViewModel.reload(page.currentUserId());
-
-        page.viewModel.refresh(page.resolvedProgramId());
+        const userId = typeof AppContext !== "undefined" && AppContext ? AppContext.currentUserId : "u1";
+        if (programViewModel && !programId)
+            programViewModel.reload(userId);
+        const period = StatisticsUi.period(referenceDate, periodIndex);
+        viewModel.refresh(resolvedProgramId(), period.from, period.to);
+    }
+    function number(value, digits = 1) {
+        return StatisticsUi.number(value, digits);
+    }
+    function trainingPoints(revision) {
+        const start = new Date(String(dashboard.startDate || "") + "T12:00:00");
+        if (isNaN(start.getTime()))
+            return [];
+        return StatisticsUi.rows(hasData ? viewModel.weeks : null, revision).filter(row => row.completedSessions > 0).map(row => {
+            const date = new Date(start.getTime());
+            date.setDate(date.getDate() + (row.weekIndex - 1) * 7);
+            return {
+                date: Qt.formatDate(date, Qt.ISODate),
+                value: row.tonnageKg
+            };
+        });
     }
 
-    // Ширина каждого ряда задаётся явно: колонка контента PageScaffold — это
-    // Column, а в ней `Layout.fillWidth` не действует, и без `width` ряд
-    // схлопывался бы до суммы implicitWidth карточек (то есть заметно уже
-    // области контента). Внутри ряда `Layout.fillWidth` уже работает: там
-    // настоящий layout.
-    RowLayout {
-        spacing: Spacing.listGap
+    BackBar {
+        objectName: "statisticsBackBar"
         width: parent.width
-
-        MetricCard {
-            Layout.fillWidth: true
-            highlight: true
-            label: qsTr("Выполнение")
-            valueText: page.percent(page.viewModel !== undefined && page.viewModel !== null && page.viewModel.hasAdherencePercent ? page.viewModel.adherencePercent : null)
-        }
-        MetricCard {
-            Layout.fillWidth: true
-            label: qsTr("Тоннаж, т")
-            valueText: page.tonnageText()
-        }
-    }
-    RowLayout {
-        spacing: Spacing.listGap
-        width: parent.width
-
-        MetricCard {
-            Layout.fillWidth: true
-            label: qsTr("Тренировок")
-            valueText: page.viewModel !== undefined && page.viewModel !== null ? String(page.viewModel.completedSessions) : "—"
-        }
-        MetricCard {
-            Layout.fillWidth: true
-            label: qsTr("Подходов")
-            valueText: page.viewModel !== undefined && page.viewModel !== null ? String(page.viewModel.setsCount) : "—"
-        }
-    }
-    RowLayout {
-        spacing: Spacing.listGap
-        width: parent.width
-
-        MetricCard {
-            Layout.fillWidth: true
-            label: qsTr("Тело, кг")
-            valueText: page.bodyWeightText()
-        }
-        // Выполнение по правилам стоит в паре с весом: одинокая карточка на всю
-        // ширину ряда читалась как пустое место. Метрика не серия недель (она
-        // равна нулю, пока неделю не выполнили целиком) и не дубль «Выполнения»:
-        // «Выполнение» считается по расписанию, это — по отметкам правил (§5.1).
-        MetricCard {
-            Layout.fillWidth: true
-            label: qsTr("Правила, %")
-            valueText: page.ruleAdherenceText()
-        }
+        visible: !page.embedded
+        onClicked: page.backRequested()
     }
     Label {
-        color: Theme.textMuted
-        font: Typography.sectionTitle
-        text: qsTr("Тоннаж по неделям")
-        visible: page.hasData
         width: parent.width
+        visible: !page.embedded
+        text: page.title
+        font: Typography.workoutTitle
+        color: Theme.textPrimary
     }
-    LineChartCard {
-        captionText: page.chartCaption()
-        title: qsTr("Тоннаж, кг")
-        values: page.chartValues()
-        visible: page.hasData
+    SegmentedControl {
+        objectName: "statisticsSections"
         width: parent.width
+        items: [qsTr("Тело"), qsTr("Тренировки"), qsTr("Режим")]
+        currentIndex: page.sectionIndex
+        onSelected: index => page.sectionIndex = index
     }
-    Label {
-        color: Theme.textSecondary
-        font: Typography.body
-        horizontalAlignment: Text.AlignHCenter
-        text: qsTr("Запишите первую тренировку — здесь появятся тоннаж, подходы и динамика по неделям.")
-        visible: page.hasData === false
+    FilterChips {
+        objectName: "statisticsPeriod"
         width: parent.width
-        wrapMode: Text.WordWrap
+        items: [qsTr("7 дней"), qsTr("28 дней"), qsTr("Программа")]
+        currentIndex: page.periodIndex
+        onSelected: index => page.periodIndex = index
     }
-
-    // — Динамика тела (T2): график веса, таблица «старт → сейчас», карта изменений —
-    Label {
-        color: Theme.textMuted
-        font: Typography.sectionTitle
-        text: qsTr("Динамика тела")
-        visible: page.hasDynamics
+    RowLayout {
         width: parent.width
-    }
-    LineChartCard {
-        captionText: page.weightCaption(page.dataRevision)
-        title: qsTr("Вес, кг")
-        values: page.weightValues(page.dataRevision)
-        visible: page.hasWeightChart
-        width: parent.width
+        Label {
+            Layout.fillWidth: true
+            text: page.periodCaption
+            font: Typography.caption
+            color: Theme.textSecondary
+            wrapMode: Text.WordWrap
+        }
+        Label {
+            text: StatisticsUi.has(page.dashboard.currentDay) ? (StatisticsUi.has(page.dashboard.totalDays) ? qsTr("День %1 / %2").arg(page.dashboard.currentDay).arg(page.dashboard.totalDays) : qsTr("День %1").arg(page.dashboard.currentDay)) : ""
+            font: Typography.captionStrong
+            color: Theme.textSecondary
+        }
     }
     AppCard {
-        spacing: Spacing.itemGap
-        visible: page.hasDynamics
+        visible: page.viewModel && page.viewModel.errorKey.length > 0
         width: parent.width
-
         Label {
-            color: Theme.textPrimary
-            font: Typography.bodyStrong
-            text: qsTr("Старт → сейчас")
             width: parent.width
+            text: qsTr("Не удалось загрузить статистику")
+            font: Typography.body
+            color: Theme.negative
+            wrapMode: Text.WordWrap
         }
-        Repeater {
-            model: page.hasDynamics ? page.viewModel.trends : null
+        AppButton {
+            width: parent.width
+            text: qsTr("Повторить")
+            variant: AppButton.Secondary
+            onClicked: page.reload()
+        }
+    }
 
-            delegate: MeasurementTrendRow {
-                id: trendRow
-
-                required property var model
-
-                delta: trendRow.model.delta
-                deltaPercent: trendRow.model.deltaPercent
-                favorable: trendRow.model.favorable
-                forecastAtEnd: trendRow.model.forecastAtEnd
-                latest: trendRow.model.latest
-                param: trendRow.model.param
-                points: trendRow.model.points
-                ratePerWeek: trendRow.model.ratePerWeek
-                start: trendRow.model.start
-                trend: trendRow.model.trend
+    Column {
+        objectName: "bodyStatistics"
+        width: parent.width
+        spacing: Spacing.itemGap
+        visible: page.sectionIndex === 0
+        AppComboBox {
+            objectName: "bodyMetricSelector"
+            width: parent.width
+            visible: page.measurementOptions.length > 1
+            model: page.measurementOptions
+            currentIndex: Math.min(page.measurementIndex, count - 1)
+            Accessible.name: qsTr("Параметр тела")
+            onActivated: page.measurementIndex = currentIndex
+        }
+        AppCard {
+            width: parent.width
+            elevated: false
+            Label {
+                text: MeasurementTexts.title(page.selectedMeasurement)
+                font: Typography.bodyStrong
+                color: Theme.textPrimary
+            }
+            RowLayout {
                 width: parent.width
+                Label {
+                    Layout.fillWidth: true
+                    text: page.number(bodyPlot.selected ? bodyPlot.selected.value : null) + " " + MeasurementTexts.unit(page.selectedMeasurement)
+                    font: Typography.largeTitle
+                    color: Theme.textPrimary
+                }
+                Label {
+                    text: StatisticsUi.signed(page.selectedTrend.delta) + " " + MeasurementTexts.unit(page.selectedMeasurement)
+                    visible: StatisticsUi.has(page.selectedTrend.delta)
+                    font: Typography.bodyStrong
+                    color: page.selectedTrend.favorable === false ? Theme.warning : Theme.textSecondary
+                }
+            }
+            Label {
+                width: parent.width
+                text: bodyPlot.selected ? StatisticsUi.date(bodyPlot.selected.date) + (StatisticsUi.has(page.selectedTrend.delta) ? qsTr(" · изменение за выбранный период") : qsTr(" · первый замер")) : qsTr("Нет замеров за этот период")
+                font: Typography.caption
+                color: Theme.textSecondary
+                wrapMode: Text.WordWrap
+            }
+            StatisticsPlot {
+                id: bodyPlot
+                objectName: "bodyStatisticsPlot"
+                width: parent.width
+                points: page.bodyPoints
+                unit: MeasurementTexts.unit(page.selectedMeasurement)
+                showSelectionHeader: false
+                showAverage: page.selectedMeasurement === "weight"
+            }
+            RowLayout {
+                width: parent.width
+                visible: page.selectedMeasurement === "weight" && StatisticsUi.has(page.dashboard.targetWeightKg)
+                StatisticValue {
+                    Layout.fillWidth: true
+                    label: qsTr("Цель")
+                    valueText: page.number(page.dashboard.targetWeightKg) + " " + qsTr("кг")
+                    detail: StatisticsUi.has(page.dashboard.remainingKg) ? qsTr("Осталось %1 кг").arg(page.number(page.dashboard.remainingKg)) : ""
+                }
+                StatisticValue {
+                    Layout.fillWidth: true
+                    label: qsTr("В начале периода")
+                    valueText: page.number(page.selectedTrend.start) + " " + qsTr("кг")
+                }
             }
         }
-        Label {
-            color: Theme.textMuted
-            font: Typography.caption
-            text: qsTr("Прогноз — продолжение прямой по двум точкам: старту и последнему замеру. Это оценка, а не обещание.")
+        DisclosureCard {
+            objectName: "measurementDetails"
             width: parent.width
+            title: qsTr("Сравнение замеров")
+            summary: qsTr("Начало, последний замер и изменение")
+            showIcon: false
+            titleFont: Typography.bodyMedium
+            summaryFont: Typography.detail
+            doneText: qsTr("Свернуть")
+            expanded: page.detailsExpanded
+            onToggleRequested: page.detailsExpanded = !page.detailsExpanded
+            onDoneRequested: page.detailsExpanded = false
+            body: Column {
+                width: parent.width
+                spacing: 20
+                Column {
+                    objectName: "measurementFacts"
+                    width: parent.width
+                    spacing: 0
+                    Label {
+                        width: parent.width
+                        text: qsTr("Изменения за выбранный период")
+                        font: Typography.detail
+                        color: Theme.textSecondary
+                        bottomPadding: 12
+                        wrapMode: Text.WordWrap
+                    }
+                    Repeater {
+                        model: page.trendRows.filter(row => row.points > 0)
+                        delegate: WorkoutResultRow {
+                            required property var modelData
+                            required property int index
+                            width: parent.width
+                            leftPadding: 0
+                            rightPadding: 0
+                            title: MeasurementTexts.title(modelData.param)
+                            subtitle: qsTr("Начало: %1 %2").arg(page.number(modelData.start)).arg(MeasurementTexts.unit(modelData.param))
+                            valueText: page.number(modelData.latest) + " " + MeasurementTexts.unit(modelData.param)
+                            detailText: StatisticsUi.has(modelData.delta) ? StatisticsUi.signed(modelData.delta) + " " + MeasurementTexts.unit(modelData.param) : qsTr("Первый замер")
+                            navigation: true
+                            onClicked: {
+                                page.openForecast(modelData.param);
+                            }
+                        }
+                    }
+                    Label {
+                        width: parent.width
+                        visible: !page.trendRows.some(row => row.points > 0)
+                        text: qsTr("Добавьте замеры в дневник")
+                        font: Typography.body
+                        color: Theme.textSecondary
+                        wrapMode: Text.WordWrap
+                    }
+                    AppButton {
+                        width: parent.width
+                        visible: page.hasData && page.viewModel.change_map !== undefined && page.viewModel.change_map.count > 0
+                        text: page.changeMapExpanded ? qsTr("Скрыть карту изменений") : qsTr("Карта изменений по датам")
+                        variant: AppButton.Ghost
+                        labelFont: Typography.detail
+                        onClicked: page.changeMapExpanded = !page.changeMapExpanded
+                    }
+                    MeasurementChangeMap {
+                        width: parent.width
+                        visible: page.changeMapExpanded
+                        model: page.hasData && page.viewModel.change_map !== undefined ? page.viewModel.change_map : null
+                    }
+                }
+                AppButton {
+                    width: parent.width
+                    text: qsTr("Темп и прогноз")
+                    variant: AppButton.Secondary
+                    onClicked: page.openForecast(page.selectedMeasurement)
+                }
+            }
+        }
+    }
+    Column {
+        objectName: "trainingStatistics"
+        visible: page.sectionIndex === 1
+        width: parent.width
+        spacing: Spacing.itemGap
+        AppCard {
+            width: parent.width
+            elevated: false
+            Label {
+                text: qsTr("За выбранный период")
+                font: Typography.bodyStrong
+                color: Theme.textPrimary
+            }
+            RowLayout {
+                width: parent.width
+                StatisticValue {
+                    Layout.fillWidth: true
+                    label: qsTr("Тренировок")
+                    valueText: page.hasData ? String(page.viewModel.completedSessions) : "—"
+                }
+                StatisticValue {
+                    Layout.fillWidth: true
+                    label: qsTr("Подходов")
+                    valueText: page.hasData ? String(page.viewModel.setsCount) : "—"
+                }
+                StatisticValue {
+                    Layout.fillWidth: true
+                    label: qsTr("Минут")
+                    valueText: page.hasData ? page.number(page.viewModel.durationMinutes, 0) : "—"
+                }
+            }
+            Label {
+                width: parent.width
+                text: qsTr("Объём нагрузки по неделям")
+                font: Typography.caption
+                color: Theme.textSecondary
+            }
+            StatisticsPlot {
+                width: parent.width
+                points: page.trainingPoints(page.dataRevision)
+                unit: qsTr("кг")
+                decimals: 0
+            }
+            Label {
+                width: parent.width
+                text: page.hasData ? qsTr("Всего: %1 кг · %2 повторов").arg(page.number(page.viewModel.tonnageKg, 0)).arg(page.viewModel.repsCount) : ""
+                font: Typography.caption
+                color: Theme.textSecondary
+                wrapMode: Text.WordWrap
+            }
+        }
+        AppButton {
+            objectName: "strengthStatisticsLink"
+            width: parent.width
+            text: qsTr("Сила и рабочие веса  ›")
+            variant: AppButton.Secondary
+            onClicked: page.strengthRequested()
+        }
+        Label {
+            width: parent.width
+            text: qsTr("В объём входят вес × повторы выполненных рабочих подходов. Разминка не учитывается.")
+            font: Typography.caption
+            color: Theme.textSecondary
             wrapMode: Text.WordWrap
         }
     }
-    MeasurementChangeMap {
-        model: page.hasDynamics ? page.viewModel.change_map : null
-        visible: page.hasDynamics
+    Column {
+        objectName: "nutritionStatistics"
+        visible: page.sectionIndex === 2
         width: parent.width
-    }
-    Label {
-        color: Theme.textSecondary
-        font: Typography.body
-        horizontalAlignment: Text.AlignHCenter
-        text: qsTr("Внесите первые замеры на экране «Сегодня» — здесь появятся график веса, темп и прогноз.")
-        visible: page.hasData && page.hasDynamics === false
-        width: parent.width
-        wrapMode: Text.WordWrap
-    }
-
-    // Значения веса для графика: по модели серии, а не по числовому индексу роли
-    // (см. chartValues). dataRevision — только зависимость привязки.
-    function weightValues(revision) {
-        const values = [];
-        const model = page.hasData && page.viewModel.weight_series !== undefined ? page.viewModel.weight_series : null;
-
-        if (model === null)
-            return values;
-
-        for (let i = 0; i < model.rowCount(); ++i) {
-            const row = model.get(i);
-
-            if (row !== undefined && row !== null && row.weightKg !== undefined)
-                values.push(Number(row.weightKg));
+        spacing: Spacing.itemGap
+        AppComboBox {
+            objectName: "nutritionMetricSelector"
+            width: parent.width
+            visible: page.nutritionRows.length > 1
+            model: page.nutritionRows.map((row, index) => ({
+                        id: index,
+                        title: row.title
+                    }))
+            Accessible.name: qsTr("Показатель питания или привычек")
+            currentIndex: Math.min(page.nutritionIndex, count - 1)
+            onActivated: page.nutritionIndex = currentIndex
         }
-
-        return values;
-    }
-
-    // Подпись под графиком: среднее за 7 дней по последнему взвешиванию и число
-    // взвешиваний в окне. Среднее сглаживает суточные колебания воды и еды.
-    function weightCaption(revision) {
-        const model = page.hasData && page.viewModel.weight_series !== undefined ? page.viewModel.weight_series : null;
-
-        if (model === null || model.rowCount() === 0)
-            return "";
-
-        const last = model.get(model.rowCount() - 1);
-
-        return qsTr("среднее за 7 дней: %1 кг (замеров: %2)").arg(Qt.locale().toString(Number(last.average7Kg), "f", 1)).arg(last.averagePoints);
-    }
-
-    // Точки графика — простой массив чисел: LineChartCard сам раскладывает их
-    // по осям. Значения берутся из строки недельного среза по имени роли:
-    // числового индекса роли в QML нет (`roleNames` отдаёт имена, а значения
-    // начинаются с Qt::UserRole + 1), поэтому чтение среза по числу возвращало
-    // пустые значения — сетка рисовалась, а линии тоннажа не было.
-    function chartValues() {
-        const values = [];
-        const model = page.hasData ? page.viewModel.weeks : null;
-
-        if (model === undefined || model === null)
-            return values;
-
-        for (let i = 0; i < model.rowCount(); ++i) {
-            const row = model.get(i);
-
-            if (row !== undefined && row !== null && row.tonnageKg !== undefined)
-                values.push(Number(row.tonnageKg));
+        AppCard {
+            width: parent.width
+            elevated: false
+            Label {
+                text: page.selectedNutrition.title || qsTr("Питание и привычки")
+                font: Typography.bodyStrong
+                color: Theme.textPrimary
+            }
+            Label {
+                width: parent.width
+                text: page.number(page.selectedNutrition.average, page.selectedDigits) + (page.selectedNutrition.unit ? " " + page.selectedUnit : "")
+                font: Typography.largeTitle
+                color: Theme.textPrimary
+            }
+            Label {
+                width: parent.width
+                text: page.nutritionRows.length ? qsTr("Среднее по записям · цель %1").arg(page.selectedNutrition.targetText) : qsTr("Добавьте числовые правила в программу")
+                font: Typography.caption
+                color: Theme.textSecondary
+                wrapMode: Text.WordWrap
+            }
+            StatisticsPlot {
+                width: parent.width
+                points: page.selectedNutrition.points || []
+                unit: page.selectedUnit
+                decimals: page.selectedDigits
+            }
+            RowLayout {
+                width: parent.width
+                visible: StatisticsUi.has(page.selectedNutrition.average)
+                StatisticValue {
+                    Layout.fillWidth: true
+                    label: qsTr("Дней в норме")
+                    valueText: String(page.selectedNutrition.daysInNorm || 0)
+                }
+                StatisticValue {
+                    Layout.fillWidth: true
+                    label: qsTr("Вне нормы")
+                    valueText: String(page.selectedNutrition.daysOff || 0)
+                }
+            }
         }
-
-        return values;
-    }
-
-    function percent(value) {
-        if (value === null || value === undefined)
-            return "—";
-
-        return qsTr("%1 %").arg(Math.round(value));
-    }
-
-    // Процент по правилам без данных остаётся прочерком, а не нулём: ноль
-    // выполненных отметок и их отсутствие — разные состояния (§5.5).
-    function ruleAdherenceText() {
-        const vm = page.viewModel;
-
-        if (vm === undefined || vm === null || vm.hasRuleAdherencePercent === false)
-            return "—";
-
-        return String(Math.round(vm.ruleAdherencePercent));
-    }
-
-    // Подпись под заголовком графика: сколько недель в окне и каков пик тоннажа.
-    // Без неё линия не читается — по ней видно только форму, но не масштаб.
-    function chartCaption() {
-        const model = page.hasData ? page.viewModel.weeks : null;
-
-        if (model === undefined || model === null || model.rowCount() === 0)
-            return "";
-
-        let peak = 0;
-
-        for (let i = 0; i < model.rowCount(); ++i) {
-            const value = Number(model.get(i).tonnageKg);
-
-            peak = Math.max(peak, value);
+        Label {
+            width: parent.width
+            text: qsTr("Пропущенные дни не считаются нулями. Показаны только заполненные значения.")
+            font: Typography.caption
+            color: Theme.textSecondary
+            wrapMode: Text.WordWrap
         }
-
-        return qsTr("%1 нед. · пик %2 кг").arg(model.rowCount()).arg(Math.round(peak));
     }
-
-    function tonnageText() {
-        if (page.hasData === false)
-            return "—";
-
-        return (page.viewModel.tonnageKg / 1000).toFixed(1);
-    }
-
-    // Дельта веса показывается со знаком: минус означает снижение (§5.1).
-    function bodyWeightText() {
-        const vm = page.viewModel;
-
-        if (vm === undefined || vm === null || vm.hasBodyWeightDeltaKg === false)
-            return "—";
-
-        const delta = vm.bodyWeightDeltaKg;
-
-        return (delta > 0 ? "+" : "") + delta.toFixed(1);
+    SwipePopup {
+        id: forecastPopup
+        objectName: "measurementForecastPopup"
+        parent: Overlay.overlay
+        dragHandle: forecastGrip
+        width: parent ? Math.min(440, parent.width - 32) : 328
+        height: parent ? Math.min(620, parent.height - 48) : 560
+        modal: true
+        dim: true
+        padding: 20
+        contentItem: ColumnLayout {
+            objectName: "measurementForecast"
+            spacing: 16
+            SwipeDismissHandle {
+                id: forecastGrip
+                Layout.fillWidth: true
+                onDismissed: forecastPopup.close()
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Темп и прогноз")
+                font: Typography.sectionTitle
+                color: Theme.textPrimary
+            }
+            AppComboBox {
+                objectName: "forecastMetricSelector"
+                Layout.fillWidth: true
+                model: page.measurementOptions
+                currentIndex: Math.max(0, page.measurementOptions.findIndex(option => option.id === page.forecastMeasurement))
+                onActivated: page.forecastMeasurement = page.measurementOptions[currentIndex].id
+                Accessible.name: qsTr("Показатель для прогноза")
+            }
+            ScrollView {
+                id: forecastScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                contentWidth: availableWidth
+                Column {
+                    width: forecastScroll.availableWidth
+                    spacing: 20
+                    Label {
+                        width: parent.width
+                        text: page.forecastTrend.points === 1 && page.forecastTrend.latestDate ? qsTr("Замер от %1").arg(StatisticsUi.fullDate(page.forecastTrend.latestDate)) : page.forecastTrend.startDate && page.forecastTrend.latestDate ? qsTr("По замерам: %1 — %2").arg(StatisticsUi.fullDate(page.forecastTrend.startDate)).arg(StatisticsUi.fullDate(page.forecastTrend.latestDate)) : page.periodCaption
+                        font: Typography.detail
+                        color: Theme.textSecondary
+                        wrapMode: Text.WordWrap
+                    }
+                    RowLayout {
+                        width: parent.width
+                        visible: page.forecastTrend.points > 0
+                        StatisticValue {
+                            Layout.fillWidth: true
+                            visible: page.forecastTrend.points > 1
+                            label: qsTr("Первый замер")
+                            valueText: page.number(page.forecastTrend.start) + " " + MeasurementTexts.unit(page.forecastMeasurement)
+                            valueFont: Typography.inputNumber
+                        }
+                        StatisticValue {
+                            Layout.fillWidth: true
+                            label: page.forecastTrend.points > 1 ? qsTr("Последний") : qsTr("Замер")
+                            valueText: page.number(page.forecastTrend.latest) + " " + MeasurementTexts.unit(page.forecastMeasurement)
+                            valueFont: Typography.inputNumber
+                        }
+                    }
+                    StatisticValue {
+                        objectName: "forecastRate"
+                        width: parent.width
+                        visible: StatisticsUi.has(page.forecastTrend.ratePerWeek)
+                        label: qsTr("Темп в неделю")
+                        valueText: StatisticsUi.signed(page.forecastTrend.ratePerWeek) + " " + MeasurementTexts.unit(page.forecastMeasurement)
+                        valueFont: Typography.inputNumber
+                    }
+                    StatisticValue {
+                        objectName: "forecastEstimate"
+                        width: parent.width
+                        visible: page.forecastAvailable
+                        label: qsTr("Если темп сохранится · %1").arg(StatisticsUi.date(page.forecastDate))
+                        valueText: page.number(page.forecastTrend.forecastAtEnd) + " " + MeasurementTexts.unit(page.forecastMeasurement)
+                        valueFont: Typography.figure
+                    }
+                    Label {
+                        objectName: "forecastExplanation"
+                        width: parent.width
+                        text: page.forecastMessage
+                        font: Typography.body
+                        color: Theme.textSecondary
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
+            AppButton {
+                Layout.fillWidth: true
+                objectName: "forecastCloseButton"
+                text: qsTr("Закрыть")
+                variant: AppButton.Secondary
+                onClicked: forecastPopup.close()
+            }
+        }
     }
 }

@@ -2,6 +2,7 @@
 #include "Data/Program/Program_Repository.h"
 #include "Domain/Program_Model.h"
 
+#include <QDate>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QTemporaryDir>
@@ -25,6 +26,7 @@ private slots:
 	void goalAndTermEditsJournal();
 	void loadFullAssemblesTree();
 	void deleteDraftRemovesOnlyDrafts();
+	void pauseClockSurvivesResume();
 
 private:
 	QString Make_Database_Path();
@@ -766,6 +768,30 @@ void AProgram_Repository_Test::deleteDraftRemovesOnlyDrafts()
 }
 //-------------------------------------------------------------------------------------------------------------
 
+void AProgram_Repository_Test::pauseClockSurvivesResume()
+{
+	AsSql_Database database;
+	QVERIFY(database.Open(Make_Database_Path()));
+	AProgram_Repository repository(&database);
+	SProgram program = Make_Program("paused_clock", EProgram_State::Draft);
+	QVERIFY(repository.Insert_Program(program));
+	QVERIFY(repository.Change_State(program.ID, EProgram_State::Active));
+	QVERIFY(repository.Change_State(program.ID, EProgram_State::Paused));
+	QSqlQuery query(database.Sql_Connection());
+	query.prepare("UPDATE programs SET paused_on=? WHERE id=?");
+	query.addBindValue(QDate::currentDate().addDays(-3).toString(Qt::ISODate));
+	query.addBindValue(program.ID);
+	QVERIFY(query.exec());
+	QVERIFY(repository.Change_State(program.ID, EProgram_State::Active));
+	QVERIFY(repository.Load_Program(program.ID, program));
+	QCOMPARE(program.Paused_Days, 3);
+	QVERIFY(program.Paused_On.isEmpty());
+	QVERIFY(repository.Change_State(program.ID, EProgram_State::Paused));
+	QVERIFY(repository.Load_Program(program.ID, program));
+	QCOMPARE(program.Paused_On, QDate::currentDate().toString(Qt::ISODate));
+	QCOMPARE(program.Paused_Days, 3);
+}
+//-------------------------------------------------------------------------------------------------------------
 QTEST_MAIN(AProgram_Repository_Test)
 
 #include "tst_Program_Repository.moc"

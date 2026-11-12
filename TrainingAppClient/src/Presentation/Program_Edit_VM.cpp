@@ -448,6 +448,9 @@ bool Avm_Program_Edit::Persist_Draft()
 
 		// Правила ссылаются на программу идентификатором, который появился
 		// только что: та же привязка, что в Create().
+		if (!Program_Repository_Instance->Set_Rep_Tolerance(Draft.ID, Draft.Rep_Tolerance))
+			return false;
+
 		if (!Link_Drafts_To_Program())
 			return false;
 	}
@@ -596,7 +599,43 @@ bool Avm_Program_Edit::Load(const QString &in_user_id, const QString &in_program
 
 	// Семь дней обязательны для редактора, даже если программа хранит их
 	// иначе: экран недели показывает ровно семь ячеек.
-	while (Draft_Days.size() < 7)
+	if (program.Schedule_Kind == ESchedule_Kind::Rotation)
+	{
+		QVector<SProgram_Day> cycle_days;
+		QVector<SDay_Exercise> cycle_exercises;
+		QSet<QString> used_days;
+		for (const SWeek_Slot &slot : week_slots)
+		{
+			SProgram_Day day;
+			day.ID = New_Id();
+			day.Program_Id = program.ID;
+			day.Title = "Отдых";
+			day.Kind = EDay_Kind::Rest;
+			for (const SProgram_Day &source : days)
+				if (source.ID == slot.Program_Day_Id)
+				{
+					day = source;
+				}
+			const bool repeated = used_days.contains(day.ID);
+			used_days.insert(day.ID);
+			if (repeated)
+				day.ID = New_Id();
+			day.Order_Index = cycle_days.size() + 1;
+			cycle_days.append(day);
+			for (const SDay_Exercise &source : exercises)
+				if (source.Program_Day_Id == slot.Program_Day_Id)
+				{
+					SDay_Exercise copy = source;
+					if (repeated)
+						copy.ID = New_Id();
+					copy.Program_Day_Id = day.ID;
+					cycle_exercises.append(copy);
+				}
+		}
+		Draft_Days = cycle_days;
+		Draft_Exercises = cycle_exercises;
+	}
+	while (Draft.Schedule_Kind != ESchedule_Kind::Rotation && Draft_Days.size() < 7)
 	{
 		SProgram_Day day;
 
@@ -1308,7 +1347,7 @@ bool Avm_Program_Edit::Create(bool in_activate)
 	if (trainingDays() == 0)
 		return Set_Error("empty_training_day");
 
-	for (int weekday = 1; weekday <= 7; ++weekday)
+	for (int weekday = 1; weekday <= Draft_Days.size(); ++weekday)
 	{
 		if (Draft_Days.at(weekday - 1).Kind == EDay_Kind::Rest)
 			continue;
@@ -1417,14 +1456,17 @@ QVector<SWeek_Slot> Avm_Program_Edit::Build_Schedule() const
 {
 	QVector<SWeek_Slot> week_slots;
 
-	for (int weekday = 1; weekday <= 7; ++weekday)
+	for (int weekday = 1; weekday <= Draft_Days.size(); ++weekday)
 	{
 		const SProgram_Day &day = Draft_Days.at(weekday - 1);
 		SWeek_Slot slot;
 
 		slot.ID = New_Id();
 		slot.Program_Id = Created_Program_Id;
-		slot.Day_Of_Week = weekday;
+		if (Draft.Schedule_Kind == ESchedule_Kind::Rotation)
+			slot.Rotation_Index = weekday;
+		else
+			slot.Day_Of_Week = weekday;
 		slot.Program_Day_Id = day.ID;
 
 		if (day.Kind == EDay_Kind::Rest)
@@ -1484,7 +1526,7 @@ void Avm_Program_Edit::Refresh_Day_Model()
 
 	QVector<QVariantMap> rows;
 
-	for (int weekday = 1; weekday <= 7; ++weekday)
+	for (int weekday = 1; weekday <= Draft_Days.size(); ++weekday)
 	{
 		const SProgram_Day &day = Draft_Days.at(weekday - 1);
 		QVariantMap row;
@@ -1611,5 +1653,27 @@ bool Avm_Program_Edit::Set_Error(const QString &in_key)
 	emit changed();
 
 	return false;
+}
+//-------------------------------------------------------------------------------------------------------------
+
+bool Avm_Program_Edit::Is_Rotation() const
+{
+	return Draft.Schedule_Kind == ESchedule_Kind::Rotation;
+}
+//-------------------------------------------------------------------------------------------------------------
+int Avm_Program_Edit::Rep_Tolerance() const
+{
+	return Draft.Rep_Tolerance;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Program_Edit::setRepTolerance(int in_tolerance)
+{
+	if (in_tolerance < 0 || in_tolerance > 20)
+		return Set_Error("invalid_rep_tolerance");
+	Draft.Rep_Tolerance = in_tolerance;
+	emit changed();
+	if (!Created_Program_Id.isEmpty() && Program_Repository_Instance != 0)
+		return Program_Repository_Instance->Set_Rep_Tolerance(Created_Program_Id, in_tolerance);
+	return true;
 }
 //-------------------------------------------------------------------------------------------------------------

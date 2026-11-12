@@ -2,6 +2,7 @@
 
 #include "Data/Program/Program_Repository_Base.h"
 #include "Domain/Program_Service.h"
+#include "Domain/Program_Template_Service.h"
 
 #include <QHash>
 #include <QSet>
@@ -29,7 +30,9 @@ using namespace Program_Model;
 // возврат false + Get_Last_Error(); журнал ревизий и оптимистическая
 // блокировка — общие для всех репозиториев (AProgram_Repository_Base).
 //-------------------------------------------------------------------------------------------------------------
-class AProgram_Repository : public AProgram_Repository_Base, public AProgram_Repository_Port
+class AProgram_Repository : public AProgram_Repository_Base,
+                            public AProgram_Repository_Port,
+                            public AProgram_Template_Repository_Port
 {
 	Q_OBJECT
 
@@ -41,6 +44,8 @@ public:
 	}
 
 	// Чтение. Отсутствие строки — false, детали — Get_Last_Error().
+	bool Insert_Template_Draft(const QString &in_user_id, const SProgram_Template_Draft &in_draft) override;
+	bool Set_Rep_Tolerance(const QString &in_program_id, int in_tolerance);
 	bool Load_Program(const QString &in_program_id, SProgram &out_program);
 	bool Load_Program_Full(const QString &in_program_id, SProgram &out_program, QVector<SGoal_Target> &out_targets,
 	                       QVector<SProgram_Day> &out_days, QVector<SDay_Exercise> &out_exercises,
@@ -104,6 +109,10 @@ public:
 	bool Delete_Draft(const QString &in_program_id);
 
 private:
+	bool Update_Program_Clock(const QString &in_program_id);
+	bool Insert_Program_Full_Internal(const SProgram &in_program, const QVector<SGoal_Target> &in_targets,
+	                                  const QVector<SProgram_Day> &in_days, const QVector<SDay_Exercise> &in_exercises,
+	                                  const QVector<SWeek_Slot> &in_slots, bool in_manage_transaction);
 	bool Check_Editable(const QString &in_program_id, SProgram &out_program);
 	// Предписания всех дней программы одним запросом: используется
 	// Load_Program_Full, где цикл с запросом на каждый день давал N+1.

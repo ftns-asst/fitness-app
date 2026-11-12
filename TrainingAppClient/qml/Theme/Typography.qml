@@ -12,6 +12,34 @@ import QtQuick
 // Маппинг проверяется зондом шрифтов в qml/Main.qml (строки fontWeights15 и
 // fontWeights40 в --diag).
 QtObject {
+    readonly property font detail: Qt.font({
+        family: fontFamily,
+        pixelSize: 13,
+        weight: Font.Normal
+    })
+    readonly property font bodyMedium: Qt.font({
+        family: fontFamilyMedium,
+        pixelSize: 15,
+        weight: Font.Medium
+    })
+    readonly property font workoutTitle: Qt.font({
+        family: fontFamilyDemiBold,
+        pixelSize: 28,
+        weight: Font.DemiBold,
+        letterSpacing: -0.4
+    })
+    readonly property font inputNumber: Qt.font({
+        family: fontFamilyMedium,
+        pixelSize: 24,
+        weight: Font.Medium,
+        letterSpacing: -0.3
+    })
+    readonly property font figure: Qt.font({
+        family: fontFamilyMedium,
+        pixelSize: 32,
+        weight: Font.Medium,
+        letterSpacing: -0.6
+    })
     readonly property font body: Qt.font({
         family: fontFamily,
         pixelSize: 15,

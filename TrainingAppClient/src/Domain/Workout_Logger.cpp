@@ -1,4 +1,5 @@
 ﻿#include "Domain/Workout_Logger.h"
+#include <QtMath>
 
 #include "Data/Program/Program_Repository.h"
 #include "Data/Program/Workout_Repository.h"
@@ -146,13 +147,16 @@ bool AsWorkout_Logger::Is_Valid_Set(const SSet_Log &in_set)
 	if (in_set.Set_Number < 1)
 		return Set_Last_Error(QString("Номер подхода вне диапазона: %1").arg(in_set.Set_Number));
 
-	if (in_set.Weight_Kg < 0)
+	if (!qIsFinite(in_set.Weight_Kg) || in_set.Weight_Kg < 0)
 		return Set_Last_Error(QString("Отрицательный вес в подходе %1").arg(in_set.Set_Number));
 
-	if (in_set.Reps < 0)
+	if (in_set.Has_Target_Reps_Range && (in_set.Target_Reps_Min < 0 || in_set.Target_Reps_Max < in_set.Target_Reps_Min))
+		return Set_Last_Error("Некорректный снимок повторов");
+
+	if (in_set.Reps < 0 || (in_set.Done && in_set.Reps == 0))
 		return Set_Last_Error(QString("Отрицательные повторы в подходе %1").arg(in_set.Set_Number));
 
-	if (in_set.Has_Rpe && (in_set.Rpe < 5 || in_set.Rpe > 10))
+	if (in_set.Has_Rpe && (!qIsFinite(in_set.Rpe) || in_set.Rpe < 5 || in_set.Rpe > 10))
 		return Set_Last_Error(QString("RPE вне шкалы 5–10 в подходе %1").arg(in_set.Set_Number));
 
 	return true;
@@ -181,6 +185,9 @@ bool AsWorkout_Logger::Apply_Plan_Snapshot(const QString &in_program_day_id, SSe
 		in_out_set.Target_Weight_Kg = exercises.at(i).Target_Weight_Kg;
 		in_out_set.Has_Target_Reps = true;
 		in_out_set.Target_Reps = exercises.at(i).Reps_Min;
+		in_out_set.Has_Target_Reps_Range = true;
+		in_out_set.Target_Reps_Min = exercises.at(i).Reps_Min;
+		in_out_set.Target_Reps_Max = exercises.at(i).Reps_Max;
 
 		return true;
 	}
@@ -204,10 +211,13 @@ bool AsWorkout_Logger::Save_Set(const QString &in_user_id, const SSet_Log &in_se
 	if (!Is_Own_Draft(in_user_id, in_set.Session_Id, session))
 		return false;
 
-	if (!stored.Day_Exercise_Id.isEmpty() && !Apply_Plan_Snapshot(session.Program_Day_Id, stored))
+	if (!stored.Has_Target_Reps_Range && !stored.Day_Exercise_Id.isEmpty() &&
+	    !Apply_Plan_Snapshot(session.Program_Day_Id, stored))
 		return false;
 
-	return Repository_Instance->Save_Set(stored);
+	if (!Repository_Instance->Save_Set(stored))
+		return Set_Last_Error(Repository_Instance->Get_Last_Error());
+	return true;
 }
 //-------------------------------------------------------------------------------------------------------------
 bool AsWorkout_Logger::Finish_Session(const QString &in_user_id, const QString &in_session_id,
@@ -228,13 +238,16 @@ bool AsWorkout_Logger::Finish_Session(const QString &in_user_id, const QString &
 	if (!Recalculate_Summary(in_session_id, session))
 		return false;
 
+	if (session.Set_Count == 0)
+		return Set_Last_Error("Сначала запишите хотя бы один рабочий подход");
+
 	finished = QDateTime::currentDateTimeUtc();
 	started = QDateTime::fromString(session.Started_At, Qt::ISODate);
 
 	session.Completed_At = finished.toString(Qt::ISODate);
 
 	if (started.isValid())
-		session.Duration_Seconds = int(started.secsTo(finished));
+		session.Duration_Seconds = qMax(0, int(started.secsTo(finished)));
 
 	session.State = EWorkout_State::Completed;
 

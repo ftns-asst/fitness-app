@@ -7,6 +7,8 @@ Row {
 
     property var daysModel: null
     property bool showCount: false
+    property bool cycleSchedule: false
+    readonly property int dayCount: daysModel && daysModel.count !== undefined ? daysModel.count : 7
     readonly property var weekdayNames: [qsTr("Пн"), qsTr("Вт"), qsTr("Ср"), qsTr("Чт"), qsTr("Пт"), qsTr("Сб"), qsTr("Вс")]
     signal dayRequested(int weekday, int kind)
 
@@ -16,9 +18,9 @@ Row {
     Repeater {
         model: strip.daysModel
         delegate: DayTile {
-            width: Math.max(0, (strip.width - strip.spacing * 6) / 7)
+            width: Math.max(0, (strip.width - strip.spacing * (strip.dayCount - 1)) / Math.max(1, strip.dayCount))
             height: strip.showCount ? heightTall : heightCompact
-            weekdayName: strip.weekdayNames[model.weekday - 1]
+            weekdayName: strip.cycleSchedule ? qsTr("%1").arg(model.weekday) : strip.weekdayNames[model.weekday - 1]
             tileKind: model.kind
             showCount: strip.showCount
             countText: countFor(model.kind, model.exerciseCount)

@@ -18,6 +18,7 @@ set(SINGLETON_QML_NAMES
     ExerciseTexts
     RuleTexts
     MeasurementTexts
+    StatisticsUi
     BackRouter
     Demo
     MockApi
@@ -418,7 +419,7 @@ endforeach()
 # компоновках проекта, включая тёмную и обрамлённую.
 # profile-settings — раздел «Параметры» профиля: в нём блок «Оформление», и без
 # именованного экрана он не попадал бы в аудит вёрстки ни на одной компоновке.
-foreach(program_screen IN ITEMS diary program-catalog program-overview program-edit program-rules program-rules-picker program-stats program-day macro-calculator set-entry profile-settings exercises exercise-detail)
+foreach(program_screen IN ITEMS diary program-catalog program-overview program-edit program-rules program-rules-picker program-stats strength program-day macro-calculator set-entry profile-settings exercises exercise-detail)
     foreach(program_viewport IN ITEMS 360 390 480 frame dark)
         set(program_test_name "ui_smoke_${program_screen}_${program_viewport}")
         add_test(
@@ -524,3 +525,33 @@ qt_add_executable(tst_Diary_Calculator cpp/tst_Diary_Calculator.cpp)
 target_link_libraries(tst_Diary_Calculator PRIVATE TrainingAppCore Qt6::Test)
 add_test(NAME diary_calculator COMMAND tst_Diary_Calculator)
 set_tests_properties(diary_calculator PROPERTIES TIMEOUT 30)
+
+qt_add_executable(tst_Dashboard_Calculator cpp/tst_Dashboard_Calculator.cpp)
+target_link_libraries(tst_Dashboard_Calculator PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME tracker_Dashboard_Calculator COMMAND tst_Dashboard_Calculator)
+set_tests_properties(tracker_Dashboard_Calculator PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Strength_Calculator cpp/tst_Strength_Calculator.cpp)
+target_link_libraries(tst_Strength_Calculator PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME tracker_Strength_Calculator COMMAND tst_Strength_Calculator)
+set_tests_properties(tracker_Strength_Calculator PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Strength_VM cpp/tst_Strength_VM.cpp)
+target_link_libraries(tst_Strength_VM PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME tracker_Strength_VM COMMAND tst_Strength_VM)
+set_tests_properties(tracker_Strength_VM PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Program_Template_Service cpp/tst_Program_Template_Service.cpp)
+target_link_libraries(tst_Program_Template_Service PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME tracker_Program_Template_Service COMMAND tst_Program_Template_Service)
+set_tests_properties(tracker_Program_Template_Service PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Program_Templates_VM cpp/tst_Program_Templates_VM.cpp)
+target_link_libraries(tst_Program_Templates_VM PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME tracker_Program_Templates_VM COMMAND tst_Program_Templates_VM)
+set_tests_properties(tracker_Program_Templates_VM PROPERTIES TIMEOUT 20)
+
+qt_add_executable(tst_Workout_VM cpp/tst_Workout_VM.cpp)
+target_link_libraries(tst_Workout_VM PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME tracker_workout_vm COMMAND tst_Workout_VM)
+set_tests_properties(tracker_workout_vm PROPERTIES TIMEOUT 20)

@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Domain/Dashboard_Calculator.h"
 #include "Domain/Error_State.h"
 #include "Domain/Macro_Calculator.h"
 #include "Domain/Measurement_Schedule.h"
@@ -41,6 +42,7 @@ class Avm_Today : public QObject
 	Q_OBJECT
 
 	Q_PROPERTY(bool hasProgram READ Has_Program NOTIFY changed)
+	Q_PROPERTY(QVariantMap dashboard READ dashboard NOTIFY changed)
 	Q_PROPERTY(QString programId READ programId NOTIFY changed)
 	Q_PROPERTY(QString programTitle READ programTitle NOTIFY changed)
 	Q_PROPERTY(QString goal READ goal NOTIFY changed)
@@ -159,6 +161,9 @@ public:
 	bool Load_Measurement(const QString &in_user_id);
 
 	bool Has_Program() const;
+	QVariantMap dashboard() const;
+	// Данные часов из хранилища жизненного цикла; передать до reload.
+	void Set_Program_Clock(const QString &in_program_id, int in_paused_days, const QString &in_paused_on);
 	QString programId() const;
 	QString programTitle() const;
 	QString goal() const;
@@ -222,7 +227,8 @@ private:
 	bool Set_Error(const QString &in_error_key);
 	// Вид дня строкой и ближайший тренировочный день. Оба считаются из
 	// расписания, поэтому экран не ищет их сам (§5.1).
-	void Load_Day(const QVector<SWeek_Slot> &in_slots, const QVector<SProgram_Day> &in_days);
+	void Load_Day(const QVector<SWeek_Slot> &in_slots, const QVector<SProgram_Day> &in_days,
+	              const SProgram &in_program);
 	// Ближайший день недели с упражнениями, начиная с сегодняшнего. 0 — такого
 	// дня нет: программа состоит из одних дней отдыха, и тогда подпись про
 	// следующую тренировку показывать нечего.
@@ -258,6 +264,10 @@ private:
 	// отдельных полей ViewModel: форма читает и пишет её одним объектом, и
 	// раздельные свойства расходились бы с ней при частичном вводе.
 	SBody_Measurement Measurement;
+	QVariantMap Dashboard;
+	QString Clock_Program_Id;
+	int Clock_Paused_Days = 0;
+	QString Clock_Paused_On;
 	// Результат авторасчёта КБЖУ: числа и дата расчёта. Держится структурой
 	// домена, а не набором полей ViewModel: экран показывает числа как есть, и
 	// тот же расчёт на экране «Рассчитать КБЖУ» заполняет эту же структуру.

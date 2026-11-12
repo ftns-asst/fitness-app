@@ -10,6 +10,10 @@ AppCard {
     property string title: ""
     property string summary: ""
     property string iconName: "settings"
+    property bool showIcon: true
+    property font titleFont: Typography.bodyStrong
+    property font summaryFont: Typography.caption
+    property string doneText: qsTr("Готово")
     property string badgeText: ""
     property string badgeObjectName: ""
     property string errorText: ""
@@ -49,6 +53,7 @@ AppCard {
 
             Rectangle {
                 Layout.preferredWidth: 32
+                visible: card.showIcon
                 Layout.preferredHeight: 32
                 radius: Theme.radiusSm
                 color: card.expanded ? Theme.accentSurface : Theme.surfaceMuted
@@ -70,7 +75,7 @@ AppCard {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
                         text: card.title
-                        font: Typography.bodyStrong
+                        font: card.titleFont
                         color: Theme.textPrimary
                         elide: Text.ElideRight
                     }
@@ -87,7 +92,7 @@ AppCard {
                     Layout.minimumWidth: 0
                     text: card.summary
                     visible: text.length > 0
-                    font: Typography.caption
+                    font: card.summaryFont
                     color: Theme.textSecondary
                     elide: Text.ElideRight
                 }
@@ -128,8 +133,8 @@ AppCard {
     Item {
         width: parent.width
         height: card.expanded ? detailsColumn.implicitHeight : 0
-        visible: height > 0
         enabled: card.expanded
+        visible: height > 0
         clip: true
         Behavior on height {
             NumberAnimation {
@@ -162,7 +167,7 @@ AppCard {
             }
             AppButton {
                 width: parent.width
-                text: qsTr("Готово")
+                text: card.doneText
                 variant: AppButton.Secondary
                 onClicked: card.doneRequested()
             }

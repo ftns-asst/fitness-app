@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "Domain/Dashboard_Calculator.h"
+#include "Domain/Diary_Calculator.h"
 #include "Domain/Program_Model.h"
 #include "Domain/Progress_Calculator.h"
 #include "Domain/Progress_Stats.h"
@@ -36,6 +38,8 @@ class Avm_Program_Stats : public QObject
 	Q_OBJECT
 
 	Q_PROPERTY(bool hasStats READ Has_Stats NOTIFY changed)
+	Q_PROPERTY(QVariantMap dashboard READ dashboard NOTIFY changed)
+	Q_PROPERTY(AList_Model *nutritionSummary READ nutrition_summary CONSTANT)
 	Q_PROPERTY(double adherencePercent READ adherencePercent NOTIFY changed)
 	Q_PROPERTY(bool hasAdherencePercent READ Has_Adherence_Percent NOTIFY changed)
 	Q_PROPERTY(int plannedSessions READ plannedSessions NOTIFY changed)
@@ -91,6 +95,9 @@ public:
 	bool Refresh_Today();
 
 	bool Has_Stats() const;
+	QVariantMap dashboard() const;
+	AList_Model *nutrition_summary() const;
+	void Set_Program_Clock(const QString &in_program_id, int in_paused_days, const QString &in_paused_on);
 	double adherencePercent() const;
 	bool Has_Adherence_Percent() const;
 	int plannedSessions() const;
@@ -137,6 +144,10 @@ private:
 	AStats_Repository *Stats_Repository_Instance;
 
 	SProgram_Stats Stats;
+	QVariantMap Dashboard;
+	QString Clock_Program_Id;
+	int Clock_Paused_Days = 0;
+	QString Clock_Paused_On;
 	AsProgress_Calculator Calculator;
 
 	AList_Model *Weeks;
@@ -147,6 +158,7 @@ private:
 	AList_Model *Trends_Model;
 	AList_Model *Weight_Series_Model;
 	AList_Model *Change_Map_Model;
+	AList_Model *Nutrition_Summary_Model;
 
 	QString Today_Text;
 	bool Today_Is_Pinned = false; // дата задана извне (тесты) и часами не обновляется

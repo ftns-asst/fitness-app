@@ -25,7 +25,8 @@ Avm_Program_Stats::Avm_Program_Stats(AProgram_Repository *in_program_repository,
       Weeks(new AList_Model(this)), Rule_Stats_Model(new AList_Model(this)),
       Exercise_Strength_Model(new AList_Model(this)), Goal_Progress_Model(new AList_Model(this)),
       Measurements_Model(new AList_Model(this)), Trends_Model(new AList_Model(this)),
-      Weight_Series_Model(new AList_Model(this)), Change_Map_Model(new AList_Model(this))
+      Weight_Series_Model(new AList_Model(this)), Change_Map_Model(new AList_Model(this)),
+      Nutrition_Summary_Model(new AList_Model(this))
 {
 	Today_Text = QDate::currentDate().toString("yyyy-MM-dd");
 
@@ -35,6 +36,8 @@ Avm_Program_Stats::Avm_Program_Stats(AProgram_Repository *in_program_repository,
 	Trends_Model->Set_Roles(Program_Rows::Trend_Roles());
 	Weight_Series_Model->Set_Roles(Program_Rows::Weight_Point_Roles());
 	Change_Map_Model->Set_Roles(Program_Rows::Change_Row_Roles());
+	Nutrition_Summary_Model->Set_Roles(
+	    {"ruleId", "title", "unit", "targetText", "average", "daysInNorm", "daysOff", "points"});
 }
 //-------------------------------------------------------------------------------------------------------------
 void Avm_Program_Stats::Set_Today(const QString &in_date)
@@ -127,6 +130,13 @@ bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_
 		}
 	}
 
+	// Явный период также ограничен программой и сегодняшней датой.
+	const QString minimum_date = AMeasurement_Schedule::Start_Date_Of(facts.Program);
+	if (!minimum_date.isEmpty() && (date_from.isEmpty() || date_from < minimum_date))
+		date_from = minimum_date;
+	if (date_to.isEmpty() || date_to > facts.Today)
+		date_to = facts.Today;
+
 	if (!Workout_Repository_Instance->Load_Program_Facts(facts.Program.User_Id, in_program_id, date_from, date_to,
 	                                                     facts.Sessions, facts.Sets))
 	{
@@ -137,13 +147,77 @@ bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_
 
 	if (Rule_Repository_Instance != 0)
 	{
-		Rule_Repository_Instance->Load_Rules(in_program_id, facts.Rules);
-		Rule_Repository_Instance->Load_Program_Checkins_Range(in_program_id, date_from, date_to, checkins);
+		if (!Rule_Repository_Instance->Load_Rules(in_program_id, facts.Rules) ||
+		    !Rule_Repository_Instance->Load_Program_Checkins_Range(in_program_id, date_from, date_to, checkins))
+		{
+			Set_Error();
+
+			return false;
+		}
 		facts.Checkins = checkins;
 	}
 
-	if (Measurement_Repository_Instance != 0)
-		Measurement_Repository_Instance->Load_Range(facts.Program.User_Id, date_from, date_to, facts.Measurements);
+	if (Measurement_Repository_Instance != 0 &&
+	    !Measurement_Repository_Instance->Load_Range(facts.Program.User_Id, date_from, date_to, facts.Measurements))
+	{
+		Set_Error();
+
+		return false;
+	}
+
+	Dashboard = ADashboard_Calculator::Compute(
+	    facts.Program, facts.Goal_Targets, facts.Measurements, facts.Today,
+	    Clock_Program_Id == facts.Program.ID ? Clock_Paused_Days : facts.Program.Paused_Days,
+	    Clock_Program_Id == facts.Program.ID ? Clock_Paused_On : facts.Program.Paused_On);
+	Dashboard.insert("endDate", AMeasurement_Schedule::End_Date_Of(facts.Program));
+	QVector<SDay_Log> diary_days;
+	QVector<SDiary_Summary> summaries;
+	QVector<QVariantMap> nutrition_rows;
+	int planned_total = 0;
+	if (ADiary_Calculator::Build(facts.Program, days, facts.Schedule, facts.Rules, checkins, facts.Measurements,
+	                             facts.Sessions, {}, QDate::fromString(facts.Today, Qt::ISODate), diary_days,
+	                             summaries))
+	{
+		for (const SDay_Log &day : diary_days)
+		{
+			if (day.Is_Training)
+				++planned_total;
+		}
+		for (const SDiary_Summary &summary : summaries)
+		{
+			for (const SProgram_Rule &rule : facts.Rules)
+			{
+				if (rule.ID != summary.Rule_Id || Get_Rule_Kind(rule) != ERule_Kind::Measurable)
+					continue;
+				QVariantMap row;
+				row.insert("ruleId", rule.ID);
+				row.insert("title", rule.Title);
+				row.insert("unit", To_String(rule.Display_Unit));
+				row.insert("targetText", ADiary_Calculator::Target_Text(rule));
+				row.insert("average", summary.Has_Average ? QVariant(summary.Average) : QVariant());
+				row.insert("daysInNorm", summary.Days_In_Norm);
+				row.insert("daysOff", summary.Days_Off);
+				QVariantList points;
+				for (const SDay_Log &day : diary_days)
+				{
+					if (day.Date < date_from || day.Date > date_to || day.Date > facts.Today)
+						continue;
+					for (const SDiary_Value &value : day.Values)
+					{
+						if (value.Rule_Id != rule.ID || !value.Applicable || !value.Has_Value)
+							continue;
+						QVariantMap point;
+						point.insert("date", day.Date);
+						point.insert("value", value.Value);
+						points.append(point);
+					}
+				}
+				row.insert("points", points);
+				nutrition_rows.append(row);
+			}
+		}
+	}
+	Nutrition_Summary_Model->Set_Rows(nutrition_rows);
 
 	if (!Calculator.Compute_Program_Stats(facts, Stats))
 	{
@@ -151,6 +225,11 @@ bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_
 
 		return false;
 	}
+	Dashboard.insert("plannedSessionsTotal", planned_total);
+	Dashboard.insert("completedSessions", Stats.Completed_Sessions);
+	Dashboard.insert("completionProgress",
+	                 ADashboard_Calculator::Completion_Progress(Dashboard.value("termProgress"),
+	                                                            Stats.Completed_Sessions, planned_total));
 
 	Weeks->Set_Rows(Program_Rows::Build_Week_Aggregates(Stats.Weeks));
 	Rule_Stats_Model->Set_Rows(Program_Rows::Build_Rule_Stats(Stats.Rule_Stats, QHash<QString, int>()));
@@ -186,6 +265,8 @@ bool Avm_Program_Stats::Refresh(const QString &in_program_id, const QString &in_
 void Avm_Program_Stats::Clear_Stats()
 {
 	Stats = SProgram_Stats();
+	Dashboard.clear();
+	Nutrition_Summary_Model->Set_Rows({});
 
 	Weeks->Set_Rows(QVector<QVariantMap>());
 	Rule_Stats_Model->Set_Rows(QVector<QVariantMap>());
@@ -204,13 +285,32 @@ void Avm_Program_Stats::Clear_Error()
 //-------------------------------------------------------------------------------------------------------------
 void Avm_Program_Stats::Set_Error()
 {
+	Clear_Stats();
 	Error_Key_Text = "undefined_error";
 	qCInfo(PROGRAM_STATS_VM_Log).noquote() << "stats refresh failed";
+	emit changed();
 }
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Program_Stats::Has_Stats() const
 {
 	return !Stats.Program_Id.isEmpty();
+}
+//-------------------------------------------------------------------------------------------------------------
+QVariantMap Avm_Program_Stats::dashboard() const
+{
+	return Dashboard;
+}
+//-------------------------------------------------------------------------------------------------------------
+AList_Model *Avm_Program_Stats::nutrition_summary() const
+{
+	return Nutrition_Summary_Model;
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Program_Stats::Set_Program_Clock(const QString &in_program_id, int in_paused_days, const QString &in_paused_on)
+{
+	Clock_Program_Id = in_program_id;
+	Clock_Paused_Days = qMax(0, in_paused_days);
+	Clock_Paused_On = in_paused_on;
 }
 //-------------------------------------------------------------------------------------------------------------
 double Avm_Program_Stats::adherencePercent() const

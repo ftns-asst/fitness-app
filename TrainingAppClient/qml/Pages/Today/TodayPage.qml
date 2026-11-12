@@ -22,6 +22,8 @@ PageScaffold {
     signal plansRequested
     signal programRequested
     signal diaryRequested
+    signal workoutRequested(string programId)
+    signal statisticsRequested(string programId)
 
     // Строка упражнения на главном — самостоятельный объект: тап открывает
     // его обзор (спринт U6), а не молчит заглушкой. Экран сообщает намерение,
@@ -35,6 +37,7 @@ PageScaffold {
     // тестах дерева QML). Такие ошибки забивают вывод и маскируют настоящие:
     // в прогоне тестов они давали сотни QWARN на каждый прогон.
     readonly property bool hasModel: page.viewModel !== undefined && page.viewModel !== null
+    readonly property var dashboard: page.hasModel && page.viewModel.dashboard !== undefined ? page.viewModel.dashboard : ({})
 
     caption: page.weekdayLabel()
     // Заголовок «Сегодня» крупной шапкой: верх экрана заполнен, а название
@@ -61,6 +64,8 @@ PageScaffold {
             return;
 
         page.viewModel.reload(page.currentUserId());
+        if (typeof WorkoutVM !== "undefined" && WorkoutVM !== null && typeof WorkoutVM.checkPending === "function")
+            WorkoutVM.checkPending(page.currentUserId());
     }
 
     // Сутки сменились, пока приложение было открыто или лежало в фоне: «сегодня»
@@ -127,6 +132,12 @@ PageScaffold {
             }
         }
     }
+    AppButton {
+        width: parent.width
+        visible: page.hasModel && !page.viewModel.hasProgram && typeof WorkoutVM !== "undefined" && WorkoutVM !== null && WorkoutVM.hasPending
+        text: qsTr("Продолжить тренировку")
+        onClicked: page.workoutRequested("")
+    }
     // — Hero: программа, день, срок и главное действие —
     // Карточки-обёртки нет: фон под шапкой и первым блоком — переход акцента в
     // поверхность (PageScaffold.heroBackground), поэтому содержимое стоит прямо
@@ -139,7 +150,7 @@ PageScaffold {
         visible: page.hasModel && page.viewModel.hasProgram
         width: parent.width
 
-        Row {
+        RowLayout {
             spacing: Spacing.itemGap
             width: parent.width
 
@@ -148,17 +159,19 @@ PageScaffold {
                 elide: Text.ElideRight
                 font: Typography.overline
                 text: page.heroOverline()
-                width: parent.width - pageLink.width - Spacing.itemGap
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Layout.alignment: Qt.AlignVCenter
             }
             AppButton {
                 id: pageLink
 
                 compact: true
-                objectName: "todayProgramLink"
-                text: qsTr("Программа ›")
+                objectName: "todayStatisticsLink"
+                text: qsTr("Статистика")
                 variant: AppButton.Ghost
 
-                onClicked: page.programRequested()
+                onClicked: page.statisticsRequested(page.viewModel.programId)
             }
         }
         Label {
@@ -192,7 +205,7 @@ PageScaffold {
 
             objectName: "todayTerm"
             spacing: 4
-            visible: page.weeksTotal() > 0
+            visible: page.dashboard.currentDay !== undefined && page.dashboard.currentDay !== null
             width: parent.width
 
             RowLayout {
@@ -203,19 +216,21 @@ PageScaffold {
                     Layout.fillWidth: true
                     color: Theme.textSecondary
                     font: Typography.caption
-                    text: qsTr("День %1 из %2").arg(page.passedDays()).arg(page.totalDays())
+                    text: page.totalDays() > 0 ? qsTr("День %1 из %2").arg(page.passedDays()).arg(page.totalDays()) : qsTr("День %1 · открытый срок").arg(page.passedDays())
                 }
                 Label {
                     Layout.alignment: Qt.AlignRight
                     color: Theme.textSecondary
                     font: Typography.caption
-                    text: qsTr("Осталось %1").arg(page.leftDays())
+                    text: qsTr("Осталось %1 дн.").arg(page.leftDays())
+                    visible: page.totalDays() > 0
                 }
             }
             Rectangle {
                 color: Theme.surfaceMuted
                 height: 6
                 radius: 3
+                visible: page.totalDays() > 0
                 width: parent.width
 
                 Rectangle {
@@ -229,21 +244,130 @@ PageScaffold {
 
         AppButton {
             objectName: "todayStartButton"
-            text: page.hasModel && page.viewModel.isRestDay ? qsTr("Открыть программу") : qsTr("Начать тренировку")
+            text: typeof WorkoutVM !== "undefined" && WorkoutVM !== null && WorkoutVM.hasPending ? qsTr("Продолжить тренировку") : (page.hasModel && page.viewModel.isRestDay ? qsTr("Открыть программу") : qsTr("Начать тренировку"))
             variant: AppButton.Primary
             width: parent.width
 
-            // День отдыха ведёт в обзор программы; тренировочный день — этап D2:
-            // запись подходов ещё не реализована, и кнопка честно сообщает об этом.
             onClicked: {
+                if (typeof WorkoutVM !== "undefined" && WorkoutVM !== null && WorkoutVM.hasPending) {
+                    page.workoutRequested(page.viewModel.programId);
+                    return;
+                }
                 if (page.hasModel && page.viewModel.isRestDay) {
                     page.programRequested();
 
                     return;
                 }
 
-                Demo.notify(qsTr("Запись тренировки — этап D2"));
+                page.workoutRequested(page.viewModel.programId);
             }
+        }
+    }
+    // — «В фокусе»: вес и расписание замеров без ввода —
+    // Ввод веса и обхватов живёт в дневнике: два места записи одного факта
+    // расходились, и непонятно было, какое из них главное. Здесь только
+    // чтение и переход туда, где значение действительно меняется.
+    //
+    // Тап-слой стоит ПОВЕРХ карточки, а не внутри неё: `MetricCard` — это
+    // `AppCard`, а содержимое карточки живёт в собственной `Column`. Якорный
+    // ребёнок внутри позиционера обнуляет её `implicitHeight` (проверено:
+    // 84 → 28 px), и карточка рисуется ниже своего содержимого — значение и
+    // тренд выезжали на заголовок «Отметки дня». Обёртка `Item` держит клик и
+    // не вмешивается в раскладку карточки.
+    RowLayout {
+        id: focusRow
+
+        objectName: "todayFocus"
+        spacing: Spacing.itemGap
+        visible: page.hasModel && page.viewModel.hasProgram
+        width: parent.width
+
+        Item {
+            id: weightCell
+
+            Layout.fillWidth: true
+            implicitHeight: weightCard.implicitHeight
+
+            MetricCard {
+                id: weightCard
+
+                width: parent.width
+                objectName: "todayFocusWeight"
+                deltaText: page.focusWeightHint()
+                deltaKind: "neutral"
+                highlight: page.hasModel && page.viewModel.hasMeasurement
+                label: page.hasModel && page.viewModel.hasMeasurement ? qsTr("Вес сегодня") : page.dashboard.currentWeightDate ? qsTr("Вес · %1").arg(StatisticsUi.date(page.dashboard.currentWeightDate)) : qsTr("Последний вес")
+                valueText: page.focusWeightText()
+            }
+            MouseArea {
+                objectName: "todayFocusWeightTap"
+                anchors.fill: parent
+                onClicked: page.diaryRequested()
+            }
+        }
+        Item {
+            id: measurementCell
+
+            Layout.fillWidth: true
+            implicitHeight: measurementCard.implicitHeight
+
+            MetricCard {
+                id: measurementCard
+
+                width: parent.width
+                objectName: "todayFocusMeasurements"
+                deltaText: page.measurementIsDue() ? qsTr("По расписанию") : page.hasModel ? StatisticsUi.date(page.viewModel.nextMeasurementDate) : ""
+                highlight: false
+                label: qsTr("Замеры по плану")
+                valueText: page.measurementIsDue() ? qsTr("Пора") : qsTr("По графику")
+            }
+            MouseArea {
+                objectName: "todayFocusMeasurementsTap"
+                anchors.fill: parent
+                onClicked: page.diaryRequested()
+            }
+        }
+    }
+
+    AppCard {
+        objectName: "todayWeeklySummary"
+        width: parent.width
+        visible: page.hasModel && page.viewModel.hasProgram
+        elevated: false
+        spacing: 16
+        Label {
+            width: parent.width
+            text: qsTr("Последние 7 дней")
+            font: Typography.bodyMedium
+            color: Theme.textPrimary
+        }
+        RowLayout {
+            width: parent.width
+            spacing: 16
+            StatisticValue {
+                objectName: "todayAverageWeight"
+                Layout.fillWidth: true
+                label: qsTr("Средний вес")
+                valueText: StatisticsUi.number(page.dashboard.average7Kg) + (StatisticsUi.has(page.dashboard.average7Kg) ? " " + qsTr("кг") : "")
+                detail: StatisticsUi.has(page.dashboard.average7Kg) ? qsTr("По записям: %1").arg(page.dashboard.weightReadings7d) : qsTr("Нет замеров за 7 дней")
+                valueFont: Typography.inputNumber
+            }
+            StatisticValue {
+                objectName: "todayWeeklyWorkouts"
+                Layout.fillWidth: true
+                label: qsTr("Тренировок")
+                valueText: StatisticsUi.has(page.dashboard.completedSessions7d) ? String(page.dashboard.completedSessions7d) : "—"
+                detail: qsTr("В текущей программе")
+                valueFont: Typography.inputNumber
+            }
+        }
+        Label {
+            width: parent.width
+            visible: StatisticsUi.has(page.dashboard.targetWeightKg)
+            text: qsTr("Цель веса: %1 кг").arg(StatisticsUi.number(page.dashboard.targetWeightKg)) + (StatisticsUi.has(page.dashboard.remainingKg) ? qsTr(" · осталось %1 кг").arg(StatisticsUi.number(page.dashboard.remainingKg)) : "")
+            font: Typography.detail
+            color: Theme.textSecondary
+            wrapMode: Text.WordWrap
         }
     }
     Label {
@@ -337,71 +461,6 @@ PageScaffold {
         onClicked: page.plansRequested()
     }
 
-    // — «В фокусе»: вес и расписание замеров без ввода —
-    // Ввод веса и обхватов живёт в дневнике: два места записи одного факта
-    // расходились, и непонятно было, какое из них главное. Здесь только
-    // чтение и переход туда, где значение действительно меняется.
-    //
-    // Тап-слой стоит ПОВЕРХ карточки, а не внутри неё: `MetricCard` — это
-    // `AppCard`, а содержимое карточки живёт в собственной `Column`. Якорный
-    // ребёнок внутри позиционера обнуляет её `implicitHeight` (проверено:
-    // 84 → 28 px), и карточка рисуется ниже своего содержимого — значение и
-    // тренд выезжали на заголовок «Отметки дня». Обёртка `Item` держит клик и
-    // не вмешивается в раскладку карточки.
-    RowLayout {
-        id: focusRow
-
-        objectName: "todayFocus"
-        spacing: Spacing.itemGap
-        visible: page.hasModel && page.viewModel.hasProgram
-        width: parent.width
-
-        Item {
-            id: weightCell
-
-            Layout.fillWidth: true
-            implicitHeight: weightCard.implicitHeight
-
-            MetricCard {
-                id: weightCard
-
-                width: parent.width
-                objectName: "todayFocusWeight"
-                deltaText: page.focusWeightHint()
-                deltaKind: "neutral"
-                highlight: page.viewModel.hasMeasurement
-                label: qsTr("Вес сегодня")
-                valueText: page.focusWeightText()
-            }
-            MouseArea {
-                objectName: "todayFocusWeightTap"
-                anchors.fill: parent
-                onClicked: page.diaryRequested()
-            }
-        }
-        Item {
-            id: measurementCell
-
-            Layout.fillWidth: true
-            implicitHeight: measurementCard.implicitHeight
-
-            MetricCard {
-                id: measurementCard
-
-                width: parent.width
-                objectName: "todayFocusMeasurements"
-                deltaText: page.measurementHint()
-                highlight: false
-                label: qsTr("Замеры по плану")
-                valueText: page.measurementIsDue() ? qsTr("Пора") : qsTr("По графику")
-            }
-            MouseArea {
-                objectName: "todayFocusMeasurementsTap"
-                anchors.fill: parent
-                onClicked: page.diaryRequested()
-            }
-        }
-    }
     // — Правила дня плитками: по две в строке, отметка одним касанием —
     // Раньше были два вертикальных списка («Отметки дня» и «Правила на сегодня»), строки которых
     // дублировали друг друга. Теперь одна сетка: тап по плитке ставит/снимает «выполнено»;
@@ -620,8 +679,10 @@ PageScaffold {
 
     // — «В фокусе»: только чтение. Значения берутся из модели, ввод — в дневнике.
     function focusWeightText() {
-        if (!page.hasModel || page.viewModel.hasMeasurement !== true)
+        if (!page.hasModel)
             return "—";
+        if (page.viewModel.hasMeasurement !== true)
+            return StatisticsUi.has(page.dashboard.currentWeightKg) ? page.dashboardNumber("currentWeightKg") + " " + qsTr("кг") : "—";
 
         return page.formatDecimal(page.viewModel.weightKg) + " " + qsTr("кг");
     }
@@ -631,7 +692,7 @@ PageScaffold {
             return "";
 
         if (page.viewModel.hasMeasurement !== true)
-            return qsTr("Нет замера — добавьте в дневнике");
+            return StatisticsUi.has(page.dashboard.weightDeltaKg) ? page.dashboardNumber("weightDeltaKg", true) + qsTr(" кг от старта") : qsTr("Добавьте в дневнике");
 
         return qsTr("Изменить — в дневнике");
     }
@@ -703,26 +764,28 @@ PageScaffold {
         return page.hasModel ? page.viewModel.weeksTotal : 0;
     }
 
-    // Срок считается в неделях: дни внутри недели модель не отдаёт отдельно,
-    // поэтому прогресс — «сколько недель программы прошло».
     function totalDays() {
-        return page.weeksTotal() * 7;
+        return page.dashboard.totalDays !== undefined && page.dashboard.totalDays !== null ? page.dashboard.totalDays : 0;
     }
 
     function passedDays() {
-        const week = page.hasModel ? page.viewModel.currentWeek : 0;
-
-        return Math.max(0, Math.min(page.totalDays(), week * 7));
+        return page.dashboard.currentDay !== undefined && page.dashboard.currentDay !== null ? page.dashboard.currentDay : 0;
     }
 
     function leftDays() {
-        return Math.max(0, page.totalDays() - page.passedDays());
+        return page.dashboard.daysLeft !== undefined && page.dashboard.daysLeft !== null ? page.dashboard.daysLeft : 0;
     }
 
     function termProgress() {
-        const total = page.totalDays();
+        return page.dashboard.termProgress !== undefined && page.dashboard.termProgress !== null ? page.dashboard.termProgress : 0;
+    }
 
-        return total > 0 ? Math.max(0, Math.min(1, page.passedDays() / total)) : 0;
+    function dashboardNumber(key, signed) {
+        const value = page.dashboard[key];
+        if (value === undefined || value === null)
+            return "—";
+
+        return (signed && value > 0 ? "+" : "") + Qt.locale().toString(Number(value), "f", 1);
     }
 
     // Подпись заголовка — дата и день недели: без неё «Сегодня» не даёт понять,

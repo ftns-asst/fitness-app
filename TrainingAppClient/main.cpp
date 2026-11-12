@@ -193,6 +193,9 @@ int main(int argc, char *argv[])
 	engine.rootContext()->setContextProperty("ProgramEditVM", (QObject *)app_context.Program_Edit_VM());
 	// Главный экран «Сегодня» на данных (issue 27): C++-слой готов, разметка
 	// TodayPage переводится на него отдельным шагом.
+	engine.rootContext()->setContextProperty("WorkoutVM", (QObject *)app_context.Workout_VM());
+	engine.rootContext()->setContextProperty("StrengthVM", (QObject *)app_context.Strength_VM());
+	engine.rootContext()->setContextProperty("ProgramTemplatesVM", (QObject *)app_context.Program_Templates_VM());
 	engine.rootContext()->setContextProperty("TodayVM", (QObject *)app_context.Today_VM());
 	engine.rootContext()->setContextProperty("DiaryVM", (QObject *)app_context.Diary_VM());
 	// Экран «Рассчитать» КБЖУ (спринт S7): модель считает по формулам домена и

@@ -72,7 +72,7 @@ PageScaffold {
     property int setsCount: 4
     property double targetWeight: 100
 
-    readonly property string weekdayName: weekday >= 1 && weekday <= 7 ? fullWeekdayNames[weekday - 1] : ""
+    readonly property string weekdayName: page.viewModel && page.viewModel.rotation === true ? qsTr("День цикла %1").arg(weekday) : weekday >= 1 && weekday <= 7 ? fullWeekdayNames[weekday - 1] : ""
     // Счётчик — property `count` модели, а не вызов `rowCount()`: вызов метода
     // внутри привязки не создаёт зависимости, счётчик замирает на значении
     // первого вычисления, и добавленное упражнение не показывается без
@@ -255,7 +255,7 @@ PageScaffold {
                                 color: Theme.textPrimary
                                 font: Typography.bodyStrong
                                 text: page.exerciseTitle(exerciseRow.exerciseId)
-                                wrapMode: Text.WordWrap
+                                wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                             }
                             AppButton {
                                 // Удаление обязательно: иначе ошибочно

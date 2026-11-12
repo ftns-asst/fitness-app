@@ -64,6 +64,18 @@ add_library(TrainingAppCore STATIC
     src/Domain/Measurement_Trend.cpp
     src/Domain/Rule_Engine.h
     src/Domain/Rule_Engine.cpp
+    src/Domain/Dashboard_Calculator.h
+    src/Domain/Dashboard_Calculator.cpp
+    src/Domain/Strength_Calculator.h
+    src/Domain/Strength_Calculator.cpp
+    src/Domain/Program_Template_Service.h
+    src/Domain/Program_Template_Service.cpp
+    src/Presentation/Strength_VM.h
+    src/Presentation/Strength_VM.cpp
+    src/Presentation/Program_Templates_VM.h
+    src/Presentation/Program_Templates_VM.cpp
+    src/Presentation/Workout_VM.h
+    src/Presentation/Workout_VM.cpp
     src/Domain/Workout_Logger.h
     src/Domain/Workout_Logger.cpp
     src/Domain/Progress_Stats.h
@@ -167,6 +179,7 @@ set_source_files_properties(
     qml/Presentation/ExerciseTexts.qml
     qml/Presentation/RuleTexts.qml
     qml/Presentation/MeasurementTexts.qml
+    qml/Presentation/StatisticsUi.qml
     qml/Presentation/PlansViewModel.qml
     qml/Presentation/ProfileViewModel.qml
     qml/Components/BackRouter.qml
@@ -181,6 +194,12 @@ qt_add_qml_module(appTrainingAppClient
         src/Presentation/Program_Qml.h
         src/Presentation/Program_Qml.cpp
     QML_FILES
+        qml/Components/WorkoutValueRow.qml
+        qml/Components/WorkoutResultRow.qml
+        qml/Components/StatisticsPlot.qml
+        qml/Components/StatisticValue.qml
+        qml/Pages/Program/WorkoutPage.qml
+        qml/Pages/Program/StrengthPage.qml
         qml/Pages/Diary/DiaryPage.qml
     qml/Pages/Program/ProgramOverviewPage.qml
         qml/Pages/Program/ProgramEditPage.qml
@@ -223,6 +242,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Presentation/ExerciseTexts.qml
         qml/Presentation/RuleTexts.qml
         qml/Presentation/MeasurementTexts.qml
+    qml/Presentation/StatisticsUi.qml
         qml/Presentation/PlansViewModel.qml
         qml/Presentation/ProfileViewModel.qml
 

@@ -18,6 +18,7 @@ class AProgram_Stats_VM_Test : public QObject
 	Q_OBJECT
 
 private slots:
+	void dashboardResetsAfterFailure();
 	void initTestCase();
 	void aggregatesFactsIntoKpi();
 	void writesCacheOnRefresh();
@@ -25,6 +26,7 @@ private slots:
 	void refreshEmitsChanged();
 	void bodyDynamicsFollowsMeasurements();
 	void bodyDynamicsIsEmptyWithoutMeasurements();
+	void explicitWindowExcludesPreProgramAndFutureMeasurements();
 
 private:
 	void Seed_Exercise();
@@ -299,5 +301,39 @@ void AProgram_Stats_VM_Test::bodyDynamicsIsEmptyWithoutMeasurements()
 }
 //-------------------------------------------------------------------------------------------------------------
 
+void AProgram_Stats_VM_Test::dashboardResetsAfterFailure()
+{
+	Avm_Program_Stats vm(Program_Repository, Workout_Repository, Rule_Repository, Measurement_Repository,
+	                     Stats_Repository);
+	vm.Set_Today("2026-10-01");
+	QVERIFY(vm.Refresh("p1"));
+	QCOMPARE(vm.dashboard().value("currentDay").toInt(), 4);
+	QCOMPARE(vm.dashboard().value("totalDays").toInt(), 14);
+	QCOMPARE(vm.dashboard().value("endDate").toString(), QString("2026-10-11"));
+	QVERIFY(!vm.Refresh("missing_program"));
+	QVERIFY(vm.dashboard().isEmpty());
+	QCOMPARE(vm.nutrition_summary()->Row_Count(), 0);
+}
+//-------------------------------------------------------------------------------------------------------------
+void AProgram_Stats_VM_Test::explicitWindowExcludesPreProgramAndFutureMeasurements()
+{
+	SBody_Measurement measurement;
+	measurement.User_Id = "u1";
+	measurement.Has_Weight_Kg = true;
+	measurement.Date = "2026-09-27";
+	measurement.Weight_Kg = 150;
+	QVERIFY(Measurement_Repository->Save_Measurement(measurement));
+	measurement.Date = "2026-10-12";
+	measurement.Weight_Kg = 200;
+	QVERIFY(Measurement_Repository->Save_Measurement(measurement));
+	Avm_Program_Stats vm(Program_Repository, Workout_Repository, Rule_Repository, Measurement_Repository,
+	                     Stats_Repository);
+	vm.Set_Today("2026-10-05");
+	QVERIFY(vm.Refresh("p1", "2026-09-01", "2026-12-31"));
+	QCOMPARE(vm.weight_series()->Row_Count(), 3);
+	QCOMPARE(Row_By_Role(vm.trends(), 0, "start").toDouble(), 89.0);
+	QCOMPARE(Row_By_Role(vm.trends(), 0, "latest").toDouble(), 87.1);
+}
+//-------------------------------------------------------------------------------------------------------------
 QTEST_GUILESS_MAIN(AProgram_Stats_VM_Test)
 #include "tst_Program_Stats_VM.moc"

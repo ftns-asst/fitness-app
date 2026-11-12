@@ -6,8 +6,7 @@ import TrainingAppClient
 // Экран «Программы» (вкладка 2). Раньше это были «Планы»: вход в свою программу,
 // промо-опрос подбора и каталог шаблонов в одном списке, где половина первого
 // экрана — заглушки. Теперь два сегмента с разными задачами: «Мои» показывает
-// реальные программы из БД, «Шаблоны» — готовые планы, честно помеченные как
-// демонстрационные.
+// реальные программы из БД, «Шаблоны» создаёт редактируемый личный снимок PSMF.
 //
 // Разметка — обычные Column с явной шириной: колонка контента PageScaffold не
 // layout, а у скрытого элемента ColumnLayout ширина обнуляется, и аудит вёрстки
@@ -18,15 +17,15 @@ PageScaffold {
     // Свои программы приходят из Avm_Program_Catalog: группы уже разложены по
     // состояниям, поэтому фильтрация в QML не нужна.
     property var catalog: typeof ProgramCatalogVM !== "undefined" ? ProgramCatalogVM : null
-    // Шаблоны пока демонстрационные: у продукта ещё нет их источника.
-    property var templates: PlansViewModel
+    // ViewModel и владелец передаются снаружи; маршрут редактора обрабатывает templateCreated.
+    property var templateVM: null
+    property string templateUserId: typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : ""
     property int segment: 0
 
     readonly property bool hasCatalog: page.catalog !== undefined && page.catalog !== null
     readonly property bool hasPrograms: page.hasCatalog && page.catalog.hasPrograms
     readonly property bool failed: page.hasCatalog && page.catalog.errorKey !== ""
     readonly property int programCount: page.hasPrograms ? page.catalog.active_list.count + page.catalog.draft_list.count + page.catalog.finished_list.count : 0
-    readonly property var templateList: page.templates !== undefined && page.templates !== null ? page.templates.plans : []
     // Три группы каталога одним списком: порядок «активная → черновики →
     // завершённые» задаётся здесь, а не тремя повторами разметки.
     readonly property var programGroups: [
@@ -44,10 +43,11 @@ PageScaffold {
         }
     ]
 
-    caption: page.segment === 0 ? (page.hasPrograms ? qsTr("%1 в каталоге").arg(page.programCount) : qsTr("Свои программы и шаблоны")) : qsTr("Готовые планы — демонстрационные")
+    caption: page.segment === 0 ? (page.hasPrograms ? qsTr("%1 в каталоге").arg(page.programCount) : qsTr("Свои программы и шаблоны")) : qsTr("PSMF — личный редактируемый снимок")
     title: qsTr("Программы")
 
     signal createRequested
+    signal templateCreated(string programId)
     signal editRequested(string programId)
     signal openRequested(string programId)
     signal statsRequested(string programId)
@@ -173,67 +173,211 @@ PageScaffold {
         }
     }
 
-    // — «Шаблоны»: готовые планы, пока демонстрационные —
+    // — «Шаблоны»: новый черновик без смены активной программы —
     Column {
         id: templatesColumn
+
+        property var presetValues: ({
+                caloriesMax: "1300",
+                proteinMin: "180",
+                carbsMax: "25",
+                fatMax: "25"
+            })
+        property var initialValues: ({})
+
+        function filledValues(values) {
+            let result = {};
+            for (let key in values) {
+                let value = String(values[key]).trim();
+                if (value.length > 0)
+                    result[key] = value.replace(",", ".");
+            }
+            return result;
+        }
 
         spacing: Spacing.listGap
         visible: page.segment === 1
         width: parent.width
 
-        Label {
-            color: Theme.textSecondary
-            font: Typography.caption
-            text: qsTr("Готовый план можно взять как есть или скопировать и изменить под себя. В приложении шаблоны пока не подключены — карточки демонстрационные.")
+        AppCard {
+            spacing: Spacing.itemGap
             width: parent.width
-            wrapMode: Text.WordWrap
-        }
-        Repeater {
-            model: page.templateList
 
-            delegate: AppCard {
-                spacing: Spacing.itemGap
+            Label {
+                color: Theme.textPrimary
+                font: Typography.sectionTitle
+                text: qsTr("PSMF 4 недели")
                 width: parent.width
+                wrapMode: Text.WordWrap
+            }
+            Label {
+                color: Theme.textSecondary
+                font: Typography.body
+                text: qsTr("28 дней. Верх → отдых → Низ + пресс → отдых. Замеры каждые 3 дня, допуск повторов 2. Питание — редактируемый пользовательский пресет, не медицинская рекомендация. Настройте упражнения и начните программу в редакторе.")
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+            DateField {
+                id: psmfStartDate
+                objectName: "psmfStartDate"
+                label: qsTr("Дата старта")
+                value: Qt.formatDate(new Date(), "yyyy-MM-dd")
+                width: parent.width
+            }
+            Repeater {
+                model: [
+                    {
+                        key: "caloriesMax",
+                        label: qsTr("Калорийность ≤, ккал"),
+                        value: "1300"
+                    },
+                    {
+                        key: "proteinMin",
+                        label: qsTr("Белок ≥, г"),
+                        value: "180"
+                    },
+                    {
+                        key: "carbsMax",
+                        label: qsTr("Углеводы ≤, г"),
+                        value: "25"
+                    },
+                    {
+                        key: "fatMax",
+                        label: qsTr("Жиры ≤, г"),
+                        value: "25"
+                    },
+                    {
+                        key: "waterMinMl",
+                        label: qsTr("Вода ≥, мл (необязательно)"),
+                        value: ""
+                    },
+                    {
+                        key: "sleepMinHours",
+                        label: qsTr("Сон ≥, часов (необязательно)"),
+                        value: ""
+                    },
+                    {
+                        key: "stepsMin",
+                        label: qsTr("Шаги ≥ (необязательно)"),
+                        value: ""
+                    }
+                ]
 
-                RowLayout {
-                    spacing: Spacing.itemGap
+                delegate: AppTextField {
+                    required property var modelData
+
+                    objectName: "psmf_" + modelData.key
+                    label: modelData.label
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly
+                    text: modelData.value
                     width: parent.width
 
-                    Label {
-                        Layout.fillWidth: true
-                        color: Theme.textPrimary
-                        elide: Text.ElideRight
-                        font: Typography.bodyStrong
-                        text: modelData.title
-                    }
-                    RatingBadge {
-                        Layout.alignment: Qt.AlignTop
-                        text: "★ " + modelData.ratingAvg.toFixed(1).replace(".", ",")
-                    }
+                    onUserEdited: templatesColumn.presetValues[modelData.key] = text
                 }
+            }
+            CheckBox {
+                id: showInitialMeasurements
+                font: Typography.body
+                palette.text: Theme.textPrimary
+                indicator: SelectionMark {
+                    checked: showInitialMeasurements.checked
+                    x: 0
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                text: qsTr("Добавить стартовые замеры")
+                width: parent.width
+            }
+            Column {
+                spacing: Spacing.itemGap
+                visible: showInitialMeasurements.checked
+                width: parent.width
+
                 Label {
                     color: Theme.textSecondary
                     font: Typography.caption
-                    text: modelData.subtitle
+                    text: qsTr("Заполните известные значения. Пустые поля не изменят уже записанные замеры на дату старта.")
                     width: parent.width
                     wrapMode: Text.WordWrap
                 }
-                Flow {
-                    spacing: Spacing.itemGap
-                    width: parent.width
-
-                    Repeater {
-                        model: [modelData.goal, modelData.level, modelData.reviewText]
-
-                        delegate: TagPill {
-                            text: modelData
+                Repeater {
+                    model: [
+                        {
+                            key: "weightKg",
+                            label: qsTr("Вес, кг")
+                        },
+                        {
+                            key: "chestCm",
+                            label: qsTr("Грудь, см")
+                        },
+                        {
+                            key: "waistCm",
+                            label: qsTr("Талия, см")
+                        },
+                        {
+                            key: "hipCm",
+                            label: qsTr("Бёдра, см")
+                        },
+                        {
+                            key: "armCm",
+                            label: qsTr("Рука, см")
+                        },
+                        {
+                            key: "thighCm",
+                            label: qsTr("Бедро, см")
+                        },
+                        {
+                            key: "bellyCm",
+                            label: qsTr("Живот, см")
+                        },
+                        {
+                            key: "shouldersCm",
+                            label: qsTr("Плечи, см")
+                        },
+                        {
+                            key: "calvesCm",
+                            label: qsTr("Икры, см")
+                        },
+                        {
+                            key: "neckCm",
+                            label: qsTr("Шея, см")
                         }
+                    ]
+
+                    delegate: AppTextField {
+                        required property var modelData
+
+                        objectName: "psmf_" + modelData.key
+                        visible: modelData.key === "weightKg" || !page.templateVM || page.templateVM.measurementKeys.indexOf(modelData.key.slice(0, -2)) >= 0
+                        label: modelData.label
+                        inputMethodHints: Qt.ImhFormattedNumbersOnly
+                        width: parent.width
+
+                        onUserEdited: templatesColumn.initialValues[modelData.key] = text
                     }
                 }
-                MouseArea {
-                    anchors.fill: parent
+            }
+            Label {
+                color: Theme.negative
+                font: Typography.caption
+                text: page.templateVM ? page.templateVM.errorDetail : ""
+                visible: text.length > 0
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+            AppButton {
+                objectName: "psmfCreateDraftButton"
+                enabled: page.templateVM !== null && page.templateUserId.length > 0 && psmfStartDate.value.trim().length > 0
+                text: qsTr("Создать черновик и настроить")
+                variant: AppButton.Primary
+                width: parent.width
 
-                    onClicked: Demo.notify(qsTr("Копирование шаблона — следующий этап"))
+                onClicked: {
+                    let preset = templatesColumn.filledValues(templatesColumn.presetValues);
+                    let initial = showInitialMeasurements.checked ? templatesColumn.filledValues(templatesColumn.initialValues) : {};
+                    if (page.templateVM.createDraft(page.templateUserId, psmfStartDate.value.trim(), preset, initial)) {
+                        page.reload();
+                        page.templateCreated(page.templateVM.programId);
+                    }
                 }
             }
         }

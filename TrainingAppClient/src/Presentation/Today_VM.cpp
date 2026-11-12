@@ -174,6 +174,36 @@ bool Avm_Today::Load(const QString &in_user_id)
 	// (program_actual_start_date, В§3.4).
 	Weeks_Total_Value = program.Term.Weeks_Total;
 	Current_Week_Value = Compute_Week(date_of_today(), program);
+	QVector<SBody_Measurement> dashboard_measurements;
+	if (Measurement_Repository_Instance != 0 &&
+	    !Measurement_Repository_Instance->Load_Range(in_user_id, AMeasurement_Schedule::Start_Date_Of(program),
+	                                                 Today_Text, dashboard_measurements))
+	{
+		Set_Error("undefined_error");
+		emit changed();
+
+		return false;
+	}
+	Dashboard = ADashboard_Calculator::Compute(program, targets, dashboard_measurements, Today_Text,
+	                                           Clock_Program_Id == program.ID ? Clock_Paused_Days : program.Paused_Days,
+	                                           Clock_Program_Id == program.ID ? Clock_Paused_On : program.Paused_On);
+	Dashboard.insert("completedSessions7d", QVariant());
+	if (Workout_Repository_Instance != 0)
+	{
+		QVector<SWorkout_Session> recent_sessions;
+		if (!Workout_Repository_Instance->Load_Sessions(
+		        in_user_id, program.ID, date_of_today().addDays(-6).toString(Qt::ISODate), Today_Text, recent_sessions))
+		{
+			Set_Error("undefined_error");
+			emit changed();
+			return false;
+		}
+		int completed_count = 0;
+		for (const SWorkout_Session &session : recent_sessions)
+			if (session.State == EWorkout_State::Completed)
+				++completed_count;
+		Dashboard.insert("completedSessions7d", completed_count);
+	}
 	Prepare_Measurement_Schedule(program);
 
 	const QDate date = date_of_today();
@@ -182,7 +212,7 @@ bool Avm_Today::Load(const QString &in_user_id)
 	// значение, что и program_schedule.day_of_week (§3.4).
 	Weekday_Number = date.isValid() ? date.dayOfWeek() : 1;
 
-	Load_Day(week_slots, days);
+	Load_Day(week_slots, days, program);
 	Load_Day_Exercises(Slot_Day_Id_Text);
 	Load_Rules_For_Today();
 	Load_Session();
@@ -228,9 +258,24 @@ int Avm_Today::Compute_Week(const QDate &in_date, const SProgram &in_program) co
 	return week;
 }
 //-------------------------------------------------------------------------------------------------------------
-void Avm_Today::Load_Day(const QVector<SWeek_Slot> &in_slots, const QVector<SProgram_Day> &in_days)
+void Avm_Today::Load_Day(const QVector<SWeek_Slot> &in_slots, const QVector<SProgram_Day> &in_days,
+                         const SProgram &in_program)
 {
 	const SWeek_Slot *slot = Find_Slot(in_slots, Weekday_Number);
+	if (in_program.Schedule_Kind == ESchedule_Kind::Rotation)
+	{
+		slot = 0;
+		int length = 0;
+		for (const SWeek_Slot &candidate : in_slots)
+			length = qMax(length, candidate.Rotation_Index);
+		const QDate start = QDate::fromString(AMeasurement_Schedule::Start_Date_Of(in_program), Qt::ISODate);
+		const int position = length > 0 && start.isValid() && date_of_today() >= start
+		                         ? int(start.daysTo(date_of_today()) % length) + 1
+		                         : 0;
+		for (const SWeek_Slot &candidate : in_slots)
+			if (candidate.Rotation_Index == position)
+				slot = &candidate;
+	}
 
 	// День, которого нет в расписании, — не отдых: отдых назначают
 	// слотом с kind = rest. Здесь плана нет вообще, и показывать его
@@ -405,6 +450,7 @@ void Avm_Today::Clear_Data()
 	Exercises->Set_Rows(QVector<QVariantMap>());
 	Rules->Set_Rows(QVector<QVariantMap>());
 	Measurement = SBody_Measurement();
+	Dashboard.clear();
 	Schedule_Start_Text.clear();
 	Schedule_End_Text.clear();
 	Measurement_Interval_Days = AMeasurement_Schedule::Default_Interval_Days;
@@ -426,6 +472,18 @@ bool Avm_Today::Set_Error(const QString &in_error_key)
 bool Avm_Today::Has_Program() const
 {
 	return !Program_Id_Text.isEmpty();
+}
+//-------------------------------------------------------------------------------------------------------------
+QVariantMap Avm_Today::dashboard() const
+{
+	return Dashboard;
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Today::Set_Program_Clock(const QString &in_program_id, int in_paused_days, const QString &in_paused_on)
+{
+	Clock_Program_Id = in_program_id;
+	Clock_Paused_Days = qMax(0, in_paused_days);
+	Clock_Paused_On = in_paused_on;
 }
 //-------------------------------------------------------------------------------------------------------------
 QString Avm_Today::programId() const
@@ -610,11 +668,7 @@ bool Avm_Today::saveMeasurement(const QVariantMap &in_values)
 		return false;
 	}
 
-	Load_Measurement(user_id);
-	Refresh_Measurement_Schedule();
-	emit changed();
-
-	return true;
+	return Load(user_id);
 }
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Today::saveCheckin(const QString &in_rule_id, const QString &in_state, double in_value, bool in_has_value)

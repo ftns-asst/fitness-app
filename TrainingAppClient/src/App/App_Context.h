@@ -17,6 +17,10 @@ class Avm_Program_Stats;
 class Avm_Program_Rules;
 class Avm_Program_Edit;
 class Avm_Program_Catalog;
+class Avm_Workout;
+class Avm_Strength;
+class AProgram_Template_Service;
+class Avm_Program_Templates;
 class Avm_Today;
 class Avm_Diary;
 class ADay_Note_Repository;
@@ -94,6 +98,9 @@ public:
 	Avm_Diary *Diary_VM() const;
 	// Главный экран «Сегодня» на данных программы (issue 27).
 	Avm_Today *Today_VM() const;
+	Avm_Workout *Workout_VM() const;
+	Avm_Strength *Strength_VM() const;
+	Avm_Program_Templates *Program_Templates_VM() const;
 
 	// Авторасчёт КБЖУ (спринт S7, issue 50).
 	Avm_Macro *Macro_VM() const;
@@ -165,6 +172,10 @@ private:
 	Avm_Program_Rules *Program_Rules_VM_Instance = 0;
 	Avm_Program_Edit *Program_Edit_VM_Instance = 0;
 	Avm_Program_Catalog *Program_Catalog_VM_Instance = 0;
+	Avm_Workout *Workout_VM_Instance = 0;
+	Avm_Strength *Strength_VM_Instance = 0;
+	AProgram_Template_Service *Program_Template_Service_Instance = 0;
+	Avm_Program_Templates *Program_Templates_VM_Instance = 0;
 	Avm_Today *Today_VM_Instance = 0;
 	Avm_Diary *Diary_VM_Instance = 0;
 	ADay_Note_Repository *Day_Note_Repository_Instance = 0;

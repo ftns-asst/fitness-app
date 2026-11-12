@@ -217,6 +217,25 @@ bool AsSql_Database::Migrate()
 		return false;
 	}
 
+	// v13: снимок диапазона повторов и восстановление тренировки.
+	if (version < 13 &&
+	    (!Add_Column_If_Missing("programs", "paused_days", "INTEGER NOT NULL DEFAULT 0") ||
+	     !Add_Column_If_Missing("programs", "paused_on", "TEXT") ||
+	     !Execute_SQL(
+	         "UPDATE programs SET paused_on=substr(updated_at,1,10) WHERE state='paused' AND paused_on IS NULL") ||
+	     !Add_Column_If_Missing("programs", "rep_tolerance",
+	                            "INTEGER NOT NULL DEFAULT 2 CHECK(rep_tolerance BETWEEN 0 AND 20)") ||
+	     !Add_Column_If_Missing("sets", "target_reps_min", "INTEGER") ||
+	     !Add_Column_If_Missing("sets", "target_reps_max", "INTEGER") ||
+	     !Execute_SQL(
+	         "CREATE TABLE IF NOT EXISTS workout_runtime (session_id TEXT PRIMARY KEY NOT NULL REFERENCES workouts(id) "
+	         "ON DELETE CASCADE, plan_json TEXT NOT NULL, rest_until_ms INTEGER NOT NULL DEFAULT 0)") ||
+	     !Write_Schema_Version(13)))
+	{
+		Database_Handle->rollback();
+		return false;
+	}
+
 	// Каталог упражнений проверяется при каждом открытии, а не только при
 	// создании схемы: базы, созданные до появления каталога, остались бы с
 	// пустой exercises, и создание любой программы молча отвергалось бы FK.
@@ -289,7 +308,7 @@ int AsSql_Database::Get_Current_Schema_Version()
 	// замера в целях. CHECK ключа не ALTER'ится, поэтому goal_targets
 	// пересоздаётся с переносом строк (приём v7 to v8).
 	// v11 — заметки дневника: отдельная запись на пользователя и дату (T3).
-	return 12;
+	return 13;
 }
 //-------------------------------------------------------------------------------------------------------------
 bool AsSql_Database::Ensure_Directory(const QString &in_path)

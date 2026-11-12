@@ -358,8 +358,8 @@ PageScaffold {
         id: weekCard
         objectName: "programEditWeek"
         width: parent.width
-        title: qsTr("Неделя и упражнения")
-        summary: page.trainingDays > 0 ? qsTr("Тренировочных дней: %1 · отдыха: %2").arg(page.trainingDays).arg(7 - page.trainingDays) : qsTr("Все дни — отдых")
+        title: page.viewModel && page.viewModel.rotation ? qsTr("Цикл и упражнения") : qsTr("Неделя и упражнения")
+        summary: page.trainingDays > 0 ? qsTr("Тренировочных дней: %1 · отдыха: %2").arg(page.trainingDays).arg((page.viewModel ? page.viewModel.program_days.count : 7) - page.trainingDays) : qsTr("Все дни — отдых")
         iconName: "today"
         expanded: page.sectionIndex === 1
         errorText: page.errorSection === 1 ? page.errorText() : ""
@@ -368,6 +368,7 @@ PageScaffold {
         preview: ProgramWeekStrip {
             width: parent.width
             showCount: true
+            cycleSchedule: page.viewModel && page.viewModel.rotation === true
             daysModel: page.hasProgram ? page.viewModel.program_days : null
             onDayRequested: (weekday, kind) => page.dayRequested(weekday, kind)
         }
@@ -377,6 +378,7 @@ PageScaffold {
             ProgramWeekStrip {
                 width: parent.width
                 showCount: true
+                cycleSchedule: page.viewModel && page.viewModel.rotation === true
                 daysModel: page.hasProgram ? page.viewModel.program_days : null
                 onDayRequested: (weekday, kind) => page.dayRequested(weekday, kind)
             }
@@ -784,12 +786,20 @@ PageScaffold {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
             objectName: "programEditPrimaryButton"
-            text: page.editing ? qsTr("Сохранить изменения") : qsTr("Создать программу")
+            text: page.viewModel && page.viewModel.isDraft ? qsTr("Начать программу") : (page.editing ? qsTr("Сохранить изменения") : qsTr("Создать программу"))
             variant: AppButton.Primary
             onClicked: page.create()
         }
     }
 
+    CompactStepper {
+        width: parent.width
+        label: qsTr("Допуск снижения повторов")
+        value: page.viewModel && page.viewModel.repTolerance !== undefined ? page.viewModel.repTolerance : 2
+        from: 0
+        to: 20
+        onEdited: value => page.viewModel.setRepTolerance(value)
+    }
     readonly property var weekOptions: [4, 8, 12, 16]
     readonly property int weeks: viewModel !== undefined && viewModel !== null ? viewModel.weeks : 0
     // Дата окончания — производная (`старт + срок − 1 день`, §3.3), считается в

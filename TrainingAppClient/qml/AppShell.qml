@@ -80,7 +80,8 @@ Item {
     // Отступ низа для pushed-экранов (открываются поверх вкладок): панель
     // навигации теперь видна всегда, и её высота резервируется так же, как
     // safe area, иначе контент и подвал экрана заезжали бы под панель.
-    readonly property real pageBottomInset: bottomInset + Theme.tabBarHeight
+    readonly property bool workoutVisible: pages.depth > 1 && pages.currentItem && pages.currentItem.objectName === "workoutPage"
+    readonly property real pageBottomInset: bottomInset + (workoutVisible ? 0 : Theme.tabBarHeight)
 
     // Запрос на открытие экрана входа из «Профиля» (гость): Main.qml решает,
     // показывать ли экран и куда вернуться после входа.
@@ -186,6 +187,7 @@ Item {
             "program-rules": programRulesComponent,
             "program-rules-picker": programRulesPickerComponent,
             "program-stats": programStatsComponent,
+            "strength": strengthComponent,
             "set-entry": setEntryComponent
         };
 
@@ -391,7 +393,7 @@ Item {
         objectName: "navigationBackEdge"
         anchors.left: parent.left
         anchors.top: parent.top
-        height: Math.max(0, shell.height - Theme.tabBarHeight - shell.bottomInset)
+        height: Math.max(0, shell.height - (shell.workoutVisible ? 0 : Theme.tabBarHeight) - shell.bottomInset)
         width: 24
         z: 1
         enabled: pages.depth > 1 && !pages.busy
@@ -468,6 +470,8 @@ Item {
                 onPlansRequested: shell.showTab(2)
                 onProgramRequested: shell.openProgramOverview()
                 onDiaryRequested: shell.openDiary()
+                onStatisticsRequested: programId => shell.openProgramStats(programId)
+                onWorkoutRequested: programId => shell.openWorkout(programId)
                 onProfileActionRequested: shell.openProfile()
 
                 // Тап по строке упражнения — его обзор: тот же вход, что и из
@@ -492,7 +496,8 @@ Item {
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
                 profileActionVisible: true
                 profileInitials: shell.profileInitials
-                templates: shell.plansViewModel
+                templateVM: typeof ProgramTemplatesVM !== "undefined" ? ProgramTemplatesVM : null
+                onTemplateCreated: programId => shell.openProgramEditor(programId)
                 topInset: shell.topInset
 
                 onCreateRequested: shell.openProgramEditor()
@@ -559,6 +564,25 @@ Item {
         shell.pushPage(programRulesPickerComponent);
     }
 
+    function openWorkout(id) {
+        if (typeof WorkoutVM === "undefined" || !WorkoutVM)
+            return;
+        const userId = typeof AppContext !== "undefined" ? AppContext.currentUserId : "";
+        const date = shell.todayViewModel ? shell.todayViewModel.today : Qt.formatDate(new Date(), "yyyy-MM-dd");
+        if (!WorkoutVM.startOrResume(userId, id || "", date)) {
+            Demo.notify(WorkoutVM.errorDetail);
+            return;
+        }
+        shell.pushPage(workoutComponent);
+    }
+    function openStrength(id) {
+        shell.programId = id || "";
+        shell.noteTabScreen({
+            name: "strength",
+            id: shell.programId
+        });
+        shell.pushPage(strengthComponent);
+    }
     function openProgramStats(id) {
         shell.programId = id === undefined ? "" : id;
         shell.noteTabScreen({
@@ -707,6 +731,7 @@ Item {
             "program-rules": openProgramRules,
             "program-rules-picker": openProgramRulesPicker,
             "program-stats": openProgramStats,
+            "strength": openStrength,
             // Экран дня для аудита вёрстки открывается на первом дне недели
             // активной программы. Данные грузятся здесь же: редактор перед ним не
             // открывался, поэтому ViewModel оставалась с пустым черновиком, и
@@ -837,6 +862,7 @@ Item {
             }
             onRulesRequested: shell.openProgramRules(programId)
             onStatsRequested: shell.openProgramStats(programId)
+            onStrengthRequested: shell.openStrength(programId)
             onDiaryRequested: shell.openDiary(programId)
             onActivated: shell.todayViewModel.reload(AppContext.currentUserId)
         }
@@ -904,6 +930,7 @@ Item {
         id: programStatsComponent
 
         ProgramStatsPage {
+            onStrengthRequested: shell.openStrength(programId)
             bottomInset: shell.pageBottomInset
             topInset: shell.topInset
             programId: shell.programId
@@ -948,6 +975,43 @@ Item {
             onBackRequested: shell.goBack()
         }
     }
+    Component {
+        id: workoutComponent
+        WorkoutPage {
+            objectName: "workoutPage"
+            topInset: shell.topInset
+            bottomInset: shell.bottomInset
+            onBackRequested: shell.goBack()
+        }
+    }
+    Component {
+        id: strengthComponent
+        StrengthPage {
+            topInset: shell.topInset
+            bottomInset: shell.pageBottomInset
+            programId: shell.programId
+            onBackRequested: shell.goBack()
+        }
+    }
+    Connections {
+        target: typeof WorkoutVM !== "undefined" ? WorkoutVM : null
+        function onSessionFinished(programId) {
+            const userId = AppContext.currentUserId;
+            if (shell.todayViewModel)
+                shell.todayViewModel.reload(userId);
+            if (shell.diaryViewModel)
+                shell.diaryViewModel.reload(userId, programId);
+            if (typeof StrengthVM !== "undefined")
+                StrengthVM.reload(userId, programId);
+        }
+    }
+    Connections {
+        target: shell.todayViewModel
+        function onChanged() {
+            if (typeof WorkoutVM !== "undefined" && typeof AppContext !== "undefined")
+                WorkoutVM.checkPending(AppContext.currentUserId);
+        }
+    }
     BottomTabBar {
         id: tabBar
 
@@ -960,7 +1024,7 @@ Item {
         // разделы доступны с любого экрана одним тапом, как в нативных
         // приложениях. Pushed-страницы резервируют под панель место
         // (shell.pageBottomInset), контент не заезжает под неё.
-        visible: true
+        visible: !shell.workoutVisible
 
         // Сигнал панели раньше никто не слушал: тап менял только подсветку
         // вкладки, а сама страница оставалась на месте — панель выглядела

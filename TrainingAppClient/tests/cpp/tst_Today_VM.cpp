@@ -28,6 +28,7 @@ class AToday_VM_Test : public QObject
 	Q_OBJECT
 
 private slots:
+	void dashboardUsesCalendarDayAndLatestWeight();
 	void initTestCase();
 	void withoutActiveProgramIsEmptyState();
 	void todayDayComesFromScheduleSlot();
@@ -390,11 +391,16 @@ void AToday_VM_Test::completedSessionMarksDayDone()
 	vm.Set_Today("2026-10-05");
 	QVERIFY(vm.Load("u_today"));
 	QVERIFY(vm.Session_Completed());
+	QCOMPARE(vm.dashboard().value("completedSessions7d").toInt(), 1);
 
 	// Тренировка вчерашнего дня сегодняшним днём не считается.
 	vm.Set_Today("2026-10-06");
 	QVERIFY(vm.Load("u_today"));
 	QVERIFY(!vm.Session_Completed());
+	QCOMPARE(vm.dashboard().value("completedSessions7d").toInt(), 1);
+	vm.Set_Today("2026-10-12");
+	QVERIFY(vm.Load("u_today"));
+	QCOMPARE(vm.dashboard().value("completedSessions7d").toInt(), 0);
 }
 //-------------------------------------------------------------------------------------------------------------
 
@@ -872,5 +878,27 @@ void AToday_VM_Test::numericCheckinDerivesStateAndAutofills()
 	// Отрицательное число отвергается.
 	QVERIFY(!vm.saveCheckinValue("p_num_r_sleep", -5));
 }
+void AToday_VM_Test::dashboardUsesCalendarDayAndLatestWeight()
+{
+	Seed_Program("dashboard_user", "dashboard_program");
+	SBody_Measurement measurement;
+	measurement.User_Id = "dashboard_user";
+	measurement.Date = "2026-09-30";
+	measurement.Has_Weight_Kg = true;
+	measurement.Weight_Kg = 81;
+	QVERIFY(Measurement_Repository->Save_Measurement(measurement));
+	Avm_Today vm(Program_Repository, Rule_Repository, Workout_Repository, Measurement_Repository, Stats_Repository,
+	             Users_Repository);
+	vm.Set_Today("2026-10-01");
+	QVERIFY(vm.Load("dashboard_user"));
+	QCOMPARE(vm.dashboard().value("currentDay").toInt(), 4);
+	QCOMPARE(vm.dashboard().value("daysLeft").toInt(), 24);
+	QCOMPARE(vm.dashboard().value("currentWeightKg").toDouble(), 81.0);
+	QCOMPARE(vm.dashboard().value("weightDeltaKg").toDouble(), -1.0);
+	QVERIFY(!vm.Has_Measurement());
+	QVERIFY(vm.Load("dashboard_empty_user"));
+	QVERIFY(vm.dashboard().isEmpty());
+}
+//-------------------------------------------------------------------------------------------------------------
 QTEST_GUILESS_MAIN(AToday_VM_Test)
 #include "tst_Today_VM.moc"

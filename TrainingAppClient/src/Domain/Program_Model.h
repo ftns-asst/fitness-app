@@ -544,6 +544,8 @@ struct SWorkout_Session
 	QString User_Id;
 	QString Program_Id;
 	QString Program_Day_Id;
+	QString Snapshot_Day_Id;
+	QString Snapshot_Day_Title;
 	QString Planned_Date;       // YYYY-MM-DD; пустая — внеплановая
 	int Planned_Week_Index = 0; // 0 — не задан
 	QString Date;               // фактическая дата выполнения
@@ -584,6 +586,9 @@ struct SSet_Log
 	bool Has_Target_Weight_Kg = false;
 	int Target_Reps = -1;
 	bool Has_Target_Reps = false;
+	int Target_Reps_Min = 0;
+	int Target_Reps_Max = 0;
+	bool Has_Target_Reps_Range = false;
 	bool Done = false;
 	QString Note;
 };
@@ -605,6 +610,9 @@ struct SProgram
 	ESchedule_Kind Schedule_Kind = ESchedule_Kind::Weekday;
 	EProgram_State State = EProgram_State::Draft;
 	int Revision = 1;
+	int Rep_Tolerance = 2;
+	int Paused_Days = 0;
+	QString Paused_On;
 	STerm Term;
 	QString Actual_Start_Date; // YYYY-MM-DD; пустая — не начата
 	QString Created_At;

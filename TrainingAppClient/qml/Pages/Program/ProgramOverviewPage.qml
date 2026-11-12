@@ -39,6 +39,7 @@ Item {
     signal diaryRequested
     signal editRequested(string programId)
     signal rulesRequested
+    signal strengthRequested
     signal statsRequested
 
     // Загрузка идёт при создании и при каждом показе: у страницы, открытой
@@ -339,6 +340,7 @@ Item {
         id: statsComponent
 
         ProgramStatsPage {
+            onStrengthRequested: page.strengthRequested()
             bottomInset: page.bottomInset
             embedded: true
             programId: page.programId
