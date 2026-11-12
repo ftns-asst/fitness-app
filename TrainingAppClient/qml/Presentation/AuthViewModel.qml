@@ -11,7 +11,9 @@ QtObject {
     id: viewModel
 
     // qmltestrunner не получает контекст-свойство → тесты всегда на mock.
-    readonly property bool realMode: typeof AuthBackend !== "undefined" && AuthBackend !== null
+    property var backend: typeof AuthBackend !== "undefined" ? AuthBackend : null
+    readonly property bool realMode: backend !== null && backend !== undefined
+    property bool sessionInitialized: false
     // Заглушки вместо реальных токенов: настоящие пары остаются в C++ SQLite.
     readonly property var realSessionTokens: ({
             accessToken: "real-session",
@@ -40,7 +42,7 @@ QtObject {
         }
     }
     property Connections backendConnections: Connections {
-        target: viewModel.realMode ? AuthBackend : null
+        target: viewModel.realMode ? viewModel.backend : null
 
         function onRequestFinished(requestId, operation, ok, data, error) {
             if (ok && (operation === "login" || operation === "signup" || operation === "resetPassword"))
@@ -62,23 +64,37 @@ QtObject {
     signal requestFinished(int requestId, string operation, bool ok, var data, var error)
     signal sessionExpired
 
+    function initializeSession(forceDemoSession, forceAnonymous) {
+        if (sessionInitialized)
+            return;
+        sessionInitialized = true;
+        // Вызывается главным окном после создания Connections. Только mock
+        // сбрасывается при старте: SQLite-сессия должна переживать перезапуск.
+        if (realMode) {
+            backend.restoreSession();
+            return;
+        }
+        MockApi.reset();
+        if (forceDemoSession && !forceAnonymous)
+            MockApi.startDemoSession();
+    }
     function checkEmail(email) {
         if (realMode)
-            return AuthBackend.checkEmail(email);
+            return backend.checkEmail(email);
         return MockApi.checkEmail(email);
     }
     function requestRecovery(email) {
-        return realMode ? AuthBackend.requestRecovery(email) : MockApi.requestRecovery(email);
+        return realMode ? backend.requestRecovery(email) : MockApi.requestRecovery(email);
     }
     function verifyRecovery(email, code) {
-        return realMode ? AuthBackend.verifyRecovery(email, code) : MockApi.verifyRecovery(email, code);
+        return realMode ? backend.verifyRecovery(email, code) : MockApi.verifyRecovery(email, code);
     }
     function resetPassword(resetToken, password) {
-        return realMode ? AuthBackend.resetPassword(resetToken, password) : MockApi.resetPassword(resetToken, password);
+        return realMode ? backend.resetPassword(resetToken, password) : MockApi.resetPassword(resetToken, password);
     }
     function clearLocalProfile() {
         if (realMode)
-            AuthBackend.clearLocalProfile();
+            backend.clearLocalProfile();
         MockSession.clearLocalProfile();
     }
     function errorText(key) {
@@ -89,12 +105,12 @@ QtObject {
     }
     function login(email, password) {
         if (realMode)
-            return AuthBackend.login(email, password);
+            return backend.login(email, password);
         return MockApi.login(email, password);
     }
     function logout() {
         if (realMode) {
-            AuthBackend.logout();
+            backend.logout();
             return;
         }
         MockApi.logout();
@@ -116,7 +132,7 @@ QtObject {
     }
     function saveLocalProfile(localProfileDto) {
         if (realMode) {
-            const saved = AuthBackend.saveLocalProfile(localProfileDto);
+            const saved = backend.saveLocalProfile(localProfileDto);
             MockSession.saveLocalProfile(localProfileDto);
             return saved;
         }
@@ -124,12 +140,7 @@ QtObject {
     }
     function signup(request) {
         if (realMode)
-            return AuthBackend.signup(request);
+            return backend.signup(request);
         return MockApi.signup(request);
-    }
-
-    Component.onCompleted: {
-        if (realMode)
-            AuthBackend.restoreSession();
     }
 }

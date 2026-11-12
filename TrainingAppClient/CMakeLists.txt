@@ -331,6 +331,8 @@ target_link_libraries(appTrainingAppClient
 # Свойство учитывается только Android-сборками, на десктопе игнорируется.
 set_target_properties(appTrainingAppClient PROPERTIES
     QT_ANDROID_PACKAGE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/android
+    # AndroidX Core 1.17.0 from Qt 6.11.2 requires compileSdk >= 36.
+    QT_ANDROID_COMPILE_SDK_VERSION 36
 )
 
 install(TARGETS appTrainingAppClient

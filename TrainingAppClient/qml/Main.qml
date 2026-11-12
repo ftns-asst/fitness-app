@@ -292,20 +292,12 @@ ApplicationWindow {
     width: framed ? deviceWidth + bezel * 2 : argNumber("--width", 420)
 
     Component.onCompleted: {
-        MockApi.reset();
+        AuthViewModel.initializeSession(window.forceAuthenticated, window.startUnauthenticated);
         Demo.phoneFrame = Qt.application.arguments.indexOf("--frame") >= 0 || screenshotMode;
         Theme.darkMode = window.resolveDarkMode();
 
         if (window.authFailArgIndex >= 0 && window.authFailArgIndex + 1 < Qt.application.arguments.length) {
             MockApi.failMode = String(Qt.application.arguments[window.authFailArgIndex + 1]);
-        }
-
-        // Обычный запуск — гостевая работа без сессии: вкладки, дневник и каталог
-        // доступны офлайн, а вход открывается из «Профиля» (issue 2). Сессия
-        // поднимается только для дизайн-ревью (--authenticated/--tab/--screen);
-        // --unauth принудительно оставляет гостя даже в этих режимах.
-        if (window.forceAuthenticated && !window.startUnauthenticated) {
-            MockApi.startDemoSession();
         }
 
         if (window.openAuthFromProfile) {

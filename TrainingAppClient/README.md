@@ -87,6 +87,10 @@ C++-мост `AuthBackend` (также в RelWithDebInfo и MinSizeRel). В Debu
 ### Android
 
 Откройте проект в Qt Creator, выберите Android-kit и устройство или эмулятор.
+Для сборки требуются Android SDK Platform 36 и Build Tools 36.0.0:
+проект задаёт `compileSdk = 36` для AndroidX Core из Qt 6.11.2. Если в шаге
+сборки APK явно выбран Android SDK 34, выберите 36: параметр
+`androiddeployqt --android-platform` имеет приоритет над настройкой CMake.
 В текущей среде используется **Qt 6.11.2 for Android x86_64**. Приложение работает
 в портретной ориентации и учитывает системные безопасные области.
 
