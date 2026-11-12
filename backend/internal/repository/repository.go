@@ -25,18 +25,20 @@ var (
 )
 
 type Repositories struct {
-	user     *UserRepo
-	auth     *AuthRepo
-	exercise *ExerciseRepo
-	file     *FileRepo
+	user           *UserRepo
+	auth           *AuthRepo
+	exercise       *ExerciseRepo
+	file           *FileRepo
+	personalRecord *PersonalRecordRepo
 }
 
 func NewRepositories(db db) *Repositories {
 	return &Repositories{
-		user:     NewUserRepo(db),
-		auth:     NewAuthRepo(db),
-		exercise: NewExerciseRepo(db),
-		file:     NewFileRepo(db),
+		user:           NewUserRepo(db),
+		auth:           NewAuthRepo(db),
+		exercise:       NewExerciseRepo(db),
+		file:           NewFileRepo(db),
+		personalRecord: NewPersonalRecordRepo(db),
 	}
 }
 
@@ -54,6 +56,10 @@ func (r *Repositories) Exercise() *ExerciseRepo {
 
 func (r *Repositories) File() *FileRepo {
 	return r.file
+}
+
+func (r *Repositories) PersonalRecord() *PersonalRecordRepo {
+	return r.personalRecord
 }
 
 var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
