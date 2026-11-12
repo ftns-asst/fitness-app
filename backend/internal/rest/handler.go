@@ -16,20 +16,22 @@ import (
 )
 
 type Handlers struct {
-	cfg      *config.Config
-	auth     *AuthHandler
-	user     *UserHandler
-	exercise *ExerciseHandler
-	program  *ProgramHandler
+	cfg            *config.Config
+	auth           *AuthHandler
+	user           *UserHandler
+	exercise       *ExerciseHandler
+	program        *ProgramHandler
+	personalRecord *PersonalRecordHandler
 }
 
 func newHandlers(cfg *config.Config, services *service.Services) *Handlers {
 	return &Handlers{
-		cfg:      cfg,
-		auth:     NewAuthHandler(services.Auth(), services.User()),
-		user:     NewUserHandler(services.User()),
-		exercise: NewExerciseHandler(services.Exercise()),
-		program:  NewProgramHandler(services.Program()),
+		cfg:            cfg,
+		auth:           NewAuthHandler(services.Auth(), services.User()),
+		user:           NewUserHandler(services.User()),
+		exercise:       NewExerciseHandler(services.Exercise()),
+		program:        NewProgramHandler(services.Program()),
+		personalRecord: NewPersonalRecordHandler(services.PersonalRecord()),
 	}
 }
 
@@ -42,6 +44,7 @@ func (h *Handlers) RegisterRoutes(r *gin.RouterGroup) {
 	h.user.RegisterRoutes(r, authMid)
 	h.exercise.RegisterRoutes(r, authMid, optionalAuthMid, adminAuthMid)
 	h.program.RegisterRoutes(r, authMid)
+	h.personalRecord.RegisterRoutes(r, authMid)
 }
 
 type ErrorResponse struct {

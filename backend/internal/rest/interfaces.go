@@ -35,6 +35,12 @@ type (
 		UpdateMedia(ctx context.Context, exerciseID uuid.UUID, mediaType model.MediaType) (*model.Media, string, error)
 		DeleteMedia(ctx context.Context, exerciseID uuid.UUID) error
 	}
+	PersonalRecordService interface {
+		CreateRecord(ctx context.Context, requesterID uuid.UUID, userID uuid.UUID, input *model.CreatePersonalRecordInput) (*model.PersonalRecord, error)
+		CreateRecords(ctx context.Context, requesterID uuid.UUID, userID uuid.UUID, inputs []*model.CreatePersonalRecordInput) ([]*model.PersonalRecord, error)
+		GetLatestRecords(ctx context.Context, requesterID uuid.UUID, userID uuid.UUID) ([]*model.PersonalRecord, error)
+		GetRecordHistory(ctx context.Context, requesterID uuid.UUID, userID uuid.UUID, exerciseID uuid.UUID) ([]*model.PersonalRecord, error)
+	}
 	ProgramService interface {
 		GetDefaultPrograms(ctx context.Context, daysOfWeek []int, goal *model.ProgramGoal, level *model.ProgramLevel) ([]*model.DefaultProgram, error)
 		GetDefaultProgramByID(ctx context.Context, id uuid.UUID) (*model.DefaultProgram, error)

@@ -7,6 +7,7 @@ import (
 	"ftns-asst/internal/service/auth"
 	"ftns-asst/internal/service/exercise"
 	file_service "ftns-asst/internal/service/file"
+	"ftns-asst/internal/service/personalrecord"
 	"ftns-asst/internal/service/program"
 	"ftns-asst/internal/service/users"
 )
@@ -15,11 +16,12 @@ import (
 //
 //nolint:unused
 type Services struct {
-	userService     *users.UserService
-	authService     *auth.AuthService
-	exerciseService *exercise.ExerciseService
-	fileService     *file_service.FileService
-	programService  *program.ProgramService
+	userService           *users.UserService
+	authService           *auth.AuthService
+	exerciseService       *exercise.ExerciseService
+	fileService           *file_service.FileService
+	programService        *program.ProgramService
+	personalRecordService *personalrecord.PersonalRecordService
 }
 
 func NewServices(cfg *config.Config, repositories repository.Repositories, mailer model.Mailer, transactor model.Transactor, storage file_service.FileStorage) *Services {
@@ -28,12 +30,14 @@ func NewServices(cfg *config.Config, repositories repository.Repositories, maile
 	file := file_service.NewService(cfg, repositories.File(), storage, transactor)
 	exercise := exercise.NewService(cfg, repositories.Exercise(), file, transactor)
 	program := program.NewService(repositories.Program(), transactor)
+	personalRecord := personalrecord.NewService(repositories.PersonalRecord(), program, transactor)
 	return &Services{
-		userService:     user,
-		authService:     auth,
-		exerciseService: exercise,
-		fileService:     file,
-		programService:  program,
+		userService:           user,
+		authService:           auth,
+		exerciseService:       exercise,
+		fileService:           file,
+		programService:        program,
+		personalRecordService: personalRecord,
 	}
 }
 
@@ -55,4 +59,8 @@ func (s *Services) File() *file_service.FileService {
 
 func (s *Services) Program() *program.ProgramService {
 	return s.programService
+}
+
+func (s *Services) PersonalRecord() *personalrecord.PersonalRecordService {
+	return s.personalRecordService
 }
