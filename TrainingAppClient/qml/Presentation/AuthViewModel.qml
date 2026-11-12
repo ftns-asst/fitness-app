@@ -1,8 +1,8 @@
 pragma Singleton
 import QtQuick
 
-// Стабильная presentation-граница auth для QML-экранов. Без флага --real-auth
-// адаптирует presentation-mock; при --real-auth операции уходят на настоящий
+// Стабильная presentation-граница auth для QML-экранов. В Debug без --real-auth
+// адаптирует presentation-mock; в Release или с --real-auth операции уходят на настоящий
 // backend через AuthBackend (Avm_Auth_Bridge), а события зеркалируются в
 // MockSession — реальный auth transparentен для роутинга Main/AppShell.
 // Реальные токены остаются в C++ (SQLite): в MockTokenStore попадают заглушки.
@@ -43,9 +43,9 @@ QtObject {
         target: viewModel.realMode ? AuthBackend : null
 
         function onRequestFinished(requestId, operation, ok, data, error) {
-            viewModel.requestFinished(requestId, operation, ok, data, error);
-            if (ok && (operation === "login" || operation === "signup"))
+            if (ok && (operation === "login" || operation === "signup" || operation === "resetPassword"))
                 MockSession.authenticate(data.user, undefined, viewModel.realSessionTokens);
+            viewModel.requestFinished(requestId, operation, ok, data, error);
         }
         function onLoggedOut() {
             MockSession.logout();
@@ -66,6 +66,15 @@ QtObject {
         if (realMode)
             return AuthBackend.checkEmail(email);
         return MockApi.checkEmail(email);
+    }
+    function requestRecovery(email) {
+        return realMode ? AuthBackend.requestRecovery(email) : MockApi.requestRecovery(email);
+    }
+    function verifyRecovery(email, code) {
+        return realMode ? AuthBackend.verifyRecovery(email, code) : MockApi.verifyRecovery(email, code);
+    }
+    function resetPassword(resetToken, password) {
+        return realMode ? AuthBackend.resetPassword(resetToken, password) : MockApi.resetPassword(resetToken, password);
     }
     function clearLocalProfile() {
         if (realMode)

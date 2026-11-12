@@ -283,6 +283,7 @@ TestCase {
         verify(profilePart(profile, "profileLoginButton") !== null);
     }
     function test_signupSavesLocalProfile() {
+        page.includeLocalProfile = true;
         page.switchMode("signup");
         page.signupEmail = "new-user@example.com";
         page.signupName = "Игорь Морозов";
@@ -302,6 +303,38 @@ TestCase {
         compare(MockSession.localProfile.heightCm, 179);
         compare(MockSession.localProfile.weightKg, 74);
         compare(MockSession.localProfile.goal, "strength");
+    }
+    function test_signupWithoutOptionalProfile() {
+        page.switchMode("signup");
+        page.signupEmail = "account-only@example.com";
+        page.signupName = "Новый пользователь";
+        page.signupPassword = "Secure2@";
+        page.submitRegistration();
+        tryCompare(page, "authState", "authenticated", 3000);
+        compare(MockSession.localProfile, null);
+    }
+    function test_emailCheckDoesNotBlockTyping() {
+        MockApi.responseDelayMs = 80;
+        page.switchMode("signup");
+        page.signupEmail = "available@example.com";
+        page.checkEmailNow(false);
+        compare(page.authState, "checkingEmail");
+        verify(findByName(page, "signupNameField").enabled);
+        verify(findByName(page, "signupPasswordField").enabled);
+        tryCompare(page, "authState", "idle");
+    }
+    function test_recoveryAvailableAndBackReturnsToLogin() {
+        interactiveWindow = createTemporaryObject(authWindowComponent, testCase);
+        interactiveWindow.show();
+        interactivePage = interactiveWindow.authPage;
+        compare(interactivePage.recoveryEnabled, true);
+        interactivePage.loginEmail = "igor@example.com";
+        findByName(interactivePage, "forgotPasswordButton").clicked();
+        compare(interactivePage.recoveryOpen, true);
+        verify(findByName(interactivePage, "passwordRecoveryPage") !== null);
+        BackRouter.dispatchBack();
+        compare(interactivePage.recoveryOpen, false);
+        compare(interactivePage.loginEmail, "igor@example.com");
     }
     function test_staleEmailCheckIsIgnored() {
         MockApi.responseDelayMs = 40;

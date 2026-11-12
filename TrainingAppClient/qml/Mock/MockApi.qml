@@ -17,6 +17,8 @@ QtObject {
     property int nextTokenFamilyId: 1
     property int nextTokenId: 1
     property int nextUserId: 2
+    property var recoveryCodes: ({})
+    property var resetTokens: ({})
     readonly property int pendingCount: pendingRequests.length + (responseTimer.running ? 1 : 0)
     property var pendingRequests: []
     property var refreshSessions: ({})
@@ -63,6 +65,10 @@ QtObject {
             return handleSignup(payload);
         case "login":
             return handleLogin(payload);
+        case "requestRecovery":
+        case "verifyRecovery":
+        case "resetPassword":
+            return handleRecovery(operation, payload);
         case "refresh":
             return handleRefresh(payload);
         case "getUser":
@@ -317,6 +323,69 @@ QtObject {
             password: String(password)
         });
     }
+    function requestRecovery(email) {
+        return enqueue("requestRecovery", {
+            email: email
+        });
+    }
+    function verifyRecovery(email, code) {
+        return enqueue("verifyRecovery", {
+            email: email,
+            code: code
+        });
+    }
+    function resetPassword(resetToken, password) {
+        return enqueue("resetPassword", {
+            resetToken: resetToken,
+            password: password
+        });
+    }
+    function handleRecovery(operation, payload) {
+        const now = Date.now();
+        if (operation === "requestRecovery") {
+            if (api.usersByEmail[payload.email] === undefined)
+                return failure("undefined_error", 404, "User not found");
+            // Фиксированный код только у mock, реальные письма отправляет backend.
+            api.recoveryCodes[payload.email] = {
+                code: "123456",
+                expires: now + 600000
+            };
+            return success({});
+        }
+        if (operation === "verifyRecovery") {
+            const entry = api.recoveryCodes[payload.email];
+            if (!entry || entry.code !== payload.code)
+                return failure("recovery_code_invalid", 400, "Invalid code");
+            if (now >= entry.expires)
+                return failure("recovery_code_expired", 400, "Code expired");
+            delete api.recoveryCodes[payload.email];
+            const token = "mock-reset-" + api.nextTokenId++;
+            api.resetTokens[token] = {
+                email: payload.email,
+                expires: now + 900000
+            };
+            return success({
+                resetToken: token
+            });
+        }
+        const entry = api.resetTokens[payload.resetToken];
+        if (!entry)
+            return failure("reset_token_invalid", 400, "Invalid token");
+        if (now >= entry.expires)
+            return failure("reset_token_expired", 400, "Token expired");
+        const key = passwordError(payload.password);
+        if (key.length > 0)
+            return failure(key, 400, "Invalid password");
+        const record = api.usersByEmail[entry.email];
+        record.password = payload.password;
+        delete api.resetTokens[payload.resetToken];
+        const tokens = issueTokenPair(record.user.id);
+        MockSession.authenticate(record.user, null, tokens);
+        return success({
+            user: record.user,
+            tokens: tokens
+        });
+    }
     function logout() {
         MockSession.logout();
     }
@@ -361,6 +430,8 @@ QtObject {
         api.refreshSessions = {};
         api.retiredRefreshFamilies = {};
         api.revokedTokenFamilies = {};
+        api.recoveryCodes = {};
+        api.resetTokens = {};
         api.failMode = "none";
         api.failOnce = false;
         api.usersByEmail = initialUsers();

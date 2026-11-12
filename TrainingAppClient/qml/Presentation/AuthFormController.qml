@@ -136,7 +136,7 @@ QtObject {
         globalError = "";
         emailError = "";
         passwordError = "";
-        if (state !== "sessionExpired")
+        if (!busy && state !== "sessionExpired")
             state = "idle";
     }
     function signupEmailEdited(email) {
@@ -153,6 +153,8 @@ QtObject {
             emailDebounce.stop();
     }
     function submitLogin(email, password) {
+        if (busy)
+            return;
         const normalizedEmail = normalizeEmail(email);
 
         resetMessages();
@@ -171,6 +173,8 @@ QtObject {
         authRequestId = auth.login(normalizedEmail, password);
     }
     function submitRegistration(registration) {
+        if (busy)
+            return;
         const passwordKey = passwordErrorKey(registration.password);
         const normalizedEmail = normalizeEmail(registration.email);
 
@@ -191,7 +195,7 @@ QtObject {
             state = "error";
             return;
         }
-        if (Number(registration.age) < 14 || Number(registration.age) > 100 || Number(registration.height) < 100 || Number(registration.height) > 250 || Number(registration.weight) < 30 || Number(registration.weight) > 300) {
+        if (registration.profileProvided !== false && (!Number.isFinite(Number(registration.age)) || !Number.isFinite(Number(registration.height)) || !Number.isFinite(Number(registration.weight)) || Number(registration.age) < 14 || Number(registration.age) > 100 || Number(registration.height) < 100 || Number(registration.height) > 250 || Number(registration.weight) < 30 || Number(registration.weight) > 300)) {
             globalError = qsTr("Проверьте возраст, рост и вес");
             state = "error";
             return;
@@ -212,7 +216,7 @@ QtObject {
         if (registration === null)
             return;
 
-        pendingLocalProfile = registrationProfile(registration);
+        pendingLocalProfile = registration.profileProvided === false ? null : registrationProfile(registration);
         state = "signingUp";
         authRequestId = auth.signup({
             email: normalizeEmail(registration.email),

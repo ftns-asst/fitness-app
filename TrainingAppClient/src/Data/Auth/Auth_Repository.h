@@ -28,11 +28,17 @@ public:
 	int Check_Email(const QString &in_email);
 	int Signup(const QString &in_email, const QString &in_name, const QString &in_password);
 	int Login(const QString &in_email, const QString &in_password);
+	int Request_Recovery(const QString &in_email);
+	int Verify_Recovery(const QString &in_email, const QString &in_code);
+	int Reset_Password(const QString &in_reset_token, const QString &in_password);
 	void Logout();
 	bool Restore_Local_Session();
 	bool Has_Local_Session() const;
 
 signals:
+	void recoveryRequested(int requestId, const AApi_Error &error);
+	void recoveryVerified(int requestId, const QString &resetToken, const AApi_Error &error);
+	void passwordReset(int requestId, const SAuth_User &user, const AApi_Error &error);
 	void checkEmailFinished(int requestId, bool free, const AApi_Error &error);
 	void signupFinished(int requestId, const SAuth_User &user, const AApi_Error &error);
 	void loginFinished(int requestId, const SAuth_User &user, const AApi_Error &error);
@@ -40,6 +46,7 @@ signals:
 	void sessionExpired();
 
 private slots:
+	void on_Password_Reset(int in_request_id, const SAuth_Session_Data &in_session_data, const AApi_Error &in_error);
 	void on_Check_Email_Finished(int in_request_id, bool in_free, const AApi_Error &in_error);
 	void on_Signup_Finished(int in_request_id, const SAuth_Session_Data &in_session_data, const AApi_Error &in_error);
 	void on_Login_Finished(int in_request_id, const SAuth_Session_Data &in_session_data, const AApi_Error &in_error);

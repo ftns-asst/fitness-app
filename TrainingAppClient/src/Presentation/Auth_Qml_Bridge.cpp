@@ -16,6 +16,11 @@ Avm_Auth_Bridge::Avm_Auth_Bridge(AAuth_Repository *in_auth_repository, AUsers_Re
 	        &Avm_Auth_Bridge::on_Check_Email_Finished);
 	connect(Auth_Repository_Instance, &AAuth_Repository::signupFinished, this, &Avm_Auth_Bridge::on_Signup_Finished);
 	connect(Auth_Repository_Instance, &AAuth_Repository::loginFinished, this, &Avm_Auth_Bridge::on_Login_Finished);
+	connect(Auth_Repository_Instance, &AAuth_Repository::recoveryRequested, this,
+	        &Avm_Auth_Bridge::on_Recovery_Requested);
+	connect(Auth_Repository_Instance, &AAuth_Repository::recoveryVerified, this,
+	        &Avm_Auth_Bridge::on_Recovery_Verified);
+	connect(Auth_Repository_Instance, &AAuth_Repository::passwordReset, this, &Avm_Auth_Bridge::on_Password_Reset);
 	connect(Auth_Repository_Instance, &AAuth_Repository::loggedOut, this, &Avm_Auth_Bridge::on_Logged_Out);
 	connect(Auth_Repository_Instance, &AAuth_Repository::sessionExpired, this, &Avm_Auth_Bridge::on_Session_Expired);
 }
@@ -60,6 +65,33 @@ int Avm_Auth_Bridge::signup(const QVariantMap &in_request)
 		return 0;
 
 	Pending_Operations.insert(request_id, "signup");
+
+	return request_id;
+}
+//-------------------------------------------------------------------------------------------------------------
+int Avm_Auth_Bridge::requestRecovery(const QString &in_email)
+{
+	int request_id = Auth_Repository_Instance->Request_Recovery(in_email);
+	if (request_id > 0)
+		Pending_Operations.insert(request_id, "requestRecovery");
+
+	return request_id;
+}
+//-------------------------------------------------------------------------------------------------------------
+int Avm_Auth_Bridge::verifyRecovery(const QString &in_email, const QString &in_code)
+{
+	int request_id = Auth_Repository_Instance->Verify_Recovery(in_email, in_code);
+	if (request_id > 0)
+		Pending_Operations.insert(request_id, "verifyRecovery");
+
+	return request_id;
+}
+//-------------------------------------------------------------------------------------------------------------
+int Avm_Auth_Bridge::resetPassword(const QString &in_reset_token, const QString &in_password)
+{
+	int request_id = Auth_Repository_Instance->Reset_Password(in_reset_token, in_password);
+	if (request_id > 0)
+		Pending_Operations.insert(request_id, "resetPassword");
 
 	return request_id;
 }
@@ -113,6 +145,32 @@ void Avm_Auth_Bridge::clearLocalProfile()
 		return;
 
 	Users_Repository_Instance->Clear_Local_Profile(Current_User_ID);
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Auth_Bridge::on_Recovery_Requested(int in_request_id, const AApi_Error &in_error)
+{
+	if (Take_Operation(in_request_id) == "requestRecovery")
+		emit requestFinished(in_request_id, "requestRecovery", !in_error.Is_Error(), QVariantMap(),
+		                     Error_DTO(in_error));
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Auth_Bridge::on_Recovery_Verified(int in_request_id, const QString &in_reset_token, const AApi_Error &in_error)
+{
+	QVariantMap data;
+
+	if (Take_Operation(in_request_id) != "verifyRecovery")
+		return;
+
+	if (!in_error.Is_Error())
+		data.insert("resetToken", in_reset_token);
+
+	emit requestFinished(in_request_id, "verifyRecovery", !in_error.Is_Error(), data, Error_DTO(in_error));
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Auth_Bridge::on_Password_Reset(int in_request_id, const SAuth_User &in_user, const AApi_Error &in_error)
+{
+	if (Take_Operation(in_request_id) == "resetPassword")
+		Finish_Session_Operation("resetPassword", in_request_id, in_user, in_error);
 }
 //-------------------------------------------------------------------------------------------------------------
 void Avm_Auth_Bridge::on_Check_Email_Finished(int in_request_id, bool in_free, const AApi_Error &in_error)

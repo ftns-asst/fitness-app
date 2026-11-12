@@ -3,18 +3,17 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import TrainingAppClient
 
-// Вход и регистрация на mock API (issue 2). Параметры тела сохраняются локально
-// после signup и не входят в серверный auth DTO.
+// Вход и регистрация через presentation-контракт; параметры профиля необязательны.
 Rectangle {
     id: page
 
-    // Внедряемый presentation-контракт. Тесты могут передать fake, production
-    // использует singleton-адаптер; после issue 8 здесь будет Avm_Auth.
+    // Внедряемый presentation-контракт: тестовый fake либо общий адаптер API.
     property var auth: AuthViewModel
     property alias authRequestId: controller.authRequestId
     property alias authState: controller.state
     property real bottomInset: 0
     readonly property alias busy: controller.busy
+    readonly property bool submitting: authState === "loggingIn" || authState === "signingUp"
     property alias checkedEmail: controller.checkedEmail
 
     // closable — экран открыт поверх каркаса из «Профиля» (гость): его можно
@@ -34,7 +33,9 @@ Rectangle {
     property alias passwordError: controller.passwordError
     property alias pendingLocalProfile: controller.pendingLocalProfile
     property alias pendingSignup: controller.pendingSignup
-    property bool recoveryEnabled: false
+    property bool recoveryEnabled: true
+    property bool recoveryOpen: false
+    property bool includeLocalProfile: false
     property alias signupAge: ageField.text
     property alias signupEmail: signupEmailField.text
     property alias signupGender: genderChoice.selectedValue
@@ -76,6 +77,7 @@ Rectangle {
     }
     function registration() {
         return {
+            profileProvided: includeLocalProfile,
             age: signupAge,
             email: signupEmail,
             gender: signupGender,
@@ -87,6 +89,10 @@ Rectangle {
         };
     }
     function requestClose() {
+        if (recoveryOpen) {
+            BackRouter.dispatchBack();
+            return;
+        }
         if (!closable || authState === "sessionExpired")
             return;
 
@@ -97,6 +103,8 @@ Rectangle {
         loginEmail = controller.normalizeEmail(loginEmail);
     }
     function submitRegistration() {
+        if (includeLocalProfile)
+            profileCard.expanded = true;
         controller.submitRegistration(registration());
         signupEmail = controller.signupEmail;
     }
@@ -117,6 +125,26 @@ Rectangle {
     }
 
     color: Theme.background
+
+    Loader {
+        id: recoveryLoader
+        anchors.fill: parent
+        active: page.recoveryOpen
+        z: 10
+        sourceComponent: PasswordRecoveryPage {
+            auth: page.auth
+            topInset: page.topInset
+            bottomInset: page.bottomInset
+            email: page.loginEmail
+            onCloseRequested: page.recoveryOpen = false
+            onAuthenticated: {
+                page.loginPassword = "";
+                page.signupPassword = "";
+                page.authenticated();
+                page.recoveryOpen = false;
+            }
+        }
+    }
 
     AuthFormController {
         id: controller
@@ -143,13 +171,9 @@ Rectangle {
         width: 112
         z: 2
 
-        AppButton {
+        BackBar {
             anchors.fill: parent
-            compact: true
             objectName: "backAuthButton"
-            text: qsTr("← Назад")
-            variant: AppButton.Secondary
-
             onClicked: page.requestClose()
         }
     }
@@ -157,7 +181,7 @@ Rectangle {
     // Системная «назад»: у гостя закрывает вход и возвращает вкладки.
     // Приоритет выше, чем у каркаса приложения (20 — панель, 10 — стек).
     BackHandler {
-        enabled: page.closable && page.authState !== "sessionExpired"
+        enabled: !page.recoveryOpen && page.closable && page.authState !== "sessionExpired"
         priority: 30
 
         onBackPerformed: page.requestClose()
@@ -173,7 +197,12 @@ Rectangle {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.topMargin: page.topInset
-        boundsBehavior: Flickable.StopAtBounds
+        enabled: !page.recoveryOpen
+        flickableDirection: Flickable.VerticalFlick
+        flickDeceleration: Theme.flickDeceleration
+        maximumFlickVelocity: Theme.flickMaxVelocity
+        pixelAligned: true
+        boundsBehavior: Theme.touchPlatform ? Flickable.DragAndOvershootBounds : Flickable.StopAtBounds
         clip: true
         contentHeight: contentColumn.implicitHeight + Spacing.sectionGap * 2
         contentWidth: width
@@ -229,6 +258,7 @@ Rectangle {
                 width: 1
             }
             SegmentedControl {
+                enabled: !page.submitting
                 currentIndex: page.loginMode ? 0 : 1
                 items: [qsTr("Вход"), qsTr("Регистрация")]
                 width: parent.width
@@ -238,6 +268,7 @@ Rectangle {
                 }
             }
             AppCard {
+                enabled: !page.submitting
                 spacing: Spacing.listGap
                 width: parent.width
 
@@ -281,7 +312,11 @@ Rectangle {
                         visible: page.recoveryEnabled
                         width: parent.width
 
-                        onClicked: Demo.notify(qsTr("Восстановление пароля пока недоступно"))
+                        objectName: "forgotPasswordButton"
+                        onClicked: {
+                            controller.switchMode("login");
+                            page.recoveryOpen = true;
+                        }
                     }
                 }
                 Column {
@@ -360,133 +395,130 @@ Rectangle {
                             text: showPassword.text
                             verticalAlignment: Text.AlignVCenter
                         }
-                        indicator: Rectangle {
+                        indicator: SelectionMark {
                             anchors.verticalCenter: parent.verticalCenter
-                            border.color: Theme.border
-                            border.width: showPassword.checked ? 0 : Theme.borderWidth
-                            color: showPassword.checked ? Theme.accent : Theme.surfaceMuted
-                            height: 24
-                            radius: 7
-                            width: 24
-                            x: 0
-
-                            Label {
-                                anchors.centerIn: parent
-                                color: Theme.accentForeground
-                                font: Typography.captionStrong
-                                text: "✓"
-                                visible: showPassword.checked
-                            }
+                            checked: showPassword.checked
+                            pressed: showPassword.down
                         }
                     }
-                    Rectangle {
-                        color: Theme.border
-                        height: Theme.borderWidth
+                    DisclosureCard {
+                        id: profileCard
+                        objectName: "signupProfileCard"
                         width: parent.width
-                    }
-                    Label {
-                        color: Theme.textPrimary
-                        font: Typography.bodyStrong
-                        text: qsTr("Параметры для старта")
-                        width: parent.width
-                    }
-                    Label {
-                        color: Theme.textMuted
-                        font: Typography.caption
-                        text: qsTr("Сохраняются локально и не отправляются при регистрации")
-                        width: parent.width
-                        wrapMode: Text.WordWrap
-                    }
-                    RowLayout {
-                        spacing: Spacing.itemGap
-                        width: parent.width
+                        title: qsTr("Параметры профиля")
+                        summary: page.includeLocalProfile ? qsTr("Сохраняются только на устройстве") : qsTr("Необязательно · можно заполнить позже")
+                        showIcon: false
+                        onToggleRequested: {
+                            expanded = !expanded;
+                            if (expanded)
+                                page.includeLocalProfile = true;
+                        }
+                        onDoneRequested: expanded = false
+                        body: Column {
+                            width: parent.width
+                            spacing: Spacing.listGap
+                            RowLayout {
+                                spacing: Spacing.itemGap
+                                width: parent.width
 
-                        AppTextField {
-                            id: ageField
+                                AppTextField {
+                                    id: ageField
 
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 72
-                            Layout.preferredWidth: 100
-                            inputMethodHints: Qt.ImhDigitsOnly
-                            label: qsTr("Возраст")
-                            maximumLength: 3
-                            text: "27"
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 72
+                                    Layout.preferredWidth: 100
+                                    inputMethodHints: Qt.ImhDigitsOnly
+                                    label: qsTr("Возраст")
+                                    maximumLength: 3
+                                    placeholderText: qsTr("Лет")
 
-                            validator: IntValidator {
-                                bottom: 14
-                                top: 100
+                                    validator: IntValidator {
+                                        bottom: 14
+                                        top: 100
+                                    }
+                                }
+                                AppTextField {
+                                    id: heightField
+
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 72
+                                    Layout.preferredWidth: 100
+                                    inputMethodHints: Qt.ImhDigitsOnly
+                                    label: qsTr("Рост, см")
+                                    maximumLength: 3
+                                    placeholderText: "170"
+
+                                    validator: IntValidator {
+                                        bottom: 100
+                                        top: 250
+                                    }
+                                }
+                                AppTextField {
+                                    id: weightField
+
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 72
+                                    Layout.preferredWidth: 100
+                                    inputMethodHints: Qt.ImhDigitsOnly
+                                    label: qsTr("Вес, кг")
+                                    maximumLength: 3
+                                    placeholderText: "65"
+
+                                    validator: IntValidator {
+                                        bottom: 30
+                                        top: 300
+                                    }
+                                }
+                            }
+                            FormChoice {
+                                id: genderChoice
+
+                                label: qsTr("Пол")
+                                options: [
+                                    {
+                                        value: "male",
+                                        label: qsTr("Мужской")
+                                    },
+                                    {
+                                        value: "female",
+                                        label: qsTr("Женский")
+                                    }
+                                ]
+                                selectedValue: "male"
+                                width: parent.width
+                            }
+                            FormChoice {
+                                id: goalChoice
+
+                                label: qsTr("Цель")
+                                options: [
+                                    {
+                                        value: "strength",
+                                        label: qsTr("Сила")
+                                    },
+                                    {
+                                        value: "muscle",
+                                        label: qsTr("Масса")
+                                    },
+                                    {
+                                        value: "fitness",
+                                        label: qsTr("Тонус")
+                                    }
+                                ]
+                                selectedValue: "strength"
+                                width: parent.width
+                            }
+
+                            AppButton {
+                                width: parent.width
+                                variant: AppButton.Secondary
+                                text: qsTr("Заполнить позже")
+                                onClicked: {
+                                    page.includeLocalProfile = false;
+                                    profileCard.expanded = false;
+                                }
                             }
                         }
-                        AppTextField {
-                            id: heightField
-
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 72
-                            Layout.preferredWidth: 100
-                            inputMethodHints: Qt.ImhDigitsOnly
-                            label: qsTr("Рост, см")
-                            maximumLength: 3
-                            text: "170"
-
-                            validator: IntValidator {
-                                bottom: 100
-                                top: 250
-                            }
-                        }
-                        AppTextField {
-                            id: weightField
-
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 72
-                            Layout.preferredWidth: 100
-                            inputMethodHints: Qt.ImhDigitsOnly
-                            label: qsTr("Вес, кг")
-                            maximumLength: 3
-                            text: "65"
-
-                            validator: IntValidator {
-                                bottom: 30
-                                top: 300
-                            }
-                        }
-                    }
-                    FormChoice {
-                        id: genderChoice
-
-                        label: qsTr("Пол")
-                        options: [
-                            {
-                                value: "male",
-                                label: qsTr("Мужской")
-                            },
-                            {
-                                value: "female",
-                                label: qsTr("Женский")
-                            }
-                        ]
-                        selectedValue: "male"
-                        width: parent.width
-                    }
-                    FormChoice {
-                        id: goalChoice
-
-                        label: qsTr("Цель")
-                        options: [
-                            {
-                                value: "strength",
-                                label: qsTr("Сила")
-                            },
-                            {
-                                value: "muscle",
-                                label: qsTr("Масса")
-                            },
-                            {
-                                value: "fitness",
-                                label: qsTr("Тонус")
-                            }
-                        ]
-                        selectedValue: "strength"
-                        width: parent.width
                     }
                     // Кнопка отправки формы убрана из карточки: она закреплена внизу экрана
                     // (см. submitBar), чтобы на длинной форме регистрации её не
@@ -566,7 +598,9 @@ Rectangle {
             text: page.submitButtonText()
             width: Math.min(parent.width - Spacing.screenPadding * 2, 420)
 
-            onClicked: page.loginMode ? page.submitLogin() : page.submitRegistration()
+            onClicked: {
+                page.loginMode ? page.submitLogin() : page.submitRegistration();
+            }
         }
     }
 }

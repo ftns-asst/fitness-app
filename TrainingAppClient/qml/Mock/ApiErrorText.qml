@@ -26,6 +26,8 @@ QtObject {
             server_error: qsTr("Сервис временно недоступен"),
             recovery_code_invalid: qsTr("Неверный код восстановления"),
             recovery_code_expired: qsTr("Срок действия кода истёк"),
+            reset_token_invalid: qsTr("Ссылка сброса недействительна. Запросите новый код"),
+            reset_token_expired: qsTr("Время для смены пароля истекло. Запросите новый код"),
             // Программа: локальные ключи ViewModel программы, не ответы сервера.
             no_active_program: qsTr("Активной программы пока нет"),
             program_not_found: qsTr("Программа не найдена"),

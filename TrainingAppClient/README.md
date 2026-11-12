@@ -79,8 +79,9 @@ cmake --build build/desktop --target appTrainingAppClient
 с исполняемым файлом через `windeployqt`.
 
 Обычный запуск позволяет пользоваться локальными разделами без обязательного
-входа. По умолчанию UI авторизации использует presentation-mock; флаг
-`--real-auth` подключает реальный auth через C++-мост `AuthBackend`.
+входа. В Release-сборках реальная авторизация включена автоматически через
+C++-мост `AuthBackend` (также в RelWithDebInfo и MinSizeRel). В Debug UI авторизации
+использует presentation-mock; флаг `--real-auth` подключает настоящий backend.
 Базовый адрес API можно задать флагом `--api-url <url>`.
 
 ### Android

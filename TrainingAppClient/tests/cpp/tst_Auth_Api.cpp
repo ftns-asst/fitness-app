@@ -10,6 +10,8 @@ class AAuth_Api_Test : public QObject
 	Q_OBJECT
 
 private slots:
+	void recoveryRequests_data();
+	void recoveryRequests();
 	void checkEmailParsesFreeFlag();
 	void checkEmailReportsTakenFlag();
 	void checkEmailPreservesBackendErrorKey();
@@ -23,6 +25,76 @@ private:
 	static STest_Http_Response JSON_Response(int in_status, const QByteArray &in_body);
 	static QByteArray Session_Body();
 };
+
+//-------------------------------------------------------------------------------------------------------------
+void AAuth_Api_Test::recoveryRequests_data()
+{
+	QTest::addColumn<int>("step");
+	QTest::addColumn<QByteArray>("body");
+	QTest::addColumn<QString>("error_key");
+	QTest::addColumn<int>("status");
+	QTest::newRow("request-empty-success") << 0 << QByteArray() << QString() << 200;
+	QTest::newRow("verify-token") << 1 << QByteArray("{\"reset_token\":\"opaque-reset\"}") << QString() << 200;
+	QTest::newRow("verify-missing-token") << 1 << QByteArray("{}") << QString("undefined_error") << 200;
+	QTest::newRow("reset-session") << 2 << Session_Body() << QString() << 200;
+	QTest::newRow("reset-missing-session") << 2 << QByteArray("{}") << QString("undefined_error") << 200;
+	QTest::newRow("request-server-error")
+	    << 0 << QByteArray("{\"key\":\"undefined_error\"}") << QString("undefined_error") << 500;
+	QTest::newRow("verify-invalid-code") << 1 << QByteArray("{\"key\":\"recovery_code_invalid\"}")
+	                                     << QString("recovery_code_invalid") << 400;
+	QTest::newRow("reset-expired-token") << 2 << QByteArray("{\"key\":\"reset_token_expired\"}")
+	                                     << QString("reset_token_expired") << 400;
+}
+//-------------------------------------------------------------------------------------------------------------
+void AAuth_Api_Test::recoveryRequests()
+{
+	QFETCH(int, step);
+	QFETCH(QByteArray, body);
+	QFETCH(QString, error_key);
+	QFETCH(int, status);
+	ATest_Http_Server server;
+	AsHttp_Client client((QUrl()));
+	AAuth_Api api(&client);
+	QSignalSpy request_spy(&api, &AAuth_Api::recoveryRequested);
+	QSignalSpy verify_spy(&api, &AAuth_Api::recoveryVerified);
+	QSignalSpy reset_spy(&api, &AAuth_Api::passwordReset);
+	QSignalSpy *spy = step == 0 ? &request_spy : step == 1 ? &verify_spy : &reset_spy;
+	QVERIFY(server.Start());
+	QVERIFY(client.Set_Base_URL(server.Base_URL().resolved(QUrl("/api/v1"))));
+	client.Set_Initial_Retry_Delay_Ms(10);
+	server.Enqueue_Response(JSON_Response(status, body));
+	int request_id = step == 0   ? api.Request_Recovery("user@example.com")
+	                 : step == 1 ? api.Verify_Recovery("user@example.com", "012345")
+	                             : api.Reset_Password("opaque-reset", "NewStrong2!");
+	QVERIFY(request_id > 0);
+	QVERIFY(spy->wait(5000));
+	QList<QVariant> arguments = spy->takeFirst();
+	QCOMPARE(arguments.at(0).toInt(), request_id);
+	QCOMPARE(qvariant_cast<AApi_Error>(arguments.last()).Key(), error_key);
+	QTest::qWait(40);
+	QCOMPARE(server.Request_Count(), 1);
+	STest_Http_Request captured = server.Request_At(0);
+	QCOMPARE(captured.Method, QByteArray("POST"));
+	QVERIFY(!captured.Headers.contains("authorization"));
+	if (step == 0)
+	{
+		QCOMPARE(captured.Target, QByteArray("/api/v1/auth/password-recovery"));
+		QVERIFY(captured.Body.contains("user@example.com"));
+	}
+	else if (step == 1)
+	{
+		QCOMPARE(captured.Target, QByteArray("/api/v1/auth/password-recovery/verify"));
+		QVERIFY(captured.Body.contains("012345"));
+		if (error_key.isEmpty())
+			QCOMPARE(arguments.at(1).toString(), QString("opaque-reset"));
+	}
+	else
+	{
+		QCOMPARE(captured.Target, QByteArray("/api/v1/auth/password-recovery/reset"));
+		QVERIFY(captured.Body.contains("\"new_password\":\"NewStrong2!\""));
+		QVERIFY(captured.Body.contains("\"reset_token\":\"opaque-reset\""));
+	}
+}
 
 //-------------------------------------------------------------------------------------------------------------
 void AAuth_Api_Test::checkEmailParsesFreeFlag()

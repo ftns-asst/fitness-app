@@ -268,7 +268,7 @@ QML; тесты `workout_repository`, `program_stats_vm`).
 
 | # | Issue |
 |---|---|
-| 33 | **Восстановление пароля (feature-flag)**: email → код → новый пароль; состояния `recovery_code_invalid`/`recovery_code_expired`; включается после реализации бэкенда |
+| 33 | **Восстановление пароля — реализовано**: email → код → новый пароль → сессия; повторная отправка, ошибки `recovery_code_*`/`reset_token_*`, сетевые и UI-тесты. Реальный API в существующем режиме `--real-auth` |
 | 34 | **Offline-first синхронизация (полная)**: фоновый воркер над `sync_outbox`, last-write-wins/версии, ретраи при появлении сети, индикатор «офлайн/синхронизация»; обслуживает профиль, затем тренировки. Для среза W: синхронизация программы, ревизий, отметок правил и замеров (`syncState`), merge структуры на базе журнала `program_revisions` (UC-12) |
 | 35 | **Заготовка plans / workouts / exercises / reviews / медиа**: чек-лист полей и сценариев (`GET /plans/current`, `GET /workouts?state=draft`, каталог, отзывы, фото техники); активируется после согласования контракта. Для среза W: контракт по `programs` / `program_schedule` / `program_rules` / `rule_checkins` / статистике (§5 п. 13–17) |
 

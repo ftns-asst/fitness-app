@@ -32,6 +32,7 @@ class AAuth_Qml_Bridge_Test : public QObject
 	Q_OBJECT
 
 private slots:
+	void recoveryCompletesAndPersistsSession();
 	void checkEmailMapsFreeFlagAndOperation();
 	void checkEmailErrorMapsKeyAndStatus();
 	void signupEmitsCamelCaseUserAndSavesSession();
@@ -50,6 +51,54 @@ private:
 	static QSqlDatabase Open_Inspection_Database(const QString &in_path, const QString &in_name);
 	static void Close_Inspection_Database(QSqlDatabase &in_database);
 };
+
+//-------------------------------------------------------------------------------------------------------------
+void AAuth_Qml_Bridge_Test::recoveryCompletesAndPersistsSession()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AsSql_Database database;
+	AsToken_Store store(&database);
+	AsHttp_Client client((QUrl()));
+	AsAuth_Session session(&client, &store);
+	AAuth_Repository repository(&client, &database, &store, &session);
+	Avm_Auth_Bridge bridge(&repository, 0, &session);
+	QSignalSpy spy(&bridge, &Avm_Auth_Bridge::requestFinished);
+	SStored_Tokens tokens;
+	QVERIFY(database.Open(directory.filePath("cache.sqlite3")));
+	QVERIFY(server.Start());
+	QVERIFY(client.Set_Base_URL(server.Base_URL().resolved(QUrl("/api/v1"))));
+
+	server.Enqueue_Response(JSON_Response(200, QByteArray()));
+	int request_id = bridge.requestRecovery("user@example.com");
+	QVERIFY(request_id > 0);
+	QVERIFY(spy.wait(5000));
+	QList<QVariant> result = spy.takeFirst();
+	QCOMPARE(result.at(1).toString(), QString("requestRecovery"));
+	QVERIFY(result.at(2).toBool());
+	QVERIFY(!session.Has_Session());
+
+	server.Enqueue_Response(JSON_Response(200, "{\"reset_token\":\"opaque-reset\"}"));
+	QVERIFY(bridge.verifyRecovery("user@example.com", "012345") > 0);
+	QVERIFY(spy.wait(5000));
+	result = spy.takeFirst();
+	QCOMPARE(result.at(1).toString(), QString("verifyRecovery"));
+	QVERIFY(result.at(2).toBool());
+	QCOMPARE(result.at(3).toMap().value("resetToken").toString(), QString("opaque-reset"));
+	QVERIFY(!session.Has_Session());
+
+	server.Enqueue_Response(JSON_Response(200, Session_Body()));
+	QVERIFY(bridge.resetPassword("opaque-reset", "NewStrong2!") > 0);
+	QVERIFY(spy.wait(5000));
+	result = spy.takeFirst();
+	QCOMPARE(result.at(1).toString(), QString("resetPassword"));
+	QVERIFY(result.at(2).toBool());
+	QVERIFY(!result.at(3).toMap().contains("tokens"));
+	QCOMPARE(result.at(3).toMap().value("user").toMap().value("id").toString(), QString("user-1"));
+	QVERIFY(session.Has_Session());
+	QVERIFY(store.Load_Tokens(tokens));
+	QCOMPARE(tokens.Access_Token, QString("access-1"));
+}
 
 //-------------------------------------------------------------------------------------------------------------
 void AAuth_Qml_Bridge_Test::checkEmailMapsFreeFlagAndOperation()

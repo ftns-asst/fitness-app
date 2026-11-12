@@ -132,7 +132,12 @@ int main(int argc, char *argv[])
 	qInstallMessageHandler(&AsApp_Logger::Handle_Message);
 
 	arguments = QCoreApplication::arguments();
+#ifdef QT_NO_DEBUG
+	// Release-сборки используют настоящий backend без аргументов запуска.
+	real_auth = true;
+#else
 	real_auth = arguments.indexOf("--real-auth") >= 0;
+#endif
 
 	// Высокая частота кадров (Android): максимальный режим дисплея запрашивается
 	// до загрузки QML и до создания окна — режим применяется при показе
@@ -169,9 +174,8 @@ int main(int argc, char *argv[])
 	    &engine, &QQmlApplicationEngine::objectCreationFailed, &app, []() { QCoreApplication::exit(-1); },
 	    Qt::QueuedConnection);
 
-	// --real-auth: экран входа работает с настоящим backend через Avm_Auth_Bridge
-	// (контекст-свойство AuthBackend). Без флага UI остаётся на presentation-mock
-	// (qmltestrunner свойства не видит, все QML-тесты остаются на mock).
+	// Release или --real-auth в Debug подключают настоящий backend через Avm_Auth_Bridge.
+	// qmltestrunner контекст-свойства не получает и использует presentation-mock.
 	if (real_auth)
 		engine.rootContext()->setContextProperty("AuthBackend", app_context.Auth_Bridge());
 	else

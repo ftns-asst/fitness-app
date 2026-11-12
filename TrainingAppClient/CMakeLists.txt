@@ -238,6 +238,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
 
         # Stable presentation contracts (mock-backed until phase V)
         qml/Presentation/AuthFormController.qml
+        qml/Presentation/PasswordRecoveryController.qml
         qml/Presentation/AuthViewModel.qml
         qml/Presentation/ExerciseTexts.qml
         qml/Presentation/RuleTexts.qml
@@ -293,6 +294,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
 
         # Screens
         qml/Pages/Auth/AuthPage.qml
+        qml/Pages/Auth/PasswordRecoveryPage.qml
         qml/Pages/Today/TodayPage.qml
         qml/Pages/Programs/ProgramsPage.qml
         qml/Pages/Exercises/ExercisesPage.qml

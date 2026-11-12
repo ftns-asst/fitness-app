@@ -32,7 +32,7 @@ struct SAuth_Session_Data
 };
 
 //-------------------------------------------------------------------------------------------------------------
-// HTTP-адаптер публичных auth endpoints: check-email, signup, login. Refresh
+// HTTP-адаптер публичных auth endpoints: check-email, signup, login, восстановление. Refresh
 // выполняется AsAuth_Session и сюда не входит. POST-операции неидемпотентны,
 // transport retry запрещён. Обязательные поля валидируются; неполный
 // успешный ответ даёт undefined_error (docs/03, §2).
@@ -47,8 +47,14 @@ public:
 	int Check_Email(const QString &in_email);
 	int Signup(const QString &in_email, const QString &in_name, const QString &in_password);
 	int Login(const QString &in_email, const QString &in_password);
+	int Request_Recovery(const QString &in_email);
+	int Verify_Recovery(const QString &in_email, const QString &in_code);
+	int Reset_Password(const QString &in_reset_token, const QString &in_password);
 
 signals:
+	void recoveryRequested(int requestId, const AApi_Error &error);
+	void recoveryVerified(int requestId, const QString &resetToken, const AApi_Error &error);
+	void passwordReset(int requestId, const SAuth_Session_Data &session_data, const AApi_Error &error);
 	void checkEmailFinished(int requestId, bool free, const AApi_Error &error);
 	void signupFinished(int requestId, const SAuth_Session_Data &session_data, const AApi_Error &error);
 	void loginFinished(int requestId, const SAuth_Session_Data &session_data, const AApi_Error &error);
@@ -64,10 +70,15 @@ private:
 		Check_Email,
 		Signup,
 		Login,
+		Request_Recovery,
+		Verify_Recovery,
+		Reset_Password,
 		Max
 	};
 
 	void Finish_Check_Email(int in_request_id, const SHttp_Response &in_response);
+	int Start_Recovery_Operation(EAuth_Operation in_operation, const QString &in_path, const QJsonObject &in_body);
+	void Finish_Recovery_Operation(EAuth_Operation in_operation, int in_request_id, const SHttp_Response &in_response);
 	void Finish_Session_Operation(EAuth_Operation in_operation, int in_request_id, const SHttp_Response &in_response);
 	static void Parse_Session_Data(const SHttp_Response &in_response, SAuth_Session_Data &out_data,
 	                               AApi_Error &out_error);

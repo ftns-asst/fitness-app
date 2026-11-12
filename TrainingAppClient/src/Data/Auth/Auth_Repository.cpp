@@ -21,6 +21,9 @@ AAuth_Repository::AAuth_Repository(AsHttp_Client *in_http_client, AsSql_Database
 	connect(Auth_Api_Instance, &AAuth_Api::checkEmailFinished, this, &AAuth_Repository::on_Check_Email_Finished);
 	connect(Auth_Api_Instance, &AAuth_Api::signupFinished, this, &AAuth_Repository::on_Signup_Finished);
 	connect(Auth_Api_Instance, &AAuth_Api::loginFinished, this, &AAuth_Repository::on_Login_Finished);
+	connect(Auth_Api_Instance, &AAuth_Api::recoveryRequested, this, &AAuth_Repository::recoveryRequested);
+	connect(Auth_Api_Instance, &AAuth_Api::recoveryVerified, this, &AAuth_Repository::recoveryVerified);
+	connect(Auth_Api_Instance, &AAuth_Api::passwordReset, this, &AAuth_Repository::on_Password_Reset);
 
 	if (Session_Instance != 0)
 		connect(Session_Instance, &AsAuth_Session::sessionExpired, this, &AAuth_Repository::on_Session_Expired);
@@ -39,6 +42,21 @@ int AAuth_Repository::Signup(const QString &in_email, const QString &in_name, co
 int AAuth_Repository::Login(const QString &in_email, const QString &in_password)
 {
 	return Auth_Api_Instance->Login(in_email, in_password);
+}
+//-------------------------------------------------------------------------------------------------------------
+int AAuth_Repository::Request_Recovery(const QString &in_email)
+{
+	return Auth_Api_Instance->Request_Recovery(in_email);
+}
+//-------------------------------------------------------------------------------------------------------------
+int AAuth_Repository::Verify_Recovery(const QString &in_email, const QString &in_code)
+{
+	return Auth_Api_Instance->Verify_Recovery(in_email, in_code);
+}
+//-------------------------------------------------------------------------------------------------------------
+int AAuth_Repository::Reset_Password(const QString &in_reset_token, const QString &in_password)
+{
+	return Auth_Api_Instance->Reset_Password(in_reset_token, in_password);
 }
 //-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository::Logout()
@@ -70,6 +88,17 @@ bool AAuth_Repository::Has_Local_Session() const
 		return false;
 
 	return Token_Store_Instance->Has_Tokens();
+}
+//-------------------------------------------------------------------------------------------------------------
+void AAuth_Repository::on_Password_Reset(int in_request_id, const SAuth_Session_Data &in_session_data,
+                                         const AApi_Error &in_error)
+{
+	AApi_Error error = in_error;
+
+	if (!error.Is_Error())
+		Persist_Session(in_session_data, error);
+
+	emit passwordReset(in_request_id, in_session_data.User, error);
 }
 //-------------------------------------------------------------------------------------------------------------
 void AAuth_Repository::on_Check_Email_Finished(int in_request_id, bool in_free, const AApi_Error &in_error)

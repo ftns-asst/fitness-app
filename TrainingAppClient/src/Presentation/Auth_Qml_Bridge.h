@@ -28,6 +28,9 @@ public:
 	Q_INVOKABLE int checkEmail(const QString &in_email);
 	Q_INVOKABLE int login(const QString &in_email, const QString &in_password);
 	Q_INVOKABLE int signup(const QVariantMap &in_request);
+	Q_INVOKABLE int requestRecovery(const QString &in_email);
+	Q_INVOKABLE int verifyRecovery(const QString &in_email, const QString &in_code);
+	Q_INVOKABLE int resetPassword(const QString &in_reset_token, const QString &in_password);
 	Q_INVOKABLE void logout();
 	Q_INVOKABLE bool restoreSession();
 	Q_INVOKABLE bool saveLocalProfile(const QVariantMap &in_local_profile);
@@ -41,6 +44,9 @@ signals:
 	void sessionRestored(const QVariantMap &user);
 
 private slots:
+	void on_Recovery_Requested(int in_request_id, const AApi_Error &in_error);
+	void on_Recovery_Verified(int in_request_id, const QString &in_reset_token, const AApi_Error &in_error);
+	void on_Password_Reset(int in_request_id, const SAuth_User &in_user, const AApi_Error &in_error);
 	void on_Check_Email_Finished(int in_request_id, bool in_free, const AApi_Error &in_error);
 	void on_Signup_Finished(int in_request_id, const SAuth_User &in_user, const AApi_Error &in_error);
 	void on_Login_Finished(int in_request_id, const SAuth_User &in_user, const AApi_Error &in_error);
