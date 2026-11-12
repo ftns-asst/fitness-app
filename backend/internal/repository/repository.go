@@ -29,6 +29,7 @@ type Repositories struct {
 	auth           *AuthRepo
 	exercise       *ExerciseRepo
 	file           *FileRepo
+	program        *ProgramRepo
 	personalRecord *PersonalRecordRepo
 }
 
@@ -38,6 +39,7 @@ func NewRepositories(db db) *Repositories {
 		auth:           NewAuthRepo(db),
 		exercise:       NewExerciseRepo(db),
 		file:           NewFileRepo(db),
+		program:        NewProgramRepo(db),
 		personalRecord: NewPersonalRecordRepo(db),
 	}
 }
@@ -56,6 +58,10 @@ func (r *Repositories) Exercise() *ExerciseRepo {
 
 func (r *Repositories) File() *FileRepo {
 	return r.file
+}
+
+func (r *Repositories) Program() *ProgramRepo {
+	return r.program
 }
 
 func (r *Repositories) PersonalRecord() *PersonalRecordRepo {
