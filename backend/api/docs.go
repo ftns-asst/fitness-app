@@ -499,6 +499,128 @@ const docTemplate = `{
                 }
             }
         },
+        "/default-programs": {
+            "get": {
+                "description": "With day_of_week only programs with the same number of days per week are returned",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "programs"
+                ],
+                "summary": "List default programs",
+                "operationId": "listDefaultPrograms",
+                "parameters": [
+                    {
+                        "maximum": 7,
+                        "minimum": 1,
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "selected days of week, 1 - Monday, 7 - Sunday",
+                        "name": "day_of_week",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "strength",
+                            "muscle",
+                            "fitness",
+                            "fat_loss",
+                            "endurance"
+                        ],
+                        "type": "string",
+                        "description": "filter by goal",
+                        "name": "goal",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "beginner",
+                            "intermediate",
+                            "advanced"
+                        ],
+                        "type": "string",
+                        "description": "filter by level",
+                        "name": "level",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DefaultProgramSummary"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/default-programs/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "programs"
+                ],
+                "summary": "Get default program with days",
+                "operationId": "getDefaultProgramByID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "default program id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/DefaultProgram"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/equipments": {
             "get": {
                 "produces": [
@@ -895,6 +1017,682 @@ const docTemplate = `{
                 }
             }
         },
+        "/programs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "programs"
+                ],
+                "summary": "List programs of current user without exercises",
+                "operationId": "listPrograms",
+                "parameters": [
+                    {
+                        "enum": [
+                            "draft",
+                            "needs_measurement",
+                            "in_progress",
+                            "finished"
+                        ],
+                        "type": "string",
+                        "description": "filter by state",
+                        "name": "state",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ProgramSummary"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The program appears in the list at once, the structure is filled by PUT /programs/{id}/structure or PUT /programs/{id}/weeks/{week}. weeks_count is 1 by default",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "programs"
+                ],
+                "summary": "Create draft with metadata only",
+                "operationId": "createProgram",
+                "parameters": [
+                    {
+                        "description": "program body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CreateProgramRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Program"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/programs/from-default": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Workouts of every week of the default program are laid out on the selected days of week in order. Selected days count must be equal to days_per_week of the program (days_count_mismatch)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "programs"
+                ],
+                "summary": "Create draft from default program",
+                "operationId": "createProgramFromDefault",
+                "parameters": [
+                    {
+                        "description": "default program and selected days",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CreateProgramFromDefaultRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Program"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/programs/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Every week has all days from days_of_week, a day without exercises has an empty list",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "programs"
+                ],
+                "summary": "Get program with weeks, days and exercises",
+                "operationId": "getProgramByID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "program id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Program"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Error program_not_draft if program is not a draft or needs_measurement",
+                "tags": [
+                    "programs"
+                ],
+                "summary": "Delete draft program",
+                "operationId": "deleteProgram",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "program id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "days_of_week and weeks_count are common for all weeks; exercises of removed days and weeks are deleted. Error program_read_only for finished program",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "programs"
+                ],
+                "summary": "Update metadata of program",
+                "operationId": "updateProgram",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "program id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "fields to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UpdateProgramRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Program"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/programs/{id}/finish": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Error invalid_state_transition if program is not in progress",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "programs"
+                ],
+                "summary": "Finish program in progress",
+                "operationId": "finishProgram",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "program id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Program"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/programs/{id}/start": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The program becomes in_progress, the previous program in progress becomes finished and its id is returned in finished_program_id. Errors: invalid_state_transition, measurement_required (personal records are missing, see required_measurements), program_incomplete",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "programs"
+                ],
+                "summary": "Start draft program",
+                "operationId": "startProgram",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "program id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/StartProgramResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/programs/{id}/structure": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Replaces the whole structure. The same request fills the structure of a new draft and edits it later. The position in weeks is the week number, weeks_count becomes the number of weeks. Errors: program_read_only, exercise_not_available",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "programs"
+                ],
+                "summary": "Replace days of week, weeks and exercises of program",
+                "operationId": "replaceProgramStructure",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "program id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "full structure",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ReplaceProgramStructureRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Program"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/programs/{id}/weeks/{week}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Days of the week must be among days_of_week of the program, week is 1..weeks_count. Errors: program_read_only, exercise_not_available",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "programs"
+                ],
+                "summary": "Replace exercises of one week of program",
+                "operationId": "replaceProgramWeek",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "program id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "week number",
+                        "name": "week",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "days of the week",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ReplaceProgramWeekRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Program"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/users/me": {
             "get": {
                 "consumes": [
@@ -1052,6 +1850,285 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/users/{id}/prs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Only the user can see own records",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "personal records"
+                ],
+                "summary": "Get the latest personal record in each exercise of the user",
+                "operationId": "listLatestPersonalRecords",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "user id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PersonalRecord"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Without reps weight_kg is the lifted weight for one repetition. With reps weight_kg is the weight of the set and the record is estimated by a formula (is_calculated is true for more than one repetition). Programs which wait for records (needs_measurement) become draft when all records are added. Only the user can add own records. Error exercise_not_available",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "personal records"
+                ],
+                "summary": "Add a personal record in the exercise",
+                "operationId": "createPersonalRecord",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "user id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "record",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CreatePersonalRecordRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/PersonalRecord"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/prs/bulk": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Records are added in one transaction, either all of them or none. The records are of different exercises, from 1 to 100, each one is the same as in POST /users/{id}/prs. The result has the order of the request. Error exercise_not_available if any exercise is not available",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "personal records"
+                ],
+                "summary": "Add personal records in several exercises at once",
+                "operationId": "createPersonalRecords",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "user id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "records",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CreatePersonalRecordsRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PersonalRecord"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/prs/{exerciseId}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The newest record first, an exercise without records gives an empty list. Only the user can see own records",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "personal records"
+                ],
+                "summary": "Get the history of personal records of the user in the exercise",
+                "operationId": "listPersonalRecordHistory",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "user id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "exercise id",
+                        "name": "exerciseId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PersonalRecord"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1097,6 +2174,160 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "CreatePersonalRecordRequestBody": {
+            "type": "object",
+            "required": [
+                "exercise_id",
+                "weight_kg"
+            ],
+            "properties": {
+                "exercise_id": {
+                    "type": "string"
+                },
+                "reps": {
+                    "description": "repetitions of the set; with them weight_kg is the weight of the set and the record is estimated by a formula",
+                    "type": "integer"
+                },
+                "weight_kg": {
+                    "type": "number"
+                }
+            }
+        },
+        "CreatePersonalRecordsRequestBody": {
+            "type": "object",
+            "required": [
+                "records"
+            ],
+            "properties": {
+                "records": {
+                    "description": "records of different exercises, from 1 to 100",
+                    "type": "array",
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/CreatePersonalRecordRequestBody"
+                    }
+                }
+            }
+        },
+        "CreateProgramFromDefaultRequestBody": {
+            "type": "object",
+            "required": [
+                "days_of_week",
+                "default_program_id"
+            ],
+            "properties": {
+                "days_of_week": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "default_program_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "CreateProgramRequestBody": {
+            "type": "object",
+            "required": [
+                "goal",
+                "level",
+                "name"
+            ],
+            "properties": {
+                "days_of_week": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "weeks_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "DefaultProgram": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/DefaultProgramDay"
+                    }
+                },
+                "days_per_week": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "weeks_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "DefaultProgramDay": {
+            "type": "object",
+            "properties": {
+                "order_index": {
+                    "type": "integer"
+                },
+                "week_number": {
+                    "type": "integer"
+                },
+                "workout_template": {
+                    "$ref": "#/definitions/WorkoutTemplate"
+                }
+            }
+        },
+        "DefaultProgramSummary": {
+            "type": "object",
+            "properties": {
+                "days_per_week": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "weeks_count": {
+                    "type": "integer"
                 }
             }
         },
@@ -1190,6 +2421,17 @@ const docTemplate = `{
                 }
             }
         },
+        "MeasurementExercise": {
+            "type": "object",
+            "properties": {
+                "exercise_id": {
+                    "type": "string"
+                },
+                "exercise_name": {
+                    "type": "string"
+                }
+            }
+        },
         "Media": {
             "type": "object",
             "properties": {
@@ -1229,6 +2471,246 @@ const docTemplate = `{
                 }
             }
         },
+        "PersonalRecord": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "exercise_id": {
+                    "type": "string"
+                },
+                "exercise_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_calculated": {
+                    "description": "estimated by a formula, not lifted for one rep",
+                    "type": "boolean"
+                },
+                "weight_kg": {
+                    "type": "number"
+                }
+            }
+        },
+        "Program": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "days_of_week": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "default_program_id": {
+                    "type": "string"
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "required_measurements": {
+                    "description": "exercises with percent load and without a personal record, empty if the program can start or was started",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/MeasurementExercise"
+                    }
+                },
+                "source_kind": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string",
+                    "format": "date"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "weeks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ProgramWeek"
+                    }
+                },
+                "weeks_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "ProgramDay": {
+            "type": "object",
+            "properties": {
+                "day_of_week": {
+                    "type": "integer"
+                },
+                "exercises": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ProgramDayExercise"
+                    }
+                }
+            }
+        },
+        "ProgramDayExercise": {
+            "type": "object",
+            "properties": {
+                "exercise_id": {
+                    "type": "string"
+                },
+                "exercise_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "rest_seconds": {
+                    "type": "integer"
+                },
+                "sets": {
+                    "type": "integer"
+                },
+                "target_percent_1rm": {
+                    "description": "load as percent of the personal record, either weight or percent is set",
+                    "type": "number"
+                },
+                "target_reps": {
+                    "type": "integer"
+                },
+                "target_weight_kg": {
+                    "type": "number"
+                }
+            }
+        },
+        "ProgramDayExerciseInput": {
+            "type": "object",
+            "required": [
+                "exercise_id"
+            ],
+            "properties": {
+                "exercise_id": {
+                    "type": "string"
+                },
+                "rest_seconds": {
+                    "type": "integer"
+                },
+                "sets": {
+                    "type": "integer"
+                },
+                "target_percent_1rm": {
+                    "description": "load as percent of the personal record, either weight or percent is set",
+                    "type": "number"
+                },
+                "target_reps": {
+                    "type": "integer"
+                },
+                "target_weight_kg": {
+                    "type": "number"
+                }
+            }
+        },
+        "ProgramDayInput": {
+            "type": "object",
+            "properties": {
+                "day_of_week": {
+                    "type": "integer"
+                },
+                "exercises": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ProgramDayExerciseInput"
+                    }
+                }
+            }
+        },
+        "ProgramSummary": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "days_of_week": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "default_program_id": {
+                    "type": "string"
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "source_kind": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string",
+                    "format": "date"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "weeks_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "ProgramWeek": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ProgramDay"
+                    }
+                },
+                "week_number": {
+                    "type": "integer"
+                }
+            }
+        },
+        "ProgramWeekInput": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ProgramDayInput"
+                    }
+                }
+            }
+        },
         "RefreshTokensRequestBody": {
             "type": "object",
             "required": [
@@ -1237,6 +2719,35 @@ const docTemplate = `{
             "properties": {
                 "refresh_token": {
                     "type": "string"
+                }
+            }
+        },
+        "ReplaceProgramStructureRequestBody": {
+            "type": "object",
+            "properties": {
+                "days_of_week": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "weeks": {
+                    "description": "position is the week number, weeks_count becomes their number",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ProgramWeekInput"
+                    }
+                }
+            }
+        },
+        "ReplaceProgramWeekRequestBody": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ProgramDayInput"
+                    }
                 }
             }
         },
@@ -1297,6 +2808,67 @@ const docTemplate = `{
                 },
                 "user": {
                     "$ref": "#/definitions/User"
+                }
+            }
+        },
+        "StartProgramResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "days_of_week": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "default_program_id": {
+                    "type": "string"
+                },
+                "finished_program_id": {
+                    "type": "string"
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "required_measurements": {
+                    "description": "exercises with percent load and without a personal record, empty if the program can start or was started",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/MeasurementExercise"
+                    }
+                },
+                "source_kind": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string",
+                    "format": "date"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "weeks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ProgramWeek"
+                    }
+                },
+                "weeks_count": {
+                    "type": "integer"
                 }
             }
         },
@@ -1364,6 +2936,30 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "UpdateProgramRequestBody": {
+            "type": "object",
+            "properties": {
+                "days_of_week": {
+                    "description": "an empty list removes all days, null or no field changes nothing",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "weeks_count": {
+                    "type": "integer"
                 }
             }
         },
@@ -1474,6 +3070,59 @@ const docTemplate = `{
             "properties": {
                 "reset_token": {
                     "type": "string"
+                }
+            }
+        },
+        "WorkoutTemplate": {
+            "type": "object",
+            "properties": {
+                "equipment": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "exercises": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkoutTemplateExercise"
+                    }
+                },
+                "focus": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkoutTemplateExercise": {
+            "type": "object",
+            "properties": {
+                "exercise_id": {
+                    "type": "string"
+                },
+                "exercise_name": {
+                    "type": "string"
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "rest_seconds": {
+                    "type": "integer"
+                },
+                "sets": {
+                    "type": "integer"
+                },
+                "target_percent_1rm": {
+                    "description": "load as percent of the personal record",
+                    "type": "number"
+                },
+                "target_reps": {
+                    "type": "integer"
                 }
             }
         }
