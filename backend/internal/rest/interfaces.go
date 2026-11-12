@@ -35,4 +35,18 @@ type (
 		UpdateMedia(ctx context.Context, exerciseID uuid.UUID, mediaType model.MediaType) (*model.Media, string, error)
 		DeleteMedia(ctx context.Context, exerciseID uuid.UUID) error
 	}
+	ProgramService interface {
+		GetDefaultPrograms(ctx context.Context, daysOfWeek []int, goal *model.ProgramGoal, level *model.ProgramLevel) ([]*model.DefaultProgram, error)
+		GetDefaultProgramByID(ctx context.Context, id uuid.UUID) (*model.DefaultProgram, error)
+		GetUserPrograms(ctx context.Context, userID uuid.UUID, state *model.ProgramState) ([]*model.UserProgram, error)
+		GetUserProgramByID(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*model.UserProgram, error)
+		CreateProgram(ctx context.Context, userID uuid.UUID, input *model.CreateUserProgramInput) (*model.UserProgram, error)
+		CreateFromDefault(ctx context.Context, userID uuid.UUID, defaultProgramID uuid.UUID, daysOfWeek []int) (*model.UserProgram, error)
+		UpdateProgram(ctx context.Context, userID uuid.UUID, input *model.UpdateUserProgramInput) (*model.UserProgram, error)
+		ReplaceStructure(ctx context.Context, userID uuid.UUID, programID uuid.UUID, structure *model.UserProgramStructure) (*model.UserProgram, error)
+		ReplaceWeek(ctx context.Context, userID uuid.UUID, programID uuid.UUID, weekNumber int, week *model.UserProgramWeek) (*model.UserProgram, error)
+		StartProgram(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*model.StartProgramResult, error)
+		FinishProgram(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*model.UserProgram, error)
+		DeleteProgram(ctx context.Context, userID uuid.UUID, id uuid.UUID) error
+	}
 )

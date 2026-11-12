@@ -20,6 +20,7 @@ type Handlers struct {
 	auth     *AuthHandler
 	user     *UserHandler
 	exercise *ExerciseHandler
+	program  *ProgramHandler
 }
 
 func newHandlers(cfg *config.Config, services *service.Services) *Handlers {
@@ -28,6 +29,7 @@ func newHandlers(cfg *config.Config, services *service.Services) *Handlers {
 		auth:     NewAuthHandler(services.Auth(), services.User()),
 		user:     NewUserHandler(services.User()),
 		exercise: NewExerciseHandler(services.Exercise()),
+		program:  NewProgramHandler(services.Program()),
 	}
 }
 
@@ -39,6 +41,7 @@ func (h *Handlers) RegisterRoutes(r *gin.RouterGroup) {
 	h.auth.RegisterRoutes(r)
 	h.user.RegisterRoutes(r, authMid)
 	h.exercise.RegisterRoutes(r, authMid, optionalAuthMid, adminAuthMid)
+	h.program.RegisterRoutes(r, authMid)
 }
 
 type ErrorResponse struct {
