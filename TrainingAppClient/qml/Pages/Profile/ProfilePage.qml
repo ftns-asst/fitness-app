@@ -23,15 +23,15 @@ PageScaffold {
     readonly property string activeProfileDetails: {
         if (!authenticated)
             return qsTr("Войдите, чтобы сохранять прогресс, рекорды и историю");
-        if (activeLocalProfile === null)
-            return auth.user.email;
-
-        const goal_names = {
-            strength: qsTr("Сила"),
-            muscle: qsTr("Масса"),
-            fitness: qsTr("Тонус")
-        };
-        return activeLocalProfile.age + " " + qsTr("лет") + " · " + activeLocalProfile.heightCm + " " + qsTr("см") + " · " + activeLocalProfile.weightKg + " " + qsTr("кг") + " · " + qsTr("цель: ") + goal_names[activeLocalProfile.goal];
+        const profile = viewModel.profile || {};
+        const parts = [];
+        if (profile.age !== undefined)
+            parts.push(qsTr("%1 лет").arg(profile.age));
+        if (profile.heightCm !== undefined)
+            parts.push(qsTr("%1 см").arg(profile.heightCm));
+        if (profile.weightKg !== undefined)
+            parts.push(qsTr("%1 кг").arg(profile.weightKg));
+        return parts.length > 0 ? parts.join(" · ") : auth.user.email;
     }
     readonly property bool authenticated: auth.authenticated
     readonly property bool avatarVisible: authenticated
@@ -44,6 +44,41 @@ PageScaffold {
     objectName: "profilePage"
     spacing: Spacing.listGap
     title: qsTr("Профиль")
+
+    function reloadProfile() {
+        if (viewModel && typeof viewModel.reload === "function")
+            viewModel.reload(authenticated ? String(auth.user.id) : "");
+    }
+    function profileStatusText() {
+        if (viewModel.pendingSync) {
+            if (viewModel.syncing)
+                return qsTr("Сохранено на устройстве · отправляем на сервер…");
+            if (viewModel.syncErrorText)
+                return qsTr("Сохранено на устройстве. %1").arg(viewModel.syncErrorText);
+            return qsTr("Сохранено на устройстве · ожидает отправки");
+        }
+        if (viewModel.loading)
+            return qsTr("Обновляем профиль…");
+        return viewModel.errorText || (viewModel.fromCache ? qsTr("Сохранённые данные профиля") : "");
+    }
+    Component.onCompleted: reloadProfile()
+    onAuthenticatedChanged: {
+        reloadProfile();
+        if (!authenticated && profileEditor)
+            profileEditor.close();
+    }
+    Connections {
+        target: page.auth
+        function onUserChanged() {
+            page.reloadProfile();
+            if (!page.authenticated)
+                profileEditor.close();
+        }
+    }
+    ProfileEditorPopup {
+        id: profileEditor
+        viewModel: page.viewModel
+    }
 
     // Профиль открывается поверх вкладок (аватар в шапке), поэтому возврат —
     // кнопкой «Назад» и системным жестом, а не переключением вкладки.
@@ -132,6 +167,7 @@ PageScaffold {
             width: parent.width
         }
         AppCard {
+            visible: page.authenticated
             paddingHorizontal: Spacing.screenPadding
             paddingVertical: Spacing.itemGap
             spacing: 0
@@ -178,11 +214,30 @@ PageScaffold {
             }
         }
         AppButton {
+            objectName: "profileEditButton"
             text: qsTr("Редактировать параметры")
             variant: AppButton.Secondary
             width: parent.width
 
-            onClicked: Demo.notify(qsTr("Редактирование профиля — этап D1"))
+            visible: page.authenticated && page.viewModel.canEdit !== false
+            enabled: !page.viewModel.saving
+            onClicked: profileEditor.openForProfile()
+        }
+        Label {
+            width: parent.width
+            visible: page.authenticated && text.length > 0
+            text: page.profileStatusText()
+            font: Typography.caption
+            color: page.viewModel.errorText || page.viewModel.syncBlocked ? Theme.negative : Theme.textSecondary
+            wrapMode: Text.WordWrap
+        }
+        AppButton {
+            visible: page.authenticated && Boolean(page.viewModel.errorText || page.viewModel.syncErrorText)
+            text: page.viewModel.syncErrorText ? qsTr("Повторить отправку") : qsTr("Повторить загрузку")
+            variant: AppButton.Ghost
+            enabled: !page.viewModel.loading && !page.viewModel.saving && !page.viewModel.syncing
+            width: parent.width
+            onClicked: page.viewModel.syncErrorText ? page.viewModel.retrySync() : page.reloadProfile()
         }
         AppButton {
             id: logoutButton

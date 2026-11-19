@@ -43,6 +43,7 @@ public:
 	static const char *Refresh_Path;
 
 signals:
+	void sessionChanged();
 	void requestFinished(int requestId, const SHttp_Response &response);
 	void sessionExpired();
 

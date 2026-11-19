@@ -15,6 +15,9 @@ class AUsers_Api_Test : public QObject
 	Q_OBJECT
 
 private slots:
+	void patchProfileSendsOnlyChangedFields();
+	void patchProfileRejectsMalformedResponse_data();
+	void patchProfileRejectsMalformedResponse();
 	void getUserParsesUserAndProfile();
 	void getUserWithoutProfileIsNotError();
 	void getUserPreservesBackendErrorKey();
@@ -27,6 +30,75 @@ private:
 	static QByteArray User_With_Profile_Body();
 	static QByteArray User_Without_Profile_Body();
 };
+
+//-------------------------------------------------------------------------------------------------------------
+void AUsers_Api_Test::patchProfileSendsOnlyChangedFields()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AsSql_Database database;
+	AsToken_Store store(&database);
+	AsHttp_Client client((QUrl()));
+	AsAuth_Session session(&client, &store);
+	AUsers_Api api(&session);
+	QSignalSpy spy(&api, &AUsers_Api::profileUpdated);
+	QVERIFY(database.Open(directory.filePath("cache.sqlite3")));
+	QVERIFY(server.Start());
+	QVERIFY(client.Set_Base_URL(server.Base_URL().resolved(QUrl("/api/v1"))));
+	QVERIFY(store.Save_Tokens("user-1", "access", "refresh", QDateTime(), QDateTime()));
+	QVERIFY(session.Restore_From_Store());
+	server.Enqueue_Response(JSON_Response(200, "{\"age\":31,\"gender\":\"male\",\"height\":179,\"weight\":75.5}"));
+	QJsonObject changes;
+	changes.insert("weight", 75.5);
+	QVERIFY(api.Update_Profile(changes) > 0);
+	QVERIFY(spy.wait(5000));
+	STest_Http_Request request = server.Request_At(0);
+	QCOMPARE(request.Method, QByteArray("PATCH"));
+	QCOMPARE(request.Target, QByteArray("/api/v1/users/me/profile"));
+	QCOMPARE(request.Headers.value("authorization"), QByteArray("Bearer access"));
+	QCOMPARE(QJsonDocument::fromJson(request.Body).object(), changes);
+	QList<QVariant> result = spy.takeFirst();
+	QVERIFY(!qvariant_cast<AApi_Error>(result.last()).Is_Error());
+	QCOMPARE(qvariant_cast<SUsers_Profile>(result.at(1)).Weight_Kg, 75.5);
+}
+//-------------------------------------------------------------------------------------------------------------
+void AUsers_Api_Test::patchProfileRejectsMalformedResponse_data()
+{
+	QTest::addColumn<int>("status");
+	QTest::addColumn<QByteArray>("body");
+	QTest::addColumn<QString>("key");
+	QTest::newRow("malformed") << 200 << QByteArray("{\"weight\":\"invalid\"}") << QString("undefined_error");
+	QTest::newRow("validation") << 400 << QByteArray("{\"key\":\"validation_error\"}") << QString("validation_error");
+	QTest::newRow("not-found") << 404 << QByteArray("{\"key\":\"undefined_error\"}") << QString("undefined_error");
+	QTest::newRow("server-error") << 500 << QByteArray("{\"key\":\"server_error\"}") << QString("server_error");
+}
+//-------------------------------------------------------------------------------------------------------------
+void AUsers_Api_Test::patchProfileRejectsMalformedResponse()
+{
+	QFETCH(int, status);
+	QFETCH(QByteArray, body);
+	QFETCH(QString, key);
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AsSql_Database database;
+	AsToken_Store store(&database);
+	AsHttp_Client client((QUrl()));
+	AsAuth_Session session(&client, &store);
+	AUsers_Api api(&session);
+	QSignalSpy spy(&api, &AUsers_Api::profileUpdated);
+	QVERIFY(database.Open(directory.filePath("cache.sqlite3")));
+	QVERIFY(server.Start());
+	QVERIFY(client.Set_Base_URL(server.Base_URL().resolved(QUrl("/api/v1"))));
+	QVERIFY(store.Save_Tokens("user-1", "access", "refresh", QDateTime(), QDateTime()));
+	QVERIFY(session.Restore_From_Store());
+	client.Set_Initial_Retry_Delay_Ms(10);
+	server.Enqueue_Response(JSON_Response(status, body));
+	QVERIFY(api.Update_Profile(QJsonObject{{"weight", 75}}) > 0);
+	QVERIFY(spy.wait(5000));
+	QCOMPARE(qvariant_cast<AApi_Error>(spy.takeFirst().last()).Key(), key);
+	QTest::qWait(50);
+	QCOMPARE(server.Request_Count(), 1);
+}
 
 //-------------------------------------------------------------------------------------------------------------
 void AUsers_Api_Test::getUserParsesUserAndProfile()

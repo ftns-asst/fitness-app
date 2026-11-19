@@ -24,6 +24,12 @@ qt_add_executable(appTrainingAppClient
 # Presentation наполняются в следующих issues, зависимости Network/Sql уже
 # фиксируют границу инфраструктурного слоя.
 add_library(TrainingAppCore STATIC
+    src/Data/Network/Network_Monitor.h
+    src/Data/Network/Network_Monitor.cpp
+    src/Presentation/Profile_VM.h
+    src/Presentation/Profile_VM.cpp
+    src/Data/Users/Profile_Sync.h
+    src/Data/Users/Profile_Sync.cpp
     src/Domain/Diary_Calculator.h
     src/Domain/Diary_Calculator.cpp
     src/Presentation/Diary_VM.h
@@ -194,6 +200,8 @@ qt_add_qml_module(appTrainingAppClient
         src/Presentation/Program_Qml.h
         src/Presentation/Program_Qml.cpp
     QML_FILES
+        qml/Components/NetworkStatusBanner.qml
+        qml/Components/ProfileEditorPopup.qml
         qml/Components/WorkoutValueRow.qml
         qml/Components/WorkoutResultRow.qml
         qml/Components/StatisticsPlot.qml

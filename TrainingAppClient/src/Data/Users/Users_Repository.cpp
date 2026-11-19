@@ -1,4 +1,4 @@
-﻿#include "Data/Users/Users_Repository.h"
+#include "Data/Users/Users_Repository.h"
 
 #include <QDateTime>
 #include <QJsonDocument>
@@ -21,6 +21,7 @@ AUsers_Repository::AUsers_Repository(AsAuth_Session *in_session, AsSql_Database 
 	Users_Api_Instance = new AUsers_Api(Session_Instance, this);
 
 	connect(Users_Api_Instance, &AUsers_Api::getUserFinished, this, &AUsers_Repository::on_Get_User_Finished);
+	connect(Users_Api_Instance, &AUsers_Api::profileUpdated, this, &AUsers_Repository::on_Profile_Updated);
 }
 //-------------------------------------------------------------------------------------------------------------
 int AUsers_Repository::Get_User(const QString &in_user_id, bool in_with_profile)
@@ -33,8 +34,165 @@ int AUsers_Repository::Get_User(const QString &in_user_id, bool in_with_profile)
 		return 0;
 
 	Pending_Requests.insert(request_id, in_user_id);
+	Pending_Read_Generations.insert(request_id, Profile_Generations.value(in_user_id));
 
 	return request_id;
+}
+//-------------------------------------------------------------------------------------------------------------
+int AUsers_Repository::Update_Profile(const QString &in_user_id, const QJsonObject &in_changes)
+{
+	if (Session_Instance == 0 || in_user_id.isEmpty() || Session_Instance->User_ID() != in_user_id)
+		return 0;
+
+	int request_id = Users_Api_Instance->Update_Profile(in_changes);
+	if (request_id > 0)
+		Pending_Updates.insert(request_id, in_user_id);
+
+	return request_id;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool AUsers_Repository::Save_Profile_Locally(const QString &in_user_id, const QJsonObject &in_changes)
+{
+	SUsers_User user;
+	SProfile_Pending pending;
+	QJsonObject merged;
+	QSqlDatabase connection = Connection();
+	QSqlQuery query(connection);
+
+	if (in_changes.isEmpty() || Session_Instance == 0 || Session_Instance->User_ID() != in_user_id ||
+	    !Get_Cached_User(in_user_id, user) || !connection.transaction())
+		return false;
+
+	if (Load_Pending_Profile(in_user_id, pending))
+		merged = pending.Changes;
+	for (auto iterator = in_changes.begin(); iterator != in_changes.end(); ++iterator)
+		merged.insert(iterator.key(), iterator.value());
+	Apply_Profile_Changes(user.Profile, in_changes);
+	if (!Persist_Profile_Cache(in_user_id, user.Profile))
+	{
+		connection.rollback();
+		return false;
+	}
+	query.prepare("DELETE FROM sync_outbox WHERE entity_type = 'user_profile' AND entity_id = ?");
+	query.addBindValue(in_user_id);
+	if (!query.exec())
+	{
+		connection.rollback();
+		return false;
+	}
+	QJsonObject envelope;
+	envelope.insert("changes", merged);
+	envelope.insert("blocked", false);
+	query.prepare("INSERT INTO sync_outbox(entity_type, entity_id, operation, payload_json, created_at) "
+	              "VALUES('user_profile', ?, 'update', ?, ?)");
+	query.addBindValue(in_user_id);
+	query.addBindValue(QString::fromUtf8(QJsonDocument(envelope).toJson(QJsonDocument::Compact)));
+	query.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+	if (!query.exec() || !connection.commit())
+	{
+		connection.rollback();
+		return false;
+	}
+	++Profile_Generations[in_user_id];
+	emit profileChanged(in_user_id);
+	emit profileQueued(in_user_id);
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool AUsers_Repository::Load_Pending_Profile(const QString &in_user_id, SProfile_Pending &out_pending)
+{
+	QSqlQuery query(Connection());
+	query.prepare("SELECT id, payload_json, attempt_count, next_attempt_at, last_error FROM sync_outbox "
+	              "WHERE entity_type = 'user_profile' AND entity_id = ? ORDER BY id LIMIT 1");
+	query.addBindValue(in_user_id);
+	out_pending = SProfile_Pending();
+	if (!query.exec() || !query.next())
+		return false;
+
+	QJsonObject envelope = QJsonDocument::fromJson(query.value(1).toByteArray()).object();
+	out_pending.ID = query.value(0).toLongLong();
+	out_pending.Changes = envelope.value("changes").toObject();
+	out_pending.Is_Blocked = envelope.value("blocked").toBool();
+	out_pending.Attempts = query.value(2).toInt();
+	out_pending.Next_Attempt = QDateTime::fromString(query.value(3).toString(), Qt::ISODateWithMs);
+	out_pending.Last_Error = query.value(4).toString();
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool AUsers_Repository::Confirm_Profile_Update(const QString &in_user_id, qint64 in_through_id,
+                                               const SUsers_Profile &in_profile)
+{
+	QSqlDatabase connection = Connection();
+	QSqlQuery query(connection);
+	SProfile_Pending pending;
+	SUsers_Profile profile = in_profile;
+	if (!connection.transaction())
+		return false;
+
+	query.prepare("DELETE FROM sync_outbox WHERE entity_type = 'user_profile' AND entity_id = ? AND id <= ?");
+	query.addBindValue(in_user_id);
+	query.addBindValue(in_through_id);
+	if (!query.exec())
+	{
+		connection.rollback();
+		return false;
+	}
+	if (Load_Pending_Profile(in_user_id, pending))
+		Apply_Profile_Changes(profile, pending.Changes);
+	if (!Persist_Profile_Cache(in_user_id, profile) || !connection.commit())
+	{
+		connection.rollback();
+		return false;
+	}
+	++Profile_Generations[in_user_id];
+	emit profileChanged(in_user_id);
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool AUsers_Repository::Defer_Profile_Update(const QString &in_user_id, qint64 in_id, const AApi_Error &in_error,
+                                             bool in_retryable, int in_delay_ms)
+{
+	SProfile_Pending pending;
+	QSqlQuery query(Connection());
+	if (!Load_Pending_Profile(in_user_id, pending) || pending.ID != in_id)
+		return true;
+
+	QJsonObject envelope;
+	envelope.insert("changes", pending.Changes);
+	envelope.insert("blocked", !in_retryable);
+	query.prepare(
+	    "UPDATE sync_outbox SET payload_json = ?, attempt_count = attempt_count + 1, "
+	    "next_attempt_at = ?, last_error = ? WHERE id = ? AND entity_type = 'user_profile' AND entity_id = ?");
+	query.addBindValue(QString::fromUtf8(QJsonDocument(envelope).toJson(QJsonDocument::Compact)));
+	query.addBindValue(in_retryable ? QDateTime::currentDateTimeUtc().addMSecs(in_delay_ms).toString(Qt::ISODateWithMs)
+	                                : QString(""));
+	query.addBindValue(in_error.Key());
+	query.addBindValue(in_id);
+	query.addBindValue(in_user_id);
+
+	return query.exec();
+}
+//-------------------------------------------------------------------------------------------------------------
+bool AUsers_Repository::Reset_Profile_Retry(const QString &in_user_id)
+{
+	SProfile_Pending pending;
+	QSqlQuery query(Connection());
+	if (!Load_Pending_Profile(in_user_id, pending))
+		return true;
+
+	QJsonObject envelope;
+	envelope.insert("changes", pending.Changes);
+	envelope.insert("blocked", false);
+	query.prepare("UPDATE sync_outbox SET payload_json = ?, attempt_count = 0, next_attempt_at = NULL, "
+	              "last_error = NULL WHERE id = ? AND entity_type = 'user_profile' AND entity_id = ?");
+	query.addBindValue(QString::fromUtf8(QJsonDocument(envelope).toJson(QJsonDocument::Compact)));
+	query.addBindValue(pending.ID);
+	query.addBindValue(in_user_id);
+
+	return query.exec();
 }
 //-------------------------------------------------------------------------------------------------------------
 bool AUsers_Repository::Get_Cached_User(const QString &in_user_id, SUsers_User &out_user)
@@ -46,7 +204,7 @@ bool AUsers_Repository::Get_Cached_User(const QString &in_user_id, SUsers_User &
 	if (Database_Instance == 0 || !Database_Instance->Is_Open())
 		return false;
 
-	query.prepare("SELECT u.email, u.display_name, u.created_at, p.age, p.gender, p.height_cm, p.weight_kg "
+	query.prepare("SELECT u.email, u.display_name, u.created_at, p.age, p.gender, p.height_cm, p.weight_kg, p.user_id "
 	              "FROM user_cache u LEFT JOIN profile_cache p ON p.user_id = u.id WHERE u.id = ?");
 	query.addBindValue(in_user_id);
 
@@ -58,10 +216,10 @@ bool AUsers_Repository::Get_Cached_User(const QString &in_user_id, SUsers_User &
 	out_user.Name = query.value(1).toString();
 	out_user.Created_At = query.value(2).toString();
 
-	if (!query.isNull(3))
+	if (!query.isNull(7))
 	{
 		out_user.Has_Profile = true;
-		out_user.Profile.Age = query.value(3).toInt();
+		out_user.Profile.Age = query.isNull(3) ? -1 : query.value(3).toInt();
 		out_user.Profile.Gender = query.value(4).toString();
 		out_user.Profile.Height_Cm = query.value(5).toDouble();
 		out_user.Profile.Weight_Kg = query.value(6).toDouble();
@@ -144,7 +302,6 @@ bool AUsers_Repository::Save_Local_Profile(const QString &in_user_id, const QStr
 
 	return true;
 }
-//-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 // Параметры авторасчёта КБЖУ (спринт S7): дата рождения и уровень активности.
 // Запись идёт отдельным upsert, чтобы не трогать уровень и цель: их вызывает
@@ -316,14 +473,41 @@ int AUsers_Repository::Pending_Outbox_Count() const
 	return query.value(0).toInt();
 }
 //-------------------------------------------------------------------------------------------------------------
+void AUsers_Repository::on_Profile_Updated(int in_request_id, const SUsers_Profile &in_profile,
+                                           const AApi_Error &in_error)
+{
+	if (!Pending_Updates.contains(in_request_id))
+		return;
+
+	Pending_Updates.remove(in_request_id);
+	emit profileUpdated(in_request_id, in_profile, in_error);
+}
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Repository::on_Get_User_Finished(int in_request_id, const SUsers_User &in_user, const AApi_Error &in_error)
 {
 	SUsers_User user = in_user;
 	AApi_Error error = in_error;
 	QString user_id;
 	bool from_cache = false;
+	SProfile_Pending pending;
 
 	user_id = Pending_Requests.contains(in_request_id) ? Pending_Requests.take(in_request_id) : user.ID;
+	int generation = Pending_Read_Generations.take(in_request_id);
+	if (generation != Profile_Generations.value(user_id))
+	{
+		if (Get_Cached_User(user_id, user))
+		{
+			from_cache = true;
+			error = AApi_Error();
+		}
+		emit getUserFinished(in_request_id, user, from_cache, error);
+		return;
+	}
+	if (!error.Is_Error() && Load_Pending_Profile(user_id, pending))
+	{
+		Apply_Profile_Changes(user.Profile, pending.Changes);
+		user.Has_Profile = true;
+	}
 
 	if (!error.Is_Error())
 	{
@@ -399,5 +583,17 @@ bool AUsers_Repository::Persist_Profile_Cache(const QString &in_user_id, const S
 	}
 
 	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+void AUsers_Repository::Apply_Profile_Changes(SUsers_Profile &in_out_profile, const QJsonObject &in_changes)
+{
+	if (in_changes.contains("age"))
+		in_out_profile.Age = in_changes.value("age").toInt();
+	if (in_changes.contains("gender"))
+		in_out_profile.Gender = in_changes.value("gender").toString();
+	if (in_changes.contains("height"))
+		in_out_profile.Height_Cm = in_changes.value("height").toDouble();
+	if (in_changes.contains("weight"))
+		in_out_profile.Weight_Kg = in_changes.value("weight").toDouble();
 }
 //-------------------------------------------------------------------------------------------------------------

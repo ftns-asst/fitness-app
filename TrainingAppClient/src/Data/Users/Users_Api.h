@@ -7,11 +7,12 @@
 #include <QHash>
 #include <QMetaType>
 #include <QObject>
+#include <QSet>
 #include <QString>
 
 //-------------------------------------------------------------------------------------------------------------
 // Профиль пользователя из `GET /users/{id}?withProfile=true`. Единицы
-// height → Height_Cm и weight → Weight_Kg — assumed (docs/03, §4).
+// height → Height_Cm (см), weight → Weight_Kg (кг), docs/03, §4.
 // Age = -1 означает «поле отсутствует в ответе».
 //-------------------------------------------------------------------------------------------------------------
 struct SUsers_Profile
@@ -37,10 +38,8 @@ struct SUsers_User
 };
 
 //-------------------------------------------------------------------------------------------------------------
-// HTTP-адаптер приватного users endpoint. Запросы идут через AsAuth_Session
-// (Bearer-заголовок и single-flight refresh). GET идемпотентен, transport
-// retry разрешён. Обязательное поле id; неполный успешный ответ —
-// undefined_error.
+// Чтение пользователя и PATCH профиля через AsAuth_Session (Bearer, single-flight refresh).
+// Транспортные повторы разрешены только для GET. Поля PATCH передаются частично.
 //-------------------------------------------------------------------------------------------------------------
 class AUsers_Api : public QObject
 {
@@ -50,8 +49,10 @@ public:
 	explicit AUsers_Api(AsAuth_Session *in_session, QObject *in_parent = 0);
 
 	int Get_User(const QString &in_user_id, bool in_with_profile);
+	int Update_Profile(const QJsonObject &in_changes);
 
 signals:
+	void profileUpdated(int requestId, const SUsers_Profile &profile, const AApi_Error &error);
 	void getUserFinished(int requestId, const SUsers_User &user, const AApi_Error &error);
 
 private slots:
@@ -60,9 +61,11 @@ private slots:
 private:
 	void Finish_Get_User(int in_request_id, const QString &in_user_id, const SHttp_Response &in_response);
 	static void Parse_User(const SHttp_Response &in_response, SUsers_User &out_user, AApi_Error &out_error);
+	static bool Parse_Profile(const QJsonObject &in_profile, SUsers_Profile &out_profile);
 
 	AsAuth_Session *Session_Instance;
 	QHash<int, QString> Pending_Gets; // логический id → запрошенный user id
+	QSet<int> Pending_Updates;
 };
 //-------------------------------------------------------------------------------------------------------------
 

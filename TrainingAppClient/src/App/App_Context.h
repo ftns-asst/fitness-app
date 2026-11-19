@@ -42,6 +42,9 @@ class AsToken_Store;
 class AUsers_Repository;
 class Avm_Auth;
 class Avm_Auth_Bridge;
+class AsNetwork_Monitor;
+class Avm_Profile;
+class AProfile_Sync;
 class ADemo_Seeder;
 
 //-------------------------------------------------------------------------------------------------------------
@@ -73,6 +76,8 @@ public:
 	bool initialized() const;
 	QString Last_Error() const;
 	AsHttp_Client *HTTP_Client() const;
+	AsNetwork_Monitor *Network_Monitor() const;
+	Avm_Profile *Profile_VM() const;
 	AsSql_Database *SQL_Database() const;
 	AsToken_Store *Token_Store() const;
 	AsAuth_Session *Auth_Session() const;
@@ -189,5 +194,8 @@ private:
 	// приложения: указатель хранится, чтобы не посеять данные дважды.
 	ADemo_Seeder *Demo_Seeder_Instance = 0;
 	Avm_Auth_Bridge *Auth_Bridge_Instance = 0;
+	AsNetwork_Monitor *Network_Monitor_Instance = 0;
+	Avm_Profile *Profile_VM_Instance = 0;
+	AProfile_Sync *Profile_Sync_Instance = 0;
 };
 //-------------------------------------------------------------------------------------------------------------

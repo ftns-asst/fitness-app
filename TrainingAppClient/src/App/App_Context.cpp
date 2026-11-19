@@ -9,6 +9,7 @@
 #include "Data/Database/Sql_Database.h"
 #include "Data/Exercises/Exercises_Repository.h"
 #include "Data/Network/Http_Client.h"
+#include "Data/Network/Network_Monitor.h"
 #include "Data/Program/Measurement_Repository.h"
 #include "Data/Program/Program_Repository.h"
 #include "Data/Program/Rule_Repository.h"
@@ -26,6 +27,7 @@
 #include "Presentation/Exercises_One_VM.h"
 #include "Presentation/Exercises_VM.h"
 #include "Presentation/Macro_VM.h"
+#include "Presentation/Profile_VM.h"
 #include "Presentation/Program_Catalog_VM.h"
 #include "Presentation/Program_Edit_VM.h"
 #include "Presentation/Program_Rules_VM.h"
@@ -158,6 +160,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	}
 
 	HTTP_Client_Instance = new AsHttp_Client(QUrl(Api_Base_URL), this);
+	Network_Monitor_Instance = new AsNetwork_Monitor(this);
 
 	if (!HTTP_Client_Instance->Base_URL().isValid())
 	{
@@ -180,6 +183,10 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 
 	// Профиль с сервера (issue 9): репозиторий поверх auth-сессии и SQLite.
 	Users_Repository_Instance = new AUsers_Repository(Auth_Session_Instance, SQL_Database_Instance, this);
+	Profile_Sync_Instance =
+	    new AProfile_Sync(Users_Repository_Instance, Auth_Session_Instance, Network_Monitor_Instance, this);
+	Profile_VM_Instance =
+	    new Avm_Profile(Users_Repository_Instance, Network_Monitor_Instance, Profile_Sync_Instance, this);
 
 	// QML-мост реального auth (issue 8, подключение UI через --real-auth).
 	Auth_Bridge_Instance =
@@ -351,6 +358,10 @@ void AsApp_Context::Destroy_Stack()
 	Exercises_Repository_Instance = 0;
 
 	// Auth и транспорт.
+	delete Profile_VM_Instance;
+	Profile_VM_Instance = 0;
+	delete Profile_Sync_Instance;
+	Profile_Sync_Instance = 0;
 	delete Auth_Bridge_Instance;
 	Auth_Bridge_Instance = 0;
 	delete Users_Repository_Instance;
@@ -365,6 +376,8 @@ void AsApp_Context::Destroy_Stack()
 	Token_Store_Instance = 0;
 	delete HTTP_Client_Instance;
 	HTTP_Client_Instance = 0;
+	delete Network_Monitor_Instance;
+	Network_Monitor_Instance = 0;
 	delete SQL_Database_Instance;
 	SQL_Database_Instance = 0;
 }
@@ -397,6 +410,16 @@ bool AsApp_Context::Set_Last_Error(const QString &in_error)
 AsHttp_Client *AsApp_Context::HTTP_Client() const
 {
 	return HTTP_Client_Instance;
+}
+//-------------------------------------------------------------------------------------------------------------
+AsNetwork_Monitor *AsApp_Context::Network_Monitor() const
+{
+	return Network_Monitor_Instance;
+}
+//-------------------------------------------------------------------------------------------------------------
+Avm_Profile *AsApp_Context::Profile_VM() const
+{
+	return Profile_VM_Instance;
 }
 //-------------------------------------------------------------------------------------------------------------
 AsSql_Database *AsApp_Context::SQL_Database() const

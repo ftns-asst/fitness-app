@@ -6,6 +6,15 @@
 # генерируем qmldir, иначе тестовый модуль ломается при добавлении новых
 # компонентов (например, страниц, на которые ссылается AppShell). Singletons
 # перечислены явно: прагму `pragma Singleton` генератор qmldir не читает.
+qt_add_executable(tst_Network_Monitor cpp/tst_Network_Monitor.cpp)
+target_link_libraries(tst_Network_Monitor PRIVATE TrainingAppCore Qt6::Test)
+add_test(NAME network_monitor COMMAND tst_Network_Monitor)
+set_tests_properties(network_monitor PROPERTIES TIMEOUT 15)
+qt_add_executable(tst_Profile_VM cpp/tst_Profile_VM.cpp)
+target_link_libraries(tst_Profile_VM PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME profile_vm COMMAND tst_Profile_VM)
+set_tests_properties(profile_vm PROPERTIES TIMEOUT 30)
+
 set(MOCK_IMPORT_ROOT "${CMAKE_CURRENT_BINARY_DIR}/imports")
 set(MOCK_IMPORT_DIR "${MOCK_IMPORT_ROOT}/TrainingAppClient")
 

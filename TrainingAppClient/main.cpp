@@ -3,12 +3,14 @@
 
 #include "App/App_Logger.h"
 #include "Data/Exercises/Exercises_Repository.h"
+#include "Data/Network/Network_Monitor.h"
 #include "Presentation/Auth_Qml_Bridge.h"
 #include "Presentation/Diary_VM.h"
 #include "Presentation/Exercises_Editor_VM.h"
 #include "Presentation/Exercises_One_VM.h"
 #include "Presentation/Exercises_VM.h"
 #include "Presentation/Macro_VM.h"
+#include "Presentation/Profile_VM.h"
 #include "Presentation/Program_Catalog_VM.h"
 #include "Presentation/Program_Edit_VM.h"
 #include "Presentation/Program_Rules_VM.h"
@@ -182,6 +184,8 @@ int main(int argc, char *argv[])
 		engine.rootContext()->setContextProperty("AuthBackend", QVariant());
 
 	engine.rootContext()->setContextProperty("AppContext", &app_context);
+	engine.rootContext()->setContextProperty("NetworkMonitor", (QObject *)app_context.Network_Monitor());
+	engine.rootContext()->setContextProperty("ProfileBackend", real_auth ? (QObject *)app_context.Profile_VM() : 0);
 
 	// Стек модели программы (срез W11): экраны «Моя программа», «Правила» и
 	// «Статистика» работают на реальных данных из SQLite. Экземпляры создаёт

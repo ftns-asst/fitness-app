@@ -1,4 +1,4 @@
-﻿#include "Data/Users/Users_Api.h"
+#include "Data/Users/Users_Api.h"
 
 #include <QJsonObject>
 #include <QLoggingCategory>
@@ -48,9 +48,39 @@ int AUsers_Api::Get_User(const QString &in_user_id, bool in_with_profile)
 	return request_id;
 }
 //-------------------------------------------------------------------------------------------------------------
+int AUsers_Api::Update_Profile(const QJsonObject &in_changes)
+{
+	SHttp_Request request;
+	int request_id;
+
+	if (Session_Instance == 0 || in_changes.isEmpty())
+		return 0;
+
+	request.Method = "PATCH";
+	request.Path = "users/me/profile";
+	request.Body = QJsonDocument(in_changes).toJson(QJsonDocument::Compact);
+	request.Headers.insert("Content-Type", "application/json");
+	request.Retry_Enabled = false;
+	request_id = Session_Instance->Send_Authed(request);
+	if (request_id > 0)
+		Pending_Updates.insert(request_id);
+
+	return request_id;
+}
+//-------------------------------------------------------------------------------------------------------------
 void AUsers_Api::on_Session_Finished(int in_request_id, const SHttp_Response &in_response)
 {
 	QString user_id;
+	if (Pending_Updates.remove(in_request_id))
+	{
+		SUsers_Profile profile;
+		AApi_Error error = in_response.Error;
+		if (in_response.Success && (!in_response.JSON_Valid || !in_response.JSON.isObject() ||
+		                            !Parse_Profile(in_response.JSON.object(), profile)))
+			error = AApi_Error("undefined_error", "Invalid profile response", in_response.HTTP_Status_Code, 0);
+		emit profileUpdated(in_request_id, profile, error);
+		return;
+	}
 
 	if (!Pending_Gets.contains(in_request_id))
 		return;
@@ -111,9 +141,25 @@ void AUsers_Api::Parse_User(const SHttp_Response &in_response, SUsers_User &out_
 
 	profile = root.value("profile").toObject();
 	out_user.Has_Profile = true;
-	out_user.Profile.Age = profile.value("age").toInt(-1);
-	out_user.Profile.Gender = profile.value("gender").toString();
-	out_user.Profile.Height_Cm = profile.value("height").toDouble();
-	out_user.Profile.Weight_Kg = profile.value("weight").toDouble();
+	if (!Parse_Profile(profile, out_user.Profile))
+		out_error = AApi_Error("undefined_error", "Invalid profile response", in_response.HTTP_Status_Code, 0);
+}
+//-------------------------------------------------------------------------------------------------------------
+bool AUsers_Api::Parse_Profile(const QJsonObject &in_profile, SUsers_Profile &out_profile)
+{
+	for (const QString &key : {QString("age"), QString("height"), QString("weight")})
+	{
+		if (in_profile.contains(key) && !in_profile.value(key).isDouble())
+			return false;
+	}
+	if (in_profile.contains("gender") && !in_profile.value("gender").isString())
+		return false;
+
+	out_profile.Age = in_profile.value("age").toInt(-1);
+	out_profile.Gender = in_profile.value("gender").toString();
+	out_profile.Height_Cm = in_profile.value("height").toDouble();
+	out_profile.Weight_Kg = in_profile.value("weight").toDouble();
+
+	return true;
 }
 //-------------------------------------------------------------------------------------------------------------

@@ -11,6 +11,7 @@ Column {
     property string errorText: ""
     property string helperText: ""
     property alias inputMethodHints: input.inputMethodHints
+    readonly property alias inputActiveFocus: input.activeFocus
     property string label: ""
     property alias maximumLength: input.maximumLength
     property alias placeholderText: input.placeholderText

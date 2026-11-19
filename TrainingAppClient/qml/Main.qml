@@ -543,7 +543,8 @@ ApplicationWindow {
         id: deviceScreen
 
         readonly property real contentBottomInset: window.framed ? homeIndicator.height + 8 : safeBottom
-        readonly property real contentTopInset: window.framed ? statusBarMock.height : safeTop
+        readonly property real baseTopInset: window.framed ? statusBarMock.height : safeTop
+        readonly property real contentTopInset: baseTopInset + networkBanner.height
         readonly property real safeBottom: SafeArea.margins.bottom
 
         // — Safe area (Qt ≥ 6.9): на устройстве реальные insets, на десктопе 0 —
@@ -560,6 +561,14 @@ ApplicationWindow {
         Rectangle {
             anchors.fill: parent
             color: Theme.background
+        }
+        NetworkStatusBanner {
+            id: networkBanner
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.topMargin: deviceScreen.baseTopInset
+            z: 110
         }
         AppShell {
             id: appShell

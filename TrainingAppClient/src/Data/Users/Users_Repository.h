@@ -6,9 +6,21 @@
 #include "Data/Users/Users_Api.h"
 #include "Domain/Macro_Calculator.h"
 
+#include <QDateTime>
 #include <QHash>
 #include <QObject>
 #include <QString>
+
+//-------------------------------------------------------------------------------------------------------------
+struct SProfile_Pending
+{
+	qint64 ID = 0;
+	QJsonObject Changes;
+	int Attempts = 0;
+	QDateTime Next_Attempt;
+	QString Last_Error;
+	bool Is_Blocked = false;
+};
 
 //-------------------------------------------------------------------------------------------------------------
 // Оркестрация профиля пользователя: получение с сервера с записью в
@@ -25,6 +37,13 @@ public:
 	explicit AUsers_Repository(AsAuth_Session *in_session, AsSql_Database *in_database, QObject *in_parent = 0);
 
 	int Get_User(const QString &in_user_id, bool in_with_profile);
+	int Update_Profile(const QString &in_user_id, const QJsonObject &in_changes);
+	bool Save_Profile_Locally(const QString &in_user_id, const QJsonObject &in_changes);
+	bool Load_Pending_Profile(const QString &in_user_id, SProfile_Pending &out_pending);
+	bool Confirm_Profile_Update(const QString &in_user_id, qint64 in_through_id, const SUsers_Profile &in_profile);
+	bool Defer_Profile_Update(const QString &in_user_id, qint64 in_id, const AApi_Error &in_error, bool in_retryable,
+	                          int in_delay_ms);
+	bool Reset_Profile_Retry(const QString &in_user_id);
 	bool Get_Cached_User(const QString &in_user_id, SUsers_User &out_user);
 	bool Load_Local_Profile(const QString &in_user_id, QString &out_level, QString &out_goal,
 	                        int &out_workouts_per_week);
@@ -51,9 +70,13 @@ public:
 	static const char *Status_Saved_Locally;
 
 signals:
+	void profileQueued(const QString &userId);
+	void profileChanged(const QString &userId);
+	void profileUpdated(int requestId, const SUsers_Profile &profile, const AApi_Error &error);
 	void getUserFinished(int requestId, const SUsers_User &user, bool from_cache, const AApi_Error &error);
 
 private slots:
+	void on_Profile_Updated(int in_request_id, const SUsers_Profile &in_profile, const AApi_Error &in_error);
 	void on_Get_User_Finished(int in_request_id, const SUsers_User &in_user, const AApi_Error &in_error);
 
 private:
@@ -62,10 +85,14 @@ private:
 	QSqlDatabase Connection() const;
 	bool Persist_User(const SUsers_User &in_user);
 	bool Persist_Profile_Cache(const QString &in_user_id, const SUsers_Profile &in_profile);
+	static void Apply_Profile_Changes(SUsers_Profile &in_out_profile, const QJsonObject &in_changes);
 
 	AsSql_Database *Database_Instance;
 	AsAuth_Session *Session_Instance;
 	AUsers_Api *Users_Api_Instance;
 	QHash<int, QString> Pending_Requests; // request id → user id
+	QHash<int, QString> Pending_Updates;
+	QHash<QString, int> Profile_Generations;
+	QHash<int, int> Pending_Read_Generations;
 };
 //-------------------------------------------------------------------------------------------------------------

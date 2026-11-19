@@ -83,6 +83,10 @@ QtObject {
             return backend.checkEmail(email);
         return MockApi.checkEmail(email);
     }
+    function updateProfile(profileDto) {
+        if (authenticated)
+            MockSession.profile = profileDto;
+    }
     function requestRecovery(email) {
         return realMode ? backend.requestRecovery(email) : MockApi.requestRecovery(email);
     }

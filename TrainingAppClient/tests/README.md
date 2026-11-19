@@ -18,6 +18,11 @@
    восстановление handler'а;
 - `cpp/tst_Users_Api.cpp` — users DTO, профиль, ключи, refresh-ретрай;
 - `cpp/tst_Users_Repository.cpp` — кэш профиля, офлайн-фолбэк, outbox;
+- `cpp/tst_Network_Monitor.cpp` — состояния сети, captive portal и восстановление подключения;
+- `cpp/tst_Profile_VM.cpp` — локальное сохранение профиля и очередь: перезапуск,
+  повтор отправки, смена аккаунта, поздние ответы и откат транзакции;
+- `qml/tst_profile_editor.qml`, `qml/tst_network_banner.qml` — офлайн-редактор,
+  прокрутка при открытой клавиатуре, вход в аккаунт и скрытие уведомления;
 - `cpp/tst_Program_Model.cpp` — структуры модели программы, enum ↔ строка, JSON;
 - `cpp/tst_Program_Repository.cpp` — дерево программы, ревизии и транзакции,
   удаление черновика (каскад FK, отказ для не-черновика);

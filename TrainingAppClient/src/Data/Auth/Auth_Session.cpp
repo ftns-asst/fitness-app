@@ -64,6 +64,7 @@ bool AsAuth_Session::Restore_From_Store()
 	Session_Active = true;
 	Begin_Generation("session restored");
 	qCInfo(AUTH_Session_Log).noquote() << "session restored";
+	emit sessionChanged();
 
 	return true;
 }
@@ -79,6 +80,7 @@ bool AsAuth_Session::Adopt_Session(const SStored_Tokens &in_tokens)
 	Session_Active = true;
 	Begin_Generation("session replaced");
 	qCInfo(AUTH_Session_Log).noquote() << "session adopted";
+	emit sessionChanged();
 
 	return true;
 }
@@ -90,6 +92,7 @@ void AsAuth_Session::Drop_Session()
 	Session_Tokens = SStored_Tokens();
 	Begin_Generation("session dropped");
 	qCInfo(AUTH_Session_Log).noquote() << "session dropped";
+	emit sessionChanged();
 }
 //-------------------------------------------------------------------------------------------------------------
 bool AsAuth_Session::Has_Session() const
@@ -216,6 +219,7 @@ void AsAuth_Session::Handle_Refresh_Finished(const SHttp_Response &in_response)
 		qCInfo(AUTH_Session_Log).noquote() << "refresh rejected" << in_response.HTTP_Status_Code;
 		Fail_Queue("refresh rejected");
 		emit sessionExpired();
+		emit sessionChanged();
 		return;
 	}
 
