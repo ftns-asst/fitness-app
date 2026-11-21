@@ -29,6 +29,110 @@ definitions:
       name:
         type: string
     type: object
+  CreatePersonalRecordRequestBody:
+    properties:
+      exercise_id:
+        type: string
+      reps:
+        description: repetitions of the set; with them weight_kg is the weight of
+          the set and the record is estimated by a formula
+        type: integer
+      weight_kg:
+        type: number
+    required:
+    - exercise_id
+    - weight_kg
+    type: object
+  CreatePersonalRecordsRequestBody:
+    properties:
+      records:
+        description: records of different exercises, from 1 to 100
+        items:
+          $ref: '#/definitions/CreatePersonalRecordRequestBody'
+        maxItems: 100
+        minItems: 1
+        type: array
+    required:
+    - records
+    type: object
+  CreateProgramFromDefaultRequestBody:
+    properties:
+      days_of_week:
+        items:
+          type: integer
+        type: array
+      default_program_id:
+        type: string
+    required:
+    - days_of_week
+    - default_program_id
+    type: object
+  CreateProgramRequestBody:
+    properties:
+      days_of_week:
+        items:
+          type: integer
+        type: array
+      goal:
+        type: string
+      level:
+        type: string
+      name:
+        type: string
+      weeks_count:
+        type: integer
+    required:
+    - goal
+    - level
+    - name
+    type: object
+  DefaultProgram:
+    properties:
+      days:
+        items:
+          $ref: '#/definitions/DefaultProgramDay'
+        type: array
+      days_per_week:
+        type: integer
+      description:
+        type: string
+      goal:
+        type: string
+      id:
+        type: string
+      level:
+        type: string
+      name:
+        type: string
+      weeks_count:
+        type: integer
+    type: object
+  DefaultProgramDay:
+    properties:
+      order_index:
+        type: integer
+      week_number:
+        type: integer
+      workout_template:
+        $ref: '#/definitions/WorkoutTemplate'
+    type: object
+  DefaultProgramSummary:
+    properties:
+      days_per_week:
+        type: integer
+      description:
+        type: string
+      goal:
+        type: string
+      id:
+        type: string
+      level:
+        type: string
+      name:
+        type: string
+      weeks_count:
+        type: integer
+    type: object
   Equipment:
     properties:
       key:
@@ -89,6 +193,13 @@ definitions:
       user:
         $ref: '#/definitions/User'
     type: object
+  MeasurementExercise:
+    properties:
+      exercise_id:
+        type: string
+      exercise_name:
+        type: string
+    type: object
   Media:
     properties:
       id:
@@ -115,12 +226,193 @@ definitions:
     required:
     - email
     type: object
+  PersonalRecord:
+    properties:
+      created_at:
+        type: string
+      exercise_id:
+        type: string
+      exercise_name:
+        type: string
+      id:
+        type: string
+      is_calculated:
+        description: estimated by a formula, not lifted for one rep
+        type: boolean
+      weight_kg:
+        type: number
+    type: object
+  Program:
+    properties:
+      created_at:
+        type: string
+      days_of_week:
+        items:
+          type: integer
+        type: array
+      default_program_id:
+        type: string
+      goal:
+        type: string
+      id:
+        type: string
+      level:
+        type: string
+      name:
+        type: string
+      required_measurements:
+        description: exercises with percent load and without a personal record, empty
+          if the program can start or was started
+        items:
+          $ref: '#/definitions/MeasurementExercise'
+        type: array
+      source_kind:
+        type: string
+      start_date:
+        format: date
+        type: string
+      state:
+        type: string
+      updated_at:
+        type: string
+      weeks:
+        items:
+          $ref: '#/definitions/ProgramWeek'
+        type: array
+      weeks_count:
+        type: integer
+    type: object
+  ProgramDay:
+    properties:
+      day_of_week:
+        type: integer
+      exercises:
+        items:
+          $ref: '#/definitions/ProgramDayExercise'
+        type: array
+    type: object
+  ProgramDayExercise:
+    properties:
+      exercise_id:
+        type: string
+      exercise_name:
+        type: string
+      id:
+        type: string
+      order_index:
+        type: integer
+      rest_seconds:
+        type: integer
+      sets:
+        type: integer
+      target_percent_1rm:
+        description: load as percent of the personal record, either weight or percent
+          is set
+        type: number
+      target_reps:
+        type: integer
+      target_weight_kg:
+        type: number
+    type: object
+  ProgramDayExerciseInput:
+    properties:
+      exercise_id:
+        type: string
+      rest_seconds:
+        type: integer
+      sets:
+        type: integer
+      target_percent_1rm:
+        description: load as percent of the personal record, either weight or percent
+          is set
+        type: number
+      target_reps:
+        type: integer
+      target_weight_kg:
+        type: number
+    required:
+    - exercise_id
+    type: object
+  ProgramDayInput:
+    properties:
+      day_of_week:
+        type: integer
+      exercises:
+        items:
+          $ref: '#/definitions/ProgramDayExerciseInput'
+        type: array
+    type: object
+  ProgramSummary:
+    properties:
+      created_at:
+        type: string
+      days_of_week:
+        items:
+          type: integer
+        type: array
+      default_program_id:
+        type: string
+      goal:
+        type: string
+      id:
+        type: string
+      level:
+        type: string
+      name:
+        type: string
+      source_kind:
+        type: string
+      start_date:
+        format: date
+        type: string
+      state:
+        type: string
+      updated_at:
+        type: string
+      weeks_count:
+        type: integer
+    type: object
+  ProgramWeek:
+    properties:
+      days:
+        items:
+          $ref: '#/definitions/ProgramDay'
+        type: array
+      week_number:
+        type: integer
+    type: object
+  ProgramWeekInput:
+    properties:
+      days:
+        items:
+          $ref: '#/definitions/ProgramDayInput'
+        type: array
+    type: object
   RefreshTokensRequestBody:
     properties:
       refresh_token:
         type: string
     required:
     - refresh_token
+    type: object
+  ReplaceProgramStructureRequestBody:
+    properties:
+      days_of_week:
+        items:
+          type: integer
+        type: array
+      weeks:
+        description: position is the week number, weeks_count becomes their number
+        items:
+          $ref: '#/definitions/ProgramWeekInput'
+        type: array
+    type: object
+  ReplaceProgramWeekRequestBody:
+    properties:
+      days:
+        items:
+          $ref: '#/definitions/ProgramDayInput'
+        type: array
     type: object
   ResetPasswordRequestBody:
     properties:
@@ -162,6 +454,48 @@ definitions:
         $ref: '#/definitions/Tokens'
       user:
         $ref: '#/definitions/User'
+    type: object
+  StartProgramResponse:
+    properties:
+      created_at:
+        type: string
+      days_of_week:
+        items:
+          type: integer
+        type: array
+      default_program_id:
+        type: string
+      finished_program_id:
+        type: string
+      goal:
+        type: string
+      id:
+        type: string
+      level:
+        type: string
+      name:
+        type: string
+      required_measurements:
+        description: exercises with percent load and without a personal record, empty
+          if the program can start or was started
+        items:
+          $ref: '#/definitions/MeasurementExercise'
+        type: array
+      source_kind:
+        type: string
+      start_date:
+        format: date
+        type: string
+      state:
+        type: string
+      updated_at:
+        type: string
+      weeks:
+        items:
+          $ref: '#/definitions/ProgramWeek'
+        type: array
+      weeks_count:
+        type: integer
     type: object
   Tokens:
     properties:
@@ -206,6 +540,22 @@ definitions:
         type: array
       name:
         type: string
+    type: object
+  UpdateProgramRequestBody:
+    properties:
+      days_of_week:
+        description: an empty list removes all days, null or no field changes nothing
+        items:
+          type: integer
+        type: array
+      goal:
+        type: string
+      level:
+        type: string
+      name:
+        type: string
+      weeks_count:
+        type: integer
     type: object
   UpdateUserProfileRequestBody:
     properties:
@@ -281,6 +631,41 @@ definitions:
     properties:
       reset_token:
         type: string
+    type: object
+  WorkoutTemplate:
+    properties:
+      equipment:
+        items:
+          type: string
+        type: array
+      exercises:
+        items:
+          $ref: '#/definitions/WorkoutTemplateExercise'
+        type: array
+      focus:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  WorkoutTemplateExercise:
+    properties:
+      exercise_id:
+        type: string
+      exercise_name:
+        type: string
+      order_index:
+        type: integer
+      rest_seconds:
+        type: integer
+      sets:
+        type: integer
+      target_percent_1rm:
+        description: load as percent of the personal record
+        type: number
+      target_reps:
+        type: integer
     type: object
 host: fitness.nought.ru
 info:
@@ -606,6 +991,91 @@ paths:
       summary: Sign up a new user
       tags:
       - auth
+  /default-programs:
+    get:
+      description: With day_of_week only programs with the same number of days per
+        week are returned
+      operationId: listDefaultPrograms
+      parameters:
+      - collectionFormat: multi
+        description: selected days of week, 1 - Monday, 7 - Sunday
+        in: query
+        items:
+          type: integer
+        maximum: 7
+        minimum: 1
+        name: day_of_week
+        type: array
+      - description: filter by goal
+        enum:
+        - strength
+        - muscle
+        - fitness
+        - fat_loss
+        - endurance
+        in: query
+        name: goal
+        type: string
+      - description: filter by level
+        enum:
+        - beginner
+        - intermediate
+        - advanced
+        in: query
+        name: level
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/DefaultProgramSummary'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: List default programs
+      tags:
+      - programs
+  /default-programs/{id}:
+    get:
+      operationId: getDefaultProgramByID
+      parameters:
+      - description: default program id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/DefaultProgram'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Get default program with days
+      tags:
+      - programs
   /equipments:
     get:
       operationId: getEquipments
@@ -869,6 +1339,460 @@ paths:
       summary: Get all muscle groups
       tags:
       - exercises
+  /programs:
+    get:
+      operationId: listPrograms
+      parameters:
+      - description: filter by state
+        enum:
+        - draft
+        - needs_measurement
+        - in_progress
+        - finished
+        in: query
+        name: state
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/ProgramSummary'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List programs of current user without exercises
+      tags:
+      - programs
+    post:
+      consumes:
+      - application/json
+      description: The program appears in the list at once, the structure is filled
+        by PUT /programs/{id}/structure or PUT /programs/{id}/weeks/{week}. weeks_count
+        is 1 by default
+      operationId: createProgram
+      parameters:
+      - description: program body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/CreateProgramRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Program'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create draft with metadata only
+      tags:
+      - programs
+  /programs/{id}:
+    delete:
+      description: Error program_not_draft if program is not a draft or needs_measurement
+      operationId: deleteProgram
+      parameters:
+      - description: program id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete draft program
+      tags:
+      - programs
+    get:
+      description: Every week has all days from days_of_week, a day without exercises
+        has an empty list
+      operationId: getProgramByID
+      parameters:
+      - description: program id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Program'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get program with weeks, days and exercises
+      tags:
+      - programs
+    patch:
+      consumes:
+      - application/json
+      description: days_of_week and weeks_count are common for all weeks; exercises
+        of removed days and weeks are deleted. Error program_read_only for finished
+        program
+      operationId: updateProgram
+      parameters:
+      - description: program id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: fields to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateProgramRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Program'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update metadata of program
+      tags:
+      - programs
+  /programs/{id}/finish:
+    post:
+      description: Error invalid_state_transition if program is not in progress
+      operationId: finishProgram
+      parameters:
+      - description: program id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Program'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Finish program in progress
+      tags:
+      - programs
+  /programs/{id}/start:
+    post:
+      description: 'The program becomes in_progress, the previous program in progress
+        becomes finished and its id is returned in finished_program_id. Errors: invalid_state_transition,
+        measurement_required (personal records are missing, see required_measurements),
+        program_incomplete'
+      operationId: startProgram
+      parameters:
+      - description: program id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/StartProgramResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Start draft program
+      tags:
+      - programs
+  /programs/{id}/structure:
+    put:
+      consumes:
+      - application/json
+      description: 'Replaces the whole structure. The same request fills the structure
+        of a new draft and edits it later. The position in weeks is the week number,
+        weeks_count becomes the number of weeks. Errors: program_read_only, exercise_not_available'
+      operationId: replaceProgramStructure
+      parameters:
+      - description: program id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: full structure
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ReplaceProgramStructureRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Program'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Replace days of week, weeks and exercises of program
+      tags:
+      - programs
+  /programs/{id}/weeks/{week}:
+    put:
+      consumes:
+      - application/json
+      description: 'Days of the week must be among days_of_week of the program, week
+        is 1..weeks_count. Errors: program_read_only, exercise_not_available'
+      operationId: replaceProgramWeek
+      parameters:
+      - description: program id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: week number
+        in: path
+        minimum: 1
+        name: week
+        required: true
+        type: integer
+      - description: days of the week
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ReplaceProgramWeekRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Program'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Replace exercises of one week of program
+      tags:
+      - programs
+  /programs/from-default:
+    post:
+      consumes:
+      - application/json
+      description: Workouts of every week of the default program are laid out on the
+        selected days of week in order. Selected days count must be equal to days_per_week
+        of the program (days_count_mismatch)
+      operationId: createProgramFromDefault
+      parameters:
+      - description: default program and selected days
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/CreateProgramFromDefaultRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Program'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create draft from default program
+      tags:
+      - programs
   /users/{id}:
     get:
       consumes:
@@ -907,6 +1831,197 @@ paths:
       summary: Get user by ID
       tags:
       - users
+  /users/{id}/prs:
+    get:
+      description: Only the user can see own records
+      operationId: listLatestPersonalRecords
+      parameters:
+      - description: user id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/PersonalRecord'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get the latest personal record in each exercise of the user
+      tags:
+      - personal records
+    post:
+      consumes:
+      - application/json
+      description: Without reps weight_kg is the lifted weight for one repetition.
+        With reps weight_kg is the weight of the set and the record is estimated by
+        a formula (is_calculated is true for more than one repetition). Programs which
+        wait for records (needs_measurement) become draft when all records are added.
+        Only the user can add own records. Error exercise_not_available
+      operationId: createPersonalRecord
+      parameters:
+      - description: user id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: record
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/CreatePersonalRecordRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/PersonalRecord'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add a personal record in the exercise
+      tags:
+      - personal records
+  /users/{id}/prs/{exerciseId}:
+    get:
+      description: The newest record first, an exercise without records gives an empty
+        list. Only the user can see own records
+      operationId: listPersonalRecordHistory
+      parameters:
+      - description: user id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: exercise id
+        format: uuid
+        in: path
+        name: exerciseId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/PersonalRecord'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get the history of personal records of the user in the exercise
+      tags:
+      - personal records
+  /users/{id}/prs/bulk:
+    post:
+      consumes:
+      - application/json
+      description: Records are added in one transaction, either all of them or none.
+        The records are of different exercises, from 1 to 100, each one is the same
+        as in POST /users/{id}/prs. The result has the order of the request. Error
+        exercise_not_available if any exercise is not available
+      operationId: createPersonalRecords
+      parameters:
+      - description: user id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: records
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/CreatePersonalRecordsRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/PersonalRecord'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add personal records in several exercises at once
+      tags:
+      - personal records
   /users/me:
     get:
       consumes:

@@ -17,6 +17,7 @@ type Config struct {
 	VerificationCodeHashSecretKey string        `env:"VERIFICATION_CODE_HASH_SECRET,required"`
 	ResetTokenHashSecretKey       string        `env:"RESET_TOKEN_HASH_SECERT,required"`
 	ExerciseCatalogPath           string        `env:"EXERCISE_CATALOG_PATH,required"`
+	DefaultProgramsPath           string        `env:"DEFAULT_PROGRAMS_PATH" envDefault:"../data/default_programs.xlsx"`
 	AdminAuthPassword             string        `env:"ADMIN_PANEL_PASSWORD,required"`
 	postgres                      *PostgresConfig
 	smtp                          *util.SMTPConfig

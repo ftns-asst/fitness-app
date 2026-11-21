@@ -36,6 +36,13 @@ const (
 	AuthResetTokenInvalidKey         = "reset_token_invalid"
 	AuthResetTokenExpiredKey         = "reset_token_expired"
 	ExercisesFilterUserIDRequiredKey = "user_id_required_for_filter"
+	ProgramReadOnlyKey               = "program_read_only"
+	ProgramInvalidStateTransitionKey = "invalid_state_transition"
+	ProgramIncompleteKey             = "program_incomplete"
+	ProgramNotDraftKey               = "program_not_draft"
+	ProgramExerciseNotAvailableKey   = "exercise_not_available"
+	ProgramDaysCountMismatchKey      = "days_count_mismatch"
+	ProgramMeasurementRequiredKey    = "measurement_required"
 )
 
 func NewError(err error) *ServiceError {
@@ -98,6 +105,55 @@ func AuthErrorResetTokenExpired() *ServiceError {
 	return &ServiceError{
 		Err: fmt.Errorf("expired reset token: %w", ErrBadRequest),
 		Key: AuthResetTokenExpiredKey,
+	}
+}
+
+func ProgramReadOnly() *ServiceError {
+	return &ServiceError{
+		Err: fmt.Errorf("program is finished and read only: %w", ErrBadRequest),
+		Key: ProgramReadOnlyKey,
+	}
+}
+
+func ProgramInvalidStateTransition(from ProgramState, to ProgramState) *ServiceError {
+	return &ServiceError{
+		Err: fmt.Errorf("transition from %s to %s is not allowed: %w", from, to, ErrBadRequest),
+		Key: ProgramInvalidStateTransitionKey,
+	}
+}
+
+func ProgramIncomplete() *ServiceError {
+	return &ServiceError{
+		Err: fmt.Errorf("program must have scheduled days and each of them must have exercises: %w", ErrBadRequest),
+		Key: ProgramIncompleteKey,
+	}
+}
+
+func ProgramNotDraft() *ServiceError {
+	return &ServiceError{
+		Err: fmt.Errorf("only draft program can be deleted: %w", ErrBadRequest),
+		Key: ProgramNotDraftKey,
+	}
+}
+
+func ProgramExerciseNotAvailable() *ServiceError {
+	return &ServiceError{
+		Err: fmt.Errorf("exercise is not found, deleted or not available for user: %w", ErrBadRequest),
+		Key: ProgramExerciseNotAvailableKey,
+	}
+}
+
+func ProgramMeasurementRequired() *ServiceError {
+	return &ServiceError{
+		Err: fmt.Errorf("personal records are required in exercises with percent load before start: %w", ErrBadRequest),
+		Key: ProgramMeasurementRequiredKey,
+	}
+}
+
+func ProgramDaysCountMismatch(want int, got int) *ServiceError {
+	return &ServiceError{
+		Err: fmt.Errorf("program requires %d days per week, got %d: %w", want, got, ErrBadRequest),
+		Key: ProgramDaysCountMismatchKey,
 	}
 }
 

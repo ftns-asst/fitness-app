@@ -95,11 +95,16 @@ func run(m *testing.M) int {
 		VerificationCodeHashSecretKey: "code-hash-secret",
 		ResetTokenHashSecretKey:       "reset-hash-secret",
 		ExerciseCatalogPath:           exerciseCatalogPath,
+		DefaultProgramsPath:           defaultProgramsPath,
 	}
 	repos = repository.NewRepositories(db)
 	services = service.NewServices(cfg, *repos, mailer, db, nil)
 	if err := services.Exercise().Start(ctx); err != nil {
 		log.Printf("failed to start exercise service: %s", err)
+		return 1
+	}
+	if err := services.Program().Start(ctx); err != nil {
+		log.Printf("failed to start program service: %s", err)
 		return 1
 	}
 	server = httptest.NewServer(rest.NewServer(cfg, *services).Handler)

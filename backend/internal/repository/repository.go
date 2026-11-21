@@ -20,23 +20,27 @@ type db interface {
 }
 
 var (
-	ErrNotFound       = errors.New("not found repo eror")
+	ErrNotFound       = errors.New("not found repo error")
 	ErrNoAffectedRows = errors.New("no affected rows repo error")
 )
 
 type Repositories struct {
-	user     *UserRepo
-	auth     *AuthRepo
-	exercise *ExerciseRepo
-	file     *FileRepo
+	user           *UserRepo
+	auth           *AuthRepo
+	exercise       *ExerciseRepo
+	file           *FileRepo
+	program        *ProgramRepo
+	personalRecord *PersonalRecordRepo
 }
 
 func NewRepositories(db db) *Repositories {
 	return &Repositories{
-		user:     NewUserRepo(db),
-		auth:     NewAuthRepo(db),
-		exercise: NewExerciseRepo(db),
-		file:     NewFileRepo(db),
+		user:           NewUserRepo(db),
+		auth:           NewAuthRepo(db),
+		exercise:       NewExerciseRepo(db),
+		file:           NewFileRepo(db),
+		program:        NewProgramRepo(db),
+		personalRecord: NewPersonalRecordRepo(db),
 	}
 }
 
@@ -54,6 +58,14 @@ func (r *Repositories) Exercise() *ExerciseRepo {
 
 func (r *Repositories) File() *FileRepo {
 	return r.file
+}
+
+func (r *Repositories) Program() *ProgramRepo {
+	return r.program
+}
+
+func (r *Repositories) PersonalRecord() *PersonalRecordRepo {
+	return r.personalRecord
 }
 
 var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
