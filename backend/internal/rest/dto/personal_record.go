@@ -7,12 +7,13 @@ import (
 )
 
 type PersonalRecordDTO struct {
-	ID           uuid.UUID `json:"id"`
-	ExerciseID   uuid.UUID `json:"exercise_id"`
-	ExerciseName string    `json:"exercise_name"`
-	WeightKg     float64   `json:"weight_kg"`
-	IsCalculated bool      `json:"is_calculated"` // estimated by a formula, not lifted for one rep
-	CreatedAt    time.Time `json:"created_at"`
+	ID                 uuid.UUID  `json:"id"`
+	ExerciseID         uuid.UUID  `json:"exercise_id"`
+	ExerciseName       string     `json:"exercise_name"`
+	WeightKg           float64    `json:"weight_kg"`
+	IsCalculated       bool       `json:"is_calculated"` // estimated by a formula, not lifted for one rep
+	SourceWorkoutSetID *uuid.UUID `json:"source_workout_set_id,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
 } // @Name PersonalRecord
 
 type CreatePersonalRecordRequestBody struct {

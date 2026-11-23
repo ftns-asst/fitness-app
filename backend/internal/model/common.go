@@ -2,11 +2,7 @@ package model
 
 import (
 	"context"
-	"errors"
 	"ftns-asst/internal/util"
-	"log"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type ContextKey string
@@ -17,18 +13,11 @@ const (
 )
 
 type Transactor interface {
-	Begin(ctx context.Context) (pgx.Tx, error)
+	WithinTx(ctx context.Context, fn func(context.Context) error) error
 }
 
 type Mailer interface {
 	SendEmail(toEmail string, subjectRaw string, body string) error
-}
-
-func CheckRollback(ctx context.Context, tx pgx.Tx) {
-	err := tx.Rollback(ctx)
-	if err != nil && !errors.Is(err, pgx.ErrTxClosed) {
-		log.Printf("rollback failed: %s", err.Error())
-	}
 }
 
 // shortcut for map[T]struct{}

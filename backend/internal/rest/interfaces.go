@@ -41,6 +41,11 @@ type (
 		GetLatestRecords(ctx context.Context, requesterID uuid.UUID, userID uuid.UUID) ([]*model.PersonalRecord, error)
 		GetRecordHistory(ctx context.Context, requesterID uuid.UUID, userID uuid.UUID, exerciseID uuid.UUID) ([]*model.PersonalRecord, error)
 	}
+	WorkoutService interface {
+		SaveWorkout(ctx context.Context, userID, id uuid.UUID, input *model.SaveWorkoutInput) (*model.Workout, bool, error)
+		GetWorkout(ctx context.Context, userID, id uuid.UUID) (*model.Workout, error)
+		ListWorkouts(ctx context.Context, userID uuid.UUID, programID *uuid.UUID, page model.PageInfo) ([]model.WorkoutSummary, error)
+	}
 	ProgramService interface {
 		GetDefaultPrograms(ctx context.Context, daysOfWeek []int, goal *model.ProgramGoal, level *model.ProgramLevel) ([]*model.DefaultProgram, error)
 		GetDefaultProgramByID(ctx context.Context, id uuid.UUID) (*model.DefaultProgram, error)

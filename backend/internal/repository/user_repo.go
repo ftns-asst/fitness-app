@@ -13,22 +13,13 @@ import (
 )
 
 type UserRepo struct {
-	database db
+	database DB
 }
 
-func NewUserRepo(db db) *UserRepo {
+func NewUserRepo(db DB) *UserRepo {
 	return &UserRepo{
 		database: db,
 	}
-}
-
-// try get tx from ctx
-func (r *UserRepo) db(ctx context.Context) db {
-	res := r.database
-	if tx := ctx.Value(model.ContextKeyTx); tx != nil {
-		res = tx.(db)
-	}
-	return res
 }
 
 // create new user
@@ -38,7 +29,7 @@ func (r *UserRepo) CreateUser(ctx context.Context, user *model.User) (*model.Use
 		VALUES ($1, $2, $3)
 		RETURNING id, created_at, updated_at;`
 
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	err := conn.QueryRow(ctx, query, user.Email, user.Name, user.PasswordHash).
 		Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
@@ -60,7 +51,7 @@ func (r *UserRepo) CreateOrUpdateUserProfile(ctx context.Context, userID uuid.UU
 			weight_kg = COALESCE(EXCLUDED.weight_kg, user_profiles.weight_kg)
 		RETURNING *;`
 
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 
 	rows, err := conn.Query(ctx, query, userID, input.Age, input.Gender, input.HeightCm, input.WeightKg)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -83,7 +74,7 @@ func (r *UserRepo) GetUserByID(ctx context.Context, id uuid.UUID) (*model.User, 
 		SELECT * FROM users
 		WHERE users.id = $1
 	`
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	rows, err := conn.Query(ctx, query, id)
 	if err != nil {
 		return nil, fmt.Errorf("select failed: %w", err)
@@ -105,7 +96,7 @@ func (r *UserRepo) GetUserByEmail(ctx context.Context, email string) (*model.Use
 		SELECT * FROM users
 		WHERE users.email = $1
 	`
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	rows, err := conn.Query(ctx, query, email)
 	if err != nil {
 		return nil, fmt.Errorf("select failed: %w", err)
@@ -130,7 +121,7 @@ func (r *UserRepo) GetUserListByIDs(ctx context.Context, ids []uuid.UUID) ([]*mo
 		SELECT * FROM users
 		WHERE users.id = ANY($1)
 		`
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	rows, err := conn.Query(ctx, query, ids)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -206,7 +197,7 @@ func (r *UserRepo) GetUserWithProfileByID(ctx context.Context, id uuid.UUID) (*m
 		LEFT JOIN user_profiles p ON p.user_id = u.id
 		WHERE u.id = $1
 	`
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	rows, err := conn.Query(ctx, query, id)
 	if err != nil {
 		return nil, fmt.Errorf("select failed: %w", err)
@@ -223,7 +214,7 @@ func (r *UserRepo) GetUserWithProfileByID(ctx context.Context, id uuid.UUID) (*m
 }
 
 func (r *UserRepo) CheckUserWithEmailExists(ctx context.Context, email string) (exists bool, err error) {
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 
 	query := `
 		SELECT EXISTS(
@@ -240,7 +231,7 @@ func (r *UserRepo) CheckUserWithEmailExists(ctx context.Context, email string) (
 }
 
 func (r *UserRepo) UpdateUserPassword(ctx context.Context, userID uuid.UUID, newPasswordHash string) (err error) {
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 
 	query := `
 		UPDATE users u

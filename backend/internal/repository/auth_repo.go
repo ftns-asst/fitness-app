@@ -12,22 +12,13 @@ import (
 )
 
 type AuthRepo struct {
-	database db
+	database DB
 }
 
-func NewAuthRepo(db db) *AuthRepo {
+func NewAuthRepo(db DB) *AuthRepo {
 	return &AuthRepo{
 		database: db,
 	}
-}
-
-// try get tx from ctx
-func (r *AuthRepo) db(ctx context.Context) db {
-	res := r.database
-	if tx := ctx.Value(model.ContextKeyTx); tx != nil {
-		res = tx.(db)
-	}
-	return res
 }
 
 // create token
@@ -37,7 +28,7 @@ func (r *AuthRepo) CreateToken(ctx context.Context, token *model.RefreshToken) (
 		VALUES ($1, $2, $3)
 		RETURNING tokens.id`
 
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	err := conn.QueryRow(ctx, query, token.UserID, token.TokenHash, token.ExpiresAt).Scan(&token.ID)
 	if err != nil {
 		return nil, fmt.Errorf("insert scan failed: %w", err)
@@ -54,7 +45,7 @@ func (r *AuthRepo) GetNotUsedTokenByUserIDAndHash(ctx context.Context, userID uu
 			AND tokens.used_at IS NULL
 		`
 
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	rows, err := conn.Query(ctx, query, userID, hash)
 	if err != nil {
 		return nil, fmt.Errorf("select failed: %w", err)
@@ -78,7 +69,7 @@ func (r *AuthRepo) SetTokenUsedByID(ctx context.Context, id uuid.UUID) error {
 		WHERE tokens.id = $1 
 			AND tokens.used_at IS NULL`
 
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	res, err := conn.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("update failed: %w", err)
@@ -98,7 +89,7 @@ func (r *AuthRepo) SetUserTokensUsed(ctx context.Context, id uuid.UUID) error {
 		WHERE tokens.user_id = $1
 			AND tokens.used_at IS NULL`
 
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	_, err := conn.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("update failed: %w", err)
@@ -121,7 +112,7 @@ func (r *AuthRepo) CreateVerificationCodeAndRevokeOther(ctx context.Context, cod
 		VALUES ($1, $2, $3)
 		RETURNING id`
 
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	err := conn.QueryRow(ctx, query, code.UserID, code.CodeHash, code.ExpiresAt).Scan(&code.ID)
 	if err != nil {
 		return nil, fmt.Errorf("insert scan failed: %w", err)
@@ -140,7 +131,7 @@ func (r *AuthRepo) SetCodeUsedByID(ctx context.Context, id uuid.UUID) error {
 			AND vC.revoked_at IS NULL
 			AND vc.expires_at > now()`
 
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	res, err := conn.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("update failed: %w", err)
@@ -162,7 +153,7 @@ func (r *AuthRepo) GetCodeNotUsedOrRevokedByUserID(ctx context.Context, userID u
 			AND vc.revoked_at IS NULL;
 		`
 
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	rows, err := conn.Query(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("select failed: %w", err)
@@ -186,7 +177,7 @@ func (r *AuthRepo) CreateResetToken(ctx context.Context, token *model.ResetToken
 		VALUES ($1, $2, $3)
 		RETURNING reset_tokens.id`
 
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	err := conn.QueryRow(ctx, query, token.UserID, token.TokenHash, token.ExpiresAt).Scan(&token.ID)
 	if err != nil {
 		return nil, fmt.Errorf("insert scan failed: %w", err)
@@ -202,7 +193,7 @@ func (r *AuthRepo) GetNotUsedResetTokenByHash(ctx context.Context, hash string) 
 			AND reset_tokens.used_at IS NULL
 		`
 
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	rows, err := conn.Query(ctx, query, hash)
 	if err != nil {
 		return nil, fmt.Errorf("select failed: %w", err)
@@ -226,7 +217,7 @@ func (r *AuthRepo) SetResetTokenUsedByID(ctx context.Context, id uuid.UUID) erro
 		WHERE reset_tokens.id = $1 
 			AND reset_tokens.used_at IS NULL`
 
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	res, err := conn.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("update failed: %w", err)

@@ -12,44 +12,31 @@ import (
 )
 
 type ProgramRepo struct {
-	database db
+	database DB
 }
 
-func NewProgramRepo(db db) *ProgramRepo {
+func NewProgramRepo(db DB) *ProgramRepo {
 	return &ProgramRepo{
 		database: db,
 	}
-}
-
-// try get tx from ctx
-func (r *ProgramRepo) db(ctx context.Context) db {
-	res := r.database
-	if tx := ctx.Value(model.ContextKeyTx); tx != nil {
-		res = tx.(db)
-	}
-	return res
 }
 
 // FillDefaultPrograms creates or updates workout templates and default programs by their ids:
 // exercises of templates and days of programs are replaced, equipment of a template is taken
 // from its exercises. Templates and programs which are not in the lists are kept.
 func (r *ProgramRepo) FillDefaultPrograms(ctx context.Context, templates []*model.WorkoutTemplate, programs []*model.DefaultProgram) error {
-	tx, err := r.db(ctx).Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed begin transaction: %w", err)
-	}
-	defer model.CheckRollback(ctx, tx)
+	return NewTransactor(r.database).WithinTx(ctx, func(ctx context.Context) error {
+		conn := Conn(ctx, r.database)
+		if err := r.fillTemplateEquipment(ctx, conn, templates); err != nil {
+			return err
+		}
 
-	if err = r.fillTemplateEquipment(ctx, tx, templates); err != nil {
-		return err
-	}
+		templateIDs := make([]uuid.UUID, 0, len(templates))
+		exerciseRows := [][]interface{}{}
+		for _, template := range templates {
+			templateIDs = append(templateIDs, template.ID)
 
-	templateIDs := make([]uuid.UUID, 0, len(templates))
-	exerciseRows := [][]interface{}{}
-	for _, template := range templates {
-		templateIDs = append(templateIDs, template.ID)
-
-		_, err = tx.Exec(ctx, `
+			_, err := conn.Exec(ctx, `
 			INSERT INTO workout_templates (id, name, focus, level, equipment)
 			VALUES ($1, $2, $3, $4, $5::text[])
 			ON CONFLICT (id) DO UPDATE SET
@@ -58,42 +45,42 @@ func (r *ProgramRepo) FillDefaultPrograms(ctx context.Context, templates []*mode
 				level = EXCLUDED.level,
 				equipment = EXCLUDED.equipment
 		`, template.ID, template.Name, template.Focus, template.Level, equipmentKeysToStrings(template.Equipments))
+			if err != nil {
+				return fmt.Errorf("template %q upsert failed: %w", template.Name, err)
+			}
+
+			for _, exercise := range template.Exercises {
+				exerciseRows = append(exerciseRows, []interface{}{
+					template.ID,
+					exercise.ExerciseID,
+					exercise.OrderIndex,
+					exercise.Sets,
+					exercise.TargetReps,
+					exercise.TargetPercent1RM,
+					exercise.RestSeconds,
+				})
+			}
+		}
+
+		_, err := conn.Exec(ctx, `DELETE FROM workout_template_exercises WHERE workout_template_id = ANY($1::uuid[])`, templateIDs)
 		if err != nil {
-			return fmt.Errorf("template %q upsert failed: %w", template.Name, err)
+			return fmt.Errorf("template exercises delete failed: %w", err)
 		}
 
-		for _, exercise := range template.Exercises {
-			exerciseRows = append(exerciseRows, []interface{}{
-				template.ID,
-				exercise.ExerciseID,
-				exercise.OrderIndex,
-				exercise.Sets,
-				exercise.TargetReps,
-				exercise.TargetPercent1RM,
-				exercise.RestSeconds,
-			})
+		_, err = conn.CopyFrom(ctx, pgx.Identifier{"workout_template_exercises"},
+			[]string{"workout_template_id", "exercise_id", "order_index", "sets", "target_reps", "target_percent_1rm", "rest_seconds"},
+			pgx.CopyFromRows(exerciseRows),
+		)
+		if err != nil {
+			return fmt.Errorf("template exercises copy failed: %w", err)
 		}
-	}
 
-	_, err = tx.Exec(ctx, `DELETE FROM workout_template_exercises WHERE workout_template_id = ANY($1::uuid[])`, templateIDs)
-	if err != nil {
-		return fmt.Errorf("template exercises delete failed: %w", err)
-	}
+		programIDs := make([]uuid.UUID, 0, len(programs))
+		dayRows := [][]interface{}{}
+		for _, program := range programs {
+			programIDs = append(programIDs, program.ID)
 
-	_, err = tx.CopyFrom(ctx, pgx.Identifier{"workout_template_exercises"},
-		[]string{"workout_template_id", "exercise_id", "order_index", "sets", "target_reps", "target_percent_1rm", "rest_seconds"},
-		pgx.CopyFromRows(exerciseRows),
-	)
-	if err != nil {
-		return fmt.Errorf("template exercises copy failed: %w", err)
-	}
-
-	programIDs := make([]uuid.UUID, 0, len(programs))
-	dayRows := [][]interface{}{}
-	for _, program := range programs {
-		programIDs = append(programIDs, program.ID)
-
-		_, err = tx.Exec(ctx, `
+			_, err = conn.Exec(ctx, `
 			INSERT INTO default_programs (id, name, description, goal, level, days_per_week, weeks_count)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			ON CONFLICT (id) DO UPDATE SET
@@ -104,38 +91,35 @@ func (r *ProgramRepo) FillDefaultPrograms(ctx context.Context, templates []*mode
 				days_per_week = EXCLUDED.days_per_week,
 				weeks_count = EXCLUDED.weeks_count
 		`, program.ID, program.Name, program.Description, program.Goal, program.Level, program.DaysPerWeek, program.WeeksCount)
+			if err != nil {
+				return fmt.Errorf("program %q upsert failed: %w", program.Name, err)
+			}
+
+			for _, day := range program.Days {
+				dayRows = append(dayRows, []interface{}{program.ID, day.WeekNumber, day.OrderIndex, day.WorkoutTemplateID})
+			}
+		}
+
+		_, err = conn.Exec(ctx, `DELETE FROM default_program_days WHERE default_program_id = ANY($1::uuid[])`, programIDs)
 		if err != nil {
-			return fmt.Errorf("program %q upsert failed: %w", program.Name, err)
+			return fmt.Errorf("program days delete failed: %w", err)
 		}
 
-		for _, day := range program.Days {
-			dayRows = append(dayRows, []interface{}{program.ID, day.WeekNumber, day.OrderIndex, day.WorkoutTemplateID})
+		_, err = conn.CopyFrom(ctx, pgx.Identifier{"default_program_days"},
+			[]string{"default_program_id", "week_number", "order_index", "workout_template_id"},
+			pgx.CopyFromRows(dayRows),
+		)
+		if err != nil {
+			return fmt.Errorf("program days copy failed: %w", err)
 		}
-	}
 
-	_, err = tx.Exec(ctx, `DELETE FROM default_program_days WHERE default_program_id = ANY($1::uuid[])`, programIDs)
-	if err != nil {
-		return fmt.Errorf("program days delete failed: %w", err)
-	}
-
-	_, err = tx.CopyFrom(ctx, pgx.Identifier{"default_program_days"},
-		[]string{"default_program_id", "week_number", "order_index", "workout_template_id"},
-		pgx.CopyFromRows(dayRows),
-	)
-	if err != nil {
-		return fmt.Errorf("program days copy failed: %w", err)
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed commit transaction: %w", err)
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // fillTemplateEquipment sets equipment of each template as the union of equipment of its exercises,
 // the exercises must exist
-func (r *ProgramRepo) fillTemplateEquipment(ctx context.Context, conn db, templates []*model.WorkoutTemplate) error {
+func (r *ProgramRepo) fillTemplateEquipment(ctx context.Context, conn DB, templates []*model.WorkoutTemplate) error {
 	ids := model.NewSet[uuid.UUID]()
 	for _, template := range templates {
 		for _, exercise := range template.Exercises {
@@ -227,7 +211,7 @@ func (r *ProgramRepo) GetDefaultPrograms(ctx context.Context, filters *model.Def
 
 	query.WriteString(" ORDER BY name")
 
-	rows, err := r.db(ctx).Query(ctx, query.String(), args...)
+	rows, err := Conn(ctx, r.database).Query(ctx, query.String(), args...)
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
@@ -241,7 +225,7 @@ func (r *ProgramRepo) GetDefaultPrograms(ctx context.Context, filters *model.Def
 }
 
 func (r *ProgramRepo) GetDefaultProgramByID(ctx context.Context, id uuid.UUID) (*model.DefaultProgram, error) {
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 
 	rows, err := conn.Query(ctx, `SELECT * FROM default_programs WHERE id = $1`, id)
 	if err != nil {
@@ -301,7 +285,7 @@ func (r *ProgramRepo) GetDefaultProgramByID(ctx context.Context, id uuid.UUID) (
 	return res, nil
 }
 
-func (r *ProgramRepo) fillTemplateExercises(ctx context.Context, conn db, templates []*model.WorkoutTemplate) error {
+func (r *ProgramRepo) fillTemplateExercises(ctx context.Context, conn DB, templates []*model.WorkoutTemplate) error {
 	templatesByID := make(map[uuid.UUID]*model.WorkoutTemplate, len(templates))
 	ids := make([]uuid.UUID, 0, len(templates))
 	for _, template := range templates {
@@ -336,53 +320,50 @@ func (r *ProgramRepo) fillTemplateExercises(ctx context.Context, conn db, templa
 
 // CreateUserProgram saves the program and its weeks, weeks may be nil for an empty program
 func (r *ProgramRepo) CreateUserProgram(ctx context.Context, program *model.UserProgram, weeks []*model.UserProgramWeek) (*model.UserProgram, error) {
-	tx, err := r.db(ctx).Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed begin transaction: %w", err)
-	}
-	defer model.CheckRollback(ctx, tx)
+	err := NewTransactor(r.database).WithinTx(ctx, func(ctx context.Context) error {
+		conn := Conn(ctx, r.database)
+		// not nil: NULL violates not null constraint
+		daysOfWeek := program.DaysOfWeek
+		if daysOfWeek == nil {
+			daysOfWeek = []int{}
+		}
+		if program.WeeksCount == 0 {
+			program.WeeksCount = 1
+		}
 
-	// not nil: NULL violates not null constraint
-	daysOfWeek := program.DaysOfWeek
-	if daysOfWeek == nil {
-		daysOfWeek = []int{}
-	}
-	if program.WeeksCount == 0 {
-		program.WeeksCount = 1
-	}
-
-	err = tx.QueryRow(ctx, `
+		err := conn.QueryRow(ctx, `
 		INSERT INTO user_programs (user_id, name, source_kind, default_program_id, goal, level, days_of_week, weeks_count)
 		VALUES ($1, $2, $3, $4, $5, $6, $7::smallint[], $8)
 		RETURNING id, state, created_at, updated_at
 	`,
-		program.UserID,
-		program.Name,
-		program.SourceKind,
-		program.DefaultProgramID,
-		program.Goal,
-		program.Level,
-		daysOfWeek,
-		program.WeeksCount).
-		Scan(&program.ID, &program.State, &program.CreatedAt, &program.UpdatedAt)
-	if err != nil {
-		return nil, fmt.Errorf("insert failed: %w", err)
-	}
-	program.DaysOfWeek = daysOfWeek
+			program.UserID,
+			program.Name,
+			program.SourceKind,
+			program.DefaultProgramID,
+			program.Goal,
+			program.Level,
+			daysOfWeek,
+			program.WeeksCount).
+			Scan(&program.ID, &program.State, &program.CreatedAt, &program.UpdatedAt)
+		if err != nil {
+			return fmt.Errorf("insert failed: %w", err)
+		}
+		program.DaysOfWeek = daysOfWeek
 
-	if err = r.saveWeeks(ctx, tx, program.ID, weeks); err != nil {
+		if err = r.saveWeeks(ctx, conn, program.ID, weeks); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-
-	if err = tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed commit transaction: %w", err)
-	}
-
 	return program, nil
 }
 
 func (r *ProgramRepo) GetUserPrograms(ctx context.Context, userID uuid.UUID, state *model.ProgramState) ([]*model.UserProgram, error) {
-	rows, err := r.db(ctx).Query(ctx, `
+	rows, err := Conn(ctx, r.database).Query(ctx, `
 		SELECT *
 		FROM user_programs
 		WHERE user_id = $1
@@ -403,7 +384,7 @@ func (r *ProgramRepo) GetUserPrograms(ctx context.Context, userID uuid.UUID, sta
 
 // GetUserProgramByID returns the program with all exercises ordered by week, day and position
 func (r *ProgramRepo) GetUserProgramByID(ctx context.Context, id uuid.UUID) (*model.UserProgram, error) {
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 
 	rows, err := conn.Query(ctx, `SELECT * FROM user_programs WHERE id = $1`, id)
 	if err != nil {
@@ -440,13 +421,10 @@ func (r *ProgramRepo) GetUserProgramByID(ctx context.Context, id uuid.UUID) (*mo
 
 // UpdateUserProgram changes set fields; exercises of removed days and weeks are deleted
 func (r *ProgramRepo) UpdateUserProgram(ctx context.Context, input *model.UpdateUserProgramInput) (*model.UserProgram, error) {
-	tx, err := r.db(ctx).Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed begin transaction: %w", err)
-	}
-	defer model.CheckRollback(ctx, tx)
-
-	rows, err := tx.Query(ctx, `
+	var res *model.UserProgram
+	err := NewTransactor(r.database).WithinTx(ctx, func(ctx context.Context) error {
+		conn := Conn(ctx, r.database)
+		rows, err := conn.Query(ctx, `
 		UPDATE user_programs
 		SET
 			name = COALESCE($2, name),
@@ -459,120 +437,107 @@ func (r *ProgramRepo) UpdateUserProgram(ctx context.Context, input *model.Update
 			AND state <> 'finished'
 		RETURNING *
 	`, input.ID, input.Name, input.Goal, input.Level, input.DaysOfWeek, input.WeeksCount)
-	if err != nil {
-		return nil, fmt.Errorf("update failed: %w", err)
-	}
+		if err != nil {
+			return fmt.Errorf("update failed: %w", err)
+		}
 
-	res, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByName[model.UserProgram])
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, fmt.Errorf("collect failed: %w", err)
-	}
+		res, err = pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByName[model.UserProgram])
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("collect failed: %w", err)
+		}
 
-	if input.DaysOfWeek != nil || input.WeeksCount != nil {
-		_, err = tx.Exec(ctx, `
+		if input.DaysOfWeek != nil || input.WeeksCount != nil {
+			_, err = conn.Exec(ctx, `
 			DELETE FROM user_program_exercises
 			WHERE program_id = $1
 				AND (week_number > $2 OR NOT (day_of_week = ANY($3::smallint[])))
 		`, res.ID, res.WeeksCount, res.DaysOfWeek)
-		if err != nil {
-			return nil, fmt.Errorf("exercises delete failed: %w", err)
+			if err != nil {
+				return fmt.Errorf("exercises delete failed: %w", err)
+			}
 		}
-	}
 
-	if err = tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed commit transaction: %w", err)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
-
 	return res, nil
 }
 
 // ReplaceUserProgramStructure replaces days of week, number of weeks and all exercises
 func (r *ProgramRepo) ReplaceUserProgramStructure(ctx context.Context, programID uuid.UUID, structure *model.UserProgramStructure) error {
-	tx, err := r.db(ctx).Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed begin transaction: %w", err)
-	}
-	defer model.CheckRollback(ctx, tx)
+	return NewTransactor(r.database).WithinTx(ctx, func(ctx context.Context) error {
+		conn := Conn(ctx, r.database)
+		daysOfWeek := structure.DaysOfWeek
+		if daysOfWeek == nil {
+			daysOfWeek = []int{}
+		}
 
-	daysOfWeek := structure.DaysOfWeek
-	if daysOfWeek == nil {
-		daysOfWeek = []int{}
-	}
-
-	res, err := tx.Exec(ctx, `
+		res, err := conn.Exec(ctx, `
 		UPDATE user_programs
 		SET days_of_week = $2::smallint[], weeks_count = $3, updated_at = NOW()
 		WHERE id = $1
 			AND state <> 'finished'
 	`, programID, daysOfWeek, structure.WeeksCount())
-	if err != nil {
-		return fmt.Errorf("update failed: %w", err)
-	}
+		if err != nil {
+			return fmt.Errorf("update failed: %w", err)
+		}
 
-	if res.RowsAffected() == 0 {
-		return ErrNoAffectedRows
-	}
+		if res.RowsAffected() == 0 {
+			return ErrNoAffectedRows
+		}
 
-	_, err = tx.Exec(ctx, `DELETE FROM user_program_exercises WHERE program_id = $1`, programID)
-	if err != nil {
-		return fmt.Errorf("exercises delete failed: %w", err)
-	}
+		_, err = conn.Exec(ctx, `DELETE FROM user_program_exercises WHERE program_id = $1`, programID)
+		if err != nil {
+			return fmt.Errorf("exercises delete failed: %w", err)
+		}
 
-	if err = r.saveWeeks(ctx, tx, programID, structure.Weeks); err != nil {
-		return err
-	}
+		if err = r.saveWeeks(ctx, conn, programID, structure.Weeks); err != nil {
+			return err
+		}
 
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed commit transaction: %w", err)
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // ReplaceUserProgramWeek replaces exercises of one week, the week must exist in the program
 func (r *ProgramRepo) ReplaceUserProgramWeek(ctx context.Context, programID uuid.UUID, weekNumber int, week *model.UserProgramWeek) error {
-	tx, err := r.db(ctx).Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed begin transaction: %w", err)
-	}
-	defer model.CheckRollback(ctx, tx)
-
-	res, err := tx.Exec(ctx, `
+	return NewTransactor(r.database).WithinTx(ctx, func(ctx context.Context) error {
+		conn := Conn(ctx, r.database)
+		res, err := conn.Exec(ctx, `
 		UPDATE user_programs
 		SET updated_at = NOW()
 		WHERE id = $1
 			AND state <> 'finished'
 			AND weeks_count >= $2
 	`, programID, weekNumber)
-	if err != nil {
-		return fmt.Errorf("update failed: %w", err)
-	}
+		if err != nil {
+			return fmt.Errorf("update failed: %w", err)
+		}
 
-	if res.RowsAffected() == 0 {
-		return ErrNoAffectedRows
-	}
+		if res.RowsAffected() == 0 {
+			return ErrNoAffectedRows
+		}
 
-	_, err = tx.Exec(ctx, `DELETE FROM user_program_exercises WHERE program_id = $1 AND week_number = $2`, programID, weekNumber)
-	if err != nil {
-		return fmt.Errorf("exercises delete failed: %w", err)
-	}
+		_, err = conn.Exec(ctx, `DELETE FROM user_program_exercises WHERE program_id = $1 AND week_number = $2`, programID, weekNumber)
+		if err != nil {
+			return fmt.Errorf("exercises delete failed: %w", err)
+		}
 
-	if err = r.saveWeek(ctx, tx, programID, weekNumber, week); err != nil {
-		return err
-	}
+		if err = r.saveWeek(ctx, conn, programID, weekNumber, week); err != nil {
+			return err
+		}
 
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed commit transaction: %w", err)
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // saveWeeks saves exercises, position of the week in weeks is week number - 1
-func (r *ProgramRepo) saveWeeks(ctx context.Context, conn db, programID uuid.UUID, weeks []*model.UserProgramWeek) error {
+func (r *ProgramRepo) saveWeeks(ctx context.Context, conn DB, programID uuid.UUID, weeks []*model.UserProgramWeek) error {
 	for i, week := range weeks {
 		if err := r.saveWeek(ctx, conn, programID, i+1, week); err != nil {
 			return err
@@ -581,7 +546,7 @@ func (r *ProgramRepo) saveWeeks(ctx context.Context, conn db, programID uuid.UUI
 	return nil
 }
 
-func (r *ProgramRepo) saveWeek(ctx context.Context, conn db, programID uuid.UUID, weekNumber int, week *model.UserProgramWeek) error {
+func (r *ProgramRepo) saveWeek(ctx context.Context, conn DB, programID uuid.UUID, weekNumber int, week *model.UserProgramWeek) error {
 	rows := [][]interface{}{}
 	for _, day := range week.Days {
 		for i, exercise := range day.Exercises {
@@ -624,14 +589,10 @@ func (r *ProgramRepo) saveWeek(ctx context.Context, conn db, programID uuid.UUID
 
 // StartUserProgram makes a draft in progress, finishes the previous one and returns its id, if any
 func (r *ProgramRepo) StartUserProgram(ctx context.Context, userID uuid.UUID, programID uuid.UUID) (*uuid.UUID, error) {
-	tx, err := r.db(ctx).Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed begin transaction: %w", err)
-	}
-	defer model.CheckRollback(ctx, tx)
-
 	var finishedID *uuid.UUID
-	err = tx.QueryRow(ctx, `
+	err := NewTransactor(r.database).WithinTx(ctx, func(ctx context.Context) error {
+		conn := Conn(ctx, r.database)
+		err := conn.QueryRow(ctx, `
 		UPDATE user_programs
 		SET state = 'finished', updated_at = NOW()
 		WHERE user_id = $1
@@ -639,34 +600,35 @@ func (r *ProgramRepo) StartUserProgram(ctx context.Context, userID uuid.UUID, pr
 			AND id <> $2
 		RETURNING id
 	`, userID, programID).Scan(&finishedID)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return nil, fmt.Errorf("finish previous failed: %w", err)
-	}
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("finish previous failed: %w", err)
+		}
 
-	res, err := tx.Exec(ctx, `
+		res, err := conn.Exec(ctx, `
 		UPDATE user_programs
 		SET state = 'in_progress', start_date = CURRENT_DATE, updated_at = NOW()
 		WHERE id = $1
 			AND user_id = $2
 			AND state = 'draft'
 	`, programID, userID)
+		if err != nil {
+			return fmt.Errorf("start failed: %w", err)
+		}
+
+		if res.RowsAffected() == 0 {
+			return ErrNoAffectedRows
+		}
+
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("start failed: %w", err)
+		return nil, err
 	}
-
-	if res.RowsAffected() == 0 {
-		return nil, ErrNoAffectedRows
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed commit transaction: %w", err)
-	}
-
 	return finishedID, nil
 }
 
 func (r *ProgramRepo) FinishUserProgram(ctx context.Context, id uuid.UUID) error {
-	res, err := r.db(ctx).Exec(ctx, `
+	res, err := Conn(ctx, r.database).Exec(ctx, `
 		UPDATE user_programs
 		SET state = 'finished', updated_at = NOW()
 		WHERE id = $1
@@ -685,7 +647,7 @@ func (r *ProgramRepo) FinishUserProgram(ctx context.Context, id uuid.UUID) error
 
 // GetMissingMeasurements returns exercises of the program with percent load in which the user has no personal record
 func (r *ProgramRepo) GetMissingMeasurements(ctx context.Context, programID uuid.UUID, userID uuid.UUID) ([]*model.MeasurementExercise, error) {
-	rows, err := r.db(ctx).Query(ctx, `
+	rows, err := Conn(ctx, r.database).Query(ctx, `
 		SELECT DISTINCT e.id AS exercise_id, e.name AS exercise_name
 		FROM user_program_exercises pe
 		JOIN exercises e ON e.id = pe.exercise_id
@@ -714,7 +676,7 @@ func (r *ProgramRepo) GetMissingMeasurements(ctx context.Context, programID uuid
 // SetUserProgramState switches a not started program between draft and needs_measurement,
 // updated_at stays the same: the program was not changed by the user
 func (r *ProgramRepo) SetUserProgramState(ctx context.Context, id uuid.UUID, state model.ProgramState) error {
-	_, err := r.db(ctx).Exec(ctx, `
+	_, err := Conn(ctx, r.database).Exec(ctx, `
 		UPDATE user_programs
 		SET state = $2
 		WHERE id = $1
@@ -728,7 +690,7 @@ func (r *ProgramRepo) SetUserProgramState(ctx context.Context, id uuid.UUID, sta
 }
 
 func (r *ProgramRepo) DeleteDraftUserProgram(ctx context.Context, id uuid.UUID) error {
-	res, err := r.db(ctx).Exec(ctx, `
+	res, err := Conn(ctx, r.database).Exec(ctx, `
 		DELETE FROM user_programs
 		WHERE id = $1
 			AND state IN ('draft', 'needs_measurement')
@@ -746,10 +708,14 @@ func (r *ProgramRepo) DeleteDraftUserProgram(ctx context.Context, id uuid.UUID) 
 
 // checks that all exercises exist, are not deleted and are basic, public or own
 func (r *ProgramRepo) AreExercisesAvailable(ctx context.Context, userID uuid.UUID, exerciseIDs []uuid.UUID) (bool, error) {
+	return areExercisesAvailable(ctx, Conn(ctx, r.database), userID, exerciseIDs)
+}
+
+func areExercisesAvailable(ctx context.Context, conn DB, userID uuid.UUID, exerciseIDs []uuid.UUID) (bool, error) {
 	unique := model.NewSet(exerciseIDs...)
 
 	count := 0
-	err := r.db(ctx).QueryRow(ctx, `
+	err := conn.QueryRow(ctx, `
 		SELECT COUNT(*)
 		FROM exercises
 		WHERE id = ANY($1::uuid[])

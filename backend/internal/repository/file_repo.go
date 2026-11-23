@@ -11,22 +11,13 @@ import (
 )
 
 type FileRepo struct {
-	database db
+	database DB
 }
 
-func NewFileRepo(db db) *FileRepo {
+func NewFileRepo(db DB) *FileRepo {
 	return &FileRepo{
 		database: db,
 	}
-}
-
-// try get tx from ctx
-func (r *FileRepo) db(ctx context.Context) db {
-	res := r.database
-	if tx := ctx.Value(model.ContextKeyTx); tx != nil {
-		res = tx.(db)
-	}
-	return res
 }
 
 func (r *FileRepo) CreateMedia(ctx context.Context, media *model.Media) (*model.Media, error) {
@@ -35,7 +26,7 @@ func (r *FileRepo) CreateMedia(ctx context.Context, media *model.Media) (*model.
 		VALUES ($1, $2)
 		RETURNING id
 	`
-	err := r.db(ctx).QueryRow(ctx, query, media.Type, media.ObjectKey).Scan(&media.ID)
+	err := Conn(ctx, r.database).QueryRow(ctx, query, media.Type, media.ObjectKey).Scan(&media.ID)
 	if err != nil {
 		return nil, fmt.Errorf("insert failed: %w", err)
 	}
@@ -43,7 +34,7 @@ func (r *FileRepo) CreateMedia(ctx context.Context, media *model.Media) (*model.
 }
 
 func (r *FileRepo) GetMediaByID(ctx context.Context, id uuid.UUID) (*model.Media, error) {
-	rows, err := r.db(ctx).Query(ctx, `SELECT id, type, object_key FROM media WHERE id = $1`, id)
+	rows, err := Conn(ctx, r.database).Query(ctx, `SELECT id, type, object_key FROM media WHERE id = $1`, id)
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
@@ -59,7 +50,7 @@ func (r *FileRepo) GetMediaByID(ctx context.Context, id uuid.UUID) (*model.Media
 }
 
 func (r *FileRepo) GetMediaByIDs(ctx context.Context, ids []uuid.UUID) ([]*model.Media, error) {
-	rows, err := r.db(ctx).Query(ctx, `SELECT id, type, object_key FROM media WHERE id = ANY($1)`, ids)
+	rows, err := Conn(ctx, r.database).Query(ctx, `SELECT id, type, object_key FROM media WHERE id = ANY($1)`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
@@ -72,7 +63,7 @@ func (r *FileRepo) GetMediaByIDs(ctx context.Context, ids []uuid.UUID) ([]*model
 }
 
 func (r *FileRepo) UpdateMediaType(ctx context.Context, id uuid.UUID, mediaType model.MediaType) error {
-	tag, err := r.db(ctx).Exec(ctx, `UPDATE media SET type = $1 WHERE id = $2`, mediaType, id)
+	tag, err := Conn(ctx, r.database).Exec(ctx, `UPDATE media SET type = $1 WHERE id = $2`, mediaType, id)
 	if err != nil {
 		return fmt.Errorf("update failed: %w", err)
 	}
@@ -84,7 +75,7 @@ func (r *FileRepo) UpdateMediaType(ctx context.Context, id uuid.UUID, mediaType 
 
 // delete media record and return it, exercises referencing it lose media_id (ON DELETE SET NULL)
 func (r *FileRepo) DeleteMedia(ctx context.Context, id uuid.UUID) (*model.Media, error) {
-	rows, err := r.db(ctx).Query(ctx, `DELETE FROM media WHERE id = $1 RETURNING id, type, object_key`, id)
+	rows, err := Conn(ctx, r.database).Query(ctx, `DELETE FROM media WHERE id = $1 RETURNING id, type, object_key`, id)
 	if err != nil {
 		return nil, fmt.Errorf("delete failed: %w", err)
 	}

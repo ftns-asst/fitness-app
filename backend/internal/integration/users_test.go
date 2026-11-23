@@ -4,7 +4,9 @@ package integration
 
 import (
 	"context"
+	"errors"
 	"ftns-asst/internal/model"
+	"ftns-asst/internal/repository"
 	"ftns-asst/internal/rest/dto"
 	"net/http"
 	"testing"
@@ -89,12 +91,18 @@ func TestRepoUsesTxFromContext(t *testing.T) {
 	ctx := context.Background()
 	email := newEmail()
 
-	tx, err := db.Begin(ctx)
-	require.NoError(t, err)
-	txCtx := context.WithValue(ctx, model.ContextKeyTx, tx)
-	_, err = repos.User().CreateUser(txCtx, &model.User{Email: email, Name: "John", PasswordHash: "hash"})
-	require.NoError(t, err)
-	require.NoError(t, tx.Rollback(ctx))
+	rollback := errors.New("rollback requested")
+	transactor := repository.NewTransactor(db)
+	err := transactor.WithinTx(ctx, func(ctx context.Context) error {
+		outer := repository.Conn(ctx, db)
+		return transactor.WithinTx(ctx, func(ctx context.Context) error {
+			require.Same(t, outer, repository.Conn(ctx, db))
+			_, err := repos.User().CreateUser(ctx, &model.User{Email: email, Name: "John", PasswordHash: "hash"})
+			require.NoError(t, err)
+			return rollback
+		})
+	})
+	require.ErrorIs(t, err, rollback)
 
 	exists, err := repos.User().CheckUserWithEmailExists(ctx, email)
 	require.NoError(t, err)

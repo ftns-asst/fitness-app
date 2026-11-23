@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"ftns-asst/internal/model"
 
@@ -10,42 +11,37 @@ import (
 )
 
 type PersonalRecordRepo struct {
-	database db
+	database DB
 }
 
-func NewPersonalRecordRepo(db db) *PersonalRecordRepo {
+func NewPersonalRecordRepo(db DB) *PersonalRecordRepo {
 	return &PersonalRecordRepo{
 		database: db,
 	}
 }
 
-// try get tx from ctx
-func (r *PersonalRecordRepo) db(ctx context.Context) db {
-	res := r.database
-	if tx := ctx.Value(model.ContextKeyTx); tx != nil {
-		res = tx.(db)
-	}
-	return res
-}
-
 // CreateRecord adds a new entry, the previous ones are kept as history
 func (r *PersonalRecordRepo) CreateRecord(ctx context.Context, entry *model.PersonalRecord) (*model.PersonalRecord, error) {
-	rows, err := r.db(ctx).Query(ctx, `
+	rows, err := Conn(ctx, r.database).Query(ctx, `
 		WITH inserted AS (
-			INSERT INTO personal_records (user_id, exercise_id, weight_kg, is_calculated)
-			VALUES ($1, $2, $3, $4)
+			INSERT INTO personal_records (user_id, exercise_id, weight_kg, is_calculated, source_workout_set_id, created_at)
+			VALUES ($1, $2, $3, $4, $5, statement_timestamp())
+			ON CONFLICT (source_workout_set_id) DO NOTHING
 			RETURNING *
 		)
 		SELECT inserted.id, inserted.user_id, inserted.exercise_id, e.name AS exercise_name,
-			inserted.weight_kg, inserted.is_calculated, inserted.created_at
+			inserted.weight_kg, inserted.is_calculated, inserted.created_at, inserted.source_workout_set_id
 		FROM inserted
 		JOIN exercises e ON e.id = inserted.exercise_id
-	`, entry.UserID, entry.ExerciseID, entry.WeightKg, entry.IsCalculated)
+	`, entry.UserID, entry.ExerciseID, entry.WeightKg, entry.IsCalculated, entry.SourceWorkoutSetID)
 	if err != nil {
 		return nil, fmt.Errorf("insert failed: %w", err)
 	}
 
 	res, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByName[model.PersonalRecord])
+	if errors.Is(err, pgx.ErrNoRows) && entry.SourceWorkoutSetID != nil {
+		return nil, model.ErrConflict
+	}
 	if err != nil {
 		return nil, fmt.Errorf("collect failed: %w", err)
 	}
@@ -60,9 +56,9 @@ func (r *PersonalRecordRepo) GetLatestRecords(ctx context.Context, userID uuid.U
 		exerciseIDs = []uuid.UUID{}
 	}
 
-	rows, err := r.db(ctx).Query(ctx, `
+	rows, err := Conn(ctx, r.database).Query(ctx, `
 		SELECT DISTINCT ON (m.exercise_id)
-			m.id, m.user_id, m.exercise_id, e.name AS exercise_name, m.weight_kg, m.is_calculated, m.created_at
+			m.id, m.user_id, m.exercise_id, e.name AS exercise_name, m.weight_kg, m.is_calculated, m.created_at, m.source_workout_set_id
 		FROM personal_records m
 		JOIN exercises e ON e.id = m.exercise_id
 		WHERE m.user_id = $1
@@ -83,8 +79,8 @@ func (r *PersonalRecordRepo) GetLatestRecords(ctx context.Context, userID uuid.U
 
 // GetRecordHistory returns all entries of the user in the exercise, the newest first
 func (r *PersonalRecordRepo) GetRecordHistory(ctx context.Context, userID uuid.UUID, exerciseID uuid.UUID) ([]*model.PersonalRecord, error) {
-	rows, err := r.db(ctx).Query(ctx, `
-		SELECT m.id, m.user_id, m.exercise_id, e.name AS exercise_name, m.weight_kg, m.is_calculated, m.created_at
+	rows, err := Conn(ctx, r.database).Query(ctx, `
+		SELECT m.id, m.user_id, m.exercise_id, e.name AS exercise_name, m.weight_kg, m.is_calculated, m.created_at, m.source_workout_set_id
 		FROM personal_records m
 		JOIN exercises e ON e.id = m.exercise_id
 		WHERE m.user_id = $1
@@ -105,7 +101,7 @@ func (r *PersonalRecordRepo) GetRecordHistory(ctx context.Context, userID uuid.U
 
 // DeleteRecord removes one entry of the user
 func (r *PersonalRecordRepo) DeleteRecord(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
-	res, err := r.db(ctx).Exec(ctx, `
+	res, err := Conn(ctx, r.database).Exec(ctx, `
 		DELETE FROM personal_records
 		WHERE id = $1
 			AND user_id = $2
@@ -123,19 +119,11 @@ func (r *PersonalRecordRepo) DeleteRecord(ctx context.Context, userID uuid.UUID,
 
 // AreExercisesAvailable checks that all exercises exist, are not deleted and are basic, public or own
 func (r *PersonalRecordRepo) AreExercisesAvailable(ctx context.Context, userID uuid.UUID, exerciseIDs []uuid.UUID) (bool, error) {
-	unique := model.NewSet(exerciseIDs...)
+	return areExercisesAvailable(ctx, Conn(ctx, r.database), userID, exerciseIDs)
+}
 
-	count := 0
-	err := r.db(ctx).QueryRow(ctx, `
-		SELECT COUNT(*)
-		FROM exercises
-		WHERE id = ANY($1::uuid[])
-			AND deleted_at IS NULL
-			AND (is_public = TRUE OR owner_id = $2)
-	`, exerciseIDs, userID).Scan(&count)
-	if err != nil {
-		return false, fmt.Errorf("select failed: %w", err)
-	}
-
-	return count == len(unique), nil
+// Serialize record changes even when the exercise has no record yet.
+func (r *PersonalRecordRepo) LockUserRecords(ctx context.Context, userID uuid.UUID) error {
+	_, err := Conn(ctx, r.database).Exec(ctx, "SELECT id FROM users WHERE id = $1 FOR NO KEY UPDATE", userID)
+	return err
 }

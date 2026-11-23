@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type db interface {
+type DB interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
@@ -31,9 +31,10 @@ type Repositories struct {
 	file           *FileRepo
 	program        *ProgramRepo
 	personalRecord *PersonalRecordRepo
+	workout        *WorkoutRepo
 }
 
-func NewRepositories(db db) *Repositories {
+func NewRepositories(db DB) *Repositories {
 	return &Repositories{
 		user:           NewUserRepo(db),
 		auth:           NewAuthRepo(db),
@@ -41,6 +42,7 @@ func NewRepositories(db db) *Repositories {
 		file:           NewFileRepo(db),
 		program:        NewProgramRepo(db),
 		personalRecord: NewPersonalRecordRepo(db),
+		workout:        NewWorkoutRepo(db),
 	}
 }
 
@@ -66,6 +68,10 @@ func (r *Repositories) Program() *ProgramRepo {
 
 func (r *Repositories) PersonalRecord() *PersonalRecordRepo {
 	return r.personalRecord
+}
+
+func (r *Repositories) Workout() *WorkoutRepo {
+	return r.workout
 }
 
 var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)

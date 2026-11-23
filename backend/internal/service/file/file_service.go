@@ -156,27 +156,19 @@ func (s *FileService) GetMediaList(ctx context.Context, ids []uuid.UUID) (map[uu
 
 // deletes media record and file, record is kept if file was not deleted
 func (s *FileService) DeleteMedia(ctx context.Context, id uuid.UUID) error {
-	tx, err := s.tx.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed begin transaction: %w", err)
-	}
-	defer model.CheckRollback(ctx, tx)
-	ctx = context.WithValue(ctx, model.ContextKeyTx, tx)
+	return s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		media, err := s.repo.DeleteMedia(ctx, id)
+		if errors.Is(err, repository.ErrNotFound) {
+			return fmt.Errorf("media not found: %w", model.ErrNotFound)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to delete media: %w", err)
+		}
 
-	media, err := s.repo.DeleteMedia(ctx, id)
-	if errors.Is(err, repository.ErrNotFound) {
-		return fmt.Errorf("media not found: %w", model.ErrNotFound)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to delete media: %w", err)
-	}
+		if err = s.storage.DeleteObject(ctx, media.ObjectKey); err != nil {
+			return fmt.Errorf("failed to delete object: %w", err)
+		}
 
-	if err = s.storage.DeleteObject(ctx, media.ObjectKey); err != nil {
-		return fmt.Errorf("failed to delete object: %w", err)
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-	return nil
+		return nil
+	})
 }
