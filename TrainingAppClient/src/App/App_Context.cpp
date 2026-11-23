@@ -22,6 +22,7 @@
 #include "Domain/Workout_Logger.h"
 #include "Presentation/Auth_Qml_Bridge.h"
 #include "Presentation/Auth_VM.h"
+#include "Presentation/Default_Programs_VM.h"
 #include "Presentation/Diary_VM.h"
 #include "Presentation/Exercises_Editor_VM.h"
 #include "Presentation/Exercises_One_VM.h"
@@ -160,6 +161,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	}
 
 	HTTP_Client_Instance = new AsHttp_Client(QUrl(Api_Base_URL), this);
+	Default_Programs_VM_Instance = new Avm_Default_Programs(HTTP_Client_Instance, this);
 	Network_Monitor_Instance = new AsNetwork_Monitor(this);
 
 	if (!HTTP_Client_Instance->Base_URL().isValid())
@@ -374,6 +376,8 @@ void AsApp_Context::Destroy_Stack()
 	Auth_Session_Instance = 0;
 	delete Token_Store_Instance;
 	Token_Store_Instance = 0;
+	delete Default_Programs_VM_Instance;
+	Default_Programs_VM_Instance = 0;
 	delete HTTP_Client_Instance;
 	HTTP_Client_Instance = 0;
 	delete Network_Monitor_Instance;
@@ -415,6 +419,11 @@ AsHttp_Client *AsApp_Context::HTTP_Client() const
 AsNetwork_Monitor *AsApp_Context::Network_Monitor() const
 {
 	return Network_Monitor_Instance;
+}
+//-------------------------------------------------------------------------------------------------------------
+Avm_Default_Programs *AsApp_Context::Default_Programs_VM() const
+{
+	return Default_Programs_VM_Instance;
 }
 //-------------------------------------------------------------------------------------------------------------
 Avm_Profile *AsApp_Context::Profile_VM() const

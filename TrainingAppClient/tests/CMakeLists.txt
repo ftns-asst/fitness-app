@@ -352,6 +352,11 @@ target_link_libraries(tst_Users_Api PRIVATE TrainingAppCore TrainingAppTestSuppo
 add_test(NAME users_api COMMAND tst_Users_Api)
 set_tests_properties(users_api PROPERTIES TIMEOUT 20)
 
+qt_add_executable(tst_Default_Programs_VM cpp/tst_Default_Programs_VM.cpp)
+target_link_libraries(tst_Default_Programs_VM PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME default_programs_vm COMMAND tst_Default_Programs_VM)
+set_tests_properties(default_programs_vm PROPERTIES TIMEOUT 20)
+
 qt_add_executable(tst_Users_Repository
     cpp/tst_Users_Repository.cpp
 )

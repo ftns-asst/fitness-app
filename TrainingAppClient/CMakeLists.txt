@@ -28,6 +28,8 @@ add_library(TrainingAppCore STATIC
     src/Data/Network/Network_Monitor.cpp
     src/Presentation/Profile_VM.h
     src/Presentation/Profile_VM.cpp
+    src/Presentation/Default_Programs_VM.h
+    src/Presentation/Default_Programs_VM.cpp
     src/Data/Users/Profile_Sync.h
     src/Data/Users/Profile_Sync.cpp
     src/Domain/Diary_Calculator.h
@@ -305,6 +307,8 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Pages/Auth/PasswordRecoveryPage.qml
         qml/Pages/Today/TodayPage.qml
         qml/Pages/Programs/ProgramsPage.qml
+        qml/Pages/Programs/DefaultProgramsCatalog.qml
+        qml/Pages/Programs/DefaultProgramDetailPage.qml
         qml/Pages/Exercises/ExercisesPage.qml
     qml/Pages/Exercises/ExercisesEditorPage.qml
     qml/Pages/Exercises/ExerciseDetailPage.qml

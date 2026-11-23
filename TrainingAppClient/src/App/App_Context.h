@@ -23,6 +23,7 @@ class AProgram_Template_Service;
 class Avm_Program_Templates;
 class Avm_Today;
 class Avm_Diary;
+class Avm_Default_Programs;
 class ADay_Note_Repository;
 class Avm_Macro;
 class Avm_Exercises;
@@ -78,6 +79,7 @@ public:
 	AsHttp_Client *HTTP_Client() const;
 	AsNetwork_Monitor *Network_Monitor() const;
 	Avm_Profile *Profile_VM() const;
+	Avm_Default_Programs *Default_Programs_VM() const;
 	AsSql_Database *SQL_Database() const;
 	AsToken_Store *Token_Store() const;
 	AsAuth_Session *Auth_Session() const;
@@ -154,6 +156,7 @@ private:
 	bool Initialized = false;
 	AError_State Error_State;
 	AsHttp_Client *HTTP_Client_Instance = 0;
+	Avm_Default_Programs *Default_Programs_VM_Instance = 0;
 	AsSql_Database *SQL_Database_Instance = 0;
 	AsToken_Store *Token_Store_Instance = 0;
 	AsAuth_Session *Auth_Session_Instance = 0;

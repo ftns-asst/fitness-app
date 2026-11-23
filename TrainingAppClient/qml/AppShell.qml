@@ -46,7 +46,6 @@ Item {
     // Идёт переход (пуш/поп с анимацией): в это время команды навигации
     // отбрасываются, и тестам нужно дождаться тишины перед следующим шагом.
     readonly property bool stackBusy: pages.busy
-    property var plansViewModel: PlansViewModel
     property var profileViewModel: ProfileViewModel
     property var todayViewModel: TodayVM
     property var diaryViewModel: typeof DiaryVM !== "undefined" ? DiaryVM : null
@@ -501,6 +500,9 @@ Item {
                 topInset: shell.topInset
 
                 onCreateRequested: shell.openProgramEditor()
+                onDefaultProgramRequested: programId => shell.pushPage(defaultProgramDetailComponent, {
+                        templateId: programId
+                    })
                 onEditRequested: programId => shell.openProgramEditor(programId)
                 onOpenRequested: programId => shell.openProgramOverview(programId)
                 onProfileActionRequested: shell.openProfile()
@@ -845,6 +847,16 @@ Item {
 
             onBackRequested: shell.goBack()
             onEditRequested: exerciseId => shell.openExerciseEditor(exerciseId)
+        }
+    }
+    Component {
+        id: defaultProgramDetailComponent
+
+        DefaultProgramDetailPage {
+            bottomInset: shell.pageBottomInset
+            topInset: shell.topInset
+
+            onBackRequested: shell.goBack()
         }
     }
     Component {

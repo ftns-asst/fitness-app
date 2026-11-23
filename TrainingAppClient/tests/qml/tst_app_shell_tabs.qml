@@ -414,16 +414,20 @@ TestCase {
         verify(shell.topItem instanceof ProgramOverviewPage, "восстанавливается обзор, а не закрытая форма создания");
     }
 
-    // Экран «Программы» — два сегмента: свои программы и шаблоны.
-    function test_programsTabHasTwoSegments() {
+    function test_programsTabSwitchesBetweenMyProgramsTemplatesAndCatalog() {
         shell.showTab(2);
         tryCompare(shell, "stackBusy", false);
         compare(shell.currentTab, 2);
 
         const segments = findChild(shell, "programsSegments");
 
-        verify(segments !== null, "на вкладке нет сегментов «Мои / Шаблоны»");
-        compare(segments.items.length, 2);
+        verify(segments !== null);
+        compare(segments.items.length, 3);
+        segments.selected(2);
+        compare(segments.currentIndex, 2);
+        compare(shell.pushedDepth, 1);
+        segments.selected(0);
+        compare(segments.currentIndex, 0);
     }
 
     // Обзор программы держит сегменты и не плодит стек: переключение меняет

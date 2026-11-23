@@ -5,8 +5,8 @@ import TrainingAppClient
 
 // Экран «Программы» (вкладка 2). Раньше это были «Планы»: вход в свою программу,
 // промо-опрос подбора и каталог шаблонов в одном списке, где половина первого
-// экрана — заглушки. Теперь два сегмента с разными задачами: «Мои» показывает
-// реальные программы из БД, «Шаблоны» создаёт редактируемый личный снимок PSMF.
+// экрана — заглушки. «Мои» показывает программы из БД, «Шаблоны» создаёт
+// личный снимок PSMF, «Каталог» показывает готовые программы с сервера.
 //
 // Разметка — обычные Column с явной шириной: колонка контента PageScaffold не
 // layout, а у скрытого элемента ColumnLayout ширина обнуляется, и аудит вёрстки
@@ -43,7 +43,7 @@ PageScaffold {
         }
     ]
 
-    caption: page.segment === 0 ? (page.hasPrograms ? qsTr("%1 в каталоге").arg(page.programCount) : qsTr("Свои программы и шаблоны")) : qsTr("PSMF — личный редактируемый снимок")
+    caption: page.segment === 0 ? (page.hasPrograms ? qsTr("%1 в каталоге").arg(page.programCount) : qsTr("Свои программы и шаблоны")) : page.segment === 1 ? qsTr("PSMF — личный редактируемый снимок") : ""
     title: qsTr("Программы")
 
     signal createRequested
@@ -51,6 +51,7 @@ PageScaffold {
     signal editRequested(string programId)
     signal openRequested(string programId)
     signal statsRequested(string programId)
+    signal defaultProgramRequested(string programId)
 
     Component.onCompleted: page.reload()
     onVisibleChanged: {
@@ -72,12 +73,20 @@ PageScaffold {
     SegmentedControl {
         objectName: "programsSegments"
         currentIndex: page.segment
-        items: [qsTr("Мои"), qsTr("Шаблоны")]
+        items: [qsTr("Мои"), qsTr("Шаблоны"), qsTr("Каталог")]
         width: parent.width
 
         onSelected: function (index) {
             page.segment = index;
         }
+    }
+
+    DefaultProgramsCatalog {
+        active: page.segment === 2
+        visible: active
+        width: parent.width
+
+        onProgramRequested: programId => page.defaultProgramRequested(programId)
     }
 
     // — «Мои»: активная, черновики и пауза, завершённые —

@@ -5,6 +5,7 @@
 #include "Data/Exercises/Exercises_Repository.h"
 #include "Data/Network/Network_Monitor.h"
 #include "Presentation/Auth_Qml_Bridge.h"
+#include "Presentation/Default_Programs_VM.h"
 #include "Presentation/Diary_VM.h"
 #include "Presentation/Exercises_Editor_VM.h"
 #include "Presentation/Exercises_One_VM.h"
@@ -185,6 +186,7 @@ int main(int argc, char *argv[])
 
 	engine.rootContext()->setContextProperty("AppContext", &app_context);
 	engine.rootContext()->setContextProperty("NetworkMonitor", (QObject *)app_context.Network_Monitor());
+	engine.rootContext()->setContextProperty("DefaultProgramsVM", (QObject *)app_context.Default_Programs_VM());
 	engine.rootContext()->setContextProperty("ProfileBackend", real_auth ? (QObject *)app_context.Profile_VM() : 0);
 
 	// Стек модели программы (срез W11): экраны «Моя программа», «Правила» и
