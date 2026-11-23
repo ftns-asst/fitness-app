@@ -236,30 +236,29 @@ func (s *ExerciseService) UpdateMedia(ctx context.Context, exerciseID uuid.UUID,
 		return nil, "", err
 	}
 
-	tx, err := s.tx.Begin(ctx)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed begin transaction: %w", err)
-	}
-	defer model.CheckRollback(ctx, tx)
-	ctx = context.WithValue(ctx, model.ContextKeyTx, tx)
-
-	media, putURL, err := s.media.UpsertMedia(ctx, exercise.MediaID, mediaType)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to upsert media of exercise: %w", err)
-	}
-
-	if exercise.MediaID == nil {
-		err = s.repo.UpdateMediaID(ctx, exerciseID, media.ID)
-		if errors.Is(err, repository.ErrNoAffectedRows) {
-			return nil, "", fmt.Errorf("not found exercise to set media with id: %s, err: %w", exerciseID, model.ErrNotFound)
-		}
+	var media *model.Media
+	var putURL string
+	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		var err error
+		media, putURL, err = s.media.UpsertMedia(ctx, exercise.MediaID, mediaType)
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to set media of exercise: %w", err)
+			return fmt.Errorf("failed to upsert media of exercise: %w", err)
 		}
-	}
 
-	if err = tx.Commit(ctx); err != nil {
-		return nil, "", fmt.Errorf("failed to commit transaction: %w", err)
+		if exercise.MediaID == nil {
+			err = s.repo.UpdateMediaID(ctx, exerciseID, media.ID)
+			if errors.Is(err, repository.ErrNoAffectedRows) {
+				return fmt.Errorf("not found exercise to set media with id: %s, err: %w", exerciseID, model.ErrNotFound)
+			}
+			if err != nil {
+				return fmt.Errorf("failed to set media of exercise: %w", err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, "", err
 	}
 	return media, putURL, nil
 }

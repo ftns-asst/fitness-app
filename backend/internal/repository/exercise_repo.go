@@ -12,10 +12,10 @@ import (
 )
 
 type ExerciseRepo struct {
-	database db
+	database DB
 }
 
-func NewExerciseRepo(db db) *ExerciseRepo {
+func NewExerciseRepo(db DB) *ExerciseRepo {
 	return &ExerciseRepo{
 		database: db,
 	}
@@ -25,17 +25,8 @@ const exerciseColumns = `
 	id, owner_id, media_id, is_public, name, description,
 	muscle_group, equipment, created_at, deleted_at`
 
-// try get tx from ctx
-func (r *ExerciseRepo) db(ctx context.Context) db {
-	res := r.database
-	if tx := ctx.Value(model.ContextKeyTx); tx != nil {
-		res = tx.(db)
-	}
-	return res
-}
-
 func (r *ExerciseRepo) CreateExercise(ctx context.Context, exercise *model.Exercise) (*model.Exercise, error) {
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 
 	query := `
 		INSERT INTO exercises (
@@ -72,55 +63,48 @@ func (r *ExerciseRepo) CreateExercise(ctx context.Context, exercise *model.Exerc
 }
 
 func (r *ExerciseRepo) FillExercises(ctx context.Context, exercises []*model.Exercise) error {
-	conn := r.db(ctx)
-
-	tx, err := conn.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed begin transaction: %w", err)
-	}
-	defer model.CheckRollback(ctx, tx)
-
-	conn = tx
-	_, err = conn.Exec(ctx, `
+	return NewTransactor(r.database).WithinTx(ctx, func(ctx context.Context) error {
+		conn := Conn(ctx, r.database)
+		_, err := conn.Exec(ctx, `
 		CREATE TEMP TABLE tmp_exercises (LIKE exercises INCLUDING DEFAULTS)
 		ON COMMIT DROP`)
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}
 
-	count, err := conn.CopyFrom(ctx, pgx.Identifier{"tmp_exercises"},
-		[]string{
-			"id",
-			"owner_id",
-			"is_public",
-			"name",
-			"description",
-			"muscle_group",
-			"equipment",
-			"created_at"},
-		pgx.CopyFromSlice(len(exercises), func(i int) ([]interface{}, error) {
-			ex := exercises[i]
-			return []interface{}{
-				ex.ID,
-				ex.OwnerID,
-				ex.IsPublic,
-				ex.Name,
-				ex.Description,
-				ex.MuscleGroups,
-				ex.Equipments,
-				ex.CreatedAt,
-			}, nil
-		}),
-	)
-	if err != nil {
-		return fmt.Errorf("copy failed: %w", err)
-	}
+		count, err := conn.CopyFrom(ctx, pgx.Identifier{"tmp_exercises"},
+			[]string{
+				"id",
+				"owner_id",
+				"is_public",
+				"name",
+				"description",
+				"muscle_group",
+				"equipment",
+				"created_at"},
+			pgx.CopyFromSlice(len(exercises), func(i int) ([]interface{}, error) {
+				ex := exercises[i]
+				return []interface{}{
+					ex.ID,
+					ex.OwnerID,
+					ex.IsPublic,
+					ex.Name,
+					ex.Description,
+					ex.MuscleGroups,
+					ex.Equipments,
+					ex.CreatedAt,
+				}, nil
+			}),
+		)
+		if err != nil {
+			return fmt.Errorf("copy failed: %w", err)
+		}
 
-	if count != int64(len(exercises)) {
-		return fmt.Errorf("copy failed: inserted %d, expected %d", count, len(exercises))
-	}
+		if count != int64(len(exercises)) {
+			return fmt.Errorf("copy failed: inserted %d, expected %d", count, len(exercises))
+		}
 
-	_, err = conn.Exec(ctx, `
+		_, err = conn.Exec(ctx, `
         INSERT INTO exercises (id, owner_id, is_public, name, description, muscle_group, equipment)
 		SELECT id, NULL, TRUE, name, description, muscle_group, equipment
 		FROM tmp_exercises
@@ -134,19 +118,16 @@ func (r *ExerciseRepo) FillExercises(ctx context.Context, exercises []*model.Exe
 		WHERE exercises.owner_id IS NULL
     `)
 
-	if err != nil {
-		return fmt.Errorf("insert from tmp table failed: %w", err)
-	}
+		if err != nil {
+			return fmt.Errorf("insert from tmp table failed: %w", err)
+		}
 
-	err = tx.Commit(ctx)
-	if err != nil {
-		return fmt.Errorf("failed commit transaction: %w", err)
-	}
-	return nil
+		return nil
+	})
 }
 
 func (r *ExerciseRepo) GetExerciseByID(ctx context.Context, id uuid.UUID) (*model.Exercise, error) {
-	rows, err := r.db(ctx).Query(ctx, `SELECT `+exerciseColumns+` FROM exercises WHERE id = $1`, id)
+	rows, err := Conn(ctx, r.database).Query(ctx, `SELECT `+exerciseColumns+` FROM exercises WHERE id = $1`, id)
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
@@ -208,7 +189,7 @@ func (r *ExerciseRepo) GetExercises(ctx context.Context, filters *model.Exercise
 	fmt.Fprintf(&query, " LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2)
 	args = append(args, page.Limit, page.Offset)
 
-	rows, err := r.db(ctx).Query(ctx, query.String(), args...)
+	rows, err := Conn(ctx, r.database).Query(ctx, query.String(), args...)
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
@@ -233,7 +214,7 @@ func (r *ExerciseRepo) UpdateExercise(ctx context.Context, input *model.UpdateEx
 		WHERE id = $1
 		RETURNING ` + exerciseColumns
 
-	rows, err := r.db(ctx).Query(ctx, query,
+	rows, err := Conn(ctx, r.database).Query(ctx, query,
 		input.ID,
 		input.IsPublic,
 		input.Name,
@@ -257,7 +238,7 @@ func (r *ExerciseRepo) UpdateExercise(ctx context.Context, input *model.UpdateEx
 }
 
 func (r *ExerciseRepo) DeleteExercise(ctx context.Context, id uuid.UUID) error {
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 
 	query := `
 		UPDATE exercises
@@ -278,7 +259,7 @@ func (r *ExerciseRepo) DeleteExercise(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *ExerciseRepo) IsUserOwnerCheck(ctx context.Context, userID uuid.UUID, exerciseID uuid.UUID) (bool, error) {
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 
 	query := `
 		SELECT EXISTS (
@@ -305,7 +286,7 @@ func (r *ExerciseRepo) IsUserOwnerCheck(ctx context.Context, userID uuid.UUID, e
 }
 
 func (r *ExerciseRepo) UpdateMediaID(ctx context.Context, id uuid.UUID, mediaID uuid.UUID) error {
-	conn := r.db(ctx)
+	conn := Conn(ctx, r.database)
 	query := `
 			UPDATE exercises
 			SET

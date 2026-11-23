@@ -42,25 +42,6 @@ func (s *ProgramService) Start(ctx context.Context) error {
 	return nil
 }
 
-// run fn in a transaction, repositories take it from ctx
-func (s *ProgramService) inTx(ctx context.Context, fn func(ctx context.Context) error) error {
-	tx, err := s.tx.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed begin transaction: %w", err)
-	}
-	defer model.CheckRollback(ctx, tx)
-	ctx = context.WithValue(ctx, model.ContextKeyTx, tx)
-
-	if err = fn(ctx); err != nil {
-		return err
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed commit transaction: %w", err)
-	}
-	return nil
-}
-
 // GetDefaultPrograms returns catalog; days of week, if set, keep only programs with the same number of days
 func (s *ProgramService) GetDefaultPrograms(ctx context.Context, daysOfWeek []int, goal *model.ProgramGoal, level *model.ProgramLevel) ([]*model.DefaultProgram, error) {
 	filters := &model.DefaultProgramFilters{}
@@ -294,7 +275,7 @@ func (s *ProgramService) CreateFromDefault(ctx context.Context, userID uuid.UUID
 
 func (s *ProgramService) createProgram(ctx context.Context, program *model.UserProgram, weeks []*model.UserProgramWeek) (*model.UserProgram, error) {
 	var res *model.UserProgram
-	err := s.inTx(ctx, func(ctx context.Context) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		created, err := s.repo.CreateUserProgram(ctx, program, weeks)
 		if err != nil {
 			return fmt.Errorf("failed to create program: %w", err)
@@ -325,7 +306,7 @@ func (s *ProgramService) UpdateProgram(ctx context.Context, userID uuid.UUID, in
 	input.DaysOfWeek = sortedDays(input.DaysOfWeek)
 
 	var res *model.UserProgram
-	err := s.inTx(ctx, func(ctx context.Context) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		program, err := s.getOwnedProgram(ctx, userID, input.ID)
 		if err != nil {
 			return err
@@ -366,7 +347,7 @@ func (s *ProgramService) ReplaceStructure(ctx context.Context, userID uuid.UUID,
 	structure.DaysOfWeek = sortedDays(structure.DaysOfWeek)
 
 	var res *model.UserProgram
-	err := s.inTx(ctx, func(ctx context.Context) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		program, err := s.getOwnedProgram(ctx, userID, programID)
 		if err != nil {
 			return err
@@ -406,7 +387,7 @@ func (s *ProgramService) ReplaceWeek(ctx context.Context, userID uuid.UUID, prog
 	}
 
 	var res *model.UserProgram
-	err := s.inTx(ctx, func(ctx context.Context) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		program, err := s.getOwnedProgram(ctx, userID, programID)
 		if err != nil {
 			return err
@@ -475,7 +456,7 @@ func (s *ProgramService) checkExercisesAvailable(ctx context.Context, userID uui
 // StartProgram makes a draft in progress and finishes the previous program in progress
 func (s *ProgramService) StartProgram(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*model.StartProgramResult, error) {
 	var res *model.StartProgramResult
-	err := s.inTx(ctx, func(ctx context.Context) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		program, err := s.getOwnedProgram(ctx, userID, id)
 		if err != nil {
 			return err
@@ -542,7 +523,7 @@ func isProgramComplete(program *model.UserProgram) bool {
 
 func (s *ProgramService) FinishProgram(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*model.UserProgram, error) {
 	var res *model.UserProgram
-	err := s.inTx(ctx, func(ctx context.Context) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		program, err := s.getOwnedProgram(ctx, userID, id)
 		if err != nil {
 			return err
@@ -572,7 +553,7 @@ func (s *ProgramService) FinishProgram(ctx context.Context, userID uuid.UUID, id
 }
 
 func (s *ProgramService) DeleteProgram(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
-	return s.inTx(ctx, func(ctx context.Context) error {
+	return s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		program, err := s.getOwnedProgram(ctx, userID, id)
 		if err != nil {
 			return err

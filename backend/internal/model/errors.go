@@ -11,6 +11,7 @@ var (
 	ErrBadRequest         = errors.New("error bad request")
 	ErrServiceUnavailable = errors.New("error service unavailable")
 	ErrForbidden          = errors.New("error forbidden")
+	ErrConflict           = errors.New("conflict with existing record")
 )
 
 type ServiceError struct {

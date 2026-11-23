@@ -68,7 +68,10 @@ func (s *PersonalRecordService) CreateRecords(ctx context.Context, requesterID u
 	}
 
 	res := make([]*model.PersonalRecord, 0, len(records))
-	err := s.inTx(ctx, func(ctx context.Context) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		if err := s.repo.LockUserRecords(ctx, userID); err != nil {
+			return err
+		}
 		ok, err := s.repo.AreExercisesAvailable(ctx, userID, exerciseIDs)
 		if err != nil {
 			return fmt.Errorf("failed to check exercises: %w", err)
@@ -97,6 +100,67 @@ func (s *PersonalRecordService) CreateRecords(ctx context.Context, requesterID u
 	return res, nil
 }
 
+// UpdateFromWorkout compares the best completed set per exercise with the user's current record.
+func (s *PersonalRecordService) UpdateFromWorkout(ctx context.Context, userID uuid.UUID, workout *model.Workout) error {
+	best, err := bestWorkoutSets(userID, workout)
+	if err != nil || len(best) == 0 {
+		return err
+	}
+	return s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		if err := s.repo.LockUserRecords(ctx, userID); err != nil {
+			return err
+		}
+		exerciseIDs := make([]uuid.UUID, 0, len(best))
+		for id := range best {
+			exerciseIDs = append(exerciseIDs, id)
+		}
+		latest, err := s.repo.GetLatestRecords(ctx, userID, exerciseIDs)
+		if err != nil {
+			return err
+		}
+		for _, record := range latest {
+			if best[record.ExerciseID].WeightKg <= record.WeightKg {
+				delete(best, record.ExerciseID)
+			}
+		}
+		if len(best) == 0 {
+			return nil
+		}
+		for _, record := range best {
+			if _, err := s.repo.CreateRecord(ctx, record); err != nil {
+				return err
+			}
+		}
+		return s.refresher.RefreshMeasurementStates(ctx, userID)
+	})
+}
+
+func bestWorkoutSets(userID uuid.UUID, workout *model.Workout) (map[uuid.UUID]*model.PersonalRecord, error) {
+	best := make(map[uuid.UUID]*model.PersonalRecord)
+	for _, exercise := range workout.Exercises {
+		for _, set := range exercise.Sets {
+			if set.WeightKg == nil || *set.WeightKg <= 0 {
+				continue
+			}
+			weight, err := util.EstimateOneRepMax(*set.WeightKg, set.Reps)
+			if err != nil {
+				return nil, err
+			}
+			// A valid working set can produce an estimate outside the PR column's range.
+			if weight >= model.MaxPersonalRecordWeightKg {
+				continue
+			}
+			current := best[exercise.ExerciseID]
+			if current != nil && (current.WeightKg > weight || current.WeightKg == weight && (!current.IsCalculated || set.Reps > 1)) {
+				continue
+			}
+			best[exercise.ExerciseID] = &model.PersonalRecord{UserID: userID, ExerciseID: exercise.ExerciseID,
+				WeightKg: weight, IsCalculated: set.Reps > 1, SourceWorkoutSetID: &set.ID}
+		}
+	}
+	return best, nil
+}
+
 // newRecord builds a record; with reps the weight is a working set and the record is estimated by a formula
 func newRecord(userID uuid.UUID, input *model.CreatePersonalRecordInput) (*model.PersonalRecord, error) {
 	record := &model.PersonalRecord{
@@ -116,25 +180,6 @@ func newRecord(userID uuid.UUID, input *model.CreatePersonalRecordInput) (*model
 		return nil, err
 	}
 	return record, nil
-}
-
-// run fn in a transaction, repositories take it from ctx
-func (s *PersonalRecordService) inTx(ctx context.Context, fn func(ctx context.Context) error) error {
-	tx, err := s.tx.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed begin transaction: %w", err)
-	}
-	defer model.CheckRollback(ctx, tx)
-	ctx = context.WithValue(ctx, model.ContextKeyTx, tx)
-
-	if err = fn(ctx); err != nil {
-		return err
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed commit transaction: %w", err)
-	}
-	return nil
 }
 
 // GetLatestRecords returns the current record of the user in each exercise

@@ -33,7 +33,7 @@ func New(ctx context.Context, cfg *config.Config) *App {
 	if err != nil {
 		log.Panicf("failed connect to minio: %s", err.Error())
 	}
-	services := service.NewServices(cfg, *repositories, mailer, db, storage)
+	services := service.NewServices(cfg, *repositories, mailer, repository.NewTransactor(db), storage)
 
 	httpServer := rest.NewServer(cfg, *services)
 

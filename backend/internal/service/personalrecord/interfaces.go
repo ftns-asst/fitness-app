@@ -8,6 +8,7 @@ import (
 )
 
 type PersonalRecordRepo interface {
+	LockUserRecords(ctx context.Context, userID uuid.UUID) error
 	CreateRecord(ctx context.Context, entry *model.PersonalRecord) (*model.PersonalRecord, error)
 	GetLatestRecords(ctx context.Context, userID uuid.UUID, exerciseIDs []uuid.UUID) ([]*model.PersonalRecord, error)
 	GetRecordHistory(ctx context.Context, userID uuid.UUID, exerciseID uuid.UUID) ([]*model.PersonalRecord, error)

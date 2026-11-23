@@ -239,6 +239,8 @@ definitions:
       is_calculated:
         description: estimated by a formula, not lifted for one rep
         type: boolean
+      source_workout_set_id:
+        type: string
       weight_kg:
         type: number
     type: object
@@ -432,6 +434,28 @@ definitions:
         $ref: '#/definitions/Tokens'
       user:
         $ref: '#/definitions/User'
+    type: object
+  SaveWorkoutRequestBody:
+    properties:
+      completed_at:
+        type: string
+      day_of_week:
+        type: integer
+      exercises:
+        items:
+          $ref: '#/definitions/WorkoutExerciseInput'
+        minItems: 1
+        type: array
+      program_id:
+        type: string
+      started_at:
+        type: string
+      week_number:
+        type: integer
+    required:
+    - completed_at
+    - exercises
+    - started_at
     type: object
   SignUpRequestBody:
     properties:
@@ -631,6 +655,102 @@ definitions:
     properties:
       reset_token:
         type: string
+    type: object
+  Workout:
+    properties:
+      completed_at:
+        type: string
+      day_of_week:
+        type: integer
+      exercises:
+        items:
+          $ref: '#/definitions/WorkoutExercise'
+        type: array
+      id:
+        type: string
+      program_id:
+        type: string
+      started_at:
+        type: string
+      week_number:
+        type: integer
+    type: object
+  WorkoutExercise:
+    properties:
+      exercise_id:
+        type: string
+      exercise_name:
+        type: string
+      id:
+        type: string
+      sets:
+        items:
+          $ref: '#/definitions/WorkoutSet'
+        type: array
+      target_reps:
+        type: integer
+      target_sets:
+        type: integer
+      target_weight_kg:
+        type: number
+    required:
+    - exercise_id
+    type: object
+  WorkoutExerciseInput:
+    properties:
+      exercise_id:
+        type: string
+      sets:
+        items:
+          $ref: '#/definitions/WorkoutSetInput'
+        minItems: 1
+        type: array
+      target_reps:
+        type: integer
+      target_sets:
+        type: integer
+      target_weight_kg:
+        type: number
+    required:
+    - exercise_id
+    - sets
+    type: object
+  WorkoutSet:
+    properties:
+      id:
+        type: string
+      reps:
+        type: integer
+      set_number:
+        type: integer
+      weight_kg:
+        type: number
+    required:
+    - reps
+    type: object
+  WorkoutSetInput:
+    properties:
+      reps:
+        type: integer
+      weight_kg:
+        type: number
+    required:
+    - reps
+    type: object
+  WorkoutSummary:
+    properties:
+      completed_at:
+        type: string
+      day_of_week:
+        type: integer
+      id:
+        type: string
+      program_id:
+        type: string
+      started_at:
+        type: string
+      week_number:
+        type: integer
     type: object
   WorkoutTemplate:
     properties:
@@ -2088,4 +2208,145 @@ paths:
       summary: Update user profile
       tags:
       - users
+  /workouts:
+    get:
+      operationId: listWorkouts
+      parameters:
+      - description: filter by program id
+        format: uuid
+        in: query
+        name: program_id
+        type: string
+      - default: 20
+        description: page size
+        in: query
+        maximum: 1000
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/WorkoutSummary'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List current user's workouts, newest completion first
+      tags:
+      - workouts
+  /workouts/{id}:
+    get:
+      operationId: getWorkout
+      parameters:
+      - description: workout id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Workout'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a completed workout with exercises and sets
+      tags:
+      - workouts
+    put:
+      consumes:
+      - application/json
+      description: Saves all sets and new personal records atomically. Retrying the
+        same workout returns the existing result. Changing its contents returns 409.
+      operationId: saveWorkout
+      parameters:
+      - description: client-generated workout id
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: completed exercises and sets in order
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/SaveWorkoutRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Already saved
+          schema:
+            $ref: '#/definitions/Workout'
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/Workout'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Save a completed workout
+      tags:
+      - workouts
 swagger: "2.0"

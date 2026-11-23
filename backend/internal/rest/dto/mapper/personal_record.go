@@ -10,12 +10,13 @@ func ConvertPersonalRecordToDTO(m *model.PersonalRecord) *dto.PersonalRecordDTO 
 		return nil
 	}
 	return &dto.PersonalRecordDTO{
-		ID:           m.ID,
-		ExerciseID:   m.ExerciseID,
-		ExerciseName: m.ExerciseName,
-		WeightKg:     m.WeightKg,
-		IsCalculated: m.IsCalculated,
-		CreatedAt:    m.CreatedAt,
+		ID:                 m.ID,
+		ExerciseID:         m.ExerciseID,
+		ExerciseName:       m.ExerciseName,
+		WeightKg:           m.WeightKg,
+		IsCalculated:       m.IsCalculated,
+		SourceWorkoutSetID: m.SourceWorkoutSetID,
+		CreatedAt:          m.CreatedAt,
 	}
 }
 

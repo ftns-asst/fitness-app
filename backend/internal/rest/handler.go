@@ -22,6 +22,7 @@ type Handlers struct {
 	exercise       *ExerciseHandler
 	program        *ProgramHandler
 	personalRecord *PersonalRecordHandler
+	workout        *WorkoutHandler
 }
 
 func newHandlers(cfg *config.Config, services *service.Services) *Handlers {
@@ -32,6 +33,7 @@ func newHandlers(cfg *config.Config, services *service.Services) *Handlers {
 		exercise:       NewExerciseHandler(services.Exercise()),
 		program:        NewProgramHandler(services.Program()),
 		personalRecord: NewPersonalRecordHandler(services.PersonalRecord()),
+		workout:        NewWorkoutHandler(services.Workout()),
 	}
 }
 
@@ -45,6 +47,7 @@ func (h *Handlers) RegisterRoutes(r *gin.RouterGroup) {
 	h.exercise.RegisterRoutes(r, authMid, optionalAuthMid, adminAuthMid)
 	h.program.RegisterRoutes(r, authMid)
 	h.personalRecord.RegisterRoutes(r, authMid)
+	h.workout.RegisterRoutes(r, authMid)
 }
 
 type ErrorResponse struct {
@@ -77,6 +80,8 @@ func handleError(c *gin.Context, err error) {
 		responseCode = http.StatusForbidden
 	case errors.Is(serr.Err, model.ErrNotFound):
 		responseCode = http.StatusNotFound
+	case errors.Is(serr.Err, model.ErrConflict):
+		responseCode = http.StatusConflict
 	case errors.Is(serr.Err, model.ErrServiceUnavailable):
 		responseCode = http.StatusServiceUnavailable
 	}

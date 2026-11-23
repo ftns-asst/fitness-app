@@ -10,6 +10,7 @@ import (
 	"ftns-asst/internal/service/personalrecord"
 	"ftns-asst/internal/service/program"
 	"ftns-asst/internal/service/users"
+	"ftns-asst/internal/service/workout"
 )
 
 // all services
@@ -22,6 +23,7 @@ type Services struct {
 	fileService           *file_service.FileService
 	programService        *program.ProgramService
 	personalRecordService *personalrecord.PersonalRecordService
+	workoutService        *workout.WorkoutService
 }
 
 func NewServices(cfg *config.Config, repositories repository.Repositories, mailer model.Mailer, transactor model.Transactor, storage file_service.FileStorage) *Services {
@@ -38,6 +40,7 @@ func NewServices(cfg *config.Config, repositories repository.Repositories, maile
 		fileService:           file,
 		programService:        program,
 		personalRecordService: personalRecord,
+		workoutService:        workout.NewService(repositories.Workout(), personalRecord, transactor),
 	}
 }
 
@@ -63,4 +66,8 @@ func (s *Services) Program() *program.ProgramService {
 
 func (s *Services) PersonalRecord() *personalrecord.PersonalRecordService {
 	return s.personalRecordService
+}
+
+func (s *Services) Workout() *workout.WorkoutService {
+	return s.workoutService
 }

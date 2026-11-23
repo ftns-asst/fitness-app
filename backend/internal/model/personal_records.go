@@ -15,13 +15,14 @@ const (
 // PersonalRecord is a personal record (PR) of the user in the exercise, new entries are added and old ones are kept,
 // the latest entry is the current record
 type PersonalRecord struct {
-	ID           uuid.UUID `db:"id"`
-	UserID       uuid.UUID `db:"user_id"`
-	ExerciseID   uuid.UUID `db:"exercise_id"`
-	ExerciseName string    `db:"exercise_name"`
-	WeightKg     float64   `db:"weight_kg"`
-	IsCalculated bool      `db:"is_calculated"` // estimated by a formula, not lifted for one rep
-	CreatedAt    time.Time `db:"created_at"`
+	ID                 uuid.UUID  `db:"id"`
+	UserID             uuid.UUID  `db:"user_id"`
+	ExerciseID         uuid.UUID  `db:"exercise_id"`
+	ExerciseName       string     `db:"exercise_name"`
+	WeightKg           float64    `db:"weight_kg"`
+	IsCalculated       bool       `db:"is_calculated"` // estimated by a formula, not lifted for one rep
+	SourceWorkoutSetID *uuid.UUID `db:"source_workout_set_id"`
+	CreatedAt          time.Time  `db:"created_at"`
 }
 
 // CreatePersonalRecordInput is a record to add; with Reps the weight is a working set and the max is estimated by a formula
