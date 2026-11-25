@@ -212,6 +212,63 @@ bool Avm_Workout::startOrResume(const QString &in_user_id, const QString &in_pro
 	return true;
 }
 //-------------------------------------------------------------------------------------------------------------
+bool Avm_Workout::startSolo(const QString &in_user_id, const QString &in_date, const QVariantList &in_plan)
+{
+	if (Logger_Instance == 0 || Program_Repository_Instance == 0 || QUuid(in_user_id).isNull() || in_plan.isEmpty())
+		return Fail("Проверьте упражнение, вес и число подходов");
+
+	SWorkout_Session pending;
+	if (!Find_Pending(in_user_id, pending))
+		return false;
+	if (!pending.ID.isEmpty())
+		return startOrResume(in_user_id, QString(), in_date);
+
+	QVector<QString> exercise_ids;
+	QVariantList plan;
+	for (const QVariant &value : in_plan)
+	{
+		QVariantMap row = value.toMap();
+		const QString exercise_id = row.value("exerciseId").toString();
+		const int sets = row.value("sets").toInt();
+		const int reps_min = row.value("repsMin").toInt();
+		const int reps_max = row.value("repsMax").toInt();
+		const double weight = row.value("weightKg").toDouble();
+		if (QUuid(exercise_id).isNull() || exercise_ids.contains(exercise_id) || sets < 1 || sets > 20 ||
+		    reps_min < 1 || reps_max < reps_min || reps_max > 10000 || !qIsFinite(weight) || weight < 0 ||
+		    weight > 1000)
+			return Fail("Проверьте упражнение, вес и число подходов");
+		exercise_ids.append(exercise_id);
+		row.insert("id", exercise_id);
+		row.insert("restSeconds", 90);
+		row.insert("hasWeight", true);
+		plan.append(row);
+	}
+	QHash<QString, QString> titles;
+	if (!Program_Repository_Instance->Load_Exercise_Titles(exercise_ids, titles) ||
+	    titles.size() != exercise_ids.size())
+		return Fail("Упражнение недоступно на устройстве");
+	if (!Logger_Instance->Start_Session(in_user_id, in_date, QString(), QString(), QString(), Session))
+		return Fail(Logger_Instance->Get_Last_Error());
+
+	Error_State.Clear_Last_Error();
+	User_Id = in_user_id;
+	Title_Text = tr("Свободная тренировка");
+	for (QVariant &value : plan)
+	{
+		QVariantMap row = value.toMap();
+		row.insert("title", titles.value(row.value("exerciseId").toString()));
+		value = row;
+	}
+	Plan = plan;
+	Rest_Until_Ms = 0;
+	if (!Save_Runtime() || !Load_Facts())
+		return false;
+	Has_Pending = true;
+	emit changed();
+	emit clockChanged();
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Workout::Load_Facts()
 {
 	if (!Workout_Repository_Instance->Load_Sets({Session.ID}, Sets))

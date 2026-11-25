@@ -30,6 +30,8 @@ add_library(TrainingAppCore STATIC
     src/Presentation/Profile_VM.cpp
     src/Presentation/Default_Programs_VM.h
     src/Presentation/Default_Programs_VM.cpp
+    src/Presentation/Server_Programs_VM.h
+    src/Presentation/Server_Programs_VM.cpp
     src/Data/Users/Profile_Sync.h
     src/Data/Users/Profile_Sync.cpp
     src/Domain/Diary_Calculator.h
@@ -105,6 +107,8 @@ add_library(TrainingAppCore STATIC
     src/Data/Program/Day_Note_Repository.cpp
     src/Data/Program/Workout_Repository.h
     src/Data/Program/Workout_Repository.cpp
+    src/Data/Program/Workout_Sync.h
+    src/Data/Program/Workout_Sync.cpp
     src/Data/Program/Program_Repository.h
     src/Data/Program/Program_Repository.cpp
     src/Data/Program/Rule_Repository.h
@@ -209,6 +213,7 @@ qt_add_qml_module(appTrainingAppClient
         qml/Components/StatisticsPlot.qml
         qml/Components/StatisticValue.qml
         qml/Pages/Program/WorkoutPage.qml
+        qml/Pages/Program/SoloWorkoutHistoryPage.qml
         qml/Pages/Program/StrengthPage.qml
         qml/Pages/Diary/DiaryPage.qml
     qml/Pages/Program/ProgramOverviewPage.qml
@@ -309,6 +314,8 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Pages/Programs/ProgramsPage.qml
         qml/Pages/Programs/DefaultProgramsCatalog.qml
         qml/Pages/Programs/DefaultProgramDetailPage.qml
+        qml/Pages/Programs/ProgramWeekdayPicker.qml
+        qml/Pages/Programs/ServerProgramsPage.qml
         qml/Pages/Exercises/ExercisesPage.qml
     qml/Pages/Exercises/ExercisesEditorPage.qml
     qml/Pages/Exercises/ExerciseDetailPage.qml

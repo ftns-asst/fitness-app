@@ -23,6 +23,7 @@ PageScaffold {
     signal programRequested
     signal diaryRequested
     signal workoutRequested(string programId)
+    signal soloWorkoutsRequested
     signal statisticsRequested(string programId)
 
     // Строка упражнения на главном — самостоятельный объект: тап открывает
@@ -137,6 +138,15 @@ PageScaffold {
         visible: page.hasModel && !page.viewModel.hasProgram && typeof WorkoutVM !== "undefined" && WorkoutVM !== null && WorkoutVM.hasPending
         text: qsTr("Продолжить тренировку")
         onClicked: page.workoutRequested("")
+    }
+    AppButton {
+        objectName: "soloWorkoutsButton"
+        width: parent.width
+        visible: typeof WorkoutSyncVM !== "undefined" && WorkoutSyncVM !== null && WorkoutSyncVM.userId !== ""
+        text: qsTr("Свободные тренировки")
+        variant: AppButton.Secondary
+
+        onClicked: page.soloWorkoutsRequested()
     }
     // — Hero: программа, день, срок и главное действие —
     // Карточки-обёртки нет: фон под шапкой и первым блоком — переход акцента в

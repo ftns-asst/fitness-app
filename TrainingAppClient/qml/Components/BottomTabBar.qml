@@ -92,11 +92,11 @@ Item {
 
                         AppIcon {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            iconColor: tabButton.active ? Theme.accent : Theme.textMuted
+                            iconColor: tabButton.active ? Theme.accentInk : Theme.textMuted
                             name: bar.iconNames[index]
                         }
                         Label {
-                            color: tabButton.active ? Theme.accent : Theme.textMuted
+                            color: tabButton.active ? Theme.accentInk : Theme.textMuted
                             elide: Text.ElideRight
                             font: Typography.tabLabel
                             horizontalAlignment: Text.AlignHCenter

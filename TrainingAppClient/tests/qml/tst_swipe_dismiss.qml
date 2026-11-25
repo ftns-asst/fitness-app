@@ -17,10 +17,11 @@ TestCase {
             property alias popup: popup
             property alias handle: grip
             property alias input: input
+            property alias scroll: scroll
             SwipePopup {
                 id: popup
                 width: 340
-                height: 400
+                collapsedHeight: 400
                 restingY: 150
                 dragHandle: grip
                 modal: true
@@ -35,6 +36,7 @@ TestCase {
                         Layout.fillWidth: true
                     }
                     Flickable {
+                        id: scroll
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         contentHeight: 1000
@@ -58,13 +60,21 @@ TestCase {
         return window;
     }
     function dragHandle(window, dx, dy) {
+        const initialY = window.popup.y;
+        const initialHeight = window.popup.height;
         const start = window.handle.mapToItem(window.contentItem, window.handle.width / 2, window.handle.height / 2);
         mousePress(window.contentItem, start.x, start.y);
         wait(150);
         mouseMove(window.contentItem, start.x + dx / 2, start.y + dy / 2, 30);
         mouseMove(window.contentItem, start.x + dx, start.y + dy, 30);
         if (dy > 30)
-            verify(window.popup.y > 150, "окно должно следовать за пальцем");
+            verify(window.popup.y > initialY, "окно должно следовать за пальцем");
+        if (dy < -30) {
+            verify(window.popup.y < initialY);
+            verify(window.popup.y >= 0);
+            if (window.popup.expandsOnDrag)
+                verify(window.popup.height > initialHeight);
+        }
         mouseRelease(window.contentItem, start.x + dx, start.y + dy);
     }
     function test_downwardDragClosesAndReopeningKeepsInput() {
@@ -92,6 +102,23 @@ TestCase {
         compare(window.handle.offset, 0);
         dragHandle(window, 0, -100);
         verify(window.popup.visible);
-        compare(window.handle.offset, 0);
+        tryCompare(window.handle, "offset", 0);
+        compare(window.popup.y, 150);
+    }
+    function test_dragUpExpandsViewportAndDownCanCollapseThenDismiss() {
+        const window = openWindow();
+        window.popup.expandsOnDrag = true;
+        const initialViewport = window.scroll.height;
+        const bottom = window.popup.y + window.popup.height;
+        dragHandle(window, 0, -100);
+        tryCompare(window.handle, "expanded", true);
+        tryCompare(window.popup, "height", 542);
+        verify(window.scroll.height > initialViewport);
+        compare(window.popup.y + window.popup.height, bottom);
+        dragHandle(window, 0, 142);
+        tryCompare(window.popup, "height", 400);
+        verify(window.popup.visible);
+        dragHandle(window, 0, 130);
+        tryCompare(window.popup, "visible", false);
     }
 }

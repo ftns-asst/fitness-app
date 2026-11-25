@@ -70,6 +70,7 @@ SwipePopup {
     property double pickedWeight: 40
     property int pickedRepsMin: 5
     property int pickedRepsMax: 8
+    property string confirmText: qsTr("Добавить в день")
 
     signal picked(string exerciseId, string title, real weightKg, int sets, int repsMin, int repsMax)
 
@@ -83,8 +84,9 @@ SwipePopup {
     // Тест-хук: Popup ищется по objectName (id снаружи не виден).
     objectName: "exercisePickerPopup"
     width: picker.parent !== null ? Math.min(picker.parent.width - Spacing.safeGap * 2, 560) : 360
-    height: picker.parent !== null ? Math.min(picker.parent.height - Spacing.safeGap * 2, picker.expandedIndex >= 0 ? 500 : 740) : 480
-    restingY: picker.parent !== null ? picker.parent.height - height - Spacing.safeGap : 0
+    expandsOnDrag: true
+    collapsedHeight: picker.parent !== null ? Math.min(picker.parent.height * 0.78, picker.expandedIndex >= 0 ? 500 : 740) : 480
+    restingY: picker.parent !== null ? picker.parent.height - collapsedHeight - Spacing.safeGap : 0
     Behavior on height {
         NumberAnimation {
             duration: Theme.pageTransitionDuration
@@ -402,7 +404,7 @@ SwipePopup {
             objectName: "exercisePickerAdd"
             enabled: addPanel.hasSelection && picker.pickedRepsMin > 0 && picker.pickedRepsMax >= picker.pickedRepsMin
             onClicked: picker.picked(addPanel.selectedId, addPanel.selectedTitle, picker.pickedWeight, picker.pickedSets, picker.pickedRepsMin, picker.pickedRepsMax)
-            text: qsTr("Добавить в день")
+            text: picker.confirmText
             variant: AppButton.Primary
         }
         // — Загрузка первой страницы —

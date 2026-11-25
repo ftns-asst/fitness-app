@@ -35,8 +35,8 @@ Item {
     // Отложенная навигация: push во время перехода отбрасывается guard'ом
     // pushPage, поэтому восстановление экрана после pop живёт в очереди и
     // разбирается в onBusyChanged стека.
-    property var pendingRestoreChain: null
     property var pendingComponentEntry: null
+    property int pendingTabIndex: -1
     // Глубина стека деталей: тесты навигации смотрят сюда, потому что идентификатор
     // StackView из оболочки наружу недоступен.
     readonly property int pushedDepth: pages.depth
@@ -107,20 +107,19 @@ Item {
         return tab !== null && tab !== undefined && tab.pageFlickable !== undefined ? tab.pageFlickable : null;
     }
 
-    function showTab(index) {
-        // Переход уже идёт (пуш/поп с анимацией): второй тап в этот момент
-        // не переключает вкладку, а игнорируется — иначе вкладка менялась бы
-        // «под» pushed-экраном, и назад возвращал не туда, откуда пришли.
-        if (pages.busy)
+    function showTab(index, fromSwipe = false) {
+        if (index < 0 || index >= tabBar.titles.length)
             return;
 
-        const sameTab = tabBar.currentIndex === index;
-        const chain = sameTab === false && shell.tabHistory[index] !== undefined ? shell.tabHistory[index] : [];
+        if (pages.busy) {
+            shell.pendingTabIndex = index;
+            return;
+        }
 
-        if (pages.depth > 1)
-            pages.pop(null);
-
-        if (sameTab) {
+        shell.pendingComponentEntry = null;
+        if (tabBar.currentIndex === index) {
+            if (pages.depth > 1)
+                pages.pop(null);
             // Повторный тап по своей вкладке — к её корню, как в системных
             // таб-барах: открытый поток пользователь закрыл сам, и помнить
             // его больше не нужно.
@@ -129,9 +128,17 @@ Item {
             return;
         }
 
+        const chain = shell.tabHistory[index] || [];
+        if (pages.depth > 1)
+            pages.pop(null, StackView.Immediate);
+
+        const rootTabs = pages.get(0);
         tabBar.currentIndex = index;
-        shell.pendingRestoreChain = chain.slice();
-        shell.flushPendingNavigation();
+        if (!fromSwipe || chain.length > 0) {
+            rootTabs.alignToTab(index);
+            shell.restoreChain(chain);
+            tabFade.restart();
+        }
     }
 
     // Запись экрана в историю вкладки — точка, через которую проходят все
@@ -231,7 +238,7 @@ Item {
         }
 
         if (components.length > 0)
-            pages.push(components);
+            pages.push(components, StackView.Immediate);
     }
 
     // Разбор отложенной навигации, когда стек снова свободен: push во время
@@ -241,12 +248,10 @@ Item {
         if (pages.busy)
             return;
 
-        if (shell.pendingRestoreChain !== null) {
-            const chain = shell.pendingRestoreChain;
-
-            shell.pendingRestoreChain = null;
-            shell.restoreChain(chain);
-
+        if (shell.pendingTabIndex !== -1) {
+            const index = shell.pendingTabIndex;
+            shell.pendingTabIndex = -1;
+            shell.showTab(index);
             return;
         }
 
@@ -288,6 +293,8 @@ Item {
     property string exerciseDetailId: ""
 
     function openExerciseDetail(exerciseId) {
+        if (pages.busy)
+            return;
         shell.exerciseDetailId = exerciseId;
         // Идентификатор живёт в exerciseId, а не в id: restoreChain трактует
         // id как идентификатор программы, чужой UUID сломал бы восстановление.
@@ -303,6 +310,8 @@ Item {
     // В историю вкладки редактор не пишется — как и «+ Своё»: восстановление
     // возвращает к карточке, а не внутрь формы.
     function openExerciseEditor(exerciseId) {
+        if (pages.busy)
+            return;
         if (typeof ExercisesEditorVM !== "undefined" && ExercisesEditorVM !== null) {
             ExercisesEditorVM.reset();
 
@@ -329,39 +338,49 @@ Item {
         clip: true
 
         pushEnter: Transition {
-            NumberAnimation {
-                property: "x"
-                from: pages.width
-                to: 0
-                duration: Theme.pageTransitionDuration
-                easing.type: Easing.OutCubic
+            ParallelAnimation {
+                NumberAnimation {
+                    property: "x"
+                    from: 24
+                    to: 0
+                    duration: Theme.pageTransitionDuration
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    property: "opacity"
+                    from: 0
+                    to: 1
+                    duration: Theme.pageTransitionDuration
+                    easing.type: Easing.OutCubic
+                }
             }
         }
         pushExit: Transition {
-            NumberAnimation {
-                property: "x"
-                from: 0
-                to: -pages.width * 0.25
+            PauseAnimation {
                 duration: Theme.pageTransitionDuration
-                easing.type: Easing.OutCubic
             }
         }
         popEnter: Transition {
-            NumberAnimation {
-                property: "x"
-                from: -pages.width * 0.25
-                to: 0
+            PauseAnimation {
                 duration: Theme.pageTransitionDuration
-                easing.type: Easing.OutCubic
             }
         }
         popExit: Transition {
-            NumberAnimation {
-                property: "x"
-                from: 0
-                to: pages.width
-                duration: Theme.pageTransitionDuration
-                easing.type: Easing.OutCubic
+            ParallelAnimation {
+                NumberAnimation {
+                    property: "x"
+                    from: 0
+                    to: 24
+                    duration: Theme.pageTransitionDuration
+                    easing.type: Easing.InOutCubic
+                }
+                NumberAnimation {
+                    property: "opacity"
+                    from: 1
+                    to: 0
+                    duration: Theme.pageTransitionDuration
+                    easing.type: Easing.InOutCubic
+                }
             }
         }
         replaceEnter: Transition {
@@ -374,12 +393,8 @@ Item {
             }
         }
         replaceExit: Transition {
-            NumberAnimation {
-                property: "opacity"
-                from: 1
-                to: 0
+            PauseAnimation {
                 duration: Theme.pageTransitionDuration
-                easing.type: Easing.OutCubic
             }
         }
 
@@ -387,6 +402,16 @@ Item {
         // навигации разбирается здесь, потому что pushPage во время busy
         // отбрасывает команду молча.
         onBusyChanged: shell.flushPendingNavigation()
+    }
+    NumberAnimation {
+        id: tabFade
+
+        target: pages
+        property: "opacity"
+        from: 0.86
+        to: 1
+        duration: Theme.selectionDuration
+        easing.type: Easing.OutCubic
     }
     EdgeBackGesture {
         objectName: "navigationBackEdge"
@@ -451,9 +476,16 @@ Item {
             interactive: pages.depth === 1 && !pages.busy
             currentIndex: tabBar.currentIndex
 
+            Component.onCompleted: contentItem.highlightMoveDuration = 0
+
+            function alignToTab(index) {
+                contentItem.cancelFlick();
+                contentItem.positionViewAtIndex(index, ListView.Beginning);
+            }
+
             onCurrentIndexChanged: {
                 if (currentIndex >= 0 && currentIndex < count && currentIndex !== tabBar.currentIndex)
-                    shell.showTab(currentIndex);
+                    shell.showTab(currentIndex, true);
             }
 
             TodayPage {
@@ -471,6 +503,7 @@ Item {
                 onDiaryRequested: shell.openDiary()
                 onStatisticsRequested: programId => shell.openProgramStats(programId)
                 onWorkoutRequested: programId => shell.openWorkout(programId)
+                onSoloWorkoutsRequested: shell.pushPage(soloWorkoutsComponent)
                 onProfileActionRequested: shell.openProfile()
 
                 // Тап по строке упражнения — его обзор: тот же вход, что и из
@@ -507,6 +540,7 @@ Item {
                 onOpenRequested: programId => shell.openProgramOverview(programId)
                 onProfileActionRequested: shell.openProfile()
                 onStatsRequested: programId => shell.openProgramStats(programId)
+                onServerDraftsRequested: shell.pushPage(serverProgramsComponent)
             }
             ExercisesPage {
                 pageActive: SwipeView.isCurrentItem && pages.depth === 1
@@ -531,6 +565,8 @@ Item {
         shell.showTab(2);
     }
     function openProgramOverview(id) {
+        if (pages.busy)
+            return;
         shell.programId = id === undefined ? "" : id;
         shell.noteTabScreen({
             name: "program-overview",
@@ -540,6 +576,8 @@ Item {
     }
 
     function openProgramEditor(id) {
+        if (pages.busy)
+            return;
         shell.programId = id === undefined ? "" : id;
         shell.noteTabScreen({
             name: "program-edit",
@@ -549,6 +587,8 @@ Item {
     }
 
     function openProgramRules(id) {
+        if (pages.busy)
+            return;
         shell.programId = id === undefined ? "" : id;
         shell.noteTabScreen({
             name: "program-rules",
@@ -560,6 +600,8 @@ Item {
     // Экран выбора правил открывается из редактора: он меняет тот же черновик
     // правил, поэтому идёт поверх, а не вместо него.
     function openProgramRulesPicker() {
+        if (pages.busy)
+            return;
         shell.noteTabScreen({
             name: "program-rules-picker"
         });
@@ -567,7 +609,7 @@ Item {
     }
 
     function openWorkout(id) {
-        if (typeof WorkoutVM === "undefined" || !WorkoutVM)
+        if (pages.busy || typeof WorkoutVM === "undefined" || !WorkoutVM)
             return;
         const userId = typeof AppContext !== "undefined" ? AppContext.currentUserId : "";
         const date = shell.todayViewModel ? shell.todayViewModel.today : Qt.formatDate(new Date(), "yyyy-MM-dd");
@@ -578,6 +620,8 @@ Item {
         shell.pushPage(workoutComponent);
     }
     function openStrength(id) {
+        if (pages.busy)
+            return;
         shell.programId = id || "";
         shell.noteTabScreen({
             name: "strength",
@@ -586,6 +630,8 @@ Item {
         shell.pushPage(strengthComponent);
     }
     function openProgramStats(id) {
+        if (pages.busy)
+            return;
         shell.programId = id === undefined ? "" : id;
         shell.noteTabScreen({
             name: "program-stats",
@@ -605,6 +651,8 @@ Item {
     // Профиль — настройки, поэтому он открывается поверх вкладок кнопкой в
     // шапке, а не занимает одно из четырёх постоянных назначений.
     function openProfile() {
+        if (pages.busy)
+            return;
         shell.noteTabScreen({
             name: "profile"
         });
@@ -631,6 +679,8 @@ Item {
     // вместо него — «назад» возвращает в настройку. Флаг applyToProgram
     // включает на экране расчёта кнопку «Создать правила в программе».
     function openMacroCalculatorForProgram() {
+        if (pages.busy)
+            return;
         shell.noteTabScreen({
             name: "macro-calculator"
         });
@@ -645,6 +695,8 @@ Item {
     // экран» фиксируется в момент фактического открытия, а не отброшенной
     // попытки.
     function openAfterPop(component, entry) {
+        if (pages.busy)
+            return;
         if (pages.depth > 1) {
             pages.pop(null);
             // Поток вкладки закрыт (инструмент открыли с корня): прежняя
@@ -787,6 +839,8 @@ Item {
 
     // Открытый экран дня недели.
     function openProgramDay(weekday, kind) {
+        if (pages.busy)
+            return;
         programDayWeekday = weekday;
         programDayKind = kind;
         shell.noteTabScreen({
@@ -857,6 +911,21 @@ Item {
             topInset: shell.topInset
 
             onBackRequested: shell.goBack()
+            onDraftCreated: programId => shell.pushPage(serverProgramsComponent, {
+                    initialProgramId: programId
+                })
+            onLoginRequested: shell.authPageRequested(-1)
+        }
+    }
+    Component {
+        id: serverProgramsComponent
+
+        ServerProgramsPage {
+            bottomInset: shell.pageBottomInset
+            topInset: shell.topInset
+
+            onBackRequested: shell.goBack()
+            onLoginRequested: shell.authPageRequested(-1)
         }
     }
     Component {
@@ -985,6 +1054,18 @@ Item {
             topInset: shell.topInset
 
             onBackRequested: shell.goBack()
+        }
+    }
+    Component {
+        id: soloWorkoutsComponent
+        SoloWorkoutHistoryPage {
+            bottomInset: shell.pageBottomInset
+            topInset: shell.topInset
+            onBackRequested: shell.goBack()
+            onWorkoutOpened: shell.pushPage(workoutComponent, {
+                viewModel: SoloWorkoutVM,
+                savedInDiary: false
+            })
         }
     }
     Component {

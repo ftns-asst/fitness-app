@@ -6,10 +6,29 @@ import TrainingAppClient
 Popup {
     id: sheet
     required property SwipeDismissHandle dragHandle
-    property real restingY: parent !== null ? (parent.height - height) / 2 : 0
+    property real collapsedHeight: implicitHeight
+    property bool expandsOnDrag: false
+    property real maximumExpandedHeight: parent !== null ? parent.height : collapsedHeight
+    property real restingY: parent !== null ? (parent.height - collapsedHeight) / 2 : 0
+    readonly property real availableUpwardRoom: Math.max(0, restingY - Math.max(Spacing.safeGap, topMargin))
+    readonly property real upwardRoom: expandsOnDrag ? Math.max(0, Math.min(availableUpwardRoom, maximumExpandedHeight - collapsedHeight)) : Math.min(96, availableUpwardRoom)
+    readonly property real dragOffset: dragHandle !== null ? Math.max(-upwardRoom, dragHandle.offset) : 0
     readonly property real travel: Math.max(height, Overlay.overlay !== null ? Overlay.overlay.height : 0)
     x: parent !== null ? (parent.width - width) / 2 : 0
-    y: restingY + (dragHandle !== null ? dragHandle.offset : 0)
+    y: restingY + dragOffset
+    height: collapsedHeight - (expandsOnDrag ? Math.min(0, dragOffset) : 0)
+    Binding {
+        target: sheet.dragHandle
+        property: "upwardLimit"
+        value: sheet.upwardRoom
+        when: sheet.dragHandle !== null
+    }
+    Binding {
+        target: sheet.dragHandle
+        property: "expandable"
+        value: sheet.expandsOnDrag
+        when: sheet.dragHandle !== null
+    }
     onAboutToShow: {
         if (dragHandle !== null)
             dragHandle.reset();
@@ -40,6 +59,6 @@ Popup {
         }
     }
     Overlay.modal: Rectangle {
-        color: Qt.rgba(0, 0, 0, 0.4 * Math.max(0, 1 - (sheet.dragHandle !== null ? sheet.dragHandle.offset : 0) / Math.max(1, sheet.travel)))
+        color: Qt.rgba(0, 0, 0, 0.4 * (1 - Math.min(1, Math.max(0, sheet.dragHandle !== null ? sheet.dragHandle.offset : 0) / Math.max(1, sheet.travel))))
     }
 }

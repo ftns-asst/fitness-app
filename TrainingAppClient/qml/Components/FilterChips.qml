@@ -14,11 +14,29 @@ Item {
     // по currentIndex. Нажатие по-прежнему приходит сигналом selected(index),
     // а набор ведёт владелец.
     property var selectedIndices: null
+    property bool keepCurrentVisible: false
+    property bool fadeEdge: true
+    property real maximumItemWidth: 0
 
     signal selected(int index)
 
     implicitHeight: Theme.touchMin
     implicitWidth: 320
+
+    onCurrentIndexChanged: {
+        if (keepCurrentVisible)
+            Qt.callLater(revealCurrent);
+    }
+
+    function revealCurrent() {
+        const item = delegates.itemAt(currentIndex);
+        if (!item)
+            return;
+        if (item.x < chipsFlick.contentX)
+            chipsFlick.contentX = item.x;
+        else if (item.x + item.width > chipsFlick.contentX + chipsFlick.width)
+            chipsFlick.contentX = item.x + item.width - chipsFlick.width;
+    }
 
     Flickable {
         id: chipsFlick
@@ -28,6 +46,7 @@ Item {
         clip: true
         contentHeight: height
         contentWidth: chipsRow.width + Spacing.screenPadding
+        flickableDirection: Flickable.HorizontalFlick
 
         Row {
             id: chipsRow
@@ -35,6 +54,7 @@ Item {
             spacing: Spacing.itemGap
 
             Repeater {
+                id: delegates
                 model: chips.items
 
                 delegate: Button {
@@ -45,7 +65,8 @@ Item {
                     // Hit-area — Theme.touchMin, визуальная pill остаётся 36 dp.
                     hoverEnabled: !Theme.touchPlatform
                     height: chips.height
-                    width: chipLabel.implicitWidth + Spacing.screenPadding * 2
+                    width: chips.maximumItemWidth > 0 ? Math.min(chips.maximumItemWidth, chipLabel.implicitWidth + Spacing.screenPadding * 2) : chipLabel.implicitWidth + Spacing.screenPadding * 2
+                    Accessible.name: chipLabel.text
 
                     background: Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
@@ -75,6 +96,7 @@ Item {
                             }
                         }
                         font: Typography.captionStrong
+                        elide: Text.ElideRight
                         horizontalAlignment: Text.AlignHCenter
                         text: modelData
                         verticalAlignment: Text.AlignVCenter
@@ -91,7 +113,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.right: parent.right
         anchors.top: parent.top
-        visible: chipsFlick.contentWidth > chipsFlick.width && chipsFlick.contentX + chipsFlick.width < chipsFlick.contentWidth - 1
+        visible: chips.fadeEdge && chipsFlick.contentWidth > chipsFlick.width && chipsFlick.contentX + chipsFlick.width < chipsFlick.contentWidth - 1
         width: 24
 
         gradient: Gradient {

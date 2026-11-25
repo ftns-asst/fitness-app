@@ -488,7 +488,9 @@ PageScaffold {
         parent: Overlay.overlay
         dragHandle: forecastGrip
         width: parent ? Math.min(440, parent.width - 32) : 328
-        height: parent ? Math.min(620, parent.height - 48) : 560
+        expandsOnDrag: true
+        collapsedHeight: parent ? Math.min(620, parent.height * 0.76) : 560
+        restingY: parent ? parent.height - collapsedHeight - Spacing.safeGap : 0
         modal: true
         dim: true
         padding: 20

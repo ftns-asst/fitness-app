@@ -55,8 +55,9 @@ SwipePopup {
     modal: true
     dim: true
     width: Math.min(440, parent !== null ? parent.width - 2 * Spacing.safeGap : 390)
-    height: Math.min(680, parent !== null ? parent.height - 2 * Spacing.safeGap : 680)
-    restingY: parent !== null ? parent.height - height - Spacing.safeGap : 0
+    expandsOnDrag: true
+    collapsedHeight: Math.min(680, parent !== null ? parent.height * 0.78 : 680)
+    restingY: parent !== null ? parent.height - collapsedHeight - Spacing.safeGap : 0
     padding: Spacing.screenPadding
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     onClosed: Qt.inputMethod.hide()

@@ -6,6 +6,7 @@ import TrainingAppClient
 PageScaffold {
     id: page
     property var viewModel: typeof WorkoutVM !== "undefined" ? WorkoutVM : null
+    property bool savedInDiary: true
     property int exerciseIndex: 0
     property int setNumber: 1
     property bool editingSet: false
@@ -16,7 +17,15 @@ PageScaffold {
     readonly property var exercise: exerciseRows[exerciseIndex] || ({})
     readonly property bool finished: viewModel && viewModel.completed
     readonly property bool allRecorded: viewModel && viewModel.totalSets > 0 && viewModel.completedSets >= viewModel.totalSets
+    readonly property real progress: viewModel && viewModel.totalSets > 0 ? Math.min(1, viewModel.completedSets / viewModel.totalSets) : 0
     readonly property var recordedSets: (exercise.facts || []).filter(fact => fact.done)
+    readonly property int exercisesRemaining: exerciseRows.filter(item => pendingSet(item) >= 0).length
+    readonly property int nextExerciseIndex: nextExerciseWithSets(exerciseRows, exerciseIndex)
+    readonly property var exerciseChips: exerciseRows.map(item => {
+        const name = item.title || qsTr("Упражнение");
+        const shortName = name.length > 16 ? name.slice(0, 15).trim() + "…" : name;
+        return qsTr("%1 · %2/%3").arg(shortName).arg(recordedCount(item)).arg(item.sets);
+    })
     readonly property var rpeOptions: [
         {
             id: -1,
@@ -49,6 +58,7 @@ PageScaffold {
     ]
     signal backRequested
     showHeader: false
+    heroBackground: true
     spacing: Spacing.itemGap
     title: finished ? qsTr("Тренировка завершена") : qsTr("Тренировка")
 
@@ -66,16 +76,34 @@ PageScaffold {
         noteInput.text = fact.done ? fact.note || "" : "";
     }
     function selectExercise(index) {
-        const facts = exerciseRows[index].facts || [];
-        let pending = facts.findIndex(fact => !fact.done);
+        if (!exerciseRows[index])
+            return;
+        const pending = pendingSet(exerciseRows[index]);
+        if (index === exerciseIndex && !editingSet)
+            return;
         choose(index, pending >= 0 ? pending + 1 : 1);
+        extrasExpanded = false;
+        revealEntry();
+    }
+    function pendingSet(item) {
+        return (item.facts || []).findIndex(fact => !fact.done);
+    }
+    function nextExerciseWithSets(rows, current) {
+        for (let offset = 1; offset < rows.length; ++offset) {
+            const index = (current + offset) % rows.length;
+            if (pendingSet(rows[index]) >= 0)
+                return index;
+        }
+        return -1;
+    }
+    function revealEntry() {
+        pageFlickable.cancelFlick();
         scrollToEntry.restart();
     }
     function nextPending() {
         for (let offset = 0; offset < exerciseRows.length; ++offset) {
             const index = (exerciseIndex + offset) % exerciseRows.length;
-            const facts = exerciseRows[index].facts || [];
-            const pending = facts.findIndex(fact => !fact.done);
+            const pending = pendingSet(exerciseRows[index]);
             if (pending >= 0) {
                 choose(index, pending + 1, false);
                 return;
@@ -84,20 +112,21 @@ PageScaffold {
         editingSet = false;
     }
     function saveCurrent() {
-        if (!viewModel || !weightInput.valid || !repsInput.valid || submitCooldown.running)
+        if (!viewModel || !exerciseRows.length || !weightInput.valid || !repsInput.valid || submitCooldown.running)
             return;
         if (viewModel.saveSet(exerciseIndex, setNumber, weightInput.numberValue, repsInput.numberValue, rpeValue, noteInput.text)) {
             submitCooldown.start();
             nextPending();
             extrasExpanded = false;
-            scrollToEntry.restart();
+            page.forceActiveFocus();
+            revealEntry();
         }
     }
     function finishWorkout() {
         if (!viewModel || finished || submitCooldown.running || !viewModel.finish())
             return false;
         submitCooldown.start();
-        scrollToEntry.restart();
+        revealEntry();
         return true;
     }
     function requestFinish() {
@@ -137,7 +166,7 @@ PageScaffold {
         id: scrollToEntry
         target: page.pageFlickable
         property: "contentY"
-        to: 0
+        to: page.pageFlickable.originY - page.pageFlickable.topMargin
         duration: Theme.pageTransitionDuration
         easing.type: Easing.OutCubic
     }
@@ -153,12 +182,13 @@ PageScaffold {
         width: parent.width
         visible: !page.finished
         AppButton {
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
             text: qsTr("‹ Сохранить и выйти")
             variant: AppButton.Ghost
             labelFont: Typography.detail
             onClicked: page.backRequested()
+        }
+        Item {
+            Layout.fillWidth: true
         }
         AppButton {
             visible: page.viewModel && page.viewModel.completedSets > 0 && !page.allRecorded && !page.editingSet
@@ -174,13 +204,25 @@ PageScaffold {
         width: parent.width
         spacing: Spacing.itemGap
         visible: !page.finished
+        FilterChips {
+            objectName: "workoutExerciseTabs"
+            currentIndex: page.exerciseIndex
+            fadeEdge: false
+            items: page.exerciseChips
+            keepCurrentVisible: true
+            maximumItemWidth: Math.min(width * 0.7, 212)
+            visible: page.exerciseRows.length > 1
+            width: parent.width
+
+            onSelected: index => page.selectExercise(index)
+        }
         RowLayout {
             width: parent.width
             Label {
                 Layout.fillWidth: true
-                text: page.editingSet ? qsTr("Правка подхода %1").arg(page.setNumber) : page.allRecorded ? qsTr("Все подходы записаны") : qsTr("Упражнение %1 из %2 · подход %3 из %4").arg(page.exerciseIndex + 1).arg(page.exerciseRows.length).arg(page.setNumber).arg(page.exercise.sets || 0)
-                font: Typography.detail
-                color: Theme.textSecondary
+                text: page.exerciseRows.length === 0 ? qsTr("Нет упражнений для записи") : page.editingSet ? qsTr("Правка подхода %1").arg(page.setNumber) : page.allRecorded ? qsTr("Все подходы записаны") : qsTr("Упражнение %1 из %2 · подход %3 из %4").arg(page.exerciseIndex + 1).arg(page.exerciseRows.length).arg(page.setNumber).arg(page.exercise.sets || 0)
+                font: Typography.captionStrong
+                color: Theme.accentInk
                 wrapMode: Text.WordWrap
             }
             AppButton {
@@ -195,15 +237,17 @@ PageScaffold {
             }
         }
         Rectangle {
+            Accessible.role: Accessible.ProgressBar
+            Accessible.name: qsTr("Записано %1 из %2 подходов").arg(page.viewModel ? page.viewModel.completedSets : 0).arg(page.viewModel ? page.viewModel.totalSets : 0)
             width: parent.width
-            height: 3
-            radius: 1.5
-            color: Theme.borderSubtle
+            height: 4
+            radius: height / 2
+            color: Theme.accentSurface
             Rectangle {
                 height: parent.height
                 radius: parent.radius
                 color: Theme.accent
-                width: parent.width * (page.viewModel && page.viewModel.totalSets > 0 ? page.viewModel.completedSets / page.viewModel.totalSets : 0)
+                width: parent.width * page.progress
                 Behavior on width {
                     NumberAnimation {
                         duration: Theme.selectionDuration
@@ -215,7 +259,8 @@ PageScaffold {
         AbstractButton {
             objectName: "workoutExercisePicker"
             width: parent.width
-            implicitHeight: contentItem.implicitHeight
+            implicitHeight: Math.max(Theme.touchMin, contentItem.implicitHeight)
+            enabled: page.exerciseRows.length > 1
             Accessible.name: qsTr("Выбрать упражнение: %1").arg(page.exercise.title || "")
             onClicked: exercisePicker.open()
             contentItem: RowLayout {
@@ -225,25 +270,46 @@ PageScaffold {
                     Layout.minimumWidth: 0
                     text: page.exercise.title || qsTr("Упражнение")
                     font: Typography.workoutTitle
-                    color: Theme.textPrimary
+                    color: page.exerciseRows.length === 0 ? Theme.textSecondary : Theme.textPrimary
                     wrapMode: Text.WordWrap
                 }
                 AppIcon {
                     Layout.preferredWidth: 20
                     Layout.preferredHeight: 20
                     name: "chevronDown"
+                    iconColor: Theme.accentInk
                     visible: page.exerciseRows.length > 1
                 }
             }
         }
         Label {
             width: parent.width
+            visible: page.exerciseRows.length > 0
+            text: qsTr("План: %1 × %2").arg(page.exercise.sets || 0).arg(page.repsTarget()) + (page.exercise.weightKg > 0 ? qsTr(" · %1 кг").arg(StatisticsUi.number(page.exercise.weightKg, page.exercise.weightKg % 1 ? 2 : 0)) : "")
+            color: Theme.accentInk
+            font: Typography.captionStrong
+            wrapMode: Text.WordWrap
+        }
+        Label {
+            width: parent.width
+            visible: page.exerciseRows.length > 0
             text: page.exercise.previous ? qsTr("В прошлый раз: %1").arg(page.exercise.previous) + (page.exercise.previousDate ? " · " + StatisticsUi.date(page.exercise.previousDate) : "") : qsTr("Первый результат в этой программе")
             color: Theme.textSecondary
             font: Typography.detail
             wrapMode: Text.WordWrap
         }
+        Label {
+            objectName: "workoutNextExercise"
+            visible: page.nextExerciseIndex >= 0
+            width: parent.width
+            text: page.nextExerciseIndex >= 0 ? qsTr("Далее: %1").arg(page.exerciseRows[page.nextExerciseIndex].title) : ""
+            textFormat: Text.PlainText
+            color: Theme.accentInk
+            font: Typography.captionStrong
+            wrapMode: Text.WordWrap
+        }
         Item {
+            id: restSlot
             width: parent.width
             height: page.viewModel && page.viewModel.restRemaining > 0 ? restCard.implicitHeight : 0
             visible: height > 0
@@ -260,6 +326,8 @@ PageScaffold {
                 width: parent.width
                 elevated: false
                 surfaceColor: Theme.accentSurface
+                borderColor: Theme.accentSurfaceLine
+                opacity: Math.min(1, restSlot.height / Math.max(1, implicitHeight))
                 paddingVertical: 12
                 RowLayout {
                     width: parent.width
@@ -269,12 +337,12 @@ PageScaffold {
                         Label {
                             text: qsTr("Отдых")
                             font: Typography.caption
-                            color: Theme.textSecondary
+                            color: Theme.accentInk
                         }
                         Label {
                             text: page.clock(page.viewModel ? page.viewModel.restRemaining : 0)
                             font: Typography.figure
-                            color: Theme.textPrimary
+                            color: Theme.accentInk
                         }
                     }
                     AppButton {
@@ -297,6 +365,7 @@ PageScaffold {
         }
         AppCard {
             width: parent.width
+            visible: page.exerciseRows.length > 0
             paddingHorizontal: 0
             paddingVertical: 0
             spacing: 0
@@ -306,7 +375,7 @@ PageScaffold {
                 objectName: "workoutWeightInput"
                 width: parent.width
                 label: qsTr("Вес")
-                caption: qsTr("кг")
+                unit: qsTr("кг")
                 decimals: 2
                 step: 2.5
             }
@@ -317,12 +386,14 @@ PageScaffold {
                 label: qsTr("Повторы")
                 caption: qsTr("Цель %1").arg(page.repsTarget())
                 from: 1
+                to: 10000
                 showDivider: false
             }
         }
         DisclosureCard {
             objectName: "workoutExtras"
             width: parent.width
+            visible: page.exerciseRows.length > 0
             title: qsTr("Усилие и заметка")
             summary: page.rpeValue >= 5 ? qsTr("RPE %1").arg(page.rpeValue) + (noteInput.text.length ? qsTr(" · есть заметка") : "") : noteInput.text.length ? qsTr("Есть заметка") : qsTr("По желанию")
             showIcon: false
@@ -413,6 +484,8 @@ PageScaffold {
         AppCard {
             width: parent.width
             elevated: false
+            surfaceColor: Theme.accentSurface
+            borderColor: Theme.accentSurfaceLine
             RowLayout {
                 width: parent.width
                 StatisticValue {
@@ -440,7 +513,7 @@ PageScaffold {
         }
         Label {
             width: parent.width
-            text: qsTr("Результаты сохранены в дневнике")
+            text: page.savedInDiary ? qsTr("Результаты сохранены в дневнике") : qsTr("Результаты сохранены в истории свободных тренировок")
             font: Typography.detail
             color: Theme.textSecondary
             wrapMode: Text.WordWrap
@@ -503,6 +576,16 @@ PageScaffold {
     footer: ColumnLayout {
         spacing: 8
         Label {
+            objectName: "workoutRemainingExercises"
+            Layout.fillWidth: true
+            visible: !page.finished && page.exerciseRows.length > 1
+            text: qsTr("Подходы %1/%2 · Осталось упражнений: %3").arg(page.viewModel ? page.viewModel.completedSets : 0).arg(page.viewModel ? page.viewModel.totalSets : 0).arg(page.exercisesRemaining)
+            font: Typography.caption
+            color: Theme.textSecondary
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+        }
+        Label {
             Layout.fillWidth: true
             visible: text.length > 0
             text: page.viewModel ? page.viewModel.errorDetail : ""
@@ -513,9 +596,9 @@ PageScaffold {
         AppButton {
             objectName: "workoutSaveSetButton"
             Layout.fillWidth: true
-            visible: !page.finished && (!page.allRecorded || page.editingSet)
+            visible: !page.finished && page.exerciseRows.length > 0 && (!page.allRecorded || page.editingSet)
             enabled: weightInput.valid && repsInput.valid && !submitCooldown.running
-            text: page.editingSet ? qsTr("Сохранить изменения") : qsTr("Записать подход")
+            text: page.editingSet ? qsTr("Сохранить изменения") : qsTr("Записать подход %1").arg(page.setNumber)
             onClicked: page.saveCurrent()
         }
         AppButton {
@@ -539,7 +622,10 @@ PageScaffold {
         parent: Overlay.overlay
         dragHandle: exerciseGrip
         width: parent ? Math.min(480, parent.width - Spacing.screenPadding * 2) : 328
-        height: Math.min(implicitHeight, parent ? parent.height - 64 : implicitHeight)
+        expandsOnDrag: true
+        maximumExpandedHeight: implicitHeight + Math.max(0, exerciseList.implicitHeight - 360)
+        collapsedHeight: Math.min(implicitHeight, parent ? parent.height * 0.76 : implicitHeight)
+        restingY: parent ? parent.height - collapsedHeight - Spacing.safeGap : 0
         modal: true
         dim: true
         padding: Spacing.cardPadding
@@ -558,6 +644,7 @@ PageScaffold {
             }
             ScrollView {
                 Layout.fillWidth: true
+                Layout.fillHeight: true
                 Layout.preferredHeight: Math.min(exerciseList.implicitHeight, 360)
                 clip: true
                 Column {
@@ -571,8 +658,8 @@ PageScaffold {
                             width: parent.width
                             title: modelData.title
                             subtitle: qsTr("Подходы: %1 из %2").arg(page.recordedCount(modelData)).arg(modelData.sets)
-                            symbol: index === page.exerciseIndex ? "✓" : ""
-                            symbolColor: Theme.accent
+                            symbol: page.pendingSet(modelData) < 0 ? "✓" : index === page.exerciseIndex ? "›" : ""
+                            symbolColor: page.pendingSet(modelData) < 0 ? Theme.positive : Theme.accent
                             onClicked: {
                                 page.selectExercise(index);
                                 exercisePicker.close();

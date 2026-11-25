@@ -9,6 +9,7 @@ class ARule_Repository;
 class AMeasurement_Repository;
 class AStats_Repository;
 class AWorkout_Repository;
+class AWorkout_Sync;
 class AsProgram_Service;
 class AsWorkout_Logger;
 class AsMacro_Calculator;
@@ -24,6 +25,7 @@ class Avm_Program_Templates;
 class Avm_Today;
 class Avm_Diary;
 class Avm_Default_Programs;
+class Avm_Server_Programs;
 class ADay_Note_Repository;
 class Avm_Macro;
 class Avm_Exercises;
@@ -80,6 +82,7 @@ public:
 	AsNetwork_Monitor *Network_Monitor() const;
 	Avm_Profile *Profile_VM() const;
 	Avm_Default_Programs *Default_Programs_VM() const;
+	Avm_Server_Programs *Server_Programs_VM() const;
 	AsSql_Database *SQL_Database() const;
 	AsToken_Store *Token_Store() const;
 	AsAuth_Session *Auth_Session() const;
@@ -106,6 +109,8 @@ public:
 	// Главный экран «Сегодня» на данных программы (issue 27).
 	Avm_Today *Today_VM() const;
 	Avm_Workout *Workout_VM() const;
+	Avm_Workout *Solo_Workout_VM() const;
+	AWorkout_Sync *Workout_Sync() const;
 	Avm_Strength *Strength_VM() const;
 	Avm_Program_Templates *Program_Templates_VM() const;
 
@@ -157,6 +162,7 @@ private:
 	AError_State Error_State;
 	AsHttp_Client *HTTP_Client_Instance = 0;
 	Avm_Default_Programs *Default_Programs_VM_Instance = 0;
+	Avm_Server_Programs *Server_Programs_VM_Instance = 0;
 	AsSql_Database *SQL_Database_Instance = 0;
 	AsToken_Store *Token_Store_Instance = 0;
 	AsAuth_Session *Auth_Session_Instance = 0;
@@ -181,6 +187,8 @@ private:
 	Avm_Program_Edit *Program_Edit_VM_Instance = 0;
 	Avm_Program_Catalog *Program_Catalog_VM_Instance = 0;
 	Avm_Workout *Workout_VM_Instance = 0;
+	Avm_Workout *Solo_Workout_VM_Instance = 0;
+	AWorkout_Sync *Workout_Sync_Instance = 0;
 	Avm_Strength *Strength_VM_Instance = 0;
 	AProgram_Template_Service *Program_Template_Service_Instance = 0;
 	Avm_Program_Templates *Program_Templates_VM_Instance = 0;

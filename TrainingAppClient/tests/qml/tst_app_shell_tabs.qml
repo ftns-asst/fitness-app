@@ -179,7 +179,7 @@ TestCase {
         shell.showTab(0);
         tryCompare(shell, "stackBusy", false);
         const view = findChild(shell, "mainSwipeView");
-        tryVerify(() => Math.abs(view.contentItem.contentX) < 1);
+        tryVerify(() => Math.abs(view.currentItem.mapToItem(view, 0, 0).x) < 1);
         waitForRendering(view);
         mousePress(shellWindow.contentItem, 320, 80);
         mouseMove(shellWindow.contentItem, 200, 80, 50);
@@ -191,7 +191,7 @@ TestCase {
         tryCompare(shell, "stackBusy", false);
         shell.goBack();
         tryCompare(shell, "stackBusy", false);
-        tryVerify(() => Math.abs(view.contentItem.contentX - view.width) < 1);
+        tryVerify(() => Math.abs(view.currentItem.mapToItem(view, 0, 0).x) < 1);
     }
     function test_shortEdgeSwipeKeepsCurrentScreen() {
         shell.openProgramOverview();
@@ -204,7 +204,7 @@ TestCase {
         shell.showTab(3);
         const view = findChild(shell, "mainSwipeView");
         view.currentItem.viewModel = swipeCatalog;
-        tryVerify(() => Math.abs(view.contentItem.contentX - 3 * view.width) < 1);
+        tryVerify(() => Math.abs(view.currentItem.mapToItem(view, 0, 0).x) < 1);
         view.currentItem.openFilters();
         const popup = view.currentItem.filterPopup;
         tryCompare(popup, "opened", true);
@@ -321,6 +321,47 @@ TestCase {
         // Восстановление — push после завершения pop: глубина снова 2.
         tryCompare(shell, "pushedDepth", 2);
         compare(shell.currentTab, 1);
+    }
+
+    function test_rapidTabTapsKeepLastDestination() {
+        shell.openProgramEditor();
+        verify(shell.stackBusy);
+        shell.showTab(1);
+        shell.showTab(3);
+        shell.showTab(2);
+        tryCompare(shell, "currentTab", 2);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 1);
+        shell.showTab(0);
+        tryCompare(shell, "stackBusy", false);
+        tryCompare(shell, "pushedDepth", 2);
+        verify(shell.topItem instanceof ProgramEditPage);
+    }
+
+    function test_distantTabTapSkipsIntermediatePages() {
+        const view = findChild(shell, "mainSwipeView");
+        tryVerify(() => view.width > 0);
+        const visited = [];
+        view.currentIndexChanged.connect(() => visited.push(view.currentIndex));
+        shell.showTab(3);
+        compare(view.currentIndex, 3);
+        tryVerify(() => Math.abs(view.currentItem.mapToItem(view, 0, 0).x) < 1);
+        compare(visited.join(","), "3");
+        verify(!view.contentItem.moving);
+    }
+
+    function test_ignoredPushDoesNotChangeRestoredRoute() {
+        shell.openProgramOverview("first");
+        verify(shell.stackBusy);
+        shell.openProgramEditor("second");
+        compare(shell.programId, "first");
+        tryCompare(shell, "stackBusy", false);
+        shell.showTab(2);
+        tryCompare(shell, "stackBusy", false);
+        shell.showTab(0);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 2);
+        verify(shell.topItem instanceof ProgramOverviewPage);
     }
 
     // Повторный тап по своей вкладке — к её корню, и память снимается:

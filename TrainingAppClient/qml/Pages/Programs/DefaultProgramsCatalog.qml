@@ -6,12 +6,14 @@ Column {
     id: catalog
 
     property var viewModel: typeof DefaultProgramsVM !== "undefined" ? DefaultProgramsVM : null
+    property var server: typeof ServerProgramsVM !== "undefined" ? ServerProgramsVM : null
     property bool active: false
     property bool requested: false
     property bool filtersOpen: false
     property var days: []
 
     signal programRequested(string programId)
+    signal serverDraftsRequested
 
     spacing: Spacing.listGap
 
@@ -27,6 +29,14 @@ Column {
         }
     }
 
+    AppButton {
+        text: qsTr("Черновики из каталога")
+        variant: AppButton.Secondary
+        visible: catalog.server !== null
+        width: parent.width
+
+        onClicked: catalog.serverDraftsRequested()
+    }
     AppButton {
         text: catalog.filtersOpen ? qsTr("Скрыть фильтры") : qsTr("Фильтры")
         variant: AppButton.Secondary
@@ -110,33 +120,13 @@ Column {
             font: Typography.captionStrong
             text: qsTr("Доступные дни")
         }
-        Flow {
+        ProgramWeekdayPicker {
+            days: catalog.days
             width: parent.width
 
-            Repeater {
-                model: [qsTr("Пн"), qsTr("Вт"), qsTr("Ср"), qsTr("Чт"), qsTr("Пт"), qsTr("Сб"), qsTr("Вс")]
-
-                delegate: CheckBox {
-                    id: weekday
-
-                    required property int index
-                    required property string modelData
-
-                    checked: catalog.days.indexOf(index + 1) >= 0
-                    font: Typography.caption
-                    indicator: SelectionMark {
-                        checked: weekday.checked
-                        x: weekday.leftPadding
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    text: modelData
-
-                    onToggled: {
-                        const day = index + 1;
-                        catalog.days = checked ? catalog.days.concat([day]) : catalog.days.filter(value => value !== day);
-                        catalog.reload();
-                    }
-                }
+            onDaysSelected: days => {
+                catalog.days = days;
+                catalog.reload();
             }
         }
     }

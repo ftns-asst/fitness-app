@@ -34,6 +34,7 @@ public:
 	Avm_Workout(AsWorkout_Logger *in_logger, AWorkout_Repository *in_workouts, AProgram_Repository *in_programs,
 	            QObject *in_parent = 0);
 	Q_INVOKABLE bool startOrResume(const QString &in_user_id, const QString &in_program_id, const QString &in_date);
+	Q_INVOKABLE bool startSolo(const QString &in_user_id, const QString &in_date, const QVariantList &in_plan);
 	Q_INVOKABLE bool checkPending(const QString &in_user_id);
 	Q_INVOKABLE bool saveSet(int in_exercise_index, int in_set_number, double in_weight_kg, int in_reps,
 	                         double in_rpe = -1, const QString &in_note = QString());

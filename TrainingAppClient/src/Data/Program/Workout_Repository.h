@@ -50,6 +50,7 @@ public:
 	// повторная запись подхода с тем же id идемпотентна.
 	bool Insert_Session(const SWorkout_Session &in_session);
 	bool Update_Session(const SWorkout_Session &in_session);
+	bool Complete_Session(const SWorkout_Session &in_session);
 	bool Save_Set(const SSet_Log &in_set);
 
 	// Черновик пользователя на дату: незавершённая сессия этого дня.

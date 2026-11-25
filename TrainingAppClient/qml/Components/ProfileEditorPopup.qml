@@ -15,7 +15,9 @@ SwipePopup {
     focus: true
     parent: Overlay.overlay
     width: parent !== null ? Math.min(parent.width - Spacing.screenPadding * 2, 420) : 360
-    height: parent !== null ? Math.min(parent.height - Spacing.screenPadding * 2, editorLayout.implicitHeight + padding * 2) : editorLayout.implicitHeight + padding * 2
+    expandsOnDrag: true
+    maximumExpandedHeight: editorLayout.implicitHeight + padding * 2
+    collapsedHeight: parent !== null ? Math.min(parent.height - Spacing.screenPadding * 2, parent.height * 0.78, maximumExpandedHeight) : maximumExpandedHeight
     padding: Spacing.screenPadding
     closePolicy: viewModel.saving ? Popup.NoAutoClose : Popup.CloseOnEscape
 

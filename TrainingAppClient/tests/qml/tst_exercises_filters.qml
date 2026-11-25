@@ -24,6 +24,7 @@ TestCase {
         property bool canLoadMore: false
         property int loadMoreCalls: 0
         property string lastType: "all"
+        property string lastQuery: ""
         property int filterCalls: 0
         property var lastGroups: []
         property var lastEquipments: []
@@ -47,6 +48,7 @@ TestCase {
             return true;
         }
         function setQuery(q) {
+            lastQuery = q;
         }
         function setMuscleGroups(g) {
             catalogStub.lastGroups = g;
@@ -110,10 +112,11 @@ TestCase {
         const grid = page.pageFlickable;
         grid.positionViewAtBeginning();
         const search = findChild(page, "exerciseSearchInput");
-        verify(search.mapToItem(grid, 0, 0).y >= -1);
+        verify(search.visible);
+        verify(search.mapToItem(grid, 0, search.height).y <= 0);
         catalogStub.equipments = ["barbell", "dumbbell"];
         wait(50);
-        verify(search.mapToItem(grid, 0, 0).y >= -1, "загрузка фильтров не должна прятать поиск");
+        verify(search.visible, "загрузка фильтров не должна прятать поиск");
     }
     function test_largeCatalogRecyclesTilesAndKeepsNavigation() {
         page.parent = testCase.Window.window.contentItem;
@@ -128,7 +131,7 @@ TestCase {
         compare(grid.count, 500);
         const search = findChild(page, "exerciseSearchInput");
         verify(search !== null);
-        verify(search.mapToItem(grid, 0, 0).y >= -1, "поиск должен быть виден при открытии каталога");
+        verify(search.visible, "поиск должен быть виден при открытии каталога");
         verify(countTiles(page) < 50);
         grid.positionViewAtIndex(480, GridView.Beginning);
         tryVerify(() => grid.itemAtIndex(480) !== null);
@@ -142,6 +145,40 @@ TestCase {
         catalogStub.canLoadMore = true;
         grid.positionViewAtEnd();
         tryCompare(catalogStub, "loadMoreCalls", 1);
+    }
+    function test_searchAndReturnFollowScrollDirection() {
+        page.parent = testCase.Window.window.contentItem;
+        for (let i = 0; i < 50; ++i)
+            emptyList.append({
+                id: "exercise_" + i,
+                title: "Упражнение " + i,
+                photoUrl: ""
+            });
+        waitForRendering(page);
+        const grid = page.pageFlickable;
+        const bar = findChild(page, "exerciseSearchBar");
+        const search = findChild(page, "exerciseSearchInput");
+        const back = findChild(page, "exerciseBackToTop");
+        verify(search.visible);
+        verify(!back.visible);
+
+        grid.contentY += 200;
+        tryCompare(bar, "height", 0);
+        verify(!search.visible);
+        verify(!back.visible);
+        grid.contentY -= 35;
+        tryVerify(() => bar.height >= Theme.touchMin);
+        verify(search.visible && back.visible);
+        verify(search.mapToItem(grid, 0, search.height).y <= 0);
+        verify(!page.atCatalogStart);
+
+        mouseClick(back);
+        tryVerify(() => page.atCatalogStart);
+        verify(search.visible);
+        verify(!back.visible);
+        search.forceActiveFocus();
+        keyClick(Qt.Key_A);
+        tryCompare(catalogStub, "lastQuery", "a");
     }
     function test_sectionsChangeServerSelection() {
         const sections = findChild(page, "exerciseCatalogSections");

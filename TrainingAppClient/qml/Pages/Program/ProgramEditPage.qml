@@ -695,7 +695,7 @@ PageScaffold {
         parent: Overlay.overlay
         dragHandle: adviceGrip
         width: parent !== null ? Math.min(480, parent.width - Spacing.screenPadding * 2) : 360
-        height: Math.min(implicitHeight, parent !== null ? parent.height - Spacing.screenPadding * 2 : implicitHeight)
+        collapsedHeight: Math.min(implicitHeight, parent !== null ? parent.height - Spacing.screenPadding * 2 : implicitHeight)
         modal: true
         dim: true
         padding: Spacing.listGap

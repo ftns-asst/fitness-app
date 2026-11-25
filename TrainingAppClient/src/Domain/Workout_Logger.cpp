@@ -251,8 +251,8 @@ bool AsWorkout_Logger::Finish_Session(const QString &in_user_id, const QString &
 
 	session.State = EWorkout_State::Completed;
 
-	if (!Repository_Instance->Update_Session(session))
-		return false;
+	if (!Repository_Instance->Complete_Session(session))
+		return Set_Last_Error(Repository_Instance->Get_Last_Error());
 
 	out_session = session;
 

@@ -26,8 +26,8 @@ AppCard {
     signal editRequested(string programId)
     signal statsRequested(string programId)
 
-    borderColor: openTap.pressed || hover.hovered ? Theme.accentSurfaceLine : Theme.border
-    surfaceColor: openTap.pressed ? Theme.surfaceMuted : Theme.surface
+    borderColor: row.programState === "active" ? Theme.accent : openTap.pressed || hover.hovered ? Theme.accentSurfaceLine : Theme.border
+    surfaceColor: openTap.pressed ? Theme.surfaceMuted : row.programState === "active" ? Theme.mixIntoSurface(Theme.accent, 0.07) : Theme.surface
 
     HoverHandler {
         id: hover

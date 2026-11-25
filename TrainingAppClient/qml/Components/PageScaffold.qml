@@ -37,6 +37,7 @@ Rectangle {
     // области вокруг контента на широком экране тоже листал страницу
     // (`qml/Components/DragToScroll.qml`).
     property Component scrollViewComponent: null
+    property Component scrollHeader: null
     readonly property var pageFlickable: scrollViewLoader.item !== null ? scrollViewLoader.item : flick
     property alias spacing: bodyColumn.spacing
     property string title: ""
@@ -47,6 +48,24 @@ Rectangle {
     // прокрутки до самого низа — на длинном экране настройки дня это лишний
     // жест перед самым важным действием.
     readonly property real footerHeight: footer.visible ? footer.implicitHeight : 0
+
+    // Инструмент ревью прокручивает фактический список, включая GridView.
+    Component.onCompleted: {
+        const index = Qt.application.arguments.indexOf("--scroll");
+        if (index < 0 || index + 1 >= Qt.application.arguments.length)
+            return;
+        const offset = Number(Qt.application.arguments[index + 1]);
+        if (!Number.isFinite(offset))
+            return;
+        Qt.callLater(function () {
+            const target = scaffold.pageFlickable;
+            if (!target)
+                return;
+            const start = target.originY - target.topMargin;
+            const end = Math.max(start, target.originY + target.contentHeight + target.bottomMargin - target.height);
+            target.contentY = Math.max(start, Math.min(end, offset));
+        });
+    }
 
     // — Физика флика —
     //
@@ -223,6 +242,16 @@ Rectangle {
         }
     }
     Loader {
+        id: scrollHeaderLoader
+        anchors.left: flick.left
+        anchors.right: flick.right
+        anchors.top: header.visible ? header.bottom : scaffold.top
+        anchors.topMargin: header.visible ? Spacing.sectionGap : scaffold.topInset
+        active: scaffold.scrollHeader !== null
+        sourceComponent: scaffold.scrollHeader
+        height: item ? item.implicitHeight : 0
+    }
+    Loader {
         id: scrollViewLoader
         anchors.fill: flick
         active: scaffold.scrollViewComponent !== null
@@ -243,8 +272,7 @@ Rectangle {
         anchors.leftMargin: Spacing.screenPadding
         anchors.right: parent.right
         anchors.rightMargin: Spacing.screenPadding
-        anchors.top: header.visible ? header.bottom : parent.top
-        anchors.topMargin: header.visible ? Spacing.sectionGap : scaffold.topInset
+        anchors.top: scrollHeaderLoader.bottom
         bottomMargin: Spacing.sectionGap
         boundsBehavior: scaffold.elasticScroll ? Flickable.DragAndOvershootBounds : Flickable.StopAtBounds
         clip: true
@@ -262,17 +290,6 @@ Rectangle {
         // Ступенчатость на 120 Гц не видна, а кадр дешевле.
         pixelAligned: true
         topMargin: Spacing.safeGap
-
-        // Инструмент ревью: `--scroll <px>` прокручивает страницу на старте,
-        // чтобы снимок показал нижние блоки (правила, замеры) без жеста.
-        Component.onCompleted: {
-            const index = Qt.application.arguments.indexOf("--scroll");
-
-            if (index >= 0 && index + 1 < Qt.application.arguments.length)
-                Qt.callLater(function () {
-                    flick.contentY = Number(Qt.application.arguments[index + 1]);
-                });
-        }
 
         // Десктоп: привычный скроллбар. Touch: только транзиентный индикатор
         // (у ScrollIndicator нет policy, поэтому на десктопе он не подключается).

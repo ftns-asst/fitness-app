@@ -52,6 +52,7 @@ Item {
     // Дельта перетаскивания считается по приращению translation: DragHandler
     // отдаёт накопленное смещение, а не шаг.
     property real lastTranslationY: 0
+    property var dragTarget: null
 
     DragHandler {
         id: drag
@@ -72,6 +73,7 @@ Item {
 
         onActiveChanged: {
             if (active) {
+                catcher.dragTarget = catcher.target;
                 // Пользователь начал drag — колесной анимации нельзя мешать:
                 // анимация contentY останавливается немедленно.
                 wheelAnim.stop();
@@ -83,12 +85,14 @@ Item {
                 catcher.lastTranslationY = 0;
                 catcher.scrollBy(drag.translation.y);
                 catcher.lastTranslationY = drag.translation.y;
-            } else if (catcher.scrollable) {
-                catcher.fling(drag.centroid.velocity.y);
+            } else {
+                if (catcher.dragTarget === catcher.target)
+                    catcher.fling(drag.centroid.velocity.y);
+                catcher.dragTarget = null;
             }
         }
         onTranslationChanged: {
-            if (active === false)
+            if (!active || catcher.dragTarget !== catcher.target)
                 return;
 
             catcher.scrollBy(drag.translation.y - catcher.lastTranslationY);
@@ -122,6 +126,7 @@ Item {
         const base = wheelAnim.running ? catcher.wheelTargetY : catcher.target.contentY;
 
         wheelAnim.stop();
+        catcher.target.cancelFlick();
         catcher.wheelTargetY = Math.min(Math.max(base - delta, catcher.minContentY), catcher.maxContentY);
         wheelAnim.from = catcher.target.contentY;
         wheelAnim.to = catcher.wheelTargetY;

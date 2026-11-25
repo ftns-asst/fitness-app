@@ -4,6 +4,7 @@
 #include "App/App_Logger.h"
 #include "Data/Exercises/Exercises_Repository.h"
 #include "Data/Network/Network_Monitor.h"
+#include "Data/Program/Workout_Sync.h"
 #include "Presentation/Auth_Qml_Bridge.h"
 #include "Presentation/Default_Programs_VM.h"
 #include "Presentation/Diary_VM.h"
@@ -17,6 +18,7 @@
 #include "Presentation/Program_Rules_VM.h"
 #include "Presentation/Program_Stats_VM.h"
 #include "Presentation/Program_VM.h"
+#include "Presentation/Server_Programs_VM.h"
 #include "Presentation/Today_VM.h"
 
 #include <QCoreApplication>
@@ -123,6 +125,12 @@ int main(int argc, char *argv[])
 	QCoreApplication::setOrganizationName("FitnessAssistant");
 	QCoreApplication::setOrganizationDomain("fitness.nought.ru");
 	QCoreApplication::setApplicationName("TrainingAppClient");
+	arguments = QCoreApplication::arguments();
+	if (arguments.contains("--ui-test") && arguments.contains("--diag"))
+	{
+		QStandardPaths::setTestModeEnabled(true);
+		QCoreApplication::setApplicationName("TrainingAppClientUiTest");
+	}
 
 	// Логгер ставится до инициализации контекста: строки инициализации
 	// попадают и в stderr (консоль/CI), и в приватный logs/app.log.
@@ -134,7 +142,6 @@ int main(int argc, char *argv[])
 
 	qInstallMessageHandler(&AsApp_Logger::Handle_Message);
 
-	arguments = QCoreApplication::arguments();
 #ifdef QT_NO_DEBUG
 	// Release-сборки используют настоящий backend без аргументов запуска.
 	real_auth = true;
@@ -187,6 +194,8 @@ int main(int argc, char *argv[])
 	engine.rootContext()->setContextProperty("AppContext", &app_context);
 	engine.rootContext()->setContextProperty("NetworkMonitor", (QObject *)app_context.Network_Monitor());
 	engine.rootContext()->setContextProperty("DefaultProgramsVM", (QObject *)app_context.Default_Programs_VM());
+	engine.rootContext()->setContextProperty("ServerProgramsVM",
+	                                         real_auth ? (QObject *)app_context.Server_Programs_VM() : 0);
 	engine.rootContext()->setContextProperty("ProfileBackend", real_auth ? (QObject *)app_context.Profile_VM() : 0);
 
 	// Стек модели программы (срез W11): экраны «Моя программа», «Правила» и
@@ -204,6 +213,8 @@ int main(int argc, char *argv[])
 	// Главный экран «Сегодня» на данных (issue 27): C++-слой готов, разметка
 	// TodayPage переводится на него отдельным шагом.
 	engine.rootContext()->setContextProperty("WorkoutVM", (QObject *)app_context.Workout_VM());
+	engine.rootContext()->setContextProperty("SoloWorkoutVM", real_auth ? (QObject *)app_context.Solo_Workout_VM() : 0);
+	engine.rootContext()->setContextProperty("WorkoutSyncVM", real_auth ? (QObject *)app_context.Workout_Sync() : 0);
 	engine.rootContext()->setContextProperty("StrengthVM", (QObject *)app_context.Strength_VM());
 	engine.rootContext()->setContextProperty("ProgramTemplatesVM", (QObject *)app_context.Program_Templates_VM());
 	engine.rootContext()->setContextProperty("TodayVM", (QObject *)app_context.Today_VM());

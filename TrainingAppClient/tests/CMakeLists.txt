@@ -357,6 +357,11 @@ target_link_libraries(tst_Default_Programs_VM PRIVATE TrainingAppCore TrainingAp
 add_test(NAME default_programs_vm COMMAND tst_Default_Programs_VM)
 set_tests_properties(default_programs_vm PROPERTIES TIMEOUT 20)
 
+qt_add_executable(tst_Server_Programs_VM cpp/tst_Server_Programs_VM.cpp)
+target_link_libraries(tst_Server_Programs_VM PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME server_programs_vm COMMAND tst_Server_Programs_VM)
+set_tests_properties(server_programs_vm PROPERTIES TIMEOUT 20)
+
 qt_add_executable(tst_Users_Repository
     cpp/tst_Users_Repository.cpp
 )
@@ -433,7 +438,7 @@ endforeach()
 # компоновках проекта, включая тёмную и обрамлённую.
 # profile-settings — раздел «Параметры» профиля: в нём блок «Оформление», и без
 # именованного экрана он не попадал бы в аудит вёрстки ни на одной компоновке.
-foreach(program_screen IN ITEMS diary program-catalog program-overview program-edit program-rules program-rules-picker program-stats strength program-day macro-calculator set-entry profile-settings exercises exercise-detail)
+foreach(program_screen IN ITEMS diary program-catalog program-overview program-edit program-rules program-rules-picker program-stats strength program-day macro-calculator set-entry profile-settings exercises exercise-detail exercise-edit)
     foreach(program_viewport IN ITEMS 360 390 480 frame dark)
         set(program_test_name "ui_smoke_${program_screen}_${program_viewport}")
         add_test(
@@ -568,4 +573,9 @@ set_tests_properties(tracker_Program_Templates_VM PROPERTIES TIMEOUT 20)
 qt_add_executable(tst_Workout_VM cpp/tst_Workout_VM.cpp)
 target_link_libraries(tst_Workout_VM PRIVATE TrainingAppCore Qt6::Test)
 add_test(NAME tracker_workout_vm COMMAND tst_Workout_VM)
+
+qt_add_executable(tst_Workout_Sync cpp/tst_Workout_Sync.cpp)
+target_link_libraries(tst_Workout_Sync PRIVATE TrainingAppCore TrainingAppTestSupport Qt6::Test)
+add_test(NAME workout_sync COMMAND tst_Workout_Sync)
+set_tests_properties(workout_sync PROPERTIES TIMEOUT 25)
 set_tests_properties(tracker_workout_vm PROPERTIES TIMEOUT 20)

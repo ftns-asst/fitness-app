@@ -15,6 +15,7 @@
 #include "Data/Program/Rule_Repository.h"
 #include "Data/Program/Stats_Repository.h"
 #include "Data/Program/Workout_Repository.h"
+#include "Data/Program/Workout_Sync.h"
 #include "Data/Users/Users_Repository.h"
 #include "Demo/Demo_Seeder.h"
 #include "Domain/Macro_Calculator.h"
@@ -34,6 +35,7 @@
 #include "Presentation/Program_Rules_VM.h"
 #include "Presentation/Program_Stats_VM.h"
 #include "Presentation/Program_VM.h"
+#include "Presentation/Server_Programs_VM.h"
 #include "Presentation/Today_VM.h"
 #include <QByteArray>
 #include <QLoggingCategory>
@@ -176,6 +178,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	// поверх HTTP-клиента и token store (issue 7).
 	Token_Store_Instance = new AsToken_Store(SQL_Database_Instance, this);
 	Auth_Session_Instance = new AsAuth_Session(HTTP_Client_Instance, Token_Store_Instance, this);
+	Server_Programs_VM_Instance = new Avm_Server_Programs(Auth_Session_Instance, this);
 
 	// Auth-интеграция (issue 8): репозиторий и ViewModel поверх тех же
 	// зависимостей; QML остаётся на mock до снятия backend-блокеров.
@@ -277,6 +280,13 @@ void AsApp_Context::Create_Program_Stack()
 	Workout_Logger_Instance = new AsWorkout_Logger(Workout_Repository_Instance, Program_Repository_Instance);
 	Workout_VM_Instance =
 	    new Avm_Workout(Workout_Logger_Instance, Workout_Repository_Instance, Program_Repository_Instance, this);
+	Solo_Workout_VM_Instance =
+	    new Avm_Workout(Workout_Logger_Instance, Workout_Repository_Instance, Program_Repository_Instance, this);
+	Workout_Sync_Instance = new AWorkout_Sync(SQL_Database_Instance, Workout_Repository_Instance, Auth_Session_Instance,
+	                                          Network_Monitor_Instance, this);
+	connect(Workout_Sync_Instance, &AWorkout_Sync::accountChanged, this,
+	        [this] { Solo_Workout_VM_Instance->checkPending(Workout_Sync_Instance->userId()); });
+	connect(Solo_Workout_VM_Instance, &Avm_Workout::sessionFinished, Workout_Sync_Instance, &AWorkout_Sync::Flush);
 	Strength_VM_Instance =
 	    new Avm_Strength(Program_Repository_Instance, Workout_Repository_Instance, Exercises_Repository_Instance, this);
 	Program_Template_Service_Instance = new AProgram_Template_Service(Program_Repository_Instance, this);
@@ -312,6 +322,10 @@ void AsApp_Context::Destroy_Stack()
 	Program_Template_Service_Instance = 0;
 	delete Strength_VM_Instance;
 	Strength_VM_Instance = 0;
+	delete Workout_Sync_Instance;
+	Workout_Sync_Instance = 0;
+	delete Solo_Workout_VM_Instance;
+	Solo_Workout_VM_Instance = 0;
 	delete Workout_VM_Instance;
 	Workout_VM_Instance = 0;
 	delete Macro_VM_Instance;
@@ -372,6 +386,8 @@ void AsApp_Context::Destroy_Stack()
 	Auth_VM_Instance = 0;
 	delete Auth_Repository_Instance;
 	Auth_Repository_Instance = 0;
+	delete Server_Programs_VM_Instance;
+	Server_Programs_VM_Instance = 0;
 	delete Auth_Session_Instance;
 	Auth_Session_Instance = 0;
 	delete Token_Store_Instance;
@@ -424,6 +440,11 @@ AsNetwork_Monitor *AsApp_Context::Network_Monitor() const
 Avm_Default_Programs *AsApp_Context::Default_Programs_VM() const
 {
 	return Default_Programs_VM_Instance;
+}
+//-------------------------------------------------------------------------------------------------------------
+Avm_Server_Programs *AsApp_Context::Server_Programs_VM() const
+{
+	return Server_Programs_VM_Instance;
 }
 //-------------------------------------------------------------------------------------------------------------
 Avm_Profile *AsApp_Context::Profile_VM() const
@@ -658,6 +679,16 @@ Avm_Program_Edit *AsApp_Context::Program_Edit_VM() const
 Avm_Workout *AsApp_Context::Workout_VM() const
 {
 	return Workout_VM_Instance;
+}
+//-------------------------------------------------------------------------------------------------------------
+Avm_Workout *AsApp_Context::Solo_Workout_VM() const
+{
+	return Solo_Workout_VM_Instance;
+}
+//-------------------------------------------------------------------------------------------------------------
+AWorkout_Sync *AsApp_Context::Workout_Sync() const
+{
+	return Workout_Sync_Instance;
 }
 //-------------------------------------------------------------------------------------------------------------
 Avm_Strength *AsApp_Context::Strength_VM() const

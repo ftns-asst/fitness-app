@@ -27,6 +27,10 @@ PageScaffold {
     property string searchText: ""
     property var groupFilters: []
     property var equipmentFilters: []
+    property bool searchShown: true
+    property real lastScrollDepth: 0
+    property real directionDistance: 0
+    readonly property bool atCatalogStart: !page.pageFlickable || page.isAtStart(page.pageFlickable)
 
     title: qsTr("Упражнения")
     largeTitle: true
@@ -60,9 +64,46 @@ PageScaffold {
         revealCatalogStart();
     }
     function revealCatalogStart() {
-        if (page.pageFlickable !== null) {
-            page.pageFlickable.forceLayout();
-            page.pageFlickable.positionViewAtBeginning();
+        const grid = page.pageFlickable;
+        searchShown = true;
+        directionDistance = 0;
+        if (!grid || !(grid instanceof GridView))
+            return;
+        grid.cancelFlick();
+        grid.forceLayout();
+        grid.positionViewAtBeginning();
+    }
+    function updateSearch(query) {
+        if (searchText === query)
+            return;
+        searchText = query;
+        if (hasViewModel)
+            viewModel.setQuery(query);
+        revealCatalogStart();
+    }
+    function isAtStart(grid) {
+        return grid.atYBeginning || grid.contentY - grid.originY <= 2;
+    }
+    function trackScroll(grid) {
+        const depth = Math.max(0, grid.contentY - grid.originY + grid.topMargin);
+        const delta = depth - lastScrollDepth;
+        lastScrollDepth = depth;
+        if (isAtStart(grid)) {
+            searchShown = true;
+            directionDistance = 0;
+            return;
+        }
+        if (Math.abs(delta) < 0.5 || grid.verticalOvershoot !== 0)
+            return;
+        if (delta * directionDistance < 0)
+            directionDistance = 0;
+        directionDistance += delta;
+        if (directionDistance >= Theme.touchMin) {
+            searchShown = false;
+            directionDistance = 0;
+        } else if (directionDistance <= -Spacing.screenPadding) {
+            searchShown = true;
+            directionDistance = 0;
         }
     }
     function openFilters() {
@@ -95,7 +136,75 @@ PageScaffold {
     signal createOwnRequested
     signal openRequested(string exerciseId)
 
-    // Один нативный GridView: заголовок и состояния прокручиваются вместе с каталогом.
+    scrollHeader: Component {
+        Item {
+            id: searchBar
+
+            objectName: "exerciseSearchBar"
+            implicitHeight: page.searchShown ? searchRow.implicitHeight + Spacing.itemGap : 0
+            clip: true
+            enabled: page.searchShown
+            visible: height > 0
+
+            Behavior on implicitHeight {
+                NumberAnimation {
+                    duration: Theme.selectionDuration
+                    easing.type: Easing.OutCubic
+                }
+            }
+            onEnabledChanged: {
+                if (!enabled && searchField.activeFocus) {
+                    page.forceActiveFocus();
+                    Qt.inputMethod.hide();
+                }
+            }
+
+            RowLayout {
+                id: searchRow
+
+                spacing: Spacing.itemGap
+                width: parent.width
+
+                AppInput {
+                    id: searchField
+
+                    objectName: "exerciseSearchInput"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.preferredHeight: Theme.touchMin
+                    leftPadding: Spacing.screenPadding
+                    rightPadding: text.length > 0 ? Theme.touchMin : Spacing.screenPadding
+                    placeholderText: qsTr("Поиск упражнения")
+                    surfaceColor: Theme.surface
+                    text: page.searchText
+
+                    AppButton {
+                        objectName: "exerciseSearchClear"
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "×"
+                        width: Theme.touchMin
+                        variant: AppButton.Ghost
+                        visible: searchField.text.length > 0
+                        Accessible.name: qsTr("Очистить поиск")
+                        onClicked: page.updateSearch("")
+                    }
+                    onAccepted: Qt.inputMethod.hide()
+                    onTextEdited: page.updateSearch(text)
+                }
+                AppButton {
+                    objectName: "exerciseBackToTop"
+                    text: qsTr("Наверх")
+                    variant: AppButton.Secondary
+                    visible: !page.atCatalogStart
+                    Accessible.name: qsTr("Вернуться к началу каталога")
+                    onClicked: page.revealCatalogStart()
+                }
+            }
+        }
+    }
+
+    // Один GridView, поэтому раскрытие поисковой панели сохраняет позицию каталога.
     scrollViewComponent: Component {
         GridView {
             id: catalogGrid
@@ -111,6 +220,7 @@ PageScaffold {
             }
             Component.onCompleted: Qt.callLater(showInitialHeader)
             onCountChanged: Qt.callLater(showInitialHeader)
+            onContentYChanged: page.trackScroll(catalogGrid)
             clip: true
             cellWidth: width / 2
             cellHeight: tileSizer.implicitHeight + gap
@@ -130,25 +240,6 @@ PageScaffold {
             ScrollIndicator {
                 id: scrollIndicator
             }
-            Row {
-                parent: catalogGrid
-                anchors.top: parent.top
-                anchors.right: parent.right
-                anchors.margins: Spacing.itemGap
-                spacing: Spacing.itemGap
-                z: 3
-                visible: catalogGrid.contentY > catalogGrid.cellHeight
-                AppButton {
-                    text: qsTr("Поиск")
-                    compact: true
-                    onClicked: catalogGrid.positionViewAtBeginning()
-                }
-                AppButton {
-                    text: qsTr("Фильтры")
-                    compact: true
-                    onClicked: page.openFilters()
-                }
-            }
             CatalogExerciseTile {
                 id: tileSizer
                 visible: false
@@ -166,57 +257,13 @@ PageScaffold {
                         page.selectSection(index);
                     }
                 }
-                // — Поиск и добавление своего упражнения в одной строке —
-                RowLayout {
-                    spacing: Spacing.itemGap
-                    width: parent.width
-
-                    AppInput {
-                        id: searchField
-                        objectName: "exerciseSearchInput"
-                        text: page.searchText
-
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 140
-                        Layout.preferredHeight: Theme.touchMin
-                        leftPadding: Spacing.screenPadding
-                        placeholderText: qsTr("Поиск упражнения")
-                        rightPadding: text.length > 0 ? Theme.touchMin : Spacing.screenPadding
-
-                        surfaceColor: Theme.surface
-
-                        AppButton {
-                            objectName: "exerciseSearchClear"
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "×"
-                            width: Theme.touchMin
-                            variant: AppButton.Ghost
-                            visible: searchField.text.length > 0
-                            Accessible.name: qsTr("Очистить поиск")
-                            onClicked: searchField.clear()
-                        }
-                        onAccepted: Qt.inputMethod.hide()
-                        onTextChanged: {
-                            page.searchText = text;
-                            if (page.hasViewModel)
-                                page.viewModel.setQuery(text);
-                        }
-                    }
-                    AppButton {
-                        compact: true
-                        text: qsTr("+ Своё")
-                        variant: AppButton.Primary
-
-                        onClicked: page.createOwnRequested()
-                    }
-                }
                 RowLayout {
                     width: parent.width
                     spacing: Spacing.itemGap
                     AppButton {
                         objectName: "exerciseFiltersButton"
                         Layout.fillWidth: true
+                        Layout.minimumWidth: 0
                         text: page.activeFilterCount > 0 ? qsTr("Фильтры · %1").arg(page.activeFilterCount) : qsTr("Мышцы и инвентарь")
                         variant: page.activeFilterCount > 0 ? AppButton.Primary : AppButton.Secondary
                         compact: true
@@ -228,6 +275,12 @@ PageScaffold {
                         variant: AppButton.Ghost
                         visible: page.activeFilterCount > 0
                         onClicked: page.clearFilters()
+                    }
+                    AppButton {
+                        compact: true
+                        text: qsTr("+ Своё")
+                        variant: AppButton.Primary
+                        onClicked: page.createOwnRequested()
                     }
                 }
                 Label {

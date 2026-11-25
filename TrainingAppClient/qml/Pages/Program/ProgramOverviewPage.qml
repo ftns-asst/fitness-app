@@ -220,6 +220,7 @@ Item {
             }
             // — Карточка программы: название, цель, срок —
             AppCard {
+                borderColor: page.hasProgram && page.viewModel.state === "active" ? Theme.accent : Theme.border
                 width: parent.width
                 visible: page.hasProgram
                 ColumnLayout {

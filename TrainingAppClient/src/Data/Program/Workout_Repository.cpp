@@ -1,5 +1,6 @@
 ﻿#include "Data/Program/Workout_Repository.h"
 
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSet>
@@ -287,6 +288,70 @@ bool AWorkout_Repository::Update_Session(const SWorkout_Session &in_session)
 	if (query.numRowsAffected() != 1)
 		return Set_Last_Error(QString("Тренировка %1 не найдена").arg(in_session.ID));
 
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool AWorkout_Repository::Complete_Session(const SWorkout_Session &in_session)
+{
+	if (QUuid(in_session.User_Id).isNull() || !in_session.Program_Id.isEmpty() ||
+	    !in_session.Correction_Of_Session_Id.isEmpty())
+		return Update_Session(in_session);
+
+	QVector<SSet_Log> sets;
+	if (!Load_Sets({in_session.ID}, sets))
+		return false;
+
+	QVector<QString> exercise_ids;
+	QHash<QString, QJsonArray> facts;
+	for (const SSet_Log &set : sets)
+	{
+		if (!set.Done || set.Is_Warmup)
+			continue;
+		if (QUuid(set.Exercise_Id).isNull())
+			return Update_Session(in_session);
+		if (!facts.contains(set.Exercise_Id))
+			exercise_ids.append(set.Exercise_Id);
+		facts[set.Exercise_Id].append(QJsonObject{{"reps", set.Reps}, {"weight_kg", set.Weight_Kg}});
+	}
+	if (exercise_ids.isEmpty() || QUuid(in_session.ID).isNull())
+		return Update_Session(in_session);
+
+	QJsonArray exercises;
+	QString plan_json;
+	qint64 rest_until_ms = 0;
+	if (!Load_Runtime(in_session.ID, plan_json, rest_until_ms))
+		return false;
+	const QJsonArray plan = QJsonDocument::fromJson(plan_json.toUtf8()).object().value("exercises").toArray();
+	for (const QJsonValue &value : plan)
+	{
+		const QString id = value.toObject().value("exerciseId").toString();
+		if (facts.contains(id))
+			exercises.append(QJsonObject{{"exercise_id", id}, {"sets", facts.take(id)}});
+	}
+	for (const QString &id : exercise_ids)
+		if (facts.contains(id))
+			exercises.append(QJsonObject{{"exercise_id", id}, {"sets", facts.value(id)}});
+	const QJsonObject payload{
+	    {"started_at", in_session.Started_At}, {"completed_at", in_session.Completed_At}, {"exercises", exercises}};
+	QSqlDatabase connection = Connection();
+	if (!connection.transaction())
+		return Set_Last_Error("Не удалось начать сохранение тренировки");
+	if (!Update_Session(in_session))
+	{
+		connection.rollback();
+		return false;
+	}
+	QSqlQuery query(connection);
+	query.prepare("INSERT INTO sync_outbox(entity_type, entity_id, operation, payload_json, created_at) "
+	              "VALUES('workout', ?, 'upsert', ?, ?)");
+	query.addBindValue(in_session.ID);
+	query.addBindValue(QString::fromUtf8(QJsonDocument(payload).toJson(QJsonDocument::Compact)));
+	query.addBindValue(in_session.Completed_At);
+	if (!query.exec() || !connection.commit())
+	{
+		connection.rollback();
+		return Set_Last_Error("Не удалось сохранить тренировку в очереди синхронизации");
+	}
 	return true;
 }
 //-------------------------------------------------------------------------------------------------------------

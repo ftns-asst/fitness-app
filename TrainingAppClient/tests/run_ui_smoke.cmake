@@ -51,6 +51,11 @@ if (OPEN_AUTH)
     list(APPEND app_arguments --open-auth)
 endif()
 
+list(APPEND app_arguments --ui-test)
+if (VIEWPORT STREQUAL "480")
+    list(APPEND app_arguments --scroll 240)
+endif()
+
 set(ENV{AUTH_ORIGIN} "${AUTH_ORIGIN}")
 
 execute_process(

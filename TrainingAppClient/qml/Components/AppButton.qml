@@ -18,7 +18,7 @@ Button {
         if (variant === AppButton.Primary)
             return Theme.accentForeground;
 
-        return variant === AppButton.Secondary ? Theme.textPrimary : Theme.accent;
+        return variant === AppButton.Secondary ? Theme.textPrimary : Theme.accentInk;
     }
 
     // primary | secondary | ghost

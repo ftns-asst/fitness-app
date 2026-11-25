@@ -52,6 +52,7 @@ PageScaffold {
     signal openRequested(string programId)
     signal statsRequested(string programId)
     signal defaultProgramRequested(string programId)
+    signal serverDraftsRequested
 
     Component.onCompleted: page.reload()
     onVisibleChanged: {
@@ -87,6 +88,7 @@ PageScaffold {
         width: parent.width
 
         onProgramRequested: programId => page.defaultProgramRequested(programId)
+        onServerDraftsRequested: page.serverDraftsRequested()
     }
 
     // — «Мои»: активная, черновики и пауза, завершённые —

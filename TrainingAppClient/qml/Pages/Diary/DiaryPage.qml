@@ -1359,8 +1359,10 @@ PageScaffold {
         readonly property real usableHeight: parent !== null ? (Qt.inputMethod.visible && Qt.inputMethod.keyboardRectangle.y > 0 ? Math.min(parent.height, Qt.inputMethod.keyboardRectangle.y) : parent.height) : page.height
         readonly property bool sameDay: page.activeDate === editDate && page.programId === programContext && page.selectedDay !== null && page.selectedDay.editable
         width: Math.min(page.width - Spacing.screenPadding * 2, page.numberPopupMaxWidth)
-        height: Math.min(implicitHeight, Math.max(160, usableHeight - Spacing.safeGap * 2))
-        restingY: Math.max(0, usableHeight - height - Spacing.safeGap)
+        expandsOnDrag: true
+        maximumExpandedHeight: implicitHeight
+        collapsedHeight: Math.min(implicitHeight, Math.max(160, usableHeight * 0.78))
+        restingY: Math.max(0, usableHeight - collapsedHeight - Spacing.safeGap)
 
         function setValue(key, text) {
             if (String(values[key] === undefined ? "" : values[key]) === text)

@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import TrainingAppClient
 
 // Область жеста отделена от содержимого: списки и поля сохраняют свои жесты.
@@ -9,6 +8,9 @@ Item {
     property real dragStartOffset: 0
     property string accessibleName: qsTr("Закрыть окно")
     property real dismissDistance: 80
+    property real upwardLimit: 0
+    property bool expandable: false
+    property bool expanded: false
     signal dismissed
     implicitWidth: 180
     implicitHeight: Theme.touchMin
@@ -21,11 +23,26 @@ Item {
 
     function reset() {
         rebound.stop();
+        expanded = false;
         offset = 0;
         dragStartOffset = 0;
     }
     function updateOffset() {
-        offset = Math.max(0, dragStartOffset + drag.centroid.scenePosition.y - drag.centroid.scenePressPosition.y);
+        const displacement = drag.centroid.scenePosition.y - drag.centroid.scenePressPosition.y;
+        if (expandable) {
+            offset = Math.max(-upwardLimit, dragStartOffset + displacement);
+            return;
+        }
+        // При повторном захвате во время возврата начальная позиция остаётся под пальцем.
+        const start = dragStartOffset < 0 && upwardLimit > 0 ? dragStartOffset / Math.max(0.01, 1 + dragStartOffset / upwardLimit) : dragStartOffset;
+        const distance = start + displacement;
+        offset = distance >= 0 ? distance : upwardLimit * distance / Math.max(1, upwardLimit - distance);
+    }
+    onUpwardLimitChanged: {
+        if (expanded && !drag.active) {
+            rebound.stop();
+            offset = -upwardLimit;
+        }
     }
     Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
@@ -39,7 +56,7 @@ Item {
         id: rebound
         target: handle
         property: "offset"
-        to: 0
+        to: handle.expanded ? -handle.upwardLimit : 0
         duration: Theme.popupEnterDuration
         easing.type: Easing.OutCubic
     }
@@ -59,6 +76,10 @@ Item {
             } else if (handle.offset >= handle.dismissDistance) {
                 handle.dismissed();
             } else {
+                if (handle.expandable && handle.upwardLimit > 0) {
+                    const threshold = handle.expanded ? handle.upwardLimit * 0.65 : Math.min(48, handle.upwardLimit * 0.45);
+                    handle.expanded = handle.offset < -threshold;
+                }
                 rebound.restart();
             }
         }

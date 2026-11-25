@@ -139,6 +139,21 @@ TestCase {
         wait(300);
         compare(second.flickable.contentY, 0);
     }
+    function test_switchingTargetDoesNotTransferActiveDrag() {
+        const first = createTemporaryObject(sideAreaComponent, testCase);
+        const second = createTemporaryObject(sideAreaComponent, testCase);
+        first.show();
+        waitForRendering(first.flickable);
+        mousePress(first.contentItem, 20, 500);
+        mouseMove(first.contentItem, 20, 450);
+        mouseMove(first.contentItem, 20, 400);
+        verify(first.flickable.contentY > 0);
+        first.catcher.target = second.flickable;
+        mouseMove(first.contentItem, 20, 300);
+        mouseRelease(first.contentItem, 20, 300);
+        wait(150);
+        compare(second.flickable.contentY, 0);
+    }
     function test_gridHeaderRemainsReachableThroughBackgroundScroll() {
         const window = createTemporaryObject(gridAreaComponent, testCase);
         window.show();

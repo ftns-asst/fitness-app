@@ -5,12 +5,18 @@ import QtQuick
 // Источник значений: docs/fitness-assistant-frontend-design.md §3, §8.
 QtObject {
     readonly property color accent: accentPalette[accentIndex]
-    readonly property color accentForeground: "#FFFFFF"
+    readonly property color accentInk: Qt.tint(textPrimary, Qt.rgba(accent.r, accent.g, accent.b, 0.42))
+    readonly property color accentForeground: accentLuminance > 0.179 ? "#000000" : "#FFFFFF"
     property int accentIndex: 0
     readonly property var accentNames: [qsTr("Синий"), qsTr("Бирюзовый"), qsTr("Красно-оранжевый"), qsTr("Фиолетовый")]
     // — Переключаемый акцент (§3.1): синий по умолчанию —
     readonly property var accentPalette: ["#505DD5", "#0FB5A5", "#F2542D", "#8B46E0"]
-    readonly property color accentPressed: Qt.darker(accent, 1.2)
+    readonly property color accentPressed: accentLuminance > 0.179 ? Qt.lighter(accent, 1.10) : Qt.darker(accent, 1.20)
+    readonly property real accentLuminance: 0.2126 * linearChannel(accent.r) + 0.7152 * linearChannel(accent.g) + 0.0722 * linearChannel(accent.b)
+
+    function linearChannel(channel) {
+        return channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+    }
     readonly property color accentSoft: Qt.rgba(accent.r, accent.g, accent.b, 0.30)
     readonly property color accentTint: Qt.rgba(accent.r, accent.g, accent.b, darkMode ? 0.20 : 0.12)
 
@@ -45,7 +51,7 @@ QtObject {
     readonly property int selectionDuration: 160
     readonly property int popupEnterDuration: 200
     readonly property int popupExitDuration: 120
-    readonly property int pageTransitionDuration: 200
+    readonly property int pageTransitionDuration: 220
 
     // — Физика прокрутки (PageScaffold) —
     //
