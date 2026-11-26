@@ -17,8 +17,7 @@
 // Спринт U3 (docs/08-exercises-sprint-plan.md §4): ViewModel каталога
 // упражнений. Инкапсулирует debounce-поиск (быстрый ввод даёт один запрос),
 // multi-фильтры (смена фильтра сбрасывает пагинацию), пагинацию «загрузить
-// ещё» (конец — по короткой странице) и роли строк под CatalogExerciseRow
-// (title/subtitle — mock-контракт).
+// ещё» (конец — по короткой странице) и роли строк каталога.
 //
 // Ожидание — через QTRY_*: stateChanged эмитится и при старте загрузки
 // (loading=true), и по завершении, поэтому spy.wait ловил бы старт, а не ответ.
@@ -126,7 +125,6 @@ void Avm_Exercises_Test::rolesMatchMockContract()
 	QVERIFY(vm->Error_Key().isEmpty());
 	QVERIFY(!vm->Can_Load_More());
 
-	// Роли — mock-контракт CatalogExerciseRow: title/subtitle (docs/08, §4 U3).
 	row = vm->exercise_list()->get(0);
 	QCOMPARE(row.value("title").toString(), QString("Bench press"));
 	QCOMPARE(row.value("subtitle").toString(), QString("chest"));

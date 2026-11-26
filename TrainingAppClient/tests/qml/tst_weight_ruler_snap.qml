@@ -2,7 +2,7 @@ import QtQuick
 import QtTest
 import TrainingAppClient 1.0
 
-// WeightRuler и RepsWheel (спринт S8, issue 11).
+// Линейка веса используется в числовых формах программы.
 //
 // Проверяется не «ползунок двигается», а инвариант, ради которого он и
 // написан: значение всегда кратно шагу инвентаря. Промежуточное «54,37 кг»
@@ -77,29 +77,6 @@ TestCase {
         // записью подхода это лишний пересчёт и лишняя запись в базу.
         createdObject.setValue(60);
         compare(received.length, 1);
-    }
-    function test_reps_wheel_produces_integers() {
-        createdObject = createTemporaryObject(repsWheelComponent, testCase);
-
-        verify(createdObject !== null);
-
-        // Повторы всегда целые: «8,5 повтора» — ошибка ввода, а не значение.
-        for (let step = 0; step < createdObject.itemCount; ++step) {
-            const value = createdObject.from + step * createdObject.step;
-
-            verify(value === Math.round(value), "повторы не целые: " + value);
-        }
-    }
-    function test_reps_wheel_clamps_and_snaps() {
-        createdObject = createTemporaryObject(repsWheelComponent, testCase);
-
-        verify(createdObject !== null);
-
-        createdObject.setValue(1000);
-        compare(createdObject.value, createdObject.to);
-
-        createdObject.setValue(0);
-        compare(createdObject.value, createdObject.from);
     }
 
     function test_weight_ruler_formats_weight_with_comma() {
@@ -505,34 +482,6 @@ TestCase {
         compare(ruler.thumbBar.width, idleWidth);
         compare(ruler.thumbBar.height, idleHeight);
     }
-    // Колесо повторов — тот же класс дефекта: жест забирает страница, и протяжка
-    // теряется. Отклик колеса — рост выбранной цифры под пальцем.
-    function test_reps_wheel_drag_survives_parent_flickable() {
-        createdObject = createTemporaryObject(wheelHostComponent, testCase);
-
-        verify(createdObject !== null);
-
-        createdObject.parent = testCase.Window.window.contentItem;
-
-        wait(0);
-
-        const wheel = createdObject.wheel;
-        const touch = wheel.dragTouch;
-        const start = wheel.value;
-
-        verify(touch !== undefined && touch !== null, "нет зоны захвата колеса");
-
-        mousePress(touch, touch.width / 2, touch.height / 2);
-        compare(wheel.gripActive, true, "колесо не считает себя зажатым");
-
-        mouseMove(touch, touch.width / 2 + wheel.itemWidth * 2, touch.height / 2);
-        compare(wheel.value, start + 2, "протяжка колеса потерялась");
-
-        mouseRelease(touch, touch.width / 2 + wheel.itemWidth * 2, touch.height / 2);
-
-        compare(wheel.gripActive, false);
-        compare(createdObject.page.contentY, 0, "страница уехала вместо прокрутки колеса");
-    }
     // Касание во время прокрутки страницы — жест прокрутки: значение линейки
     // не меняется. Без этого быстрый «тап-стоп» по полосе линейки прыгал
     // значением под палец (дефект из отзыва о тач-проверке: «перепрыгивает,
@@ -590,32 +539,6 @@ TestCase {
         compare(ruler.value, original, "свайп через линейку оставил в ней чужое значение");
 
         mouseRelease(touch, touch.width - 20, touch.height / 2 - 60);
-    }
-    // Касание колеса во время прокрутки страницы — жест прокрутки: число под
-    // пальцем не переставляется.
-    function test_reps_wheel_ignores_touch_while_page_scrolling() {
-        createdObject = createTemporaryObject(wheelHostComponent, testCase);
-
-        verify(createdObject !== null);
-
-        createdObject.parent = testCase.Window.window.contentItem;
-
-        wait(0);
-
-        const wheel = createdObject.wheel;
-        const touch = wheel.dragTouch;
-        const original = wheel.value;
-
-        createdObject.page.flick(0, -3000);
-        wait(20);
-        verify(createdObject.page.moving, "инерция не началась — тест не воспроизводит условие");
-
-        mousePress(touch, touch.width / 2, touch.height / 2);
-        compare(wheel.value, original, "касание во время прокрутки переставило число");
-
-        mouseRelease(touch, touch.width / 2, touch.height / 2);
-
-        compare(wheel.value, original);
     }
     // Удержание черты при вертикальном движении пальца не сбрасывает значение:
     // черта берётся как есть (без перескока к пальцу) и не откатывается, когда
@@ -717,28 +640,6 @@ TestCase {
         mouseRelease(touch, touch.width - 20, touch.height / 2 - 30);
         verify(createdObject.page.interactive === true);
     }
-    // Колесо повторов: подтверждённая горизонталь блокирует прокрутку до
-    // отпускания — ведение цифр всегда достаётся колесу.
-    function test_reps_wheel_horizontal_intent_locks_page_scroll() {
-        createdObject = createTemporaryObject(wheelHostComponent, testCase);
-
-        verify(createdObject !== null);
-
-        createdObject.parent = testCase.Window.window.contentItem;
-
-        wait(0);
-
-        const wheel = createdObject.wheel;
-        const touch = wheel.dragTouch;
-
-        mousePress(touch, touch.width / 2, touch.height / 2);
-        mouseMove(touch, touch.width / 2 + wheel.itemWidth * 2, touch.height / 2);
-
-        verify(createdObject.page.interactive === false, "ведение цифр не заблокировало прокрутку");
-
-        mouseRelease(touch, touch.width / 2 + wheel.itemWidth * 2, touch.height / 2);
-        verify(createdObject.page.interactive === true, "отпускание не вернуло прокрутку страницы");
-    }
     // Обычная Column — ровно то окружение, в котором линейку держит `AppCard`:
     // каркас страницы и карточка раскладывают детей колонкой, а не ColumnLayout'ом.
     Component {
@@ -808,44 +709,6 @@ TestCase {
             }
         }
     }
-    // Колесо повторов в том же окружении: проверяется, что протяжка колеса не
-    // превращается в прокрутку страницы.
-    Component {
-        id: wheelHostComponent
-
-        Item {
-            id: wheelHost
-
-            readonly property alias page: wheelFlick
-            readonly property alias wheel: hostedWheel
-            height: 200
-            width: 360
-
-            Flickable {
-                id: wheelFlick
-
-                anchors.fill: parent
-                contentHeight: 400
-                contentWidth: width
-
-                Column {
-                    spacing: 8
-                    width: parent.width
-
-                    Item {
-                        height: 40
-                        width: 1
-                    }
-                    RepsWheel {
-                        id: hostedWheel
-
-                        height: 64
-                        width: 280
-                    }
-                }
-            }
-        }
-    }
     Component {
         id: rulerComponent
 
@@ -877,14 +740,6 @@ TestCase {
             to: 200
             value: 60
             width: 360
-        }
-    }
-    Component {
-        id: repsWheelComponent
-
-        RepsWheel {
-            height: 64
-            width: 280
         }
     }
 }

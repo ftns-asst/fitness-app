@@ -69,9 +69,7 @@ QVariantMap Avm_Exercises::Row_Data(const SExercises_Item &in_item) const
 {
 	QVariantMap row;
 
-	// Mock-контракт CatalogExerciseRow: title + muscleGroups (список ключей
-	// справочника). Перевод ключей — зона QML (ExerciseTexts), C++ словарём
-	// локализации не владеет.
+	// QML переводит ключи групп мышц через ExerciseTexts.
 	row.insert("id", in_item.ID);
 	row.insert("title", in_item.Name);
 	row.insert("muscleGroups", QVariant::fromValue(in_item.Muscle_Groups));

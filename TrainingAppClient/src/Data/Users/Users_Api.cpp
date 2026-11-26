@@ -42,7 +42,7 @@ int AUsers_Api::Get_User(const QString &in_user_id, bool in_with_profile)
 	if (request_id == 0)
 		return 0;
 
-	Pending_Gets.insert(request_id, in_user_id);
+	Pending_Gets.insert(request_id);
 	qCInfo(USERS_Api_Log).noquote() << "get-user started" << request_id;
 
 	return request_id;
@@ -70,7 +70,6 @@ int AUsers_Api::Update_Profile(const QJsonObject &in_changes)
 //-------------------------------------------------------------------------------------------------------------
 void AUsers_Api::on_Session_Finished(int in_request_id, const SHttp_Response &in_response)
 {
-	QString user_id;
 	if (Pending_Updates.remove(in_request_id))
 	{
 		SUsers_Profile profile;
@@ -82,19 +81,14 @@ void AUsers_Api::on_Session_Finished(int in_request_id, const SHttp_Response &in
 		return;
 	}
 
-	if (!Pending_Gets.contains(in_request_id))
-		return;
-
-	user_id = Pending_Gets.take(in_request_id);
-	Finish_Get_User(in_request_id, user_id, in_response);
+	if (Pending_Gets.remove(in_request_id))
+		Finish_Get_User(in_request_id, in_response);
 }
 //-------------------------------------------------------------------------------------------------------------
-void AUsers_Api::Finish_Get_User(int in_request_id, const QString &in_user_id, const SHttp_Response &in_response)
+void AUsers_Api::Finish_Get_User(int in_request_id, const SHttp_Response &in_response)
 {
 	SUsers_User user;
 	AApi_Error error;
-
-	Q_UNUSED(in_user_id);
 
 	Parse_User(in_response, user, error);
 

@@ -18,7 +18,6 @@ PageScaffold {
             return words[0].substring(0, Math.min(2, words[0].length)).toUpperCase();
         return String(words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
     }
-    readonly property var activeLocalProfile: authenticated ? auth.localProfile : null
     readonly property string activeName: authenticated ? auth.user.name : qsTr("Гость")
     readonly property string activeProfileDetails: {
         if (!authenticated)

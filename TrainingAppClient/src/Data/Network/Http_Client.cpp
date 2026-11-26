@@ -157,20 +157,10 @@ void AsHttp_Client::Set_Initial_Retry_Delay_Ms(int in_delay_ms)
 		Initial_Retry_Delay = in_delay_ms;
 }
 //-------------------------------------------------------------------------------------------------------------
-int AsHttp_Client::Initial_Retry_Delay_Ms() const
-{
-	return Initial_Retry_Delay;
-}
-//-------------------------------------------------------------------------------------------------------------
 void AsHttp_Client::Set_Max_Response_Bytes(int in_bytes)
 {
 	if (in_bytes > 0)
 		Maximum_Response_Bytes = in_bytes;
-}
-//-------------------------------------------------------------------------------------------------------------
-int AsHttp_Client::Max_Response_Bytes() const
-{
-	return Maximum_Response_Bytes;
 }
 //-------------------------------------------------------------------------------------------------------------
 void AsHttp_Client::onReplyFinished()

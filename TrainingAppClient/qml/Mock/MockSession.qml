@@ -60,18 +60,6 @@ QtObject {
         session.offline = false;
         session.state = "anonymous";
     }
-    function restore(userDto, profileDto, isOffline) {
-        if (!MockTokenStore.hasTokens || userDto === undefined || userDto === null || !userDto.id) {
-            return false;
-        }
-
-        session.user = userDto;
-        session.profile = profileDto === undefined ? null : profileDto;
-        session.offline = Boolean(isOffline);
-        session.state = "authenticated";
-        session.authenticatedChangedByApi();
-        return true;
-    }
     function saveLocalProfile(localProfileDto) {
         if (localProfileDto === undefined || localProfileDto === null) {
             return false;

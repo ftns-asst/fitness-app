@@ -30,6 +30,7 @@ EDay_Kind Day_Kind_Of(const ESlot_Kind in_kind)
 		return EDay_Kind::Mobility;
 	case ESlot_Kind::Workout:
 	case ESlot_Kind::Optional:
+	case ESlot_Kind::Max:
 		break;
 	}
 

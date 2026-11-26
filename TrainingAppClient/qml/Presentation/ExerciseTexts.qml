@@ -65,15 +65,6 @@ QtObject {
     function equipmentTitle(key) {
         return equipmentTitles[key] !== undefined ? equipmentTitles[key] : key;
     }
-    // Подзаголовок карточки каталога: группы мышц через запятую, по-русски.
-    function groupsSubtitle(groups) {
-        const titles = [];
-
-        for (let i = 0; i < groups.length; ++i)
-            titles.push(muscleGroupTitle(groups[i]));
-
-        return titles.join(", ");
-    }
     function muscleGroupTitle(key) {
         return muscleGroupTitles[key] !== undefined ? muscleGroupTitles[key] : key;
     }

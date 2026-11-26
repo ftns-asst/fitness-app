@@ -184,7 +184,6 @@ set_source_files_properties(
     qml/Mock/Demo.qml
     qml/Mock/ApiErrorText.qml
     qml/Mock/MockApi.qml
-    qml/Mock/MockCatalog.qml
     qml/Mock/MockSession.qml
     qml/Mock/MockTokenStore.qml
     qml/Presentation/AuthViewModel.qml
@@ -192,7 +191,6 @@ set_source_files_properties(
     qml/Presentation/RuleTexts.qml
     qml/Presentation/MeasurementTexts.qml
     qml/Presentation/StatisticsUi.qml
-    qml/Presentation/PlansViewModel.qml
     qml/Presentation/ProfileViewModel.qml
     qml/Components/BackRouter.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
@@ -223,7 +221,6 @@ qt_add_qml_module(appTrainingAppClient
 qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Pages/Program/ProgramStatsPage.qml
         qml/Pages/Macro/MacroCalculatorPage.qml
-        qml/Pages/Program/SetEntryPage.qml
         qml/Components/CheckinStatePill.qml
         qml/Components/BackBar.qml
         qml/Components/DateField.qml
@@ -232,7 +229,6 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/SwipePopup.qml
         qml/Components/EdgeBackGesture.qml
         qml/Components/AppComboBox.qml
-    qml/Components/AppNumberField.qml
     qml/Components/CatalogProgramRow.qml
     qml/Components/DayTile.qml
         qml/Main.qml
@@ -247,7 +243,6 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Mock/Demo.qml
         qml/Mock/ApiErrorText.qml
         qml/Mock/MockApi.qml
-        qml/Mock/MockCatalog.qml
         qml/Mock/MockSession.qml
         qml/Mock/MockTokenStore.qml
 
@@ -259,7 +254,6 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Presentation/RuleTexts.qml
         qml/Presentation/MeasurementTexts.qml
     qml/Presentation/StatisticsUi.qml
-        qml/Presentation/PlansViewModel.qml
         qml/Presentation/ProfileViewModel.qml
 
         # UI components
@@ -277,7 +271,6 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/BackHandler.qml
         qml/Components/BackRouter.qml
         qml/Components/BottomTabBar.qml
-        qml/Components/CatalogExerciseRow.qml
         qml/Components/CatalogExerciseTile.qml
         qml/Components/CompactStepper.qml
         qml/Components/SelectionMark.qml
@@ -289,23 +282,16 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/FilterChips.qml
         qml/Components/FormChoice.qml
         qml/Components/FpsOverlay.qml
-        qml/Components/LineChartCard.qml
         qml/Components/MeasurementChangeMap.qml
-        qml/Components/MeasurementTrendRow.qml
         qml/Components/MetricCard.qml
         qml/Components/MetricTile.qml
-        qml/Components/NutritionPlanCard.qml
         qml/Components/FrameRateMeter.qml
         qml/Components/PageScaffold.qml
-        qml/Components/RatingBadge.qml
-        qml/Components/RecordRow.qml
-        qml/Components/RegularityHeatmap.qml
         qml/Components/RulePresetTile.qml
         qml/Components/SegmentedControl.qml
         qml/Components/TagPill.qml
         qml/Components/WeekLegend.qml
         qml/Components/WeightRuler.qml
-        qml/Components/RepsWheel.qml
 
         # Screens
         qml/Pages/Auth/AuthPage.qml

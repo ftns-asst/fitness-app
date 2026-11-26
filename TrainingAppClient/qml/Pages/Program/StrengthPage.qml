@@ -121,9 +121,6 @@ PageScaffold {
     function signedText(value) {
         return StatisticsUi.signed(value, Number.isInteger(Number(value)) ? 0 : 1);
     }
-    function workloadText(weight, reps) {
-        return StatisticsUi.has(weight) ? qsTr("%1 кг × %2 повт.").arg(numberText(weight)).arg(numberText(reps)) : qsTr("Нет данных");
-    }
     function statusColor(status) {
         return status === "better" ? Theme.positive : status === "worse" ? Theme.negative : status === "attention" ? Theme.warning : Theme.textSecondary;
     }

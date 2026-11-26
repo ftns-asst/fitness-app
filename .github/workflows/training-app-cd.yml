@@ -1,0 +1,157 @@
+name: TrainingAppClient CD
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  QT_VERSION: "6.11.2"
+
+jobs:
+  android:
+    name: Android Release (${{ matrix.abi }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            qt-arch: android_arm64_v8a
+          - abi: x86_64
+            qt-arch: android_x86_64
+    env:
+      ANDROID_NDK_VERSION: "27.2.12479018"
+      ANDROID_BUILD_TOOLS: "36.0.0"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Android build dependencies
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;$ANDROID_BUILD_TOOLS" "ndk;$ANDROID_NDK_VERSION"
+
+      - name: Install Qt host tools
+        id: qt-host
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: desktop
+          cache: true
+
+      - name: Install Qt for Android
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: all_os
+          target: android
+          arch: ${{ matrix.qt-arch }}
+          install-deps: false
+          cache: true
+
+      - name: Build Release APK
+        env:
+          QT_HOST_PATH: ${{ steps.qt-host.outputs.qt-root-dir }}
+          ANDROID_ABI: ${{ matrix.abi }}
+        run: |
+          "$QT_ROOT_DIR/bin/qt-cmake" -S TrainingAppClient -B build/android -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DTRAINING_APP_GENERATE_QMLLS_INI=OFF \
+            -DQT_HOST_PATH="$QT_HOST_PATH" -DANDROID_SDK_ROOT="$ANDROID_HOME" \
+            -DANDROID_NDK_ROOT="$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION" \
+            -DANDROID_ABI="$ANDROID_ABI" -DANDROID_PLATFORM=android-28
+          cmake --build build/android --target apk
+
+      - name: Sign and verify APK
+        env:
+          ANDROID_ABI: ${{ matrix.abi }}
+          CI_KEYSTORE_BASE64: ${{ secrets.ANDROID_CI_KEYSTORE_BASE64 }}
+          CI_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_CI_KEYSTORE_PASSWORD }}
+        run: |
+          umask 077
+          keystore="$RUNNER_TEMP/training-app-ci.p12"
+          trap 'rm -f "$keystore"' EXIT
+          if [[ -n "$CI_KEYSTORE_BASE64" && -n "$CI_KEYSTORE_PASSWORD" ]]; then
+            printf '%s' "$CI_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          elif [[ -z "$CI_KEYSTORE_BASE64" && -z "$CI_KEYSTORE_PASSWORD" ]]; then
+            echo '::notice::Signing with a temporary test certificate. Updates across runs require a persistent CI key.'
+            export CI_KEYSTORE_PASSWORD=android
+            keytool -genkeypair -noprompt -storetype PKCS12 -keystore "$keystore" \
+              -storepass:env CI_KEYSTORE_PASSWORD -alias training-app-ci \
+              -keyalg RSA -keysize 2048 -validity 3650 -dname 'CN=TrainingApp CI'
+          else
+            echo '::error::Configure both Android CI keystore secrets or leave both unset.'
+            exit 1
+          fi
+
+          apksigner="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner"
+          apk="dist/TrainingAppClient-android-$ANDROID_ABI.apk"
+          mkdir -p dist
+          "$apksigner" sign --ks "$keystore" --ks-key-alias training-app-ci \
+            --ks-pass env:CI_KEYSTORE_PASSWORD --out "$apk" \
+            build/android/android-build/appTrainingAppClient.apk
+          "$apksigner" verify --verbose "$apk"
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TrainingAppClient-android-${{ matrix.abi }}-${{ github.run_number }}-${{ github.run_attempt }}
+          path: dist/TrainingAppClient-android-${{ matrix.abi }}.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  windows:
+    name: Windows x64 Release
+    runs-on: windows-2022
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Qt and MinGW
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_mingw
+          tools: tools_mingw1310,qt.tools.win64_mingw1310
+          cache: true
+
+      - name: Build Windows Release
+        run: |
+          cmake -S TrainingAppClient -B build/windows -G Ninja `
+            "-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR" "-DCMAKE_CXX_COMPILER=g++.exe" `
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DTRAINING_APP_GENERATE_QMLLS_INI=OFF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build/windows --target appTrainingAppClient
+
+      - name: Collect Qt dependencies
+        run: |
+          New-Item -ItemType Directory -Path dist/windows | Out-Null
+          Copy-Item build/windows/appTrainingAppClient.exe dist/windows/
+          & "$env:QT_ROOT_DIR/bin/windeployqt.exe" --release --qmldir TrainingAppClient/qml dist/windows/appTrainingAppClient.exe
+
+      - name: Upload portable Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: TrainingAppClient-windows-x64-${{ github.run_number }}-${{ github.run_attempt }}
+          path: dist/windows/
+          if-no-files-found: error
+          retention-days: 30

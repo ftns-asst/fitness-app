@@ -17,7 +17,6 @@ Rectangle {
     property string checkinState: "unknown"
 
     readonly property bool isDone: chip.checkinState === "done"
-    readonly property bool isFailed: chip.checkinState === "failed"
 
     // Подпись и цвет — таблицей по состоянию. Раньше это была цепочка if/return
     // плюс тернарник, у которого обе ветви совпадали: оттенок провала терялся,

@@ -3,12 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import TrainingAppClient
 
-// Каркас приложения: 4 вкладки (StackLayout) + стек деталей (экраны модуля
-// программы). Инструментов дизайн-ревью в каркасе нет: экраны и рамка телефона
-// открываются ключами командной строки (`--screen`, `--tab`, `--frame`, `--accent`,
-// `--dark`) — см. `docs/07-programs-ui-spec.md` §2 и `docs/04-roadmap.md`.
-// Оверлеи записи тренировки и таймера отдыха добавляются на этапе D2 — они будут
-// братями StackView и будут скрывать tab bar (§5.2, §5.3).
+// Корневые вкладки, стек деталей и маршруты запуска для дизайн-ревью.
 Item {
     id: shell
 
@@ -25,12 +20,7 @@ Item {
     readonly property bool popupShot: Qt.application.arguments.indexOf("--popup-shot") >= 0
     property int initialTab: 0
 
-    // — Память вкладок (отзыв: «вернулся на вкладку — а там корень») —
-    // Полная история переходов каждой вкладки: массив записей
-    // {name: "program-edit", id: …} / {name: "program-day", weekday, kind}
-    // в порядке открытия. Возвращение на вкладку восстанавливает ВСЮ цепочку
-    // (назад из восстановленного экрана не ведёт в корень), «назад» снимает
-    // верхний экран, повторный тап по своей вкладке сбрасывает к корню.
+    // Цепочка экранов каждой вкладки в порядке открытия.
     property var tabHistory: ({})
     // Отложенная навигация: push во время перехода отбрасывается guard'ом
     // pushPage, поэтому восстановление экрана после pop живёт в очереди и
@@ -193,8 +183,7 @@ Item {
             "program-rules": programRulesComponent,
             "program-rules-picker": programRulesPickerComponent,
             "program-stats": programStatsComponent,
-            "strength": strengthComponent,
-            "set-entry": setEntryComponent
+            "strength": strengthComponent
         };
 
         return map[name] !== undefined ? map[name] : null;
@@ -659,22 +648,6 @@ Item {
         shell.pushPage(profileComponent);
     }
 
-    // — Экран авторасчёта КБЖУ (спринт S7) —
-    // Отдельный стек поверх вкладок, как и экраны программы: расчёт нужен из
-    // профиля и с главной, но сам по себе он не вкладка.
-    function openSetEntry() {
-        shell.openAfterPop(setEntryComponent, {
-            name: "set-entry"
-        });
-    }
-
-    // -- Запись подхода (спринт S8) --
-    function openMacroCalculator() {
-        shell.openAfterPop(macroCalculatorComponent, {
-            name: "macro-calculator"
-        });
-    }
-
     // Расчёт КБЖУ из настройки программы: открывается поверх редактора, а не
     // вместо него — «назад» возвращает в настройку. Флаг applyToProgram
     // включает на экране расчёта кнопку «Создать правила в программе».
@@ -689,12 +662,11 @@ Item {
         });
     }
 
-    // Инструменты (запись подхода, КБЖУ) открываются вместо текущего стека:
-    // сперва pop, и только после завершения перехода — push, потому что push
-    // во время busy отбрасывается. Запись памяти тоже отложена: «последний
-    // экран» фиксируется в момент фактического открытия, а не отброшенной
-    // попытки.
-    function openAfterPop(component, entry) {
+    // Из профиля калькулятор открывается от корня вкладки.
+    function openMacroCalculator() {
+        const entry = {
+            name: "macro-calculator"
+        };
         if (pages.busy)
             return;
         if (pages.depth > 1) {
@@ -704,7 +676,7 @@ Item {
             // возврат на вкладку восстановил бы несуществующий стек.
             shell.forgetTabScreen(tabBar.currentIndex);
             shell.pendingComponentEntry = {
-                component: component,
+                component: macroCalculatorComponent,
                 entry: entry
             };
 
@@ -712,7 +684,7 @@ Item {
         }
 
         shell.noteTabScreen(entry);
-        shell.pushPage(component);
+        shell.pushPage(macroCalculatorComponent);
     }
 
     // — «Профиль → Параметры» (экран 32) —
@@ -764,7 +736,6 @@ Item {
             "macro-calculator": openMacroCalculator,
             "profile": openProfile,
             "profile-settings": openProfileSettings,
-            "set-entry": openSetEntry,
             "exercise-edit": function () {
                 if (typeof ExercisesEditorVM !== "undefined" && ExercisesEditorVM !== null)
                     ExercisesEditorVM.reset();
@@ -1047,16 +1018,6 @@ Item {
         }
     }
     Component {
-        id: setEntryComponent
-
-        SetEntryPage {
-            bottomInset: shell.pageBottomInset
-            topInset: shell.topInset
-
-            onBackRequested: shell.goBack()
-        }
-    }
-    Component {
         id: soloWorkoutsComponent
         SoloWorkoutHistoryPage {
             bottomInset: shell.pageBottomInset
@@ -1112,21 +1073,12 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         bottomInset: shell.bottomInset
-        // Панель видна всегда (отзыв): на pushed-экранах она раньше пряталась,
-        // и «назад» был единственным способом вернуться к разделам — теперь
-        // разделы доступны с любого экрана одним тапом, как в нативных
-        // приложениях. Pushed-страницы резервируют под панель место
-        // (shell.pageBottomInset), контент не заезжает под неё.
         visible: !shell.workoutVisible
 
-        // Сигнал панели раньше никто не слушал: тап менял только подсветку
-        // вкладки, а сама страница оставалась на месте — панель выглядела
-        // сломанной. Здесь навигация и происходит: showTab снимает стек
-        // и восстанавливает последний экран выбранной вкладки.
         onTabSelected: shell.showTab(index)
     }
 
-    // — Временное сообщение о ещё не реализованном экране —
+    // Короткие сообщения о выполненных действиях и ошибках.
     Rectangle {
         id: toast
 

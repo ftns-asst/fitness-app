@@ -4,7 +4,6 @@
 #include "Data/Network/Api_Error.h"
 #include "Data/Network/Http_Client.h"
 
-#include <QHash>
 #include <QMetaType>
 #include <QObject>
 #include <QSet>
@@ -59,12 +58,12 @@ private slots:
 	void on_Session_Finished(int in_request_id, const SHttp_Response &in_response);
 
 private:
-	void Finish_Get_User(int in_request_id, const QString &in_user_id, const SHttp_Response &in_response);
+	void Finish_Get_User(int in_request_id, const SHttp_Response &in_response);
 	static void Parse_User(const SHttp_Response &in_response, SUsers_User &out_user, AApi_Error &out_error);
 	static bool Parse_Profile(const QJsonObject &in_profile, SUsers_Profile &out_profile);
 
 	AsAuth_Session *Session_Instance;
-	QHash<int, QString> Pending_Gets; // логический id → запрошенный user id
+	QSet<int> Pending_Gets;
 	QSet<int> Pending_Updates;
 };
 //-------------------------------------------------------------------------------------------------------------

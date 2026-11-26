@@ -102,6 +102,24 @@ C++-мост `AuthBackend` (также в RelWithDebInfo и MinSizeRel). В Debu
 Инструкции по SDK, сборке, установке и проверке на устройстве:
 [Android](docs/android/README.md).
 
+### Готовые сборки из `main`
+
+После обновления `main`, в том числе при слиянии PR, GitHub Actions собирает
+Release-пакеты. Список скачиваний доступен в **Actions → TrainingAppClient CD →
+нужный запуск → Artifacts**. Срок хранения — 30 дней.
+
+| Артефакт | Как запустить |
+|---|---|
+| `TrainingAppClient-android-arm64-v8a-*` | Установить APK на ARM64-устройство |
+| `TrainingAppClient-android-x86_64-*` | Установить APK на x86_64-эмулятор |
+| `TrainingAppClient-windows-x64-*` | Распаковать ZIP целиком и запустить `appTrainingAppClient.exe` |
+
+Для установки обновлений APK поверх предыдущей CI-сборки задайте секреты
+репозитория `ANDROID_CI_KEYSTORE_BASE64` (PKCS#12 в Base64 с алиасом
+`training-app-ci`) и `ANDROID_CI_KEYSTORE_PASSWORD`. Без них CD подписывает APK
+временным тестовым ключом. Если подписи различаются, перед установкой придётся
+удалить предыдущую версию, что сотрёт её локальные данные.
+
 ### Проверка интерфейса и скриншоты
 
 | Аргумент | Назначение |

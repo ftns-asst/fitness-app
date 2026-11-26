@@ -1,21 +1,12 @@
 # Контракт mock-данных и mock-API
 
-Документ фиксирует публичный QML-контракт фазы S. Имена полей списков должны
-стать именами ролей будущих `QAbstractListModel`; имена auth/users-полей должны
-сохраняться на границе UI и DTO-маппинга. Серверные схемы пока не согласованы,
-поэтому такие поля помечены **assumed** и могут быть преобразованы внутри
-`AAuth_Api` / `AUsers_Api`, но не в delegates.
+Здесь зафиксирован первоначальный QML-контракт фазы S. Таблицы предметных
+данных ниже относятся к прототипу. Актуальные серверные схемы описаны в
+[`03-api-contract.md`](03-api-contract.md).
 
-Источник предметных данных — `qml/Mock/MockCatalog.qml`. Auth-состояние и API
-разделены на `MockSession`, `MockTokenStore`, `MockApi` и `ApiErrorText`.
-
-Страницы не обращаются к этим mock-синглтонам напрямую. Между UI и mock-слоем
-находятся стабильные presentation-контракты из `qml/Presentation/`:
-`AuthViewModel`, `TodayViewModel`, `PlansViewModel`, `ExercisesViewModel` и
-`ProfileViewModel`. В фазе V/A их реализации заменяются на `Avm_*`, а входные
-свойства и delegates страниц остаются без изменений.
-Состояние и async-координация формы находятся в `AuthFormController`, поэтому
-`AuthPage` не владеет transport/repository-логикой.
+Для автономных сценариев входа и тестов сохранены `MockSession`,
+`MockTokenStore` и `MockApi`. Форма работает через `AuthFormController` и
+`AuthViewModel`, а тексты ошибок задаёт `ApiErrorText`.
 
 ## 1. Общие правила
 

@@ -279,8 +279,7 @@ Rectangle {
         contentHeight: bodyColumn.implicitHeight
         contentWidth: width
         // Страница скроллится только по вертикали: диагональный жест не
-        // стартует случайный горизонтальный флик (горизонтальные ряды —
-        // FilterChips, RepsWheel — живут в своих фликаблах).
+        // стартует горизонтальный флик: у горизонтальных рядов свой Flickable.
         flickableDirection: Flickable.VerticalFlick
         flickDeceleration: Theme.flickDeceleration
         maximumFlickVelocity: Theme.flickMaxVelocity

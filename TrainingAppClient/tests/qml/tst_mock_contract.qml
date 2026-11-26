@@ -14,51 +14,6 @@ TestCase {
         MockApi.responseDelayMs = 1;
         requestFinishedSpy.clear();
     }
-    function test_catalogDetailContract() {
-        compare(MockCatalog.planDetails.id, "plan-full-body-beginner");
-        compare(MockCatalog.planDetails.days.length, 3);
-        compare(MockCatalog.planDetails.infoTiles.length, 3);
-        compare(MockCatalog.exerciseDetails.id, "exercise-barbell-squat");
-        verify(MockCatalog.exerciseDetails.tags.length > 0);
-        verify(MockCatalog.exerciseDetails.technique.length > 0);
-        verify(MockCatalog.exerciseDetails.progressPoints.length > 0);
-        compare(MockCatalog.planWizard.steps.length, 4);
-        compare(MockCatalog.workoutHistory.length, 3);
-        compare(MockCatalog.profileEditFields.length, 7);
-        compare(MockCatalog.restTimer.addSecondsStep, 15);
-    }
-    function test_catalogListRoles() {
-        verifyRoles(MockCatalog.exercises[0], ["id", "title", "subtitle", "muscleGroup", "equipment", "isCustom"], "exercises");
-        verifyRoles(MockCatalog.plans[0], ["id", "title", "goal", "level", "ratingAvg", "reviewCount", "createdAt"], "plans");
-        verifyRoles(MockCatalog.workoutSets[0], ["id", "sessionExerciseId", "setNumber", "weight", "reps", "rpe", "note", "done"], "workoutSets");
-        verifyRoles(MockCatalog.planReviews[0], ["id", "planId", "authorName", "rating", "text", "createdAt", "isOwn"], "planReviews");
-        verifyRoles(MockCatalog.workoutHistory[0], ["id", "planId", "completedAt", "durationMinutes", "tonnageKg", "exerciseCount"], "workoutHistory");
-        verifyRoles(MockCatalog.profileEditFields[0], ["id", "section", "label", "value", "valueType", "minimum", "maximum", "unit"], "profileEditFields");
-
-        compare(MockCatalog.profileEditFields[1].id, "gender");
-        compare(MockCatalog.profileEditFields[1].options.join(","), "male,female");
-        compare(MockCatalog.profileEditFields[3].id, "weightKg");
-        compare(MockCatalog.profileEditFields[3].valueType, "integer");
-
-        verifyUniqueIds(MockCatalog.exercises, "exercises");
-        verifyUniqueIds(MockCatalog.plans, "plans");
-        verifyUniqueIds(MockCatalog.workoutSets, "workoutSets");
-        verifyUniqueIds(MockCatalog.planReviews, "planReviews");
-        verifyUniqueIds(MockCatalog.workoutHistory, "workoutHistory");
-        verifyUniqueIds(MockCatalog.profileEditFields, "profileEditFields");
-    }
-    // Тест mock-фильтрации каталога упражнений удалён вместе с mock-VM:
-    // спринт U4 заменил её серверным поиском (tst_Exercises_VM, cpp).
-    function test_plansViewModelSortsWithoutMutatingSource() {
-        const sourceFirstId = MockCatalog.plans[0].id;
-        const byRating = PlansViewModel.sortedPlans(0);
-        const byPopularity = PlansViewModel.sortedPlans(1);
-
-        verify(byRating.length > 1);
-        verify(byRating[0].ratingAvg >= byRating[1].ratingAvg);
-        verify(byPopularity[0].reviewCount >= byPopularity[1].reviewCount);
-        compare(MockCatalog.plans[0].id, sourceFirstId);
-    }
     function test_checkEmail() {
         const request_id = MockApi.checkEmail("  NEW@example.com ");
         const args = waitForResult();
@@ -282,22 +237,6 @@ TestCase {
         compare(MockSession.state, "anonymous");
         verify(!MockSession.authenticated);
         verify(!MockTokenStore.hasTokens);
-    }
-    function verifyRoles(item, roles, context) {
-        verify(item !== null && item !== undefined, context + ": missing item");
-
-        for (let i = 0; i < roles.length; ++i) {
-            verify(item[roles[i]] !== undefined, context + ": missing role " + roles[i]);
-        }
-    }
-    function verifyUniqueIds(items, context) {
-        const ids = {};
-
-        for (let i = 0; i < items.length; ++i) {
-            verify(typeof items[i].id === "string" && items[i].id.length > 0, context + ": invalid id at " + i);
-            verify(ids[items[i].id] === undefined, context + ": duplicate id " + items[i].id);
-            ids[items[i].id] = true;
-        }
     }
     function waitForResult() {
         tryCompare(requestFinishedSpy, "count", 1, 2000, "Mock API did not answer in time");

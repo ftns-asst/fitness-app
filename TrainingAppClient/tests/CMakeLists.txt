@@ -31,10 +31,8 @@ set(SINGLETON_QML_NAMES
     BackRouter
     Demo
     MockApi
-    MockCatalog
     MockSession
     MockTokenStore
-    PlansViewModel
     ProfileViewModel
     Spacing
     Theme
@@ -438,7 +436,7 @@ endforeach()
 # компоновках проекта, включая тёмную и обрамлённую.
 # profile-settings — раздел «Параметры» профиля: в нём блок «Оформление», и без
 # именованного экрана он не попадал бы в аудит вёрстки ни на одной компоновке.
-foreach(program_screen IN ITEMS diary program-catalog program-overview program-edit program-rules program-rules-picker program-stats strength program-day macro-calculator set-entry profile-settings exercises exercise-detail exercise-edit)
+foreach(program_screen IN ITEMS diary program-catalog program-overview program-edit program-rules program-rules-picker program-stats strength program-day macro-calculator profile-settings exercises exercise-detail exercise-edit)
     foreach(program_viewport IN ITEMS 360 390 480 frame dark)
         set(program_test_name "ui_smoke_${program_screen}_${program_viewport}")
         add_test(

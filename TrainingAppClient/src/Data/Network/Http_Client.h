@@ -73,11 +73,9 @@ public:
 	void Set_Max_Retry_Count(int in_count);
 	int Max_Retry_Count() const;
 	void Set_Initial_Retry_Delay_Ms(int in_delay_ms);
-	int Initial_Retry_Delay_Ms() const;
 	// Предел тела ответа: больший ответ прерывается ошибкой response_too_large
 	// без повторов, чтобы сервер не мог исчерпать память клиента.
 	void Set_Max_Response_Bytes(int in_bytes);
-	int Max_Response_Bytes() const;
 
 signals:
 	void requestFinished(int requestId, const SHttp_Response &response);

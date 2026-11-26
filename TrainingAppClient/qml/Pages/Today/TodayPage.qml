@@ -3,14 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import TrainingAppClient
 
-// Экран «Сегодня» на данных программы (§5.1, референс 2080/2081).
-//
-// Данные — из настоящей БД через Avm_Today, а не из MockCatalog: главная
-// показывает то, что пользователь настроил (срок, день недели, упражнения).
-//
-// Состояния экрана (§5.5): «программы нет», «день отдыха», «упражнений не
-// назначено», «тренировка уже записана». Каждое — отдельное состояние, а не
-// пустой список упражнений.
+// Главный экран программы и план на сегодня.
 PageScaffold {
     id: page
 
@@ -722,23 +715,6 @@ PageScaffold {
         const parts = String(isoDate).split("-");
 
         return Qt.formatDate(new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])), "d MMMM");
-    }
-
-    // Подсказка расписания замеров: пора мерить сейчас либо дата ближайшего.
-    // Пустая строка — программы нет, и показывать нечего.
-    function measurementHint() {
-        if (!page.hasModel)
-            return "";
-
-        if (page.viewModel.measurementDue === true)
-            return qsTr("Пора мерить: замер по расписанию");
-
-        const next = page.viewModel.nextMeasurementDate;
-
-        if (next === undefined || next === null || String(next).length === 0)
-            return "";
-
-        return qsTr("Следующий замер — %1").arg(page.formatShortDate(next));
     }
 
     // Подпись hero: программа и её срок — то, что человек выбрал сам. Срок не
