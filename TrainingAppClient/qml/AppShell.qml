@@ -892,11 +892,26 @@ Item {
         id: serverProgramsComponent
 
         ServerProgramsPage {
+            id: serverProgramsPage
+
             bottomInset: shell.pageBottomInset
             topInset: shell.topInset
 
             onBackRequested: shell.goBack()
             onLoginRequested: shell.authPageRequested(-1)
+            onWorkoutRequested: (programId, week, day, title, plan) => {
+                if (pages.busy || pages.currentItem !== serverProgramsPage || typeof WorkoutVM === "undefined" || !WorkoutVM)
+                    return;
+                const userId = typeof WorkoutSyncVM !== "undefined" && WorkoutSyncVM ? WorkoutSyncVM.userId : "";
+                const date = Qt.formatDate(new Date(), "yyyy-MM-dd");
+                if (!WorkoutVM.startServerDay(userId, date, programId, week, day, title, plan)) {
+                    Demo.notify(WorkoutVM.errorDetail);
+                    return;
+                }
+                shell.pushPage(workoutComponent, {
+                    savedInDiary: false
+                });
+            }
         }
     }
     Component {

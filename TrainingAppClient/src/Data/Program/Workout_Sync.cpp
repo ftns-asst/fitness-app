@@ -266,7 +266,10 @@ void AWorkout_Sync::Rebuild_History()
 		QSqlQuery query(Database->Sql_Connection());
 		query.prepare("SELECT w.id, w.completed_at, w.set_count, w.sync_state, o.next_attempt_at, o.id, o.last_error "
 		              "FROM workouts w LEFT JOIN sync_outbox o ON o.entity_id = w.id AND o.entity_type = 'workout' "
-		              "WHERE w.user_id = ? AND w.program_id IS NULL AND w.state = 'completed'");
+		              "LEFT JOIN workout_runtime r ON r.session_id = w.id "
+		              "WHERE w.user_id = ? AND w.program_id IS NULL AND w.state = 'completed' "
+		              "AND (CASE WHEN json_valid(r.plan_json) THEN json_extract(r.plan_json, '$.serverProgram') "
+		              "END) IS NULL");
 		query.addBindValue(Owner);
 		if (query.exec())
 			while (query.next())
@@ -299,7 +302,7 @@ void AWorkout_Sync::Load_Local_Detail(const QString &in_id)
 {
 	SWorkout_Session workout;
 	if (!Workouts->Find_Session(in_id, workout) || workout.User_Id != Owner || !workout.Program_Id.isEmpty() ||
-	    workout.State != EWorkout_State::Completed)
+	    !workout.Server_Program_Id.isEmpty() || workout.State != EWorkout_State::Completed)
 		return;
 	QSqlQuery query(Database->Sql_Connection());
 	query.prepare("SELECT s.exercise_id, e.title, s.reps, s.weight_kg, s.note FROM sets s "

@@ -252,6 +252,7 @@ SwipePopup {
                     imageHeightRatio: 0.7
                     height: tileSizer.implicitHeight
                     photoUrl: row.model.photoUrl !== undefined && row.model.photoUrl !== null ? row.model.photoUrl : ""
+                    hasVideo: row.model.hasVideo === true
                     selected: picker.expandedIndex === row.index
                     title: row.title
                     width: list.cellWidth - list.gap

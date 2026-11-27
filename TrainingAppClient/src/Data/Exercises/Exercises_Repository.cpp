@@ -782,6 +782,11 @@ bool AExercises_Repository::Persist_List(const QVector<SExercises_Item> &in_item
 		}
 
 		Mirror_Local_Exercise(item);
+		const SExercise_Media previous = Media_For(item.ID);
+		if (item.Media.Type.isEmpty())
+			Media_Cache.remove(item.ID);
+		else if (item.Media.Is_Fresh() && previous.Type != item.Media.Type)
+			Media_Cache.insert(item.ID, new SExercise_Media(item.Media));
 	}
 
 	return true;
@@ -1230,6 +1235,12 @@ bool AExercises_Repository::Commit_Photo(const QString &in_exercise_id, const QS
 	}
 
 	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+SExercise_Media AExercises_Repository::Media_For(const QString &in_exercise_id) const
+{
+	const SExercise_Media *media = Media_Cache.object(in_exercise_id);
+	return media != 0 && media->Is_Fresh() ? *media : SExercise_Media();
 }
 //-------------------------------------------------------------------------------------------------------------
 bool AExercises_Repository::Photo_File(const QString &in_exercise_id, QString &out_file)

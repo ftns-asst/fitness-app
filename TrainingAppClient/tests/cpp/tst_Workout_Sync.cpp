@@ -42,6 +42,7 @@ class AWorkout_Sync_Test : public QObject
 private slots:
 	void savesOfflineAndRestoresOnOwnerReconnect();
 	void failedQueueWriteLeavesWorkoutAsDraft();
+	void syncsServerProgramDayAfterRestart();
 };
 
 //-------------------------------------------------------------------------------------------------------------
@@ -189,6 +190,79 @@ void AWorkout_Sync_Test::failedQueueWriteLeavesWorkoutAsDraft()
 	QCOMPARE(session.State, EWorkout_State::Draft);
 	QVERIFY(query.exec("DROP TRIGGER fail_queue"));
 	QVERIFY(vm.finish());
+}
+//-------------------------------------------------------------------------------------------------------------
+void AWorkout_Sync_Test::syncsServerProgramDayAfterRestart()
+{
+	const QString program_id = "27d528cf-6e78-4880-8ca4-eb9abb55b9e1";
+	QTemporaryDir directory;
+	AsSql_Database database;
+	const QString path = directory.filePath("program-workout-sync.sqlite");
+	QVERIFY(database.Open(path));
+	QVERIFY(Insert_Exercise(database));
+	QString workout_id;
+	{
+		AProgram_Repository programs(&database);
+		AWorkout_Repository workouts(&database);
+		AsWorkout_Logger logger(&workouts, &programs);
+		Avm_Workout vm(&logger, &workouts, &programs);
+		QVERIFY(vm.startServerDay(Owner, "2026-11-24", program_id, 2, 4, "Press day", Plan()));
+		workout_id = vm.sessionId();
+		QVERIFY(vm.saveSet(0, 1, 65, 7));
+	}
+	database.Close();
+	QVERIFY(database.Open(path));
+	AProgram_Repository programs(&database);
+	AWorkout_Repository workouts(&database);
+	AsWorkout_Logger logger(&workouts, &programs);
+	Avm_Workout vm(&logger, &workouts, &programs);
+	QVERIFY(!vm.startServerDay(Owner, "2026-11-24", program_id, 3, 4, "Other day", Plan()));
+	QVERIFY(vm.startServerDay(Owner, "2026-11-25", program_id, 2, 4, "Press day", Plan()));
+	QCOMPARE(vm.sessionId(), workout_id);
+	QCOMPARE(vm.completedSets(), 1);
+	QVERIFY(vm.saveSet(0, 2, 65, 6));
+	QVERIFY(vm.finish());
+
+	ATest_Http_Server server;
+	QVERIFY(server.Start());
+	AsHttp_Client http(server.Base_URL().resolved(QUrl("/api/v1")));
+	AsToken_Store tokens(0);
+	AsAuth_Session session(&http, &tokens);
+	AsNetwork_Monitor network(0, false);
+	network.Update_State(QNetworkInformation::Reachability::Disconnected, false, true);
+	AWorkout_Sync sync(&database, &workouts, &session, &network);
+	QVERIFY(session.Adopt_Session({Owner, "access", "refresh", {}, {}}));
+	sync.Flush();
+	QCOMPARE(server.Request_Count(), 0);
+	QVERIFY(sync.history().isEmpty());
+	QJsonObject payload;
+	connect(&server, &ATest_Http_Server::requestReceived, this,
+	        [&]
+	        {
+		        const STest_Http_Request request = server.Request_At(server.Request_Count() - 1);
+		        STest_Http_Response reply;
+		        reply.Body = "[]";
+		        if (request.Method == "PUT")
+		        {
+			        QCOMPARE(request.Target, QByteArray("/api/v1/workouts/") + workout_id.toUtf8());
+			        payload = QJsonDocument::fromJson(request.Body).object();
+			        reply.Status_Code = 201;
+			        reply.Body = QJsonDocument(QJsonObject{{"id", workout_id}}).toJson();
+		        }
+		        server.Enqueue_Response(reply);
+	        });
+	network.Update_State(QNetworkInformation::Reachability::Online, false, true);
+	SWorkout_Session completed;
+	QTRY_VERIFY(workouts.Find_Session(workout_id, completed) && completed.Sync_State == ESync_State::Synced);
+	QCOMPARE(payload.value("program_id").toString(), program_id);
+	QCOMPARE(payload.value("week_number").toInt(), 2);
+	QCOMPARE(payload.value("day_of_week").toInt(), 4);
+	const QJsonObject exercise = payload.value("exercises").toArray().first().toObject();
+	QCOMPARE(exercise.value("target_sets").toInt(), 2);
+	QCOMPARE(exercise.value("target_reps").toInt(), 6);
+	QCOMPARE(exercise.value("target_weight_kg").toDouble(), 62.5);
+	QCOMPARE(exercise.value("sets").toArray().size(), 2);
+	QVERIFY(sync.history().isEmpty());
 }
 //-------------------------------------------------------------------------------------------------------------
 QTEST_GUILESS_MAIN(AWorkout_Sync_Test)

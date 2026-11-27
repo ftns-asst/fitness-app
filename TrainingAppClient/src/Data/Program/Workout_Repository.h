@@ -40,7 +40,7 @@ public:
 	// раз, подходы добавляются и правятся по мере тренировки. Идентификатор
 	// пустой — генерируется; непустой обновляет существующую строку, поэтому
 	// повторная запись подхода с тем же id идемпотентна.
-	bool Insert_Session(const SWorkout_Session &in_session);
+	bool Insert_Session(const SWorkout_Session &in_session, const QString &in_plan_json = QString());
 	bool Update_Session(const SWorkout_Session &in_session);
 	bool Complete_Session(const SWorkout_Session &in_session);
 	bool Save_Set(const SSet_Log &in_set);

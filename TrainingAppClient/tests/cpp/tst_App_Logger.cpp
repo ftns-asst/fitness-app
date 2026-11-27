@@ -36,6 +36,8 @@ void AApp_Logger_Test::writesMessagesToFileWithCategoryAndLevel()
 	qInstallMessageHandler(&AsApp_Logger::Handle_Message);
 	qCInfo(Logger_Test_Log).noquote() << "logger smoke info";
 	qCWarning(Logger_Test_Log).noquote() << "logger smoke warning";
+	qCWarning(Logger_Test_Log).noquote()
+	    << "https://storage.example/exercise.mp4?X-Amz-Credential=test-key&X-Amz-Signature=test-signature";
 	qInstallMessageHandler(0);
 
 	content = Read_Whole_File(Log_Path(directory));
@@ -44,6 +46,9 @@ void AApp_Logger_Test::writesMessagesToFileWithCategoryAndLevel()
 	QVERIFY(content.contains("trainingapp.logger.test"));
 	QVERIFY(content.contains("info"));
 	QVERIFY(content.contains("warning"));
+	QVERIFY(content.contains("https://storage.example/exercise.mp4?[redacted]"));
+	QVERIFY(!content.contains("test-signature"));
+	QVERIFY(!content.contains("test-key"));
 
 	logger.Close();
 }

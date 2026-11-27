@@ -52,6 +52,7 @@ jobs:
           version: ${{ env.QT_VERSION }}
           host: linux
           target: desktop
+          modules: qtmultimedia
           cache: true
 
       - name: Install Qt for Android
@@ -61,6 +62,7 @@ jobs:
           host: all_os
           target: android
           arch: ${{ matrix.qt-arch }}
+          modules: qtmultimedia
           install-deps: false
           cache: true
 
@@ -131,6 +133,7 @@ jobs:
           host: windows
           target: desktop
           arch: win64_mingw
+          modules: qtmultimedia
           tools: tools_mingw1310,qt.tools.win64_mingw1310
           cache: true
 

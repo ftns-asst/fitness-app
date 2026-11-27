@@ -12,7 +12,8 @@ Avm_Exercises::Avm_Exercises(AExercises_Repository *in_repository, int in_page_s
 	// Роли списка — контракт делегатов каталога (вкладка «Упражнения» и окно
 	// выбора в дне программы): id и muscleGroups нужны окну (required-свойства
 	// делегата), без них строка не создаётся и список выглядит пустым.
-	Exercise_List->Set_Roles(QStringList({"id", "title", "subtitle", "muscleGroups", "photoUrl"}));
+	Exercise_List->Set_Roles(
+	    QStringList({"id", "title", "subtitle", "muscleGroups", "photoUrl", "hasVideo", "mediaExpiresAt"}));
 
 	// Поиск — debounce: быстрый набор даёт один запрос последним словом.
 	Debounce_Timer = new QTimer(this);
@@ -65,6 +66,18 @@ bool Avm_Exercises::Can_Load_More() const
 	return !Has_All_Rows;
 }
 //-------------------------------------------------------------------------------------------------------------
+qint64 Avm_Exercises::Media_Refresh_At() const
+{
+	qint64 next = 0;
+	for (int row = 0; row < Exercise_List->Row_Count(); ++row)
+	{
+		const qint64 expires = Exercise_List->get(row).value("mediaExpiresAt").toLongLong();
+		if (expires > 0 && (next == 0 || expires < next))
+			next = expires;
+	}
+	return next;
+}
+//-------------------------------------------------------------------------------------------------------------
 QVariantMap Avm_Exercises::Row_Data(const SExercises_Item &in_item) const
 {
 	QVariantMap row;
@@ -75,14 +88,16 @@ QVariantMap Avm_Exercises::Row_Data(const SExercises_Item &in_item) const
 	row.insert("muscleGroups", QVariant::fromValue(in_item.Muscle_Groups));
 	row.insert("subtitle", in_item.Muscle_Groups.join(", "));
 
-	// Локальное фото техники (схема v9): плитка каталога показывает его
-	// вместо плейсхолдера; пустая строка — фото нет.
+	const SExercise_Media media =
+	    Repository_Instance != 0 ? Repository_Instance->Media_For(in_item.ID) : SExercise_Media();
+	row.insert("hasVideo", media.Type == "video");
+	row.insert("mediaExpiresAt", media.Expires_At.isValid() ? media.Expires_At.toMSecsSinceEpoch() : 0);
 	QString photo_file;
 
 	if (Repository_Instance != 0 && Repository_Instance->Photo_File(in_item.ID, photo_file))
 		row.insert("photoUrl", QUrl::fromLocalFile(photo_file).toString());
 	else
-		row.insert("photoUrl", QString(""));
+		row.insert("photoUrl", media.Type == "image" ? media.Presentation_Url() : QString(""));
 
 	return row;
 }

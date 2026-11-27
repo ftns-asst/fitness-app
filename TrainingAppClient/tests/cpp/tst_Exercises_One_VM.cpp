@@ -6,6 +6,7 @@
 #include "Presentation/Exercises_One_VM.h"
 #include "Support/Test_Http_Server.h"
 
+#include <QFile>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -27,6 +28,7 @@ private slots:
 	void offlineServesCachedOwn();
 	void emptyIdStartsNothing();
 	void builtinTemplateExerciseOpensWithoutNetwork();
+	void downloadsVideoWithoutApiCredentialsAndReusesFile();
 
 private:
 	static STest_Http_Response JSON_Response(int in_status, const QByteArray &in_body);
@@ -216,6 +218,47 @@ void Avm_Exercises_One_Test::builtinTemplateExerciseOpensWithoutNetwork()
 	QVERIFY(!vm->Is_Own());
 	QVERIFY(vm->Error_Key().isEmpty());
 	QCOMPARE(vm->Name(), QString("Жим штанги лёжа"));
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Exercises_One_Test::downloadsVideoWithoutApiCredentialsAndReusesFile()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	Avm_Exercises_One *vm = 0;
+	AExercises_Repository *repository = 0;
+	Make_VM(server, directory, vm, repository);
+	QVERIFY(vm != 0);
+	const QString id = "aaaaaaaa-1111-2222-3333-444444444444";
+	const QByteArray media_url = server.Base_URL().resolved(QUrl("/object.mp4?X-Amz-Signature=fixture")).toEncoded();
+	const QByteArray item = "{\"id\":\"" + id.toUtf8() +
+	                        "\",\"name\":\"Press\",\"media\":{\"type\":\"video\","
+	                        "\"presignedUrl\":\"" +
+	                        media_url + "\"}}";
+	server.Enqueue_Response(JSON_Response(200, item));
+	vm->load(id);
+	QTRY_VERIFY(vm->Has_Video());
+	QVERIFY(vm->Video_Url().isEmpty());
+	QCOMPARE(server.Request_Count(), 1);
+
+	STest_Http_Response download;
+	download.Content_Type = "video/mp4";
+	download.Body = "video fixture bytes";
+	server.Enqueue_Response(download);
+	vm->loadVideo();
+	QTRY_VERIFY(!vm->Video_Url().isEmpty());
+	const QString local_path = QUrl(vm->Video_Url()).toLocalFile();
+	QFile file(local_path);
+	QVERIFY(file.open(QIODevice::ReadOnly));
+	QCOMPARE(file.readAll(), download.Body);
+	file.close();
+	const STest_Http_Request request = server.Request_At(1);
+	QCOMPARE(request.Target, QByteArray("/object.mp4?X-Amz-Signature=fixture"));
+	QVERIFY(!request.Headers.contains("authorization"));
+	vm->loadVideo();
+	QCOMPARE(server.Request_Count(), 2);
+	vm->reset();
+	QVERIFY(vm->Video_Url().isEmpty());
+	QTRY_VERIFY(!QFile::exists(local_path));
 }
 //-------------------------------------------------------------------------------------------------------------
 QTEST_MAIN(Avm_Exercises_One_Test)

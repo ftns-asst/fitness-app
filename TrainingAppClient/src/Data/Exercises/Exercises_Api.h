@@ -5,11 +5,13 @@
 #include "Data/Network/Http_Client.h"
 #include "Domain/Error_State.h"
 
+#include <QDateTime>
 #include <QHash>
 #include <QMetaType>
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QUrl>
 #include <QVector>
 
 //-------------------------------------------------------------------------------------------------------------
@@ -18,6 +20,19 @@
 // различает базовые (owner_id нет) и пользовательские. is_public приходит
 // от сервера и сохраняется в кэше для офлайн-раздела «Сообщество».
 //-------------------------------------------------------------------------------------------------------------
+struct SExercise_Media
+{
+	QString Type;
+	QUrl Url;
+	QDateTime Expires_At;
+
+	bool Is_Fresh() const
+	{
+		return !Url.isEmpty() && Expires_At > QDateTime::currentDateTimeUtc();
+	}
+	QString Presentation_Url() const;
+};
+
 struct SExercises_Item
 {
 	QString ID;
@@ -29,6 +44,7 @@ struct SExercises_Item
 	QStringList Muscle_Groups;
 	QStringList Equipment;
 	QString Created_At;
+	SExercise_Media Media;
 };
 
 //-------------------------------------------------------------------------------------------------------------

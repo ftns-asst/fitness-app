@@ -37,6 +37,11 @@ Rectangle {
     // области вокруг контента на широком экране тоже листал страницу
     // (`qml/Components/DragToScroll.qml`).
     property Component scrollViewComponent: null
+    property Component scrollHero: null
+    property bool heroExtendsToTop: false
+    property real heroOverlap: 0
+    readonly property bool heroCollapsed: heroOverlap > 0 && heroLoader.height > 0 && flick.contentY >= heroLoader.height - 1
+    property Component collapsedHeroContent: null
     property Component scrollHeader: null
     readonly property var pageFlickable: scrollViewLoader.item !== null ? scrollViewLoader.item : flick
     property alias spacing: bodyColumn.spacing
@@ -246,7 +251,7 @@ Rectangle {
         anchors.left: flick.left
         anchors.right: flick.right
         anchors.top: header.visible ? header.bottom : scaffold.top
-        anchors.topMargin: header.visible ? Spacing.sectionGap : scaffold.topInset
+        anchors.topMargin: header.visible ? Spacing.sectionGap : scaffold.heroExtendsToTop ? 0 : scaffold.topInset
         active: scaffold.scrollHeader !== null
         sourceComponent: scaffold.scrollHeader
         height: item ? item.implicitHeight : 0
@@ -259,6 +264,7 @@ Rectangle {
     }
     Flickable {
         id: flick
+        property real heroDragStart: -1
         visible: scaffold.scrollViewComponent === null
 
         ScrollIndicator.vertical: Theme.touchPlatform ? touchIndicator : null
@@ -269,14 +275,14 @@ Rectangle {
         anchors.bottomMargin: scaffold.bottomInset + scaffold.footerHeight
         anchors.left: parent.left
         // Контент отстоит от краёв экрана, как карточки в референсе (§3.3).
-        anchors.leftMargin: Spacing.screenPadding
+        anchors.leftMargin: scaffold.scrollHero ? 0 : Spacing.screenPadding
         anchors.right: parent.right
-        anchors.rightMargin: Spacing.screenPadding
+        anchors.rightMargin: scaffold.scrollHero ? 0 : Spacing.screenPadding
         anchors.top: scrollHeaderLoader.bottom
         bottomMargin: Spacing.sectionGap
         boundsBehavior: scaffold.elasticScroll ? Flickable.DragAndOvershootBounds : Flickable.StopAtBounds
         clip: true
-        contentHeight: bodyColumn.implicitHeight
+        contentHeight: Math.max(bodyColumn.y + bodyColumn.implicitHeight, scaffold.heroOverlap > 0 ? heroLoader.height + height : 0)
         contentWidth: width
         // Страница скроллится только по вертикали: диагональный жест не
         // стартует горизонтальный флик: у горизонтальных рядов свой Flickable.
@@ -288,7 +294,30 @@ Rectangle {
         // позициям — на мобильном GPU это просаживает кадр (120 → ~86 fps).
         // Ступенчатость на 120 Гц не видна, а кадр дешевле.
         pixelAligned: true
-        topMargin: Spacing.safeGap
+        topMargin: scaffold.heroExtendsToTop ? 0 : Spacing.safeGap
+
+        onDragStarted: {
+            settleHero.stop();
+            heroDragStart = scaffold.heroOverlap > 0 ? contentY : -1;
+        }
+        onMovementEnded: {
+            const start = heroDragStart;
+            heroDragStart = -1;
+            const end = heroLoader.height;
+            if (start < 0 || scaffold.heroOverlap <= 0 || contentY <= 0 || contentY >= end)
+                return;
+            const travel = Math.min(96, end * 0.25);
+            settleHero.to = contentY >= (start < end / 2 ? travel : end - travel) ? end : 0;
+            settleHero.restart();
+        }
+
+        NumberAnimation {
+            id: settleHero
+            target: flick
+            property: "contentY"
+            duration: Theme.pageTransitionDuration
+            easing.type: Easing.OutCubic
+        }
 
         // Десктоп: привычный скроллбар. Touch: только транзиентный индикатор
         // (у ScrollIndicator нет policy, поэтому на десктопе он не подключается).
@@ -298,6 +327,22 @@ Rectangle {
 
         ScrollIndicator {
             id: touchIndicator
+        }
+        Loader {
+            id: heroLoader
+
+            active: scaffold.scrollHero !== null
+            sourceComponent: scaffold.scrollHero
+            width: flick.width
+        }
+        Rectangle {
+            y: bodyColumn.y - Spacing.itemGap
+            width: flick.width
+            height: flick.contentHeight - y
+            color: Theme.background
+            topLeftRadius: Theme.radiusLg
+            topRightRadius: Theme.radiusLg
+            visible: scaffold.heroOverlap > 0 && bodyColumn.height > 0
         }
         Column {
             id: bodyColumn
@@ -320,7 +365,34 @@ Rectangle {
             // задаёт сам ребёнок (`width: parent.width`), а вложенные
             // ColumnLayout/RowLayout внутри — своими Layout-свойствами.
             spacing: Spacing.sectionGap
-            width: flick.width
+            x: heroLoader.active ? Spacing.screenPadding : 0
+            y: heroLoader.height > 0 ? heroLoader.height + (scaffold.heroOverlap > 0 ? -scaffold.heroOverlap : Spacing.sectionGap) : 0
+            width: flick.width - 2 * x
+
+            Loader {
+                active: scaffold.collapsedHeroContent !== null
+                sourceComponent: scaffold.collapsedHeroContent
+                width: bodyColumn.width
+                height: scaffold.heroCollapsed && item ? scaffold.topInset + scaffold.heroOverlap + item.implicitHeight : 0
+                visible: height > 0
+                clip: true
+
+                Behavior on height {
+                    NumberAnimation {
+                        duration: Theme.selectionDuration
+                        easing.type: Easing.OutCubic
+                    }
+                }
+            }
         }
+    }
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: scaffold.topInset
+        color: Theme.background
+        opacity: Math.max(0, Math.min(1, flick.contentY / Math.max(1, heroLoader.height)))
+        visible: scaffold.heroExtendsToTop && height > 0 && opacity > 0
     }
 }

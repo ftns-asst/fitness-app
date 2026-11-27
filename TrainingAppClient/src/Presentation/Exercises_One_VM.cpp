@@ -1,6 +1,9 @@
 ﻿#include "Presentation/Exercises_One_VM.h"
 
+#include <QDir>
 #include <QLoggingCategory>
+#include <QNetworkReply>
+#include <QTemporaryFile>
 #include <QUrl>
 
 Q_LOGGING_CATEGORY(EXERCISES_One_Log, "trainingapp.exercises.one")
@@ -40,7 +43,37 @@ QStringList Avm_Exercises_One::Equipments() const
 //-------------------------------------------------------------------------------------------------------------
 QString Avm_Exercises_One::Photo_Url() const
 {
-	return Photo_Url_Text;
+	if (!Photo_Url_Text.isEmpty())
+		return Photo_Url_Text;
+	return Media.Type == "image" ? Media.Presentation_Url() : QString();
+}
+//-------------------------------------------------------------------------------------------------------------
+QString Avm_Exercises_One::Video_Url() const
+{
+	return Video_File != 0 && Video_Request == 0 && !Video_Failed && Video_Source == Media.Url &&
+	               Video_Expires_At > QDateTime::currentDateTimeUtc()
+	           ? QUrl::fromLocalFile(Video_File->fileName()).toString()
+	           : QString();
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Exercises_One::Has_Video() const
+{
+	return Media.Type == "video";
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Exercises_One::Video_Loading() const
+{
+	return Video_Request != 0;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Exercises_One::Video_Download_Failed() const
+{
+	return Video_Failed;
+}
+//-------------------------------------------------------------------------------------------------------------
+qint64 Avm_Exercises_One::Media_Expires_At() const
+{
+	return Media.Expires_At.isValid() ? Media.Expires_At.toMSecsSinceEpoch() : 0;
 }
 //-------------------------------------------------------------------------------------------------------------
 QString Avm_Exercises_One::Created_At() const
@@ -94,8 +127,12 @@ void Avm_Exercises_One::Apply_Item(const SExercises_Item &in_item, bool in_from_
 		photo_file.clear();
 
 	Photo_Url_Text = photo_file.isEmpty() ? QString("") : QUrl::fromLocalFile(photo_file).toString();
+	Media = Repository_Instance != 0 ? Repository_Instance->Media_For(in_item.ID) : SExercise_Media();
+	if (Media.Url != Video_Source)
+		Clear_Video();
 
 	emit exerciseChanged();
+	emit videoChanged();
 }
 //-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_One::Clear_Exercise()
@@ -107,15 +144,94 @@ void Avm_Exercises_One::Clear_Exercise()
 	Known_Equipments.clear();
 	Is_Own_Flag = false;
 	Photo_Url_Text.clear();
+	Media = {};
 
 	emit exerciseChanged();
+	emit videoChanged();
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Exercises_One::Clear_Video()
+{
+	if (Video_Request != 0)
+	{
+		disconnect(Video_Request, 0, this, 0);
+		Video_Request->abort();
+		Video_Request->deleteLater();
+		Video_Request = 0;
+	}
+	if (Video_File != 0)
+	{
+		Video_File->deleteLater();
+		Video_File = 0;
+	}
+	Video_Source.clear();
+	Video_Expires_At = {};
+	Video_Failed = false;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Exercises_One::Save_Video_Data()
+{
+	const QByteArray chunk = Video_Request->readAll();
+	return Video_File->write(chunk) == chunk.size();
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Exercises_One::loadVideo()
+{
+	if (!Has_Video() || Video_Request != 0 || !Video_Url().isEmpty())
+		return;
+	if (!Media.Is_Fresh())
+	{
+		refreshMedia();
+		return;
+	}
+	Clear_Video();
+	Video_Source = Media.Url;
+	Video_Expires_At = Media.Expires_At;
+	Video_File = new QTemporaryFile(QDir::temp().filePath("training-exercise-XXXXXX"), this);
+	if (!Video_File->open())
+	{
+		Video_Failed = true;
+		emit videoChanged();
+		return;
+	}
+
+	QNetworkRequest request(Media.Url);
+	request.setTransferTimeout(15000);
+	Video_Request = Video_Network.get(request);
+	Video_Request->setReadBufferSize(256 * 1024);
+	connect(Video_Request, &QIODevice::readyRead, this,
+	        [this]
+	        {
+		        if (!Save_Video_Data())
+			        Video_Request->abort();
+	        });
+	connect(Video_Request, &QNetworkReply::finished, this,
+	        [this]
+	        {
+		        const bool success = Video_Request->error() == QNetworkReply::NoError && Save_Video_Data() &&
+		                             Video_File->size() > 0 && Video_File->flush();
+		        Video_Request->deleteLater();
+		        Video_Request = 0;
+		        Video_File->close();
+		        if (!success)
+		        {
+			        Clear_Video();
+			        Video_Failed = true;
+		        }
+		        emit videoChanged();
+	        });
+	emit videoChanged();
 }
 //-------------------------------------------------------------------------------------------------------------
 // Загрузка карточки. Мгновенный показ кэша: строка появляется сразу, сетевой
 // ответ заменяет её, офлайн — она и остаётся (offline-first, как в каталоге).
 void Avm_Exercises_One::load(const QString &in_exercise_id)
 {
+	if (Exercise_Id_Text != in_exercise_id.trimmed())
+		Clear_Video();
 	Current_Request_Id = 0;
+	Refreshing_Media_Flag = false;
+	Loading_Flag = false;
 	Error_Key_Text.clear();
 	Exercise_Id_Text = in_exercise_id.trimmed();
 	From_Cache_Flag = false;
@@ -161,13 +277,27 @@ void Avm_Exercises_One::load(const QString &in_exercise_id)
 	emit stateChanged();
 }
 //-------------------------------------------------------------------------------------------------------------
+void Avm_Exercises_One::refreshMedia()
+{
+	if (Current_Request_Id != 0 || Repository_Instance == 0 || !Has_Exercise() || Media.Is_Fresh())
+		return;
+	Media = {};
+	Clear_Video();
+	emit exerciseChanged();
+	emit videoChanged();
+	Current_Request_Id = Repository_Instance->Load_One(Exercise_Id_Text);
+	Refreshing_Media_Flag = Current_Request_Id != 0;
+}
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises_One::reset()
 {
 	Current_Request_Id = 0;
+	Refreshing_Media_Flag = false;
 	Error_Key_Text.clear();
 	Exercise_Id_Text.clear();
 	From_Cache_Flag = false;
 	Loading_Flag = false;
+	Clear_Video();
 	Clear_Exercise();
 	emit stateChanged();
 }
@@ -193,6 +323,13 @@ void Avm_Exercises_One::on_One_Finished(int in_request_id, const QString &in_exe
 
 	Current_Request_Id = 0;
 	Loading_Flag = false;
+	if (Refreshing_Media_Flag)
+	{
+		Refreshing_Media_Flag = false;
+		if (!in_error.Is_Error() && !in_item.ID.isEmpty())
+			Apply_Item(in_item, in_from_cache);
+		return;
+	}
 
 	if (in_error.Is_Error())
 	{

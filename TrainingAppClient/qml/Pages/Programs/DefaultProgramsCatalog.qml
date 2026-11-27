@@ -30,7 +30,7 @@ Column {
     }
 
     AppButton {
-        text: qsTr("Черновики из каталога")
+        text: qsTr("Серверные программы")
         variant: AppButton.Secondary
         visible: catalog.server !== null
         width: parent.width

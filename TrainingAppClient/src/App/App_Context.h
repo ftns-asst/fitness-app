@@ -120,6 +120,7 @@ public:
 	Avm_Exercises_Editor *Exercises_Editor_VM() const;
 	// Детальная карточка упражнения (спринт U6).
 	Avm_Exercises_One *Exercises_One_VM() const;
+	Avm_Exercises_One *Workout_Exercise_Media_VM() const;
 	Avm_Auth_Bridge *Auth_Bridge() const;
 
 	static const QString Default_Api_Base_URL;
@@ -199,6 +200,7 @@ private:
 	Avm_Exercises *Exercises_VM_Instance = 0;
 	Avm_Exercises_Editor *Exercises_Editor_VM_Instance = 0;
 	Avm_Exercises_One *Exercises_One_VM_Instance = 0;
+	Avm_Exercises_One *Workout_Exercise_Media_VM_Instance = 0;
 	// Сидер демо-данных. Создаётся только при --demo-seed и живёт до конца
 	// приложения: указатель хранится, чтобы не посеять данные дважды.
 	ADemo_Seeder *Demo_Seeder_Instance = 0;

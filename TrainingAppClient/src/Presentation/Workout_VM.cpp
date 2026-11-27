@@ -13,6 +13,22 @@
 
 using namespace Program_Model;
 
+namespace
+{
+QString Plan_Snapshot(const SWorkout_Session &in_session, const QString &in_title, const QVariantList &in_plan)
+{
+	QJsonObject snapshot{
+	    {"dayId", in_session.Snapshot_Day_Id.isEmpty() ? in_session.Program_Day_Id : in_session.Snapshot_Day_Id},
+	    {"title", in_title},
+	    {"exercises", QJsonArray::fromVariantList(in_plan)}};
+	if (!in_session.Server_Program_Id.isEmpty())
+		snapshot.insert("serverProgram", QJsonObject{{"program_id", in_session.Server_Program_Id},
+		                                             {"week_number", in_session.Server_Week_Number},
+		                                             {"day_of_week", in_session.Server_Day_Of_Week}});
+	return QString::fromUtf8(QJsonDocument(snapshot).toJson(QJsonDocument::Compact));
+}
+} // namespace
+
 //-------------------------------------------------------------------------------------------------------------
 Avm_Workout::Avm_Workout(AsWorkout_Logger *in_logger, AWorkout_Repository *in_workouts,
                          AProgram_Repository *in_programs, QObject *in_parent)
@@ -172,38 +188,19 @@ bool Avm_Workout::startOrResume(const QString &in_user_id, const QString &in_pro
 	SWorkout_Session pending;
 	if (!Find_Pending(in_user_id, pending))
 		return false;
+	if (!pending.ID.isEmpty())
+		return Resume(pending);
 	User_Id = in_user_id;
 	Plan.clear();
 	Sets.clear();
 	Rest_Until_Ms = 0;
 	QString day_id;
-	if (!pending.ID.isEmpty())
-	{
-		QString json;
-		Session = pending;
-		if (!Workout_Repository_Instance->Load_Runtime(Session.ID, json, Rest_Until_Ms))
-			return Fail(Workout_Repository_Instance->Get_Last_Error());
-		if (!json.isEmpty())
-		{
-			const QJsonObject object = QJsonDocument::fromJson(json.toUtf8()).object();
-			Plan = object.value("exercises").toArray().toVariantList();
-			Title_Text = object.value("title").toString();
-			if (Plan.isEmpty())
-				return Fail("Не удалось восстановить сохранённый план тренировки");
-		}
-		else if (!Build_Plan(in_user_id, Session.Program_Id, Session.Date, Session.Program_Day_Id, day_id) ||
-		         !Save_Runtime())
-			return false;
-	}
-	else
-	{
-		if (!Build_Plan(in_user_id, in_program_id, in_date, QString(), day_id))
-			return false;
-		if (!Logger_Instance->Start_Session(in_user_id, in_date, in_program_id, day_id, QString(), Session))
-			return Fail(Logger_Instance->Get_Last_Error());
-		if (!Save_Runtime())
-			return false;
-	}
+	if (!Build_Plan(in_user_id, in_program_id, in_date, QString(), day_id))
+		return false;
+	if (!Logger_Instance->Start_Session(in_user_id, in_date, in_program_id, day_id, QString(), Session))
+		return Fail(Logger_Instance->Get_Last_Error());
+	if (!Save_Runtime())
+		return false;
 	Has_Pending = true;
 	if (!Load_Facts())
 		return false;
@@ -214,14 +211,41 @@ bool Avm_Workout::startOrResume(const QString &in_user_id, const QString &in_pro
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Workout::startSolo(const QString &in_user_id, const QString &in_date, const QVariantList &in_plan)
 {
-	if (Logger_Instance == 0 || Program_Repository_Instance == 0 || QUuid(in_user_id).isNull() || in_plan.isEmpty())
+	return Start_Custom(in_user_id, in_date, tr("Свободная тренировка"), in_plan, {});
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Workout::startServerDay(const QString &in_user_id, const QString &in_date, const QString &in_program_id,
+                                 int in_week, int in_day, const QString &in_title, const QVariantList &in_plan)
+{
+	const QUuid program_id(in_program_id);
+	if (program_id.isNull() || in_week < 1 || in_week > 52 || in_day < 1 || in_day > 7)
+		return Fail("Не удалось определить день серверной программы");
+	SWorkout_Session context;
+	context.Server_Program_Id = program_id.toString(QUuid::WithoutBraces);
+	context.Server_Week_Number = in_week;
+	context.Server_Day_Of_Week = in_day;
+	return Start_Custom(in_user_id, in_date, in_title, in_plan, context);
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Workout::Start_Custom(const QString &in_user_id, const QString &in_date, const QString &in_title,
+                               const QVariantList &in_plan, const SWorkout_Session &in_server_day)
+{
+	if (Logger_Instance == 0 || Program_Repository_Instance == 0 || QUuid(in_user_id).isNull())
 		return Fail("Проверьте упражнение, вес и число подходов");
 
 	SWorkout_Session pending;
 	if (!Find_Pending(in_user_id, pending))
 		return false;
 	if (!pending.ID.isEmpty())
-		return startOrResume(in_user_id, QString(), in_date);
+	{
+		if (pending.Server_Program_Id != in_server_day.Server_Program_Id ||
+		    pending.Server_Week_Number != in_server_day.Server_Week_Number ||
+		    pending.Server_Day_Of_Week != in_server_day.Server_Day_Of_Week)
+			return Fail("Сначала завершите открытую тренировку");
+		return Resume(pending);
+	}
+	if (in_plan.isEmpty())
+		return Fail("В тренировке пока нет упражнений");
 
 	QVector<QString> exercise_ids;
 	QVariantList plan;
@@ -239,31 +263,66 @@ bool Avm_Workout::startSolo(const QString &in_user_id, const QString &in_date, c
 			return Fail("Проверьте упражнение, вес и число подходов");
 		exercise_ids.append(exercise_id);
 		row.insert("id", exercise_id);
-		row.insert("restSeconds", 90);
-		row.insert("hasWeight", true);
+		row.insert("restSeconds", qBound(0, row.value("restSeconds", 90).toInt(), 3600));
+		row.insert("hasWeight", row.value("hasWeight", true).toBool());
 		plan.append(row);
 	}
 	QHash<QString, QString> titles;
 	if (!Program_Repository_Instance->Load_Exercise_Titles(exercise_ids, titles) ||
 	    titles.size() != exercise_ids.size())
 		return Fail("Упражнение недоступно на устройстве");
-	if (!Logger_Instance->Start_Session(in_user_id, in_date, QString(), QString(), QString(), Session))
-		return Fail(Logger_Instance->Get_Last_Error());
-
-	Error_State.Clear_Last_Error();
-	User_Id = in_user_id;
-	Title_Text = tr("Свободная тренировка");
 	for (QVariant &value : plan)
 	{
 		QVariantMap row = value.toMap();
 		row.insert("title", titles.value(row.value("exerciseId").toString()));
 		value = row;
 	}
+	const QString snapshot = Plan_Snapshot(in_server_day, in_title, plan);
+	if (!Logger_Instance->Start_Session(in_user_id, in_date, QString(), QString(), QString(), Session, snapshot))
+		return Fail(Logger_Instance->Get_Last_Error());
+	Session.Server_Program_Id = in_server_day.Server_Program_Id;
+	Session.Server_Week_Number = in_server_day.Server_Week_Number;
+	Session.Server_Day_Of_Week = in_server_day.Server_Day_Of_Week;
+	Error_State.Clear_Last_Error();
+	User_Id = in_user_id;
+	Title_Text = in_title;
 	Plan = plan;
 	Rest_Until_Ms = 0;
-	if (!Save_Runtime() || !Load_Facts())
+	if (!Load_Facts())
 		return false;
 	Has_Pending = true;
+	emit changed();
+	emit clockChanged();
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Workout::Resume(const SWorkout_Session &in_session)
+{
+	Error_State.Clear_Last_Error();
+	User_Id = in_session.User_Id;
+	Session = in_session;
+	Plan.clear();
+	Sets.clear();
+	QString json;
+	if (!Workout_Repository_Instance->Load_Runtime(Session.ID, json, Rest_Until_Ms))
+		return Fail(Workout_Repository_Instance->Get_Last_Error());
+	if (!json.isEmpty())
+	{
+		const QJsonObject snapshot = QJsonDocument::fromJson(json.toUtf8()).object();
+		Plan = snapshot.value("exercises").toArray().toVariantList();
+		Title_Text = snapshot.value("title").toString();
+		if (Plan.isEmpty())
+			return Fail("Не удалось восстановить сохранённый план тренировки");
+	}
+	else
+	{
+		QString day_id;
+		if (!Build_Plan(User_Id, Session.Program_Id, Session.Date, Session.Program_Day_Id, day_id) || !Save_Runtime())
+			return false;
+	}
+	Has_Pending = true;
+	if (!Load_Facts())
+		return false;
 	emit changed();
 	emit clockChanged();
 	return true;
@@ -347,12 +406,7 @@ bool Avm_Workout::finish()
 //-------------------------------------------------------------------------------------------------------------
 QString Avm_Workout::Plan_Json() const
 {
-	return QString::fromUtf8(
-	    QJsonDocument(
-	        QJsonObject{{"dayId", Session.Snapshot_Day_Id.isEmpty() ? Session.Program_Day_Id : Session.Snapshot_Day_Id},
-	                    {"title", Title_Text},
-	                    {"exercises", QJsonArray::fromVariantList(Plan)}})
-	        .toJson(QJsonDocument::Compact));
+	return Plan_Snapshot(Session, Title_Text, Plan);
 }
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Workout::Save_Runtime()

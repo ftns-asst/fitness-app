@@ -1,29 +1,18 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Effects
 import QtQuick.Layouts
 import TrainingAppClient
 
-// Детальная карточка упражнения (спринт U6, референс 2089).
-//
-// Приватное чтение GET /exercises/{id}: свои — с CTA «Редактировать»,
-// чужое публичное детально не открывается (403 -> понятный текст отказа).
-// Офлайн карточка читается из кэша с плашкой «сохранённое упражнение».
-// Техническое фото и tiles рекордов референса приходят позже (этап M3
-// и история тренировок D3) — на месте остаётся структура: теги, описание.
-//
-// ViewModel — контекстное свойство ExercisesOneVM; в qmltestrunner его нет,
-// все обращения под guard'ом (образец — ExercisesPage).
 PageScaffold {
     id: page
 
-    readonly property var viewModel: typeof ExercisesOneVM !== "undefined" ? ExercisesOneVM : null
+    property var viewModel: typeof ExercisesOneVM !== "undefined" ? ExercisesOneVM : null
     readonly property bool hasViewModel: page.viewModel !== undefined && page.viewModel !== null
     readonly property bool failed: page.hasViewModel && page.viewModel.errorKey !== ""
     readonly property bool hasId: page.exerciseId.length > 0
     // Показ карточки: данные есть (кэш или сервер) и ошибки нет.
     readonly property bool showCard: page.hasViewModel && page.viewModel.hasExercise && page.failed === false
-
+    readonly property bool hasHeroMedia: showCard && (!hasId || viewModel.exerciseId === exerciseId) && (viewModel.hasVideo === true || !!viewModel.photoUrl)
     // Акцентная строка над названием: первая группа мышц · первый инвентарь.
     readonly property string overlineText: {
         if (page.showCard === false)
@@ -55,6 +44,8 @@ PageScaffold {
 
     // Название показывается под фото (референс 2089), шапка каркаса пуста.
     title: ""
+    heroExtendsToTop: hasHeroMedia
+    heroOverlap: hasHeroMedia ? 2 * Spacing.itemGap : 0
 
     Component.onCompleted: {
         if (page.hasViewModel && page.hasId)
@@ -69,80 +60,96 @@ PageScaffold {
         if (page.hasViewModel && page.hasId)
             page.viewModel.load(page.exerciseId);
     }
+    scrollHero: Item {
+        id: hero
+        objectName: "exerciseDetailHero"
 
-    BackBar {
-        Layout.fillWidth: true
-        text: qsTr("Каталог")
+        readonly property real scrollDistance: Math.max(0, page.pageFlickable.contentY - page.pageFlickable.originY + page.pageFlickable.topMargin)
+        readonly property real heightWithControls: back.y + back.height + (heading.visible ? heading.implicitHeight + Spacing.itemGap : 0)
+        clip: true
+        implicitHeight: page.hasHeroMedia ? Math.max(Math.round(page.height * 0.5), heightWithControls) : heightWithControls
 
-        onClicked: page.backRequested()
-    }
-    // — Фото техники (референс 2089): крупный скруглённый блок без карточки-
-    // обёртки; локальное фото своего упражнения или плейсхолдер —
-    Item {
-        id: photoBlock
-
-        height: 220
-        visible: page.showCard
-        width: parent.width
-
-        Rectangle {
-            id: photoMask
-
-            anchors.fill: parent
-            layer.enabled: true
-            radius: Theme.radiusLg
-            visible: false
-        }
-        Rectangle {
-            anchors.fill: parent
-            color: Theme.surfaceMuted
-            radius: Theme.radiusLg
-        }
-        Image {
-            anchors.fill: parent
-            asynchronous: true
-            fillMode: Image.PreserveAspectCrop
-            layer.enabled: true
-            source: page.showCard ? page.viewModel.photoUrl : ""
-            visible: page.showCard && page.viewModel.photoUrl.length > 0
-
-            layer.effect: MultiEffect {
-                maskEnabled: true
-                maskSource: photoMask
+        Behavior on implicitHeight {
+            NumberAnimation {
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
             }
         }
-        Label {
-            anchors.centerIn: parent
-            color: Theme.textMuted
-            font: Typography.caption
-            horizontalAlignment: Text.AlignHCenter
-            text: qsTr("Изображение техники")
-            visible: page.showCard === false || page.viewModel.photoUrl.length === 0
-            width: parent.width - Spacing.screenPadding
-            wrapMode: Text.WordWrap
+
+        ExerciseMediaPanel {
+            id: media
+            objectName: "exerciseDetailMedia"
+
+            width: hero.width
+            height: hero.height
+            edgeToEdge: true
+            fadeHeight: heading.height + 110
+            inlineControlsInset: heading.height + heading.anchors.bottomMargin
+            backdropOffset: Math.min(height * 0.25, hero.scrollDistance * 0.3)
+            backdropOpacity: 1 - Math.min(1, hero.scrollDistance / Math.max(1, height)) * 0.65
+            exerciseId: page.exerciseId
+            pageActive: page.pageActive && hero.scrollDistance < hero.height
+            topInset: page.topInset
+            bottomInset: page.bottomInset
+            viewModel: page.showCard ? page.viewModel : null
+        }
+        BackBar {
+            id: back
+
+            anchors.left: parent.left
+            anchors.leftMargin: Spacing.screenPadding
+            anchors.top: parent.top
+            anchors.topMargin: page.hasHeroMedia ? page.topInset + Spacing.safeGap : Spacing.itemGap
+            width: parent.width - 2 * Spacing.screenPadding
+            text: qsTr("Каталог")
+            onClicked: page.backRequested()
+        }
+        Column {
+            id: heading
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: page.hasHeroMedia ? 4 * Spacing.itemGap : 0
+            x: Spacing.screenPadding
+            spacing: Spacing.listGap
+            visible: page.showCard
+            width: parent.width - 2 * x
+            Label {
+                color: Theme.accent
+                font: Typography.overline
+                text: page.overlineText
+                visible: text.length > 0
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+            Label {
+                color: Theme.textPrimary
+                font: Typography.screenTitle
+                text: page.showCard ? page.viewModel.name : ""
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
         }
     }
-    // — Заголовок по референсу: акцентная строка «группа · инвентарь» и
-    // крупное название под фото —
-    Column {
-        spacing: Spacing.listGap
-        visible: page.showCard
-        width: parent.width
+    collapsedHeroContent: Item {
+        implicitHeight: compactHeading.implicitHeight
 
-        Label {
-            color: Theme.accent
-            font: Typography.overline
-            text: page.overlineText
-            visible: text.length > 0
+        RowLayout {
+            id: compactHeading
+
+            anchors.bottom: parent.bottom
             width: parent.width
-            wrapMode: Text.WordWrap
-        }
-        Label {
-            color: Theme.textPrimary
-            font: Typography.screenTitle
-            text: page.showCard ? page.viewModel.name : ""
-            width: parent.width
-            wrapMode: Text.WordWrap
+            AppButton {
+                text: qsTr("← Каталог")
+                variant: AppButton.Secondary
+                labelFont: Typography.detail
+                onClicked: page.backRequested()
+            }
+            Label {
+                Layout.fillWidth: true
+                text: page.showCard ? page.viewModel.name : ""
+                font: Typography.bodyStrong
+                color: Theme.textPrimary
+                elide: Text.ElideRight
+            }
         }
     }
     // — Офлайн: карточка из кэша — тихая подпись под фото —

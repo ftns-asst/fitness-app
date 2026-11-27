@@ -84,7 +84,7 @@ PageScaffold {
         Label {
             color: Theme.textSecondary
             font: Typography.body
-            text: page.server && page.server.errorKey === "program_create_unconfirmed" ? qsTr("Создание не подтверждено. Проверьте «Черновики из каталога» перед повторной попыткой.") : page.server && page.server.errorKey === "days_count_mismatch" ? qsTr("Количество выбранных дней должно совпадать с расписанием шаблона.") : qsTr("Не удалось создать черновик.")
+            text: page.server && page.server.errorKey === "program_create_unconfirmed" ? qsTr("Создание не подтверждено. Проверьте «Серверные программы» перед повторной попыткой.") : page.server && page.server.errorKey === "days_count_mismatch" ? qsTr("Количество выбранных дней должно совпадать с расписанием шаблона.") : qsTr("Не удалось создать черновик.")
             visible: page.createRequested && page.server !== null && page.server.errorKey !== ""
             width: parent.width
             wrapMode: Text.WordWrap

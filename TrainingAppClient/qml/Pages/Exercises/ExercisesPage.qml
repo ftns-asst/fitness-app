@@ -31,6 +31,8 @@ PageScaffold {
     property real lastScrollDepth: 0
     property real directionDistance: 0
     readonly property bool atCatalogStart: !page.pageFlickable || page.isAtStart(page.pageFlickable)
+    readonly property double mediaRefreshAt: hasViewModel ? (viewModel.mediaRefreshAt || 0) : 0
+    readonly property bool mediaForeground: page.pageActive && Qt.application.state === Qt.ApplicationActive
 
     title: qsTr("Упражнения")
     largeTitle: true
@@ -40,6 +42,11 @@ PageScaffold {
     onPageActiveChanged: {
         if (pageActive)
             page.reload();
+    }
+    Timer {
+        interval: running ? Math.max(1000, page.mediaRefreshAt - Date.now()) : 1000
+        running: page.mediaForeground && page.mediaRefreshAt > 0 && !page.viewModel.loading && !page.failed
+        onTriggered: page.viewModel.reload()
     }
 
     function reload() {
@@ -302,6 +309,7 @@ PageScaffold {
                     x: index % 2 === 0 ? 0 : catalogGrid.gap / 2
                     width: catalogGrid.cellWidth - catalogGrid.gap / 2
                     photoUrl: model.photoUrl !== undefined ? model.photoUrl : ""
+                    hasVideo: model.hasVideo === true
                     title: model.title
                     onClicked: page.openRequested(model.id)
                 }

@@ -22,6 +22,7 @@ class Avm_Workout : public QObject
 	Q_PROPERTY(QString title READ title NOTIFY changed)
 	Q_PROPERTY(QString errorDetail READ errorDetail NOTIFY changed)
 	Q_PROPERTY(bool hasPending READ hasPending NOTIFY changed)
+	Q_PROPERTY(bool serverWorkout READ serverWorkout NOTIFY changed)
 	Q_PROPERTY(bool completed READ completed NOTIFY changed)
 	Q_PROPERTY(int completedSets READ completedSets NOTIFY changed)
 	Q_PROPERTY(int totalSets READ totalSets NOTIFY changed)
@@ -35,6 +36,8 @@ public:
 	            QObject *in_parent = 0);
 	Q_INVOKABLE bool startOrResume(const QString &in_user_id, const QString &in_program_id, const QString &in_date);
 	Q_INVOKABLE bool startSolo(const QString &in_user_id, const QString &in_date, const QVariantList &in_plan);
+	Q_INVOKABLE bool startServerDay(const QString &in_user_id, const QString &in_date, const QString &in_program_id,
+	                                int in_week, int in_day, const QString &in_title, const QVariantList &in_plan);
 	Q_INVOKABLE bool checkPending(const QString &in_user_id);
 	Q_INVOKABLE bool saveSet(int in_exercise_index, int in_set_number, double in_weight_kg, int in_reps,
 	                         double in_rpe = -1, const QString &in_note = QString());
@@ -48,6 +51,10 @@ public:
 	QString title() const;
 	QString errorDetail() const;
 	bool hasPending() const;
+	bool serverWorkout() const
+	{
+		return !Session.Server_Program_Id.isEmpty();
+	}
 	bool completed() const;
 	int completedSets() const;
 	int totalSets() const;
@@ -66,6 +73,9 @@ private:
 	bool Build_Plan(const QString &in_user_id, const QString &in_program_id, const QString &in_date,
 	                const QString &in_day_id, QString &out_day_id);
 	bool Load_Facts();
+	bool Resume(const Program_Model::SWorkout_Session &in_session);
+	bool Start_Custom(const QString &in_user_id, const QString &in_date, const QString &in_title,
+	                  const QVariantList &in_plan, const Program_Model::SWorkout_Session &in_server_day);
 	bool Save_Runtime();
 	bool Find_Pending(const QString &in_user_id, Program_Model::SWorkout_Session &out_session);
 	QDateTime Now() const;

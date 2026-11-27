@@ -40,7 +40,8 @@ public:
 	// вне программы (§4 инвариант 18). Непустая программа требует дня, который
 	// действительно принадлежит ей.
 	bool Start_Session(const QString &in_user_id, const QString &in_date, const QString &in_program_id,
-	                   const QString &in_program_day_id, const QString &in_note, SWorkout_Session &out_session);
+	                   const QString &in_program_day_id, const QString &in_note, SWorkout_Session &out_session,
+	                   const QString &in_plan_json = QString());
 
 	// Сохраняет подход в своём черновике. Пустой идентификатор — новый подход;
 	// непустой обновляет существующий. Снимок предписания подставляется по

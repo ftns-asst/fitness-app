@@ -60,7 +60,7 @@ HTML-макета само по себе не означает готовнос�
 ## Сборка и запуск
 
 Нужны CMake, компилятор из выбранного Qt kit и модули Qt Quick, Quick Controls 2,
-Quick Layouts, Quick Effects, Network и Sql. Для тестов — Qt Test и QuickTest.
+Quick Layouts, Quick Effects, Multimedia, Network и Sql. Для тестов — Qt Test и QuickTest.
 
 ### Desktop
 

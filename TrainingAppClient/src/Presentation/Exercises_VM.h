@@ -37,6 +37,7 @@ class Avm_Exercises : public QObject
 	Q_PROPERTY(bool fromCache READ Is_From_Cache NOTIFY stateChanged)
 	Q_PROPERTY(QString errorKey READ Error_Key NOTIFY stateChanged)
 	Q_PROPERTY(bool canLoadMore READ Can_Load_More NOTIFY stateChanged)
+	Q_PROPERTY(qint64 mediaRefreshAt READ Media_Refresh_At NOTIFY stateChanged)
 
 public:
 	Avm_Exercises(AExercises_Repository *in_repository, int in_page_size, QObject *in_parent = 0);
@@ -48,6 +49,7 @@ public:
 	bool Is_From_Cache() const;
 	QString Error_Key() const;
 	bool Can_Load_More() const;
+	qint64 Media_Refresh_At() const;
 
 	// QML-мост (§2 CODE_STYLE: имена контракта — lowerCamelCase).
 	Q_INVOKABLE bool reload();

@@ -25,6 +25,7 @@ class AExercises_Repository_Test : public QObject
 private slots:
 	void migrationCreatesCacheTables();
 	void listUpsertsIntoCache();
+	void refreshesMediaAfterSignedUrlExpires();
 	void ownExercisesSurviveBasicRefresh();
 	void offlineListFallsBackToCache();
 	void catalogsFallBackToCachedValues();
@@ -446,5 +447,53 @@ void AExercises_Repository_Test::photoStagesCommitsAndDeletes()
 	QDir(AExercises_Repository::Photos_Directory()).removeRecursively();
 }
 
+//-------------------------------------------------------------------------------------------------------------
+void AExercises_Repository_Test::refreshesMediaAfterSignedUrlExpires()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	AExercises_Repository *repository = 0;
+	Make_Repository(server, directory, true, repository);
+	QVERIFY(repository != 0);
+	const QString id = "aaaaaaaa-1111-2222-3333-444444444444";
+	const QByteArray signed_at = QDateTime::currentDateTimeUtc().toString("yyyyMMdd'T'hhmmss'Z'").toUtf8();
+	const QByteArray signed_url = "https://minio.example/media/old.jpg?X-Amz-Date=" + signed_at + "&X-Amz-Expires=3";
+	const auto exercise = [&](const QByteArray &in_type, const QByteArray &in_url)
+	{
+		return "{\"id\":\"" + id.toUtf8() + "\",\"name\":\"Bench press\",\"media\":{\"type\":\"" + in_type +
+		       "\",\"presignedUrl\":\"" + in_url + "\"}}";
+	};
+	QSignalSpy listed(repository, &AExercises_Repository::listFinished);
+	QSignalSpy opened(repository, &AExercises_Repository::oneFinished);
+	server.Enqueue_Response(JSON_Response(200, "[" + exercise("image", signed_url) + "]"));
+	QVERIFY(repository->Load_List("all", {}, {}, {}, 20, 0) > 0);
+	QTRY_COMPARE(listed.size(), 1);
+	const SExercise_Media previous = repository->Media_For(id);
+	QCOMPARE(previous.Type, QString("image"));
+	QCOMPARE(previous.Url.toEncoded(), signed_url);
+	QVERIFY(!QUrl(previous.Presentation_Url()).fragment().isEmpty());
+
+	server.Enqueue_Response(JSON_Response(200, exercise("image", "https://minio.example/media/new.jpg")));
+	QVERIFY(repository->Load_One(id) > 0);
+	QTRY_COMPARE(opened.size(), 1);
+	QCOMPARE(repository->Media_For(id).Url, previous.Url);
+	QTRY_VERIFY_WITH_TIMEOUT(repository->Media_For(id).Url.isEmpty(), 4500);
+
+	server.Enqueue_Response(JSON_Response(200, exercise("image", "https://minio.example/media/new.jpg")));
+	QVERIFY(repository->Load_One(id) > 0);
+	QTRY_COMPARE(opened.size(), 2);
+	QCOMPARE(repository->Media_For(id).Url, QUrl("https://minio.example/media/new.jpg"));
+
+	server.Enqueue_Response(JSON_Response(200, exercise("video", "https://minio.example/media/new.mp4")));
+	QVERIFY(repository->Load_One(id) > 0);
+	QTRY_COMPARE(opened.size(), 3);
+	QCOMPARE(repository->Media_For(id).Presentation_Url(), QString("https://minio.example/media/new.mp4"));
+
+	server.Enqueue_Response(JSON_Response(200, exercise("image", "file:///private.jpg")));
+	QVERIFY(repository->Load_One(id) > 0);
+	QTRY_COMPARE(opened.size(), 4);
+	QVERIFY(repository->Media_For(id).Url.isEmpty());
+}
+//-------------------------------------------------------------------------------------------------------------
 QTEST_MAIN(AExercises_Repository_Test)
 #include "tst_Exercises_Repository.moc"

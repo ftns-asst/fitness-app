@@ -1,11 +1,45 @@
-﻿#include "Data/Exercises/Exercises_Api.h"
+#include "Data/Exercises/Exercises_Api.h"
 
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLoggingCategory>
+#include <QTimeZone>
 #include <QUrlQuery>
 
 Q_LOGGING_CATEGORY(EXERCISES_Api_Log, "trainingapp.exercises.api")
+
+namespace
+{
+SExercise_Media Parse_Media(const QJsonObject &in_media)
+{
+	const QString type = in_media.value("type").toString();
+	const QUrl url(in_media.value("presignedUrl").toString(), QUrl::StrictMode);
+	if ((type != "image" && type != "video") || !url.isValid() || url.host().isEmpty() ||
+	    (url.scheme() != "http" && url.scheme() != "https") || !url.userInfo().isEmpty())
+		return {};
+
+	QDateTime expires = QDateTime::currentDateTimeUtc().addSecs(15 * 60);
+	const QUrlQuery query(url);
+	const QDateTime signed_at = QDateTime::fromString(query.queryItemValue("X-Amz-Date"), "yyyyMMdd'T'hhmmss'Z'");
+	bool valid_seconds;
+	const int signed_seconds = query.queryItemValue("X-Amz-Expires").toInt(&valid_seconds);
+	if (signed_at.isValid() && valid_seconds && signed_seconds >= 0)
+	{
+		const QDateTime issued_utc(signed_at.date(), signed_at.time(), QTimeZone::UTC);
+		expires = qMin(expires, issued_utc.addSecs(signed_seconds));
+	}
+	return {type, url, expires};
+}
+} // namespace
+
+//-------------------------------------------------------------------------------------------------------------
+QString SExercise_Media::Presentation_Url() const
+{
+	QUrl source = Url;
+	if (Type == "image")
+		source.setFragment(QString::number(Expires_At.toMSecsSinceEpoch()));
+	return source.toString(QUrl::FullyEncoded);
+}
 
 //-------------------------------------------------------------------------------------------------------------
 // AExercises_Api
@@ -406,6 +440,7 @@ bool AExercises_Api::Parse_Item(const QJsonObject &in_row, SExercises_Item &out_
 	out_item.Has_Owner = !out_item.Owner_ID.isEmpty();
 	out_item.Is_Public = in_row.value("is_public").toBool();
 	out_item.Created_At = in_row.value("created_at").isString() ? in_row.value("created_at").toString() : QString("");
+	out_item.Media = Parse_Media(in_row.value("media").toObject());
 
 	groups = in_row.value("muscle_groups").toArray();
 
@@ -470,32 +505,8 @@ void AExercises_Api::Parse_List(const SHttp_Response &in_response, QVector<SExer
 
 	for (int i = 0; i < array.size(); ++i)
 	{
-		QJsonObject row = array.at(i).toObject();
 		SExercises_Item item;
-
-		item.ID = row.value("id").toString();
-		item.Name = row.value("name").toString();
-		// omitempty-поля отсутствуют в JSON целиком: toString() вернул бы
-		// null-QString, а bind null упёрся в NOT NULL DEFAULT '' кэша —
-		// DEFAULT работает только для опущенной колонки, не для NULL.
-		item.Description = row.value("description").isString() ? row.value("description").toString() : QString("");
-		item.Owner_ID = row.value("owner_id").isString() ? row.value("owner_id").toString() : QString("");
-		item.Has_Owner = !item.Owner_ID.isEmpty();
-		item.Is_Public = row.value("is_public").toBool();
-		item.Created_At = row.value("created_at").isString() ? row.value("created_at").toString() : QString("");
-
-		QJsonArray groups = row.value("muscle_groups").toArray();
-
-		for (int g = 0; g < groups.size(); ++g)
-			item.Muscle_Groups.append(groups.at(g).toString());
-
-		QJsonArray equipment = row.value("equipment").toArray();
-
-		for (int e = 0; e < equipment.size(); ++e)
-			item.Equipment.append(equipment.at(e).toString());
-
-		// Обязательные поля успешного ответа (docs/03, §3.9).
-		if (item.ID.isEmpty() || item.Name.isEmpty())
+		if (!Parse_Item(array.at(i).toObject(), item))
 		{
 			out_items.clear();
 			out_error = AApi_Error("undefined_error", "Incomplete exercises response", in_response.HTTP_Status_Code,

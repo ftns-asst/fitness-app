@@ -6,6 +6,7 @@ import TrainingAppClient
 PageScaffold {
     id: page
     property var viewModel: typeof WorkoutVM !== "undefined" ? WorkoutVM : null
+    property var mediaViewModel: typeof WorkoutExerciseMediaVM !== "undefined" ? WorkoutExerciseMediaVM : null
     property bool savedInDiary: true
     property int exerciseIndex: 0
     property int setNumber: 1
@@ -15,6 +16,8 @@ PageScaffold {
     property int expandedResult: -1
     readonly property var exerciseRows: viewModel ? viewModel.exercises : []
     readonly property var exercise: exerciseRows[exerciseIndex] || ({})
+    readonly property string mediaExerciseId: !finished ? (exercise.exerciseId || "") : ""
+    readonly property bool hasExerciseMedia: !!mediaExerciseId && !!mediaViewModel && mediaViewModel.exerciseId === mediaExerciseId && (mediaViewModel.hasVideo === true || !!mediaViewModel.photoUrl)
     readonly property bool finished: viewModel && viewModel.completed
     readonly property bool allRecorded: viewModel && viewModel.totalSets > 0 && viewModel.completedSets >= viewModel.totalSets
     readonly property real progress: viewModel && viewModel.totalSets > 0 ? Math.min(1, viewModel.completedSets / viewModel.totalSets) : 0
@@ -59,6 +62,8 @@ PageScaffold {
     signal backRequested
     showHeader: false
     heroBackground: true
+    heroExtendsToTop: hasExerciseMedia
+    heroOverlap: hasExerciseMedia ? 2 * Spacing.itemGap : 0
     spacing: Spacing.itemGap
     title: finished ? qsTr("Тренировка завершена") : qsTr("Тренировка")
 
@@ -114,12 +119,14 @@ PageScaffold {
     function saveCurrent() {
         if (!viewModel || !exerciseRows.length || !weightInput.valid || !repsInput.valid || submitCooldown.running)
             return;
+        const mediaWasHidden = heroCollapsed;
         if (viewModel.saveSet(exerciseIndex, setNumber, weightInput.numberValue, repsInput.numberValue, rpeValue, noteInput.text)) {
             submitCooldown.start();
             nextPending();
             extrasExpanded = false;
             page.forceActiveFocus();
-            revealEntry();
+            if (!mediaWasHidden)
+                revealEntry();
         }
     }
     function finishWorkout() {
@@ -149,7 +156,34 @@ PageScaffold {
     function recordedCount(item) {
         return (item.facts || []).filter(fact => fact.done).length;
     }
-    Component.onCompleted: nextPending()
+    Component.onCompleted: {
+        nextPending();
+        mediaLoad.restart();
+    }
+    onMediaExerciseIdChanged: mediaLoad.restart()
+    onPageActiveChanged: {
+        if (pageActive)
+            mediaLoad.restart();
+        else
+            mediaLoad.stop();
+    }
+    Component.onDestruction: {
+        if (mediaViewModel && mediaViewModel.exerciseId === mediaExerciseId)
+            mediaViewModel.reset();
+    }
+
+    Timer {
+        id: mediaLoad
+        interval: 100
+        onTriggered: {
+            if (!page.pageActive || !page.mediaViewModel)
+                return;
+            if (!page.mediaExerciseId)
+                page.mediaViewModel.reset();
+            else if (page.mediaViewModel.exerciseId !== page.mediaExerciseId)
+                page.mediaViewModel.load(page.mediaExerciseId);
+        }
+    }
 
     Timer {
         id: submitCooldown
@@ -178,116 +212,196 @@ PageScaffold {
         }
     }
 
-    RowLayout {
-        width: parent.width
-        visible: !page.finished
-        AppButton {
-            text: qsTr("‹ Сохранить и выйти")
-            variant: AppButton.Ghost
-            labelFont: Typography.detail
-            onClicked: page.backRequested()
+    scrollHero: Item {
+        id: hero
+
+        readonly property real scrollDistance: Math.max(0, page.pageFlickable.contentY - page.pageFlickable.originY + page.pageFlickable.topMargin)
+        readonly property real heightWithControls: actions.y + actions.height + heading.implicitHeight + 2 * Spacing.itemGap
+
+        clip: true
+        implicitHeight: page.finished ? 0 : page.hasExerciseMedia ? Math.max(Math.round(page.height * 0.55), heightWithControls) : heightWithControls
+
+        Behavior on implicitHeight {
+            NumberAnimation {
+                duration: Theme.selectionDuration
+                easing.type: Easing.OutCubic
+            }
         }
-        Item {
-            Layout.fillWidth: true
+
+        ExerciseMediaPanel {
+            id: workoutMedia
+            objectName: "workoutExerciseMedia"
+
+            anchors.fill: parent
+            edgeToEdge: true
+            fadeHeight: heading.height + 110
+            inlineControlsInset: heading.height + heading.anchors.bottomMargin
+            backdropOffset: Math.min(height * 0.25, hero.scrollDistance * 0.3)
+            backdropOpacity: 1 - Math.min(1, hero.scrollDistance / Math.max(1, height)) * 0.65
+            exerciseId: page.mediaExerciseId
+            pageActive: page.pageActive && hero.scrollDistance < hero.height
+            topInset: page.topInset
+            bottomInset: page.bottomInset
+            viewModel: page.mediaExerciseId ? page.mediaViewModel : null
         }
-        AppButton {
-            visible: page.viewModel && page.viewModel.completedSets > 0 && !page.allRecorded && !page.editingSet
-            text: qsTr("Завершить")
-            variant: AppButton.Ghost
-            labelFont: Typography.detail
-            enabled: !submitCooldown.running
-            onClicked: page.requestFinish()
+
+        RowLayout {
+            id: actions
+            x: Spacing.screenPadding
+            y: page.hasExerciseMedia ? page.topInset + Spacing.safeGap : 0
+            width: parent.width - 2 * x
+            visible: !page.finished
+            AppButton {
+                text: qsTr("‹ Сохранить и выйти")
+                variant: page.hasExerciseMedia ? AppButton.Secondary : AppButton.Ghost
+                labelFont: Typography.detail
+                onClicked: page.backRequested()
+            }
+            Item {
+                Layout.fillWidth: true
+            }
+            AppButton {
+                visible: page.viewModel && page.viewModel.completedSets > 0 && !page.allRecorded && !page.editingSet
+                text: qsTr("Завершить")
+                variant: page.hasExerciseMedia ? AppButton.Secondary : AppButton.Ghost
+                labelFont: Typography.detail
+                enabled: !submitCooldown.running
+                onClicked: page.requestFinish()
+            }
+        }
+        Column {
+            id: heading
+
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: page.hasExerciseMedia ? 4 * Spacing.itemGap : Spacing.itemGap
+            x: Spacing.screenPadding
+            width: parent.width - 2 * x
+            spacing: Spacing.itemGap
+
+            FilterChips {
+                objectName: "workoutExerciseTabs"
+                currentIndex: page.exerciseIndex
+                fadeEdge: false
+                items: page.exerciseChips
+                keepCurrentVisible: true
+                maximumItemWidth: Math.min(width * 0.7, 212)
+                visible: page.exerciseRows.length > 1
+                width: parent.width
+
+                onSelected: index => page.selectExercise(index)
+            }
+            RowLayout {
+                width: parent.width
+                Label {
+                    Layout.fillWidth: true
+                    text: page.exerciseRows.length === 0 ? qsTr("Нет упражнений для записи") : page.editingSet ? qsTr("Правка подхода %1").arg(page.setNumber) : page.allRecorded ? qsTr("Все подходы записаны") : qsTr("Упражнение %1 из %2 · подход %3 из %4").arg(page.exerciseIndex + 1).arg(page.exerciseRows.length).arg(page.setNumber).arg(page.exercise.sets || 0)
+                    font: Typography.captionStrong
+                    color: Theme.accentInk
+                    wrapMode: Text.WordWrap
+                }
+                AppButton {
+                    visible: page.editingSet
+                    text: qsTr("Отмена")
+                    variant: AppButton.Ghost
+                    labelFont: Typography.detail
+                    onClicked: {
+                        page.nextPending();
+                        page.extrasExpanded = false;
+                    }
+                }
+            }
+            Rectangle {
+                Accessible.role: Accessible.ProgressBar
+                Accessible.name: qsTr("Записано %1 из %2 подходов").arg(page.viewModel ? page.viewModel.completedSets : 0).arg(page.viewModel ? page.viewModel.totalSets : 0)
+                width: parent.width
+                height: 4
+                radius: height / 2
+                color: Theme.accentSurface
+                Rectangle {
+                    height: parent.height
+                    radius: parent.radius
+                    color: Theme.accent
+                    width: parent.width * page.progress
+                    Behavior on width {
+                        NumberAnimation {
+                            duration: Theme.selectionDuration
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+                }
+            }
+            AbstractButton {
+                objectName: "workoutExercisePicker"
+                width: parent.width
+                implicitHeight: Math.max(Theme.touchMin, contentItem.implicitHeight)
+                enabled: page.exerciseRows.length > 1
+                Accessible.name: qsTr("Выбрать упражнение: %1").arg(page.exercise.title || "")
+                onClicked: exercisePicker.open()
+                contentItem: RowLayout {
+                    spacing: Spacing.itemGap
+                    Label {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        text: page.exercise.title || qsTr("Упражнение")
+                        font: Typography.workoutTitle
+                        color: page.exerciseRows.length === 0 ? Theme.textSecondary : Theme.textPrimary
+                        wrapMode: Text.WordWrap
+                    }
+                    AppIcon {
+                        Layout.preferredWidth: 20
+                        Layout.preferredHeight: 20
+                        name: "chevronDown"
+                        iconColor: Theme.accentInk
+                        visible: page.exerciseRows.length > 1
+                    }
+                }
+            }
+            Label {
+                width: parent.width
+                visible: page.exerciseRows.length > 0
+                text: qsTr("План: %1 × %2").arg(page.exercise.sets || 0).arg(page.repsTarget()) + (page.exercise.weightKg > 0 ? qsTr(" · %1 кг").arg(StatisticsUi.number(page.exercise.weightKg, page.exercise.weightKg % 1 ? 2 : 0)) : "")
+                color: Theme.accentInk
+                font: Typography.captionStrong
+                wrapMode: Text.WordWrap
+            }
         }
     }
+    collapsedHeroContent: Item {
+        implicitHeight: compactHeading.implicitHeight
+
+        RowLayout {
+            id: compactHeading
+
+            anchors.bottom: parent.bottom
+            width: parent.width
+            AppButton {
+                text: qsTr("‹ Выйти")
+                variant: AppButton.Secondary
+                labelFont: Typography.detail
+                onClicked: page.backRequested()
+            }
+            Label {
+                Layout.fillWidth: true
+                text: page.exercise.title || qsTr("Упражнение")
+                font: Typography.bodyStrong
+                color: Theme.textPrimary
+                elide: Text.ElideRight
+            }
+        }
+    }
+
     Column {
         id: entry
         width: parent.width
         spacing: Spacing.itemGap
         visible: !page.finished
-        FilterChips {
-            objectName: "workoutExerciseTabs"
-            currentIndex: page.exerciseIndex
-            fadeEdge: false
-            items: page.exerciseChips
-            keepCurrentVisible: true
-            maximumItemWidth: Math.min(width * 0.7, 212)
-            visible: page.exerciseRows.length > 1
-            width: parent.width
 
-            onSelected: index => page.selectExercise(index)
-        }
-        RowLayout {
-            width: parent.width
-            Label {
-                Layout.fillWidth: true
-                text: page.exerciseRows.length === 0 ? qsTr("Нет упражнений для записи") : page.editingSet ? qsTr("Правка подхода %1").arg(page.setNumber) : page.allRecorded ? qsTr("Все подходы записаны") : qsTr("Упражнение %1 из %2 · подход %3 из %4").arg(page.exerciseIndex + 1).arg(page.exerciseRows.length).arg(page.setNumber).arg(page.exercise.sets || 0)
-                font: Typography.captionStrong
-                color: Theme.accentInk
-                wrapMode: Text.WordWrap
-            }
-            AppButton {
-                visible: page.editingSet
-                text: qsTr("Отмена")
-                variant: AppButton.Ghost
-                labelFont: Typography.detail
-                onClicked: {
-                    page.nextPending();
-                    page.extrasExpanded = false;
-                }
-            }
-        }
-        Rectangle {
-            Accessible.role: Accessible.ProgressBar
-            Accessible.name: qsTr("Записано %1 из %2 подходов").arg(page.viewModel ? page.viewModel.completedSets : 0).arg(page.viewModel ? page.viewModel.totalSets : 0)
-            width: parent.width
-            height: 4
-            radius: height / 2
-            color: Theme.accentSurface
-            Rectangle {
-                height: parent.height
-                radius: parent.radius
-                color: Theme.accent
-                width: parent.width * page.progress
-                Behavior on width {
-                    NumberAnimation {
-                        duration: Theme.selectionDuration
-                        easing.type: Easing.OutCubic
-                    }
-                }
-            }
-        }
-        AbstractButton {
-            objectName: "workoutExercisePicker"
-            width: parent.width
-            implicitHeight: Math.max(Theme.touchMin, contentItem.implicitHeight)
-            enabled: page.exerciseRows.length > 1
-            Accessible.name: qsTr("Выбрать упражнение: %1").arg(page.exercise.title || "")
-            onClicked: exercisePicker.open()
-            contentItem: RowLayout {
-                spacing: Spacing.itemGap
-                Label {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    text: page.exercise.title || qsTr("Упражнение")
-                    font: Typography.workoutTitle
-                    color: page.exerciseRows.length === 0 ? Theme.textSecondary : Theme.textPrimary
-                    wrapMode: Text.WordWrap
-                }
-                AppIcon {
-                    Layout.preferredWidth: 20
-                    Layout.preferredHeight: 20
-                    name: "chevronDown"
-                    iconColor: Theme.accentInk
-                    visible: page.exerciseRows.length > 1
-                }
-            }
-        }
         Label {
             width: parent.width
-            visible: page.exerciseRows.length > 0
-            text: qsTr("План: %1 × %2").arg(page.exercise.sets || 0).arg(page.repsTarget()) + (page.exercise.weightKg > 0 ? qsTr(" · %1 кг").arg(StatisticsUi.number(page.exercise.weightKg, page.exercise.weightKg % 1 ? 2 : 0)) : "")
-            color: Theme.accentInk
-            font: Typography.captionStrong
+            visible: page.exercise.targetPercent > 0 && !page.exercise.hasWeight
+            text: qsTr("Вес по плану не рассчитан. Введите рабочий вес вручную.")
+            color: Theme.textSecondary
+            font: Typography.detail
             wrapMode: Text.WordWrap
         }
         Label {
@@ -513,7 +627,7 @@ PageScaffold {
         }
         Label {
             width: parent.width
-            text: page.savedInDiary ? qsTr("Результаты сохранены в дневнике") : qsTr("Результаты сохранены в истории свободных тренировок")
+            text: page.viewModel && page.viewModel.serverWorkout ? qsTr("Результаты сохранены на устройстве") : page.savedInDiary ? qsTr("Результаты сохранены в дневнике") : qsTr("Результаты сохранены в истории свободных тренировок")
             font: Typography.detail
             color: Theme.textSecondary
             wrapMode: Text.WordWrap

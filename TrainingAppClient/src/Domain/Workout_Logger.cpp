@@ -43,7 +43,7 @@ bool AsWorkout_Logger::Is_Valid_Date(const QString &in_date) const
 //-------------------------------------------------------------------------------------------------------------
 bool AsWorkout_Logger::Start_Session(const QString &in_user_id, const QString &in_date, const QString &in_program_id,
                                      const QString &in_program_day_id, const QString &in_note,
-                                     SWorkout_Session &out_session)
+                                     SWorkout_Session &out_session, const QString &in_plan_json)
 {
 	SProgram program;
 	SWorkout_Session draft;
@@ -63,6 +63,8 @@ bool AsWorkout_Logger::Start_Session(const QString &in_user_id, const QString &i
 	// День уже открыт: возвращаем тот же черновик, а не создаём второй.
 	if (Repository_Instance->Find_Draft(in_user_id, in_date, draft))
 	{
+		if (!in_plan_json.isEmpty())
+			return Set_Last_Error("Сначала завершите открытую тренировку");
 		out_session = draft;
 
 		return true;
@@ -82,7 +84,7 @@ bool AsWorkout_Logger::Start_Session(const QString &in_user_id, const QString &i
 	out_session.Note = in_note;
 	out_session.Sync_State = ESync_State::Local;
 
-	if (!Repository_Instance->Insert_Session(out_session))
+	if (!Repository_Instance->Insert_Session(out_session, in_plan_json))
 	{
 		out_session = SWorkout_Session();
 

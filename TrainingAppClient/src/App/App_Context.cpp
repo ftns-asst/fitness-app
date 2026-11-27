@@ -207,6 +207,7 @@ bool AsApp_Context::Initialize(const QStringList &in_arguments, QSettings &in_se
 	Exercises_Editor_VM_Instance = new Avm_Exercises_Editor(Exercises_Repository_Instance, this);
 	// Детальная карточка упражнения (спринт U6): тот же репозиторий.
 	Exercises_One_VM_Instance = new Avm_Exercises_One(Exercises_Repository_Instance, this);
+	Workout_Exercise_Media_VM_Instance = new Avm_Exercises_One(Exercises_Repository_Instance, this);
 
 	Create_Program_Stack();
 
@@ -287,6 +288,7 @@ void AsApp_Context::Create_Program_Stack()
 	connect(Workout_Sync_Instance, &AWorkout_Sync::accountChanged, this,
 	        [this] { Solo_Workout_VM_Instance->checkPending(Workout_Sync_Instance->userId()); });
 	connect(Solo_Workout_VM_Instance, &Avm_Workout::sessionFinished, Workout_Sync_Instance, &AWorkout_Sync::Flush);
+	connect(Workout_VM_Instance, &Avm_Workout::sessionFinished, Workout_Sync_Instance, &AWorkout_Sync::Flush);
 	Strength_VM_Instance =
 	    new Avm_Strength(Program_Repository_Instance, Workout_Repository_Instance, Exercises_Repository_Instance, this);
 	Program_Template_Service_Instance = new AProgram_Template_Service(Program_Repository_Instance, this);
@@ -366,6 +368,8 @@ void AsApp_Context::Destroy_Stack()
 	// Каталог упражнений.
 	delete Exercises_One_VM_Instance;
 	Exercises_One_VM_Instance = 0;
+	delete Workout_Exercise_Media_VM_Instance;
+	Workout_Exercise_Media_VM_Instance = 0;
 	delete Exercises_Editor_VM_Instance;
 	Exercises_Editor_VM_Instance = 0;
 	delete Exercises_VM_Instance;
@@ -638,6 +642,11 @@ Avm_Exercises_Editor *AsApp_Context::Exercises_Editor_VM() const
 Avm_Exercises_One *AsApp_Context::Exercises_One_VM() const
 {
 	return Exercises_One_VM_Instance;
+}
+//-------------------------------------------------------------------------------------------------------------
+Avm_Exercises_One *AsApp_Context::Workout_Exercise_Media_VM() const
+{
+	return Workout_Exercise_Media_VM_Instance;
 }
 //-------------------------------------------------------------------------------------------------------------
 Avm_Diary *AsApp_Context::Diary_VM() const

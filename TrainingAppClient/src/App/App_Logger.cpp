@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QMutexLocker>
 #include <QRecursiveMutex>
+#include <QRegularExpression>
 
 #include <cstdio>
 
@@ -66,6 +67,10 @@ void AsApp_Logger::Close()
 //-------------------------------------------------------------------------------------------------------------
 void AsApp_Logger::Handle_Message(QtMsgType in_type, const QMessageLogContext &in_context, const QString &in_message)
 {
+	static const QRegularExpression signed_url(R"((https?://[^\s<>"'?]+)\?[^\s<>"']*X-Amz-Signature=[^\s<>"']+)",
+	                                           QRegularExpression::CaseInsensitiveOption);
+	QString message = in_message;
+	message.replace(signed_url, R"(\1?[redacted])");
 	// Под мьютексом и stderr: строки разных потоков не перемешиваются.
 	QMutexLocker<QRecursiveMutex> locker(&Logger_Mutex);
 	QString line;
@@ -75,7 +80,7 @@ void AsApp_Logger::Handle_Message(QtMsgType in_type, const QMessageLogContext &i
 	// сообщения не будет заменён следующим аргументом.
 	line = QString("%1 %2 %3: %4")
 	           .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz"), Level_Name(in_type),
-	                QString::fromLatin1(in_context.category), in_message);
+	                QString::fromLatin1(in_context.category), message);
 	utf8 = line.toUtf8();
 
 	// stderr сохраняем всегда: консоль, CI и offscreen-прогоны читают его.

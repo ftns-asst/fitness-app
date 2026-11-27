@@ -5,6 +5,7 @@
 #include <QJsonArray>
 #include <QSet>
 #include <QUuid>
+#include <utility>
 
 namespace
 {
@@ -12,6 +13,23 @@ QString Wire_ID(const QString &in_id)
 {
 	const QUuid id(in_id);
 	return id.isNull() ? QString() : id.toString(QUuid::WithoutBraces);
+}
+
+QVariantList Day_Exercises(const QVariantMap &in_program, int in_week, int in_day)
+{
+	for (const QVariant &week_value : in_program.value("weeks").toList())
+	{
+		const QVariantMap week = week_value.toMap();
+		if (week.value("week_number").toInt() != in_week)
+			continue;
+		for (const QVariant &day_value : week.value("days").toList())
+		{
+			const QVariantMap day = day_value.toMap();
+			if (day.value("day_of_week").toInt() == in_day)
+				return day.value("exercises").toList();
+		}
+	}
+	return {};
 }
 } // namespace
 
@@ -97,6 +115,21 @@ void Avm_Server_Programs::createDraft(const QString &in_template_id, const QVari
 	          {{"default_program_id", template_id}, {"days_of_week", days}});
 }
 //-------------------------------------------------------------------------------------------------------------
+void Avm_Server_Programs::startDraft(const QString &in_id)
+{
+	if (busy())
+		return;
+	const QString id = Wire_ID(in_id);
+	if (id.isEmpty() || id != Draft_Id || Draft.value("state").toString() != "draft" ||
+	    !Draft.value("required_measurements").toList().isEmpty())
+	{
+		Error_Key = "validation_error";
+		emit changed();
+		return;
+	}
+	Send_Post(EOperation::Start, "/programs/" + id + "/start", {});
+}
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Server_Programs::saveRecords(const QString &in_id, const QVariantList &in_records)
 {
 	if (busy())
@@ -130,6 +163,86 @@ void Avm_Server_Programs::saveRecords(const QString &in_id, const QVariantList &
 	Send_Post(EOperation::Records, "/users/" + user_id + "/prs/bulk", {{"records", records}});
 }
 //-------------------------------------------------------------------------------------------------------------
+void Avm_Server_Programs::prepareWorkout(int in_week, int in_day)
+{
+	if (busy())
+		return;
+	const QString user_id = Wire_ID(Session->User_ID());
+	const QVariantList exercises = Day_Exercises(Draft, in_week, in_day);
+	if (user_id.isEmpty() || Draft_Id.isEmpty() || Draft.value("state").toString() != "in_progress" || in_week < 1 ||
+	    in_week > 52 || in_day < 1 || in_day > 7 || exercises.isEmpty())
+	{
+		Error_Key = user_id.isEmpty() ? QString("auth_required") : QString("validation_error");
+		emit changed();
+		return;
+	}
+
+	Workout_Week = in_week;
+	Workout_Day = in_day;
+	Workout_Plan.clear();
+	bool needs_records = false;
+	for (const QVariant &value : exercises)
+	{
+		const QVariantMap exercise = value.toMap();
+		const QVariant weight = exercise.value("target_weight_kg");
+		const bool fixed_weight = weight.isValid() && !weight.isNull();
+		const double percent = exercise.value("target_percent_1rm").toDouble();
+		const bool percent_load = !fixed_weight && percent > 0 && percent <= 100;
+		const QVariant rest = exercise.value("rest_seconds");
+		QVariantMap row{{"exerciseId", Wire_ID(exercise.value("exercise_id").toString())},
+		                {"sets", exercise.value("sets")},
+		                {"repsMin", exercise.value("target_reps")},
+		                {"repsMax", exercise.value("target_reps")},
+		                {"weightKg", weight.toDouble()},
+		                {"hasWeight", fixed_weight},
+		                {"restSeconds", rest.isValid() && !rest.isNull() ? rest.toInt() : 90}};
+		if (percent_load)
+		{
+			row.insert("targetPercent", percent);
+			needs_records = true;
+		}
+		Workout_Plan.append(row);
+	}
+	Error_Key.clear();
+	if (needs_records)
+	{
+		Send_Read(EOperation::Workout_Records, "/users/" + user_id + "/prs");
+		if (!busy())
+			Workout_Plan.clear();
+		return;
+	}
+	Finish_Workout_Plan({});
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Server_Programs::Finish_Workout_Plan(const QJsonArray &in_records)
+{
+	QHash<QString, double> latest_weights;
+	for (const QJsonValue &value : in_records)
+	{
+		const QJsonObject record = value.toObject();
+		const QString exercise_id = Wire_ID(record.value("exercise_id").toString());
+		const double weight = record.value("weight_kg").toDouble();
+		if (!exercise_id.isEmpty() && weight > 0 && weight < 10000)
+			latest_weights.insert(exercise_id, weight);
+	}
+	QVariantList plan = std::exchange(Workout_Plan, {});
+	for (QVariant &value : plan)
+	{
+		QVariantMap row = value.toMap();
+		const double percent = row.value("targetPercent").toDouble();
+		const double record = latest_weights.value(row.value("exerciseId").toString());
+		const double target = qRound64(record * percent) / 100.0;
+		if (target > 0 && target <= 1000)
+		{
+			row.insert("weightKg", target);
+			row.insert("hasWeight", true);
+			value = row;
+		}
+	}
+	emit workoutReady(Draft_Id, Workout_Week, Workout_Day, Draft.value("name").toString(), plan);
+	emit changed();
+}
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Server_Programs::Send_Read(EOperation in_operation, const QString &in_path)
 {
 	SHttp_Request request;
@@ -159,6 +272,11 @@ void Avm_Server_Programs::Handle_Response(int in_id, const SHttp_Response &in_re
 	if (in_id != Request_Id)
 		return;
 	Request_Id = 0;
+	if (Operation == EOperation::Workout_Records)
+	{
+		Finish_Workout_Plan(in_response.Success ? in_response.JSON.array() : QJsonArray());
+		return;
+	}
 	if (!in_response.Success)
 	{
 		const bool uncertain = in_response.HTTP_Status_Code == 0 || in_response.HTTP_Status_Code >= 500;
@@ -181,8 +299,8 @@ void Avm_Server_Programs::Handle_Response(int in_id, const SHttp_Response &in_re
 			{
 				const QJsonObject row = value.toObject();
 				const QString state = row.value("state").toString();
-				if (row.value("source_kind").toString() == "default" &&
-				    (state == "draft" || state == "needs_measurement") &&
+				if ((state == "in_progress" || (row.value("source_kind").toString() == "default" &&
+				                                (state == "draft" || state == "needs_measurement"))) &&
 				    !Wire_ID(row.value("id").toString()).isEmpty())
 					Drafts.append(row.toVariantMap());
 			}
@@ -192,7 +310,7 @@ void Avm_Server_Programs::Handle_Response(int in_id, const SHttp_Response &in_re
 	{
 		const QJsonObject row = in_response.JSON.object();
 		const QString id = Wire_ID(row.value("id").toString());
-		if (id.isEmpty() || (Operation == EOperation::Detail && id != Draft_Id) ||
+		if (id.isEmpty() || ((Operation == EOperation::Detail || Operation == EOperation::Start) && id != Draft_Id) ||
 		    !row.value("required_measurements").isArray())
 			Error_Key =
 			    Operation == EOperation::Create ? QString("program_create_unconfirmed") : QString("undefined_error");
@@ -216,6 +334,7 @@ void Avm_Server_Programs::Reset_Session()
 	Drafts.clear();
 	Draft.clear();
 	Draft_Id.clear();
+	Workout_Plan.clear();
 	Error_Key.clear();
 	emit changed();
 	emit accountChanged();

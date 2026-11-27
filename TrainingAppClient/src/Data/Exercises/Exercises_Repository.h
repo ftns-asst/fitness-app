@@ -6,6 +6,7 @@
 #include "Data/Network/Api_Error.h"
 #include "Domain/Error_State.h"
 
+#include <QCache>
 #include <QHash>
 #include <QObject>
 #include <QString>
@@ -81,6 +82,7 @@ public:
 	bool Commit_Photo(const QString &in_exercise_id, const QString &in_staged_file);
 	// Абсолютный путь к файлу фото упражнения; false — фото нет.
 	bool Photo_File(const QString &in_exercise_id, QString &out_file);
+	SExercise_Media Media_For(const QString &in_exercise_id) const;
 	// Удаление фото упражнения: и файл, и строка.
 	bool Delete_Photo(const QString &in_exercise_id);
 	// Отмена стейджинга (закрытие формы без сохранения): убирается только
@@ -198,6 +200,7 @@ private:
 	AsSql_Database *Database_Instance;
 	AsAuth_Session *Session_Instance;
 	AExercises_Api *Exercises_Api_Instance;
+	QCache<QString, SExercise_Media> Media_Cache{2048};
 	QHash<int, SPending_Call> Pending_Calls; // request id → вид запроса
 	AError_State Error_State; // без категории: ошибки API уже залогированы самим API
 };

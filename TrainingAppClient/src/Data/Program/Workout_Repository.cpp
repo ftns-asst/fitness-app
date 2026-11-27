@@ -90,6 +90,10 @@ bool AWorkout_Repository::Read_Session_Row(const QSqlQuery &in_query, int in_fir
 	const QJsonObject snapshot = QJsonDocument::fromJson(in_query.value(column + 20).toString().toUtf8()).object();
 	out_session.Snapshot_Day_Id = snapshot.value("dayId").toString();
 	out_session.Snapshot_Day_Title = snapshot.value("title").toString();
+	const QJsonObject server_program = snapshot.value("serverProgram").toObject();
+	out_session.Server_Program_Id = server_program.value("program_id").toString();
+	out_session.Server_Week_Number = server_program.value("week_number").toInt();
+	out_session.Server_Day_Of_Week = server_program.value("day_of_week").toInt();
 	out_session.ID = in_query.value(column + 0).toString();
 	out_session.User_Id = in_query.value(column + 1).toString();
 	out_session.Program_Id = in_query.value(column + 2).toString();
@@ -222,7 +226,7 @@ bool AWorkout_Repository::Load_Program_Facts(const QString &in_user_id, const QS
 // Запись фактов. Поля сессии пишутся тем же набором bind-значений, что и
 // читаются, поэтому описание колонок одно: см Read_Session_Row.
 //-------------------------------------------------------------------------------------------------------------
-bool AWorkout_Repository::Insert_Session(const SWorkout_Session &in_session)
+bool AWorkout_Repository::Insert_Session(const SWorkout_Session &in_session, const QString &in_plan_json)
 {
 	QSqlQuery query(Connection());
 
@@ -240,10 +244,31 @@ bool AWorkout_Repository::Insert_Session(const SWorkout_Session &in_session)
 	              "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 	Bind_Session(query, in_session);
 
-	if (query.exec())
-		return true;
+	QSqlDatabase connection = Connection();
+	const bool with_plan = !in_plan_json.isEmpty();
+	if (with_plan && !connection.transaction())
+		return Set_Last_Error("Не удалось начать сохранение тренировки");
 
-	return Set_Last_Error(QString("Не удалось сохранить тренировку: %1").arg(query.lastError().text()));
+	if (!query.exec())
+	{
+		if (with_plan)
+			connection.rollback();
+		return Set_Last_Error(QString("Не удалось сохранить тренировку: %1").arg(query.lastError().text()));
+	}
+	if (with_plan)
+	{
+		if (!Save_Runtime(in_session.ID, in_plan_json, 0))
+		{
+			connection.rollback();
+			return false;
+		}
+		if (!connection.commit())
+		{
+			connection.rollback();
+			return Set_Last_Error("Не удалось сохранить снимок плана тренировки");
+		}
+	}
+	return true;
 }
 //-------------------------------------------------------------------------------------------------------------
 bool AWorkout_Repository::Update_Session(const SWorkout_Session &in_session)
@@ -321,18 +346,36 @@ bool AWorkout_Repository::Complete_Session(const SWorkout_Session &in_session)
 	qint64 rest_until_ms = 0;
 	if (!Load_Runtime(in_session.ID, plan_json, rest_until_ms))
 		return false;
-	const QJsonArray plan = QJsonDocument::fromJson(plan_json.toUtf8()).object().value("exercises").toArray();
+	const QJsonObject snapshot = QJsonDocument::fromJson(plan_json.toUtf8()).object();
+	const QJsonObject server_program = snapshot.value("serverProgram").toObject();
+	const QJsonArray plan = snapshot.value("exercises").toArray();
 	for (const QJsonValue &value : plan)
 	{
-		const QString id = value.toObject().value("exerciseId").toString();
-		if (facts.contains(id))
-			exercises.append(QJsonObject{{"exercise_id", id}, {"sets", facts.take(id)}});
+		const QJsonObject row = value.toObject();
+		const QString id = row.value("exerciseId").toString();
+		if (!facts.contains(id))
+			continue;
+		QJsonObject exercise{{"exercise_id", id}, {"sets", facts.take(id)}};
+		if (!server_program.isEmpty())
+		{
+			exercise.insert("target_sets", row.value("sets"));
+			exercise.insert("target_reps", row.value("repsMin"));
+			if (row.value("hasWeight").toBool())
+				exercise.insert("target_weight_kg", row.value("weightKg"));
+		}
+		exercises.append(exercise);
 	}
 	for (const QString &id : exercise_ids)
 		if (facts.contains(id))
 			exercises.append(QJsonObject{{"exercise_id", id}, {"sets", facts.value(id)}});
-	const QJsonObject payload{
+	QJsonObject payload{
 	    {"started_at", in_session.Started_At}, {"completed_at", in_session.Completed_At}, {"exercises", exercises}};
+	if (!server_program.isEmpty())
+	{
+		payload.insert("program_id", server_program.value("program_id"));
+		payload.insert("week_number", server_program.value("week_number"));
+		payload.insert("day_of_week", server_program.value("day_of_week"));
+	}
 	QSqlDatabase connection = Connection();
 	if (!connection.transaction())
 		return Set_Last_Error("Не удалось начать сохранение тренировки");

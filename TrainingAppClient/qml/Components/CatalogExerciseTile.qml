@@ -8,8 +8,8 @@ import TrainingAppClient
 Item {
     id: tile
 
-    // URL локального фото техники; пусто — плейсхолдер.
     property string photoUrl: ""
+    property bool hasVideo: false
     // Выбранная плитка (окно выбора) подсвечивается акцентной рамкой.
     property bool selected: false
     property real imageHeightRatio: 1.2
@@ -71,7 +71,7 @@ Item {
             anchors.centerIn: parent
             color: Theme.textMuted
             font: Typography.screenTitle
-            text: tile.title.length > 0 ? tile.title.charAt(0).toUpperCase() : ""
+            text: tile.hasVideo ? "▶" : tile.title.length > 0 ? tile.title.charAt(0).toUpperCase() : ""
             visible: photo.visible === false
         }
     }

@@ -535,8 +535,8 @@ bool Has_Any_Measurement_Value(const SBody_Measurement &in_measurement);
 QStringList Measurement_Keys_For_Muscles(const QStringList &in_muscle_groups);
 
 //-------------------------------------------------------------------------------------------------------------
-// Сессия-факт тренировки (§3.8). Program_Id пустая — тренировка вне
-// программы. Program_Revision — снимок версии структуры на момент сессии.
+// Сессия-факт тренировки (§3.8). Program_Id ссылается на локальную программу.
+// Связь с серверной программой хранится в снимке плана тренировки.
 //-------------------------------------------------------------------------------------------------------------
 struct SWorkout_Session
 {
@@ -546,6 +546,9 @@ struct SWorkout_Session
 	QString Program_Day_Id;
 	QString Snapshot_Day_Id;
 	QString Snapshot_Day_Title;
+	QString Server_Program_Id;
+	int Server_Week_Number = 0;
+	int Server_Day_Of_Week = 0;
 	QString Planned_Date;       // YYYY-MM-DD; пустая — внеплановая
 	int Planned_Week_Index = 0; // 0 — не задан
 	QString Date;               // фактическая дата выполнения

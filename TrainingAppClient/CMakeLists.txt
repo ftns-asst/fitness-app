@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(TRAINING_APP_GENERATE_QMLLS_INI "Generate .qmlls.ini for IDE builds" ON)
 set(QT_QML_GENERATE_QMLLS_INI ${TRAINING_APP_GENERATE_QMLLS_INI})
 
-find_package(Qt6 REQUIRED COMPONENTS Network Quick QuickControls2 QuickLayouts QuickEffects Sql)
+find_package(Qt6 REQUIRED COMPONENTS Multimedia Network Quick QuickControls2 QuickLayouts QuickEffects Sql)
 
 qt_standard_project_setup(REQUIRES 6.8)
 include(CTest)
@@ -272,6 +272,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/BackRouter.qml
         qml/Components/BottomTabBar.qml
         qml/Components/CatalogExerciseTile.qml
+        qml/Components/ExerciseMediaPanel.qml
         qml/Components/CompactStepper.qml
         qml/Components/SelectionMark.qml
         qml/Components/RuleTile.qml
@@ -329,7 +330,7 @@ target_include_directories(appTrainingAppClient PRIVATE ${CMAKE_CURRENT_SOURCE_D
 target_include_directories(appTrainingAppClient PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/Presentation)
 
 target_link_libraries(appTrainingAppClient
-    PRIVATE TrainingAppCore Qt6::Quick Qt6::QuickControls2 Qt6::QuickLayouts Qt6::QuickEffects
+    PRIVATE TrainingAppCore Qt6::Multimedia Qt6::Quick Qt6::QuickControls2 Qt6::QuickLayouts Qt6::QuickEffects
 )
 
 # Собственный пакет Android (portrait-lock, имя приложения): этап M1.

@@ -51,6 +51,7 @@ jobs:
           version: "6.11.2"
           host: linux
           target: desktop
+          modules: qtmultimedia
           cache: true
           install-deps: true
 

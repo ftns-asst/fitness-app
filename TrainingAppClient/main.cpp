@@ -228,6 +228,8 @@ int main(int argc, char *argv[])
 	engine.rootContext()->setContextProperty("ExercisesEditorVM", (QObject *)app_context.Exercises_Editor_VM());
 	// Детальная карточка упражнения (спринт U6).
 	engine.rootContext()->setContextProperty("ExercisesOneVM", (QObject *)app_context.Exercises_One_VM());
+	engine.rootContext()->setContextProperty("WorkoutExerciseMediaVM",
+	                                         (QObject *)app_context.Workout_Exercise_Media_VM());
 
 	engine.loadFromModule("TrainingAppClient", "Main");
 

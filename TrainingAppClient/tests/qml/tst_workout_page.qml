@@ -125,6 +125,85 @@ TestCase {
         verify(!findChild(page, "workoutFinishButton").enabled);
         verify(page.pageFlickable.contentWidth <= page.width);
     }
+    function test_mediaFollowsSelectedExercise() {
+        const initial = Object.assign({}, stub.exercises[0], {
+            exerciseId: "press"
+        });
+        const next = Object.assign({}, initial, {
+            exerciseId: "row",
+            title: "Тяга"
+        });
+        stub.exercises = [initial, next];
+        const mediaModel = createTemporaryObject(mediaStub, testCase);
+        const page = createTemporaryObject(pageComponent, testCase, {
+            mediaViewModel: mediaModel
+        });
+        const media = findChild(page, "workoutExerciseMedia");
+        verify(media !== null);
+        tryCompare(mediaModel, "exerciseId", "press");
+        tryVerify(() => media.visible);
+        tryCompare(media, "height", Math.round(page.height * 0.55));
+        compare(media.width, page.width);
+        page.selectExercise(1);
+        verify(!media.visible);
+        tryCompare(mediaModel, "exerciseId", "row");
+        tryVerify(() => media.visible);
+        compare(media.exerciseId, "row");
+        compare(mediaModel.videoRequests, 0);
+    }
+
+    function test_scrollCanHideTheEntireMediaHeader() {
+        stub.exercises = [Object.assign({}, stub.exercises[0], {
+                exerciseId: "press"
+            })];
+        const model = createTemporaryObject(mediaStub, testCase);
+        const page = createTemporaryObject(pageComponent, testCase, {
+            mediaViewModel: model
+        });
+        const media = findChild(page, "workoutExerciseMedia");
+        tryCompare(media, "height", Math.round(page.height * 0.55));
+        const flick = page.pageFlickable;
+        verify(flick.contentHeight - flick.height >= media.height);
+        flick.contentY = media.height * 0.5;
+        verify(media.backdropOffset > 0);
+        verify(media.backdropOpacity < 1);
+        flick.contentY = media.height;
+        tryVerify(() => media.mapToItem(page, 0, media.height).y <= 0);
+        page.saveCurrent();
+        compare(stub.completedSets, 1);
+        verify(flick.contentY >= media.height - 1);
+        flick.contentY = 0;
+        verify(media.mapToItem(page, 0, media.height).y > 0);
+
+        mouseDrag(page, 300, 450, 0, -165, Qt.LeftButton);
+        tryVerify(() => page.heroCollapsed, 1500, `scroll position ${flick.contentY}, hero ${media.height}`);
+        tryVerify(() => !flick.moving);
+        flick.contentY = media.height;
+        mouseDrag(page, 28, 275, 0, 150, Qt.LeftButton);
+        tryCompare(flick, "contentY", 0);
+    }
+
+    Component {
+        id: mediaStub
+
+        QtObject {
+            property string exerciseId: ""
+            property bool hasVideo: exerciseId !== ""
+            property string videoUrl: ""
+            property bool loading: false
+            property int videoRequests: 0
+
+            function load(id) {
+                exerciseId = id;
+            }
+            function reset() {
+                exerciseId = "";
+            }
+            function loadVideo() {
+                videoRequests++;
+            }
+        }
+    }
 
     function test_optionalFactsSurviveEditing() {
         const page = createTemporaryObject(pageComponent, testCase);
