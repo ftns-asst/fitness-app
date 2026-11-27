@@ -1,0 +1,6 @@
+services:
+  ftns-backend:
+    build:
+      target: run-debug
+    ports:
+      - "40021:40021"

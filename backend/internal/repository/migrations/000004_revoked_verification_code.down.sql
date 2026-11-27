@@ -1,0 +1,1 @@
+ALTER TABLE verification_codes DROP COLUMN revoked_at;

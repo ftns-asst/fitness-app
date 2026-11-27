@@ -1,0 +1,63 @@
+package rest
+
+import (
+	"context"
+	"ftns-asst/internal/model"
+
+	"github.com/google/uuid"
+)
+
+type (
+	AuthService interface {
+		LogIn(ctx context.Context, data *model.LogInInput) (*model.SuccessLogInResult, error)
+		RefreshTokens(ctx context.Context, tokenString string) (*model.Tokens, error)
+		ResetPassword(ctx context.Context, newPassword string, resetToken string) (res *model.SuccessResetPasswordResult, err error)
+		SignUp(ctx context.Context, data *model.SignUpInput) (*model.SuccessSignUpResult, error)
+		StartPasswordRecovery(ctx context.Context, email string) error
+		VerifyCode(ctx context.Context, email string, codeValue string) (resetToken string, err error)
+		AuthAdmin(ctx context.Context, data *model.AdminAuthInput) (string, error)
+	}
+	UserService interface {
+		CheckUserWithEmailExists(ctx context.Context, email string) (exists bool, err error)
+		CreateUser(ctx context.Context, user *model.User) (*model.User, error)
+		GetUserByEmail(ctx context.Context, email string) (res *model.User, err error)
+		GetUserByID(ctx context.Context, id uuid.UUID, withProfile bool) (*model.UserWithProfile, error)
+		UpdateUserProfile(ctx context.Context, userID uuid.UUID, input *model.UpdateUserProfileInput) (*model.UserProfile, error)
+	}
+	ExerciseService interface {
+		GetMuscleGroups() []model.MuscleGroup
+		GetEquipment() []model.Equipment
+		CreateExercise(ctx context.Context, userID uuid.UUID, exercise *model.Exercise) (*model.Exercise, error)
+		GetExerciseByID(ctx context.Context, userID uuid.UUID, exerciseID uuid.UUID) (*model.Exercise, error)
+		GetExercises(ctx context.Context, filters *model.ExerciseFilters, page *model.PageInfo) ([]*model.Exercise, error)
+		UpdateExercise(ctx context.Context, userID uuid.UUID, input *model.UpdateExerciseInput) (*model.Exercise, error)
+		DeleteExercise(ctx context.Context, userID uuid.UUID, id uuid.UUID) error
+		UpdateMedia(ctx context.Context, exerciseID uuid.UUID, mediaType model.MediaType) (*model.Media, string, error)
+		DeleteMedia(ctx context.Context, exerciseID uuid.UUID) error
+	}
+	PersonalRecordService interface {
+		CreateRecord(ctx context.Context, requesterID uuid.UUID, userID uuid.UUID, input *model.CreatePersonalRecordInput) (*model.PersonalRecord, error)
+		CreateRecords(ctx context.Context, requesterID uuid.UUID, userID uuid.UUID, inputs []*model.CreatePersonalRecordInput) ([]*model.PersonalRecord, error)
+		GetLatestRecords(ctx context.Context, requesterID uuid.UUID, userID uuid.UUID) ([]*model.PersonalRecord, error)
+		GetRecordHistory(ctx context.Context, requesterID uuid.UUID, userID uuid.UUID, exerciseID uuid.UUID) ([]*model.PersonalRecord, error)
+	}
+	WorkoutService interface {
+		SaveWorkout(ctx context.Context, userID, id uuid.UUID, input *model.SaveWorkoutInput) (*model.Workout, bool, error)
+		GetWorkout(ctx context.Context, userID, id uuid.UUID) (*model.Workout, error)
+		ListWorkouts(ctx context.Context, userID uuid.UUID, programID *uuid.UUID, page model.PageInfo) ([]model.WorkoutSummary, error)
+	}
+	ProgramService interface {
+		GetDefaultPrograms(ctx context.Context, daysOfWeek []int, goal *model.ProgramGoal, level *model.ProgramLevel) ([]*model.DefaultProgram, error)
+		GetDefaultProgramByID(ctx context.Context, id uuid.UUID) (*model.DefaultProgram, error)
+		GetUserPrograms(ctx context.Context, userID uuid.UUID, state *model.ProgramState) ([]*model.UserProgram, error)
+		GetUserProgramByID(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*model.UserProgram, error)
+		CreateProgram(ctx context.Context, userID uuid.UUID, input *model.CreateUserProgramInput) (*model.UserProgram, error)
+		CreateFromDefault(ctx context.Context, userID uuid.UUID, defaultProgramID uuid.UUID, daysOfWeek []int) (*model.UserProgram, error)
+		UpdateProgram(ctx context.Context, userID uuid.UUID, input *model.UpdateUserProgramInput) (*model.UserProgram, error)
+		ReplaceStructure(ctx context.Context, userID uuid.UUID, programID uuid.UUID, structure *model.UserProgramStructure) (*model.UserProgram, error)
+		ReplaceWeek(ctx context.Context, userID uuid.UUID, programID uuid.UUID, weekNumber int, week *model.UserProgramWeek) (*model.UserProgram, error)
+		StartProgram(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*model.StartProgramResult, error)
+		FinishProgram(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*model.UserProgram, error)
+		DeleteProgram(ctx context.Context, userID uuid.UUID, id uuid.UUID) error
+	}
+)

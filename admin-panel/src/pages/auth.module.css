@@ -1,0 +1,22 @@
+.authPage {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+}
+
+.authForm {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 260px;
+}
+
+.loginButton {
+    cursor: pointer;
+}
+
+.error {
+    color: #c0392b;
+}

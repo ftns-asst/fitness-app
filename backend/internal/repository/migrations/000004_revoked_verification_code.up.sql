@@ -1,0 +1,1 @@
+ALTER TABLE verification_codes ADD COLUMN revoked_at TIMESTAMPTZ NULL;

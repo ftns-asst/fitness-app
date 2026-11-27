@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: "ftns-db"
+      PGDATA: /home/postgres/pgdata/data
+    volumes:
+      - ftns-data:/home/postgres/pgdata
+    ports:
+      - "5434:5432"
+    env_file:
+      - ../.env
+  
+  ftns-backend:
+    build:
+      context: ..
+      additional_contexts:
+        data: ../../data
+      dockerfile: ./docker/Dockerfile
+      target: run
+
+    image: ftns-backend
+
+    ports:
+      - "8181:8181"
+
+    networks:
+      default:
+      proxy:
+
+    env_file:
+      - ../.env
+
+    environment:
+      POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: "5432"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_PUBLIC_ENDPOINT: "${MINIO_PUBLIC_ENDPOINT:-localhost:9000}"
+      EXERCISE_CATALOG_PATH: "./exercise_catalog.xlsx"
+      DEFAULT_PROGRAMS_PATH: "./default_programs.xlsx"
+
+    depends_on:
+      - postgres
+      - minio
+    stop_grace_period: ${SERVER_GRACEFUL_SHUTDOWN_TIMEOUT}
+
+  minio:
+    image: alpine/minio:latest-release
+    container_name: minio_storage
+    user: root
+    env_file:
+      - ../.env
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_store:/data
+    command: server /data --console-address ":9001"
+
+volumes:
+  ftns-data:
+  minio_store:
+
+
+networks:
+  proxy:
+    external: true

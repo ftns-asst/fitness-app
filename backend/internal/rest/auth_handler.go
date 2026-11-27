@@ -1,0 +1,259 @@
+package rest
+
+import (
+	"fmt"
+	"ftns-asst/internal/model"
+	"ftns-asst/internal/rest/dto"
+	"ftns-asst/internal/rest/dto/mapper"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+type AuthHandler struct {
+	authService AuthService
+	userService UserService
+}
+
+func NewAuthHandler(authService AuthService, userService UserService) *AuthHandler {
+	return &AuthHandler{
+		authService: authService,
+		userService: userService,
+	}
+}
+
+func (h *AuthHandler) RegisterRoutes(r *gin.RouterGroup) {
+	r.POST("/auth/check-email", h.CheckEmail)
+	r.POST("/auth/signup", h.SignUp)
+	r.POST("/auth/login", h.LogIn)
+	r.POST("/auth/refresh", h.RefreshTokens)
+
+	r.POST("/auth/password-recovery", h.PasswordRecovery)
+	r.POST("/auth/password-recovery/verify", h.VerifyCode)
+	r.POST("/auth/password-recovery/reset", h.ResetPassword)
+	r.POST("/admin/auth", h.AuthAdmin)
+}
+
+// CheckEmail godoc
+// @Id checkEmail
+// @Tags auth
+// @Summary Check if email is already taken
+// @Accept json
+// @Produce json
+// @Param request body dto.CheckEmailRequestBody true "CheckEmail body"
+// @Success 200 {object} dto.CheckEmailResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router /auth/check-email [post]
+func (h *AuthHandler) CheckEmail(c *gin.Context) {
+	var body dto.CheckEmailRequestBody
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to read request body: %w:%w", err, model.ErrBadRequest))
+		return
+	}
+
+	exists, err := h.userService.CheckUserWithEmailExists(c.Request.Context(), body.Email)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.CheckEmailResponse{
+		Free: !exists,
+	})
+}
+
+// SignUp godoc
+// @Id signUp
+// @Tags auth
+// @Summary Sign up a new user
+// @Accept json
+// @Produce json
+// @Param request body dto.SignUpRequestBody true "SignUp body"
+// @Success 200 {object} dto.SignUpResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router /auth/signup [post]
+func (h *AuthHandler) SignUp(c *gin.Context) {
+	var body dto.SignUpRequestBody
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to read request body: %w:%w", err, model.ErrBadRequest))
+		return
+	}
+
+	result, err := h.authService.SignUp(c.Request.Context(), mapper.ConvertSignUpRequestBodyFromDTO(&body))
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, mapper.ConvertSignUpResultToDTO(result))
+}
+
+// LogIn godoc
+// @Id logIn
+// @Tags auth
+// @Summary Log in an existing user
+// @Accept json
+// @Produce json
+// @Param request body dto.LogInRequestBody true "LogIn body"
+// @Success 200 {object} dto.LogInResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router /auth/login [post]
+func (h *AuthHandler) LogIn(c *gin.Context) {
+	var body dto.LogInRequestBody
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to read request body: %w:%w", err, model.ErrBadRequest))
+		return
+	}
+
+	result, err := h.authService.LogIn(c.Request.Context(), mapper.ConvertLogInRequestBodyFromDTO(&body))
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, mapper.ConvertLogInResultToDTO(result))
+}
+
+// RefreshTokens godoc
+// @Id refreshTokens
+// @Tags auth
+// @Summary Refresh authentication tokens
+// @Accept json
+// @Produce json
+// @Param request body dto.RefreshTokensRequestBody true "RefreshTokens body"
+// @Success 200 {object} dto.Tokens
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router /auth/refresh [post]
+func (h *AuthHandler) RefreshTokens(c *gin.Context) {
+	var body dto.RefreshTokensRequestBody
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to read request body: %w:%w", err, model.ErrBadRequest))
+		return
+	}
+
+	result, err := h.authService.RefreshTokens(c.Request.Context(), body.RefreshToken)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to refresh tokens: %w", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, mapper.ConvertTokensToDTO(result))
+}
+
+// PasswordRecovery godoc
+// @Id passwordRecovery
+// @Tags auth
+// @Summary Recover password by email, sends verification code to email, no response data
+// @Accept json
+// @Produce json
+// @Param request body dto.PasswordRecoveryRequestBody true "Request body"
+// @Success 200
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router /auth/password-recovery [post]
+func (h *AuthHandler) PasswordRecovery(c *gin.Context) {
+	var body dto.PasswordRecoveryRequestBody
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to read request body: %w:%w", err, model.ErrBadRequest))
+		return
+	}
+
+	err = h.authService.StartPasswordRecovery(c.Request.Context(), body.Email)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
+
+// VerifyCode godoc
+// @Id verifyCode
+// @Tags auth
+// @Summary Verify otp code
+// @Accept json
+// @Produce json
+// @Param request body dto.VerifyRecoveryCodeRequestBody true "Request body"
+// @Success 200 {object} dto.VerifyRecoveryCodeResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router /auth/password-recovery/verify [post]
+func (h *AuthHandler) VerifyCode(c *gin.Context) {
+	var body dto.VerifyRecoveryCodeRequestBody
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to read request body: %w:%w", err, model.ErrBadRequest))
+		return
+	}
+
+	resetToken, err := h.authService.VerifyCode(c.Request.Context(), body.Email, body.Code)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, &dto.VerifyRecoveryCodeResponse{
+		ResetToken: resetToken,
+	})
+}
+
+// ResetPassword godoc
+// @Id resetPassword
+// @Tags auth
+// @Summary Reset password by reset token
+// @Accept json
+// @Produce json
+// @Param request body dto.ResetPasswordRequestBody true "Request body"
+// @Success 200 {object} dto.ResetPasswordResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router /auth/password-recovery/reset [post]
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var body dto.ResetPasswordRequestBody
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to read request body: %w:%w", err, model.ErrBadRequest))
+		return
+	}
+
+	res, err := h.authService.ResetPassword(c.Request.Context(), body.NewPassword, body.ResetToken)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, mapper.ConvertResetPasswordResultToDTO(res))
+}
+
+func (h *AuthHandler) AuthAdmin(c *gin.Context) {
+	var body dto.AdminAuthRequestBody
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleError(c, fmt.Errorf("failed to read request body: %w:%w", err, model.ErrBadRequest))
+		return
+	}
+
+	tempToken, err := h.authService.AuthAdmin(c.Request.Context(), &model.AdminAuthInput{Password: body.Password})
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, tempToken)
+}

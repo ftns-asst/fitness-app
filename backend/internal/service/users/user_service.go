@@ -1,0 +1,125 @@
+package users
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"ftns-asst/internal/config"
+	"ftns-asst/internal/model"
+	"ftns-asst/internal/repository"
+	"ftns-asst/internal/util"
+
+	"github.com/google/uuid"
+)
+
+type UserService struct {
+	cfg      *config.Config
+	userRepo UserRepo
+	tx       model.Transactor
+}
+
+func NewService(cfg *config.Config,
+	userRepo UserRepo,
+	transactor model.Transactor,
+) *UserService {
+	return &UserService{
+		cfg:      cfg,
+		userRepo: userRepo,
+		tx:       transactor,
+	}
+}
+
+func (s *UserService) CheckUserWithEmailExists(ctx context.Context, email string) (exists bool, err error) {
+	exists, err = s.userRepo.CheckUserWithEmailExists(ctx, email)
+	if err != nil {
+		return false, fmt.Errorf("failed to check user with email exists: %w", err)
+	}
+	return exists, nil
+}
+
+// get user by id with optional profile
+func (s *UserService) GetUserByID(ctx context.Context, id uuid.UUID, withProfile bool) (*model.UserWithProfile, error) {
+	var res *model.UserWithProfile
+	var err error
+
+	if withProfile {
+		res, err = s.userRepo.GetUserWithProfileByID(ctx, id)
+	} else {
+		var user *model.User
+		user, err = s.userRepo.GetUserByID(ctx, id)
+		if user == nil {
+			user = &model.User{}
+		}
+		res = &model.UserWithProfile{
+			User: *user,
+		}
+	}
+
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, model.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by id: %w", err)
+	}
+
+	return res, nil
+}
+
+// get user by email
+func (s *UserService) GetUserByEmail(ctx context.Context, email string) (res *model.User, err error) {
+	res, err = s.userRepo.GetUserByEmail(ctx, email)
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, fmt.Errorf("failed to get user by email: %w", model.ErrNotFound)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by id: %w", err)
+	}
+
+	return res, nil
+}
+
+// create new user
+func (s *UserService) CreateUser(ctx context.Context, user *model.User) (*model.User, error) {
+	var err error
+
+	user, err = s.userRepo.CreateUser(ctx, user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+	return user, nil
+}
+
+// update user profile
+func (s *UserService) UpdateUserProfile(ctx context.Context, userID uuid.UUID, input *model.UpdateUserProfileInput) (*model.UserProfile, error) {
+	if input == nil {
+		return nil, fmt.Errorf("update user profile input can't be nil")
+	}
+
+	updated, err := s.userRepo.CreateOrUpdateUserProfile(ctx, userID, input)
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, fmt.Errorf("not found user profile to update id: %s, err: %w", userID, model.ErrNotFound)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to update id: %s, err: %w", userID, err)
+	}
+
+	return updated, nil
+}
+
+// update user password hash, DO NOT USE WITH RAW PASSWORD
+func (s *UserService) UpdateUserPasswordHash(ctx context.Context, userID uuid.UUID, newPasswordHash string) error {
+	isValid := util.IsValidHash(newPasswordHash)
+	if !isValid {
+		return fmt.Errorf("new password hash is invalid")
+	}
+
+	err := s.userRepo.UpdateUserPassword(ctx, userID, newPasswordHash)
+	if errors.Is(err, repository.ErrNoAffectedRows) {
+		return fmt.Errorf("user not found to update password: %w", model.ErrNotFound)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to update user password: %w", err)
+	}
+
+	return nil
+}

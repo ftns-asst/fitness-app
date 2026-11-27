@@ -1,0 +1,160 @@
+package model
+
+import (
+	"fmt"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"github.com/google/uuid"
+)
+
+const (
+	AccessTokenExpireTime  time.Duration = 30 * time.Minute
+	RefreshTokenExpireTime time.Duration = 10 * 24 * time.Hour
+
+	VerificationCodeExpireTime time.Duration = 10 * time.Minute
+	ResetTokenExpireTime       time.Duration = 15 * time.Minute
+)
+
+// jwt authentication tokens
+type Tokens struct {
+	AccessToken  string
+	RefreshToken string
+}
+type TokensWithInfo struct {
+	AccessToken  *TokenInfo
+	RefreshToken *TokenInfo
+}
+
+type TokenInfo struct {
+	Token     string
+	UserID    uuid.UUID
+	ExpiresAt time.Time
+}
+
+type Token struct {
+	ID        uuid.UUID  `db:"id"`
+	UserID    uuid.UUID  `db:"user_id"`
+	TokenHash string     `db:"token_hash"`
+	UsedAt    *time.Time `db:"used_at"`
+	ExpiresAt time.Time  `db:"expires_at"`
+}
+
+type RefreshToken Token
+
+// password recovery token
+type ResetToken Token
+
+const ValidPasswordChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:,.<>?/"
+
+type AuthInput struct {
+	Email    string
+	Password string
+}
+
+type AdminAuthInput struct {
+	Password string
+}
+
+// validate auth input, email checked in dto validation
+func (i *AuthInput) Validate() error {
+	if strings.TrimSpace(i.Email) == "" || strings.TrimSpace(i.Password) == "" {
+		return fmt.Errorf("email or password must be not blank: %w", ErrBadRequest)
+	}
+
+	err := ValidatePassword(i.Password)
+	return err
+}
+
+func ValidatePassword(password string) error {
+	if len(password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters long: %w", ErrBadRequest)
+	}
+	if len(password) > 64 {
+		return fmt.Errorf("password must be at most 64 characters long: %w", ErrBadRequest)
+	}
+
+	for _, c := range password {
+		if !strings.ContainsRune(ValidPasswordChars, c) {
+			return fmt.Errorf("password contains invalid character: %w", ErrBadRequest)
+		}
+	}
+
+	return nil
+}
+
+// max lengths of users.display_name and users.email columns
+const (
+	UserNameMaxLength  = 100
+	UserEmailMaxLength = 256
+)
+
+// input for user registration
+type SignUpInput struct {
+	AuthInput
+	Name string
+}
+
+func (i *SignUpInput) Validate() error {
+	if err := i.AuthInput.Validate(); err != nil {
+		return err
+	}
+	if strings.TrimSpace(i.Name) == "" {
+		return fmt.Errorf("user name must be not blank: %w", ErrBadRequest)
+	}
+	if utf8.RuneCountInString(i.Name) > UserNameMaxLength {
+		return fmt.Errorf("user name must be at most %d characters long: %w", UserNameMaxLength, ErrBadRequest)
+	}
+	if utf8.RuneCountInString(i.Email) > UserEmailMaxLength {
+		return fmt.Errorf("email must be at most %d characters long: %w", UserEmailMaxLength, ErrBadRequest)
+	}
+	return nil
+}
+
+type SuccessSignUpResult struct {
+	User   *User
+	Tokens *Tokens
+}
+
+// input for user login
+type LogInInput struct {
+	AuthInput
+}
+
+type SuccessLogInResult struct {
+	User   *User
+	Tokens *Tokens
+}
+
+type SuccessResetPasswordResult struct {
+	User   *User
+	Tokens *Tokens
+}
+
+// password recovery result status
+type PasswordRecoveryStatus string
+
+const (
+	PasswordRecoveryStatusSuccess   PasswordRecoveryStatus = "success"
+	PasswordRecoveryStatusIncorrect PasswordRecoveryStatus = "incorrect"
+	PasswordRecoveryStatusExpired   PasswordRecoveryStatus = "expired"
+)
+
+// verification code for password recovery
+type VerificationCode struct {
+	ID        uuid.UUID  `db:"id"`
+	UserID    uuid.UUID  `db:"user_id"`
+	CodeHash  string     `db:"code_hash"`
+	UsedAt    *time.Time `db:"used_at"`
+	ExpiresAt time.Time  `db:"expires_at"`
+	RevokedAt *time.Time `db:"revoked_at"`
+}
+
+func (c *VerificationCode) IsExpired() bool {
+	return c.ExpiresAt.Before(time.Now().Add(time.Second * 30))
+}
+
+func (c *VerificationCode) IsRevoked() bool {
+	return c.RevokedAt != nil
+}

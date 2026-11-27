@@ -1,0 +1,231 @@
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"ftns-asst/internal/model"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+)
+
+type AuthRepo struct {
+	database DB
+}
+
+func NewAuthRepo(db DB) *AuthRepo {
+	return &AuthRepo{
+		database: db,
+	}
+}
+
+// create token
+func (r *AuthRepo) CreateToken(ctx context.Context, token *model.RefreshToken) (*model.RefreshToken, error) {
+	query := `
+		INSERT INTO tokens(user_id, token_hash, expires_at)
+		VALUES ($1, $2, $3)
+		RETURNING tokens.id`
+
+	conn := Conn(ctx, r.database)
+	err := conn.QueryRow(ctx, query, token.UserID, token.TokenHash, token.ExpiresAt).Scan(&token.ID)
+	if err != nil {
+		return nil, fmt.Errorf("insert scan failed: %w", err)
+	}
+
+	return token, nil
+}
+
+func (r *AuthRepo) GetNotUsedTokenByUserIDAndHash(ctx context.Context, userID uuid.UUID, hash string) (*model.RefreshToken, error) {
+	query := `
+		SELECT * FROM tokens
+		WHERE tokens.user_id = $1
+			AND tokens.token_hash = $2
+			AND tokens.used_at IS NULL
+		`
+
+	conn := Conn(ctx, r.database)
+	rows, err := conn.Query(ctx, query, userID, hash)
+	if err != nil {
+		return nil, fmt.Errorf("select failed: %w", err)
+	}
+	defer rows.Close()
+
+	token, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[model.RefreshToken])
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect row: %w", err)
+	}
+	return token, nil
+}
+
+func (r *AuthRepo) SetTokenUsedByID(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE tokens
+		SET used_at = now()
+		WHERE tokens.id = $1 
+			AND tokens.used_at IS NULL`
+
+	conn := Conn(ctx, r.database)
+	res, err := conn.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("update failed: %w", err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return ErrNoAffectedRows
+	}
+
+	return nil
+}
+
+func (r *AuthRepo) SetUserTokensUsed(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE tokens
+		SET used_at = now()
+		WHERE tokens.user_id = $1
+			AND tokens.used_at IS NULL`
+
+	conn := Conn(ctx, r.database)
+	_, err := conn.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("update failed: %w", err)
+	}
+
+	return nil
+}
+
+// save new verification code, set other codes as revoked
+func (r *AuthRepo) CreateVerificationCodeAndRevokeOther(ctx context.Context, code *model.VerificationCode) (*model.VerificationCode, error) {
+	query := `
+		WITH expired AS (
+			UPDATE verification_codes
+			SET revoked_at = now()
+			WHERE user_id = $1
+				AND used_at IS NULL
+				AND revoked_at IS NULL
+		)
+		INSERT INTO verification_codes (user_id, code_hash, expires_at)
+		VALUES ($1, $2, $3)
+		RETURNING id`
+
+	conn := Conn(ctx, r.database)
+	err := conn.QueryRow(ctx, query, code.UserID, code.CodeHash, code.ExpiresAt).Scan(&code.ID)
+	if err != nil {
+		return nil, fmt.Errorf("insert scan failed: %w", err)
+	}
+
+	return code, nil
+}
+
+// set code used
+func (r *AuthRepo) SetCodeUsedByID(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE verification_codes vc
+		SET used_at = now()
+		WHERE vc.id = $1
+			AND vc.used_at IS NULL
+			AND vC.revoked_at IS NULL
+			AND vc.expires_at > now()`
+
+	conn := Conn(ctx, r.database)
+	res, err := conn.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("update failed: %w", err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return ErrNoAffectedRows
+	}
+
+	return nil
+}
+
+// get not used or revoked code(there should be only ONE such)
+func (r *AuthRepo) GetCodeNotUsedOrRevokedByUserID(ctx context.Context, userID uuid.UUID) (*model.VerificationCode, error) {
+	query := `
+		SELECT * FROM verification_codes vc
+		WHERE vc.user_id = $1
+			AND vc.used_at IS NULL
+			AND vc.revoked_at IS NULL;
+		`
+
+	conn := Conn(ctx, r.database)
+	rows, err := conn.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("select failed: %w", err)
+	}
+	defer rows.Close()
+
+	code, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[model.VerificationCode])
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect row: %w", err)
+	}
+	return code, nil
+}
+
+// create reset token
+func (r *AuthRepo) CreateResetToken(ctx context.Context, token *model.ResetToken) (*model.ResetToken, error) {
+	query := `
+		INSERT INTO reset_tokens(user_id, token_hash, expires_at)
+		VALUES ($1, $2, $3)
+		RETURNING reset_tokens.id`
+
+	conn := Conn(ctx, r.database)
+	err := conn.QueryRow(ctx, query, token.UserID, token.TokenHash, token.ExpiresAt).Scan(&token.ID)
+	if err != nil {
+		return nil, fmt.Errorf("insert scan failed: %w", err)
+	}
+
+	return token, nil
+}
+
+func (r *AuthRepo) GetNotUsedResetTokenByHash(ctx context.Context, hash string) (*model.ResetToken, error) {
+	query := `
+		SELECT * FROM reset_tokens
+		WHERE reset_tokens.token_hash = $1
+			AND reset_tokens.used_at IS NULL
+		`
+
+	conn := Conn(ctx, r.database)
+	rows, err := conn.Query(ctx, query, hash)
+	if err != nil {
+		return nil, fmt.Errorf("select failed: %w", err)
+	}
+	defer rows.Close()
+
+	token, err := pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[model.ResetToken])
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect row: %w", err)
+	}
+	return token, nil
+}
+
+func (r *AuthRepo) SetResetTokenUsedByID(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE reset_tokens
+		SET used_at = now()
+		WHERE reset_tokens.id = $1 
+			AND reset_tokens.used_at IS NULL`
+
+	conn := Conn(ctx, r.database)
+	res, err := conn.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("update failed: %w", err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return ErrNoAffectedRows
+	}
+
+	return nil
+}
