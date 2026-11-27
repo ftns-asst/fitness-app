@@ -26,6 +26,7 @@ private slots:
 	void foreignExerciseRefusesWithReadableText();
 	void offlineServesCachedOwn();
 	void emptyIdStartsNothing();
+	void builtinTemplateExerciseOpensWithoutNetwork();
 
 private:
 	static STest_Http_Response JSON_Response(int in_status, const QByteArray &in_body);
@@ -202,5 +203,20 @@ void Avm_Exercises_One_Test::emptyIdStartsNothing()
 	QCOMPARE(spy.count(), 1);
 }
 
+void Avm_Exercises_One_Test::builtinTemplateExerciseOpensWithoutNetwork()
+{
+	ATest_Http_Server server;
+	QTemporaryDir directory;
+	Avm_Exercises_One *vm = 0;
+	AExercises_Repository *repository = 0;
+	Make_VM(server, directory, vm, repository);
+	vm->load("builtin-bench-press");
+	QVERIFY(vm->Has_Exercise());
+	QVERIFY(!vm->Is_Loading());
+	QVERIFY(!vm->Is_Own());
+	QVERIFY(vm->Error_Key().isEmpty());
+	QCOMPARE(vm->Name(), QString("Жим штанги лёжа"));
+}
+//-------------------------------------------------------------------------------------------------------------
 QTEST_MAIN(Avm_Exercises_One_Test)
 #include "tst_Exercises_One_VM.moc"

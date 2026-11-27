@@ -33,6 +33,21 @@ bool Avm_Program::reload(const QString &in_user_id, const QString &in_program_id
 	return Reload(in_user_id, in_program_id);
 }
 //-------------------------------------------------------------------------------------------------------------
+bool Avm_Program::activate(const QString &in_user_id)
+{
+	QString paused_program_id;
+	const QString program_id = Program.ID;
+	if (program_id.isEmpty() || in_user_id.isEmpty() || !Reload(in_user_id, program_id))
+		return false;
+	if (!Program_Repository_Instance->Activate_Exclusive(program_id, paused_program_id))
+	{
+		Set_Error();
+		emit changed();
+		return false;
+	}
+	return Reload(in_user_id, program_id);
+}
+//-------------------------------------------------------------------------------------------------------------
 void Avm_Program::selectDay(const QString &in_program_day_id)
 {
 	Select_Day(in_program_day_id);

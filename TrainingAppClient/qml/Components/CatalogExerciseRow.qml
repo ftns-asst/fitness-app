@@ -20,6 +20,8 @@ Item {
         id: card
 
         anchors.fill: parent
+        borderColor: area.pressed || area.containsMouse ? Theme.accentSurfaceLine : Theme.border
+        surfaceColor: area.pressed ? Theme.surfaceMuted : Theme.surface
         paddingHorizontal: Spacing.cardPadding
         paddingVertical: Spacing.listGap + 2
         spacing: 0
@@ -75,7 +77,10 @@ Item {
         }
     }
     MouseArea {
+        id: area
+
         anchors.fill: parent
+        hoverEnabled: !Theme.touchPlatform
 
         onClicked: row.clicked()
     }

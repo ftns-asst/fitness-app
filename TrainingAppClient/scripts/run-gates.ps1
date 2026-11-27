@@ -3,7 +3,8 @@ param(
     [string]$BuildDir = "build/ci",
     [string]$Generator = "Ninja",
     [string]$QtPrefix = "",
-    [switch]$SkipFormat
+    [switch]$SkipFormat,
+    [string]$ClangFormat = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,7 +29,7 @@ function Invoke-Checked {
     $previousErrorPreference = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
-        & $Command @Arguments
+        & $Command @Arguments | Write-Output
         $exitCode = $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $previousErrorPreference
@@ -140,17 +141,10 @@ $qmlformat = Resolve-Tool "qmlformat" @(
     $(if ($qtBin) { Join-Path $qtBin "qmlformat.exe" } else { "" }),
     $(if ($qtBin) { Join-Path $qtBin "qmlformat" } else { "" })
 )
-$clangFormat = Resolve-Tool "clang-format" @(
-    "D:/Qt/Tools/QtCreator/bin/clang/bin/clang-format.exe"
-)
-
 if (-not $SkipFormat) {
     Test-QmlFormat $qmlformat
 
-    $cppFiles = Get-ChildItem $projectRoot -Recurse -Include "*.cpp", "*.h" -File |
-        Where-Object { $_.FullName -notmatch "[\\/]build[\\/]" -and $_.FullName -notmatch "[\\/]importedcontent[\\/]" } |
-        ForEach-Object { $_.FullName }
-    Invoke-Checked $clangFormat "--dry-run" "--Werror" @cppFiles
+    & (Join-Path $PSScriptRoot "format-cpp.ps1") -Check -ClangFormat $ClangFormat
 }
 
 $configureArguments = @(

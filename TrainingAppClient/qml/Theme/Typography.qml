@@ -12,6 +12,34 @@ import QtQuick
 // Маппинг проверяется зондом шрифтов в qml/Main.qml (строки fontWeights15 и
 // fontWeights40 в --diag).
 QtObject {
+    readonly property font detail: Qt.font({
+        family: fontFamily,
+        pixelSize: 13,
+        weight: Font.Normal
+    })
+    readonly property font bodyMedium: Qt.font({
+        family: fontFamilyMedium,
+        pixelSize: 15,
+        weight: Font.Medium
+    })
+    readonly property font workoutTitle: Qt.font({
+        family: fontFamilyDemiBold,
+        pixelSize: 28,
+        weight: Font.DemiBold,
+        letterSpacing: -0.4
+    })
+    readonly property font inputNumber: Qt.font({
+        family: fontFamilyMedium,
+        pixelSize: 24,
+        weight: Font.Medium,
+        letterSpacing: -0.3
+    })
+    readonly property font figure: Qt.font({
+        family: fontFamilyMedium,
+        pixelSize: 32,
+        weight: Font.Medium,
+        letterSpacing: -0.6
+    })
     readonly property font body: Qt.font({
         family: fontFamily,
         pixelSize: 15,
@@ -56,6 +84,13 @@ QtObject {
         family: fontFamilyDemiBold,
         pixelSize: 17,
         weight: Font.DemiBold
+    })
+    // Крупный заголовок шапки (макет 13): на главной и в обзоре программы он
+    // 28 px, как app-header в 12-app, — заголовок заполняет верх экрана.
+    readonly property font largeTitle: Qt.font({
+        family: fontFamily,
+        pixelSize: 28,
+        weight: Font.Bold
     })
     readonly property font tabLabel: Qt.font({
         family: fontFamilyMedium,

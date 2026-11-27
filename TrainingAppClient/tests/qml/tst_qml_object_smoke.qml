@@ -9,6 +9,8 @@ TestCase {
 
     function cleanup() {
         createdObject = null;
+        todayStub.selectedMeasurementKeys = [];
+        todayStub.savedMeasurementPayload = ({});
         MockApi.reset();
     }
     function test_appShellCreatesProductionTree() {
@@ -60,38 +62,21 @@ TestCase {
         compare(createdObject.labelText(), "Нет отметки");
     }
 
-    function test_todayMeasurementFormKeepsUnsavedInput() {
+    // Ввод веса с главной убран: «В фокусе» только читает модель, а изменение
+    // живёт в дневнике — два места записи одного факта расходились.
+    function test_todayFocusReadsWeightWithoutInput() {
+        todayStub.hasMeasurement = true;
+        todayStub.weightKg = 82.4;
         createdObject = createTemporaryObject(todayPageComponent, testCase);
 
         verify(createdObject !== null);
+        compare(createdObject.focusWeightText(), "82,4 кг");
+        verify(findChild(createdObject, "todayFocusWeight") !== null);
+        verify(findChild(createdObject, "todayMeasurementsCard") === null, "формы замеров быть не должно");
+        verify(findChild(createdObject, "todayMeasurementsToggle") === null, "переключателя формы быть не должно");
 
-        // Замер, пришедший из базы, попадает в форму.
-        createdObject.syncMeasurementFromModel(true);
-        verify(createdObject.measurementDirty === false);
-
-        // Пользователь правит вес — форма становится «грязной».
-        createdObject.setMeasurementValue("weight", 82.4);
-        verify(createdObject.measurementDirty === true);
-        compare(createdObject.measurementValue("weight"), 82.4);
-        verify(createdObject.measurementFilled.weight === true);
-
-        // Обновление модели (его эмитит и отметка правила) не имеет права
-        // стирать несохранённый ввод: без проверки набор полей исчезал бы на
-        // глазах у человека, который отметил сон и потерял введённый вес.
-        createdObject.syncMeasurementFromModel();
-        compare(createdObject.measurementValue("weight"), 82.4);
-
-        // Принудительная синхронизация (собственное сохранение) — приводит
-        // форму к базе и снимает «грязный» флаг.
-        createdObject.measurementDirty = false;
-        createdObject.syncMeasurementFromModel(true);
-        verify(createdObject.measurementDirty === false);
-
-        // Значение 0 — допустимое измерение, и поле считается заполненным:
-        // без этого запись молча ушла бы в «не измерял».
-        createdObject.setMeasurementValue("arm", 0);
-        verify(createdObject.measurementFilled.arm === true);
-        compare(createdObject.measurementValue("arm"), 0);
+        todayStub.hasMeasurement = false;
+        compare(createdObject.focusWeightText(), "—");
     }
 
     name: "QmlObjectSmoke"
@@ -163,6 +148,8 @@ TestCase {
 
         property var exercises: ListModel {}
         property var rules: ListModel {}
+        property var selectedMeasurementKeys: []
+        property var savedMeasurementPayload: ({})
 
         function get(row) {
             return {};
@@ -175,7 +162,12 @@ TestCase {
             return true;
         }
 
-        function saveMeasurement(weight, hasWeight, chest, hasChest, waist, hasWaist, hip, hasHip, arm, hasArm, thigh, hasThigh) {
+        function saveMeasurement(values) {
+            savedMeasurementPayload = values;
+            return true;
+        }
+
+        function setMeasurementInterval(days) {
             return true;
         }
 

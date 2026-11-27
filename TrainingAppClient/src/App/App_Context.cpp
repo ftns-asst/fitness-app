@@ -1,4 +1,7 @@
 ﻿#include "App/App_Context.h"
+#include "Presentation/Program_Templates_VM.h"
+#include "Presentation/Strength_VM.h"
+#include "Presentation/Workout_VM.h"
 
 #include "Data/Auth/Auth_Repository.h"
 #include "Data/Auth/Auth_Session.h"
@@ -18,6 +21,7 @@
 #include "Domain/Workout_Logger.h"
 #include "Presentation/Auth_Qml_Bridge.h"
 #include "Presentation/Auth_VM.h"
+#include "Presentation/Diary_VM.h"
 #include "Presentation/Exercises_Editor_VM.h"
 #include "Presentation/Exercises_One_VM.h"
 #include "Presentation/Exercises_VM.h"
@@ -255,9 +259,19 @@ void AsApp_Context::Create_Program_Stack()
 	Measurement_Repository_Instance = new AMeasurement_Repository(SQL_Database_Instance, this);
 	Stats_Repository_Instance = new AStats_Repository(SQL_Database_Instance, this);
 	Workout_Repository_Instance = new AWorkout_Repository(SQL_Database_Instance, this);
+	Day_Note_Repository_Instance = new ADay_Note_Repository(SQL_Database_Instance, this);
+	Diary_VM_Instance =
+	    new Avm_Diary(Program_Repository_Instance, Rule_Repository_Instance, Workout_Repository_Instance,
+	                  Measurement_Repository_Instance, Day_Note_Repository_Instance, Stats_Repository_Instance, this);
 
 	Program_Service_Instance = new AsProgram_Service(Program_Repository_Instance, this);
 	Workout_Logger_Instance = new AsWorkout_Logger(Workout_Repository_Instance, Program_Repository_Instance);
+	Workout_VM_Instance =
+	    new Avm_Workout(Workout_Logger_Instance, Workout_Repository_Instance, Program_Repository_Instance, this);
+	Strength_VM_Instance =
+	    new Avm_Strength(Program_Repository_Instance, Workout_Repository_Instance, Exercises_Repository_Instance, this);
+	Program_Template_Service_Instance = new AProgram_Template_Service(Program_Repository_Instance, this);
+	Program_Templates_VM_Instance = new Avm_Program_Templates(Program_Template_Service_Instance, this);
 
 	Program_VM_Instance = new Avm_Program(Program_Repository_Instance, Rule_Repository_Instance, this);
 	Program_Stats_VM_Instance =
@@ -283,10 +297,20 @@ void AsApp_Context::Create_Program_Stack()
 void AsApp_Context::Destroy_Stack()
 {
 	// Стек программы (обратно Create_Program_Stack).
+	delete Program_Templates_VM_Instance;
+	Program_Templates_VM_Instance = 0;
+	delete Program_Template_Service_Instance;
+	Program_Template_Service_Instance = 0;
+	delete Strength_VM_Instance;
+	Strength_VM_Instance = 0;
+	delete Workout_VM_Instance;
+	Workout_VM_Instance = 0;
 	delete Macro_VM_Instance;
 	Macro_VM_Instance = 0;
 	delete Macro_Calculator_Instance;
 	Macro_Calculator_Instance = 0;
+	delete Diary_VM_Instance;
+	Diary_VM_Instance = 0;
 	delete Today_VM_Instance;
 	Today_VM_Instance = 0;
 	delete Program_Catalog_VM_Instance;
@@ -303,6 +327,8 @@ void AsApp_Context::Destroy_Stack()
 	Workout_Logger_Instance = 0;
 	delete Program_Service_Instance;
 	Program_Service_Instance = 0;
+	delete Day_Note_Repository_Instance;
+	Day_Note_Repository_Instance = 0;
 	delete Workout_Repository_Instance;
 	Workout_Repository_Instance = 0;
 	delete Stats_Repository_Instance;
@@ -561,6 +587,11 @@ Avm_Exercises_One *AsApp_Context::Exercises_One_VM() const
 	return Exercises_One_VM_Instance;
 }
 //-------------------------------------------------------------------------------------------------------------
+Avm_Diary *AsApp_Context::Diary_VM() const
+{
+	return Diary_VM_Instance;
+}
+//-------------------------------------------------------------------------------------------------------------
 Avm_Today *AsApp_Context::Today_VM() const
 {
 	return Today_VM_Instance;
@@ -589,5 +620,21 @@ Avm_Program_Rules *AsApp_Context::Program_Rules_VM() const
 Avm_Program_Edit *AsApp_Context::Program_Edit_VM() const
 {
 	return Program_Edit_VM_Instance;
+}
+//-------------------------------------------------------------------------------------------------------------
+
+Avm_Workout *AsApp_Context::Workout_VM() const
+{
+	return Workout_VM_Instance;
+}
+//-------------------------------------------------------------------------------------------------------------
+Avm_Strength *AsApp_Context::Strength_VM() const
+{
+	return Strength_VM_Instance;
+}
+//-------------------------------------------------------------------------------------------------------------
+Avm_Program_Templates *AsApp_Context::Program_Templates_VM() const
+{
+	return Program_Templates_VM_Instance;
 }
 //-------------------------------------------------------------------------------------------------------------

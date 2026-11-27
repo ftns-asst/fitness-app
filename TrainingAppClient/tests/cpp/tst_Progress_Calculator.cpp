@@ -320,7 +320,7 @@ void AProgress_Calculator_Test::programStatsStrengthBodyAndGoals()
 	QCOMPARE(stats.Body_Weight_Latest_Kg, 78.0);
 	QCOMPARE(stats.Body_Weight_Delta_Kg, -2.0);
 
-	QCOMPARE(stats.Measurement_Deltas.size(), 5);
+	QCOMPARE(stats.Measurement_Deltas.size(), (int)EMeasurement_Key::Max);
 	QVERIFY(stats.Measurement_Deltas.at(0).Has_Delta_Cm);
 	QCOMPARE(stats.Measurement_Deltas.at(0).Delta_Cm, 1.0);
 	QVERIFY(!stats.Measurement_Deltas.at(1).Has_Delta_Cm);
@@ -451,7 +451,7 @@ void AProgress_Calculator_Test::encodeProducesCachePayload()
 	QCOMPARE(object.value("weekAdherence").toArray().size(), 4);
 	QCOMPARE(object.value("exerciseStrength").toArray().size(), 2);
 	QCOMPARE(object.value("goalProgress").toArray().size(), 2);
-	QCOMPARE(object.value("measurementDeltas").toArray().size(), 5);
+	QCOMPARE(object.value("measurementDeltas").toArray().size(), (int)EMeasurement_Key::Max);
 	QCOMPARE(object.value("ruleStats").toArray().size(), 2);
 
 	// Метрика без данных кодируется как null, а не ноль (§5.5).

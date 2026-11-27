@@ -32,11 +32,12 @@ Item {
 
                 readonly property bool active: control.currentIndex === index
 
+                hoverEnabled: !Theme.touchPlatform
                 height: control.height - 8
                 width: (control.width - 8 - Math.max(0, control.items.length - 1) * 4) / Math.max(1, control.items.length)
 
                 background: Rectangle {
-                    color: segment.active ? Theme.accent : "transparent"
+                    color: segment.active ? (segment.down ? Theme.accentPressed : Theme.accent) : segment.down || segment.hovered ? Theme.accentTint : "transparent"
                     radius: Theme.radiusLg - 4
 
                     Behavior on color {
@@ -48,6 +49,13 @@ Item {
                 }
                 contentItem: Label {
                     color: segment.active ? Theme.accentForeground : Theme.textMuted
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: Theme.pressFeedbackDuration
+                            easing.type: Easing.OutCubic
+                        }
+                    }
                     elide: Text.ElideRight
                     font: Typography.captionStrong
                     horizontalAlignment: Text.AlignHCenter

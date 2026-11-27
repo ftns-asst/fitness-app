@@ -16,11 +16,15 @@ Item {
 
     // Нижняя (верхняя) граница прокрутки и сама цель. `target` — Flickable
     // активного экрана; null означает «прокручивать нечего».
-    readonly property real maxContentY: catcher.target !== null && catcher.target !== undefined ? Math.max(-catcher.target.topMargin, catcher.target.contentHeight + catcher.target.bottomMargin - catcher.target.height) : 0
-    readonly property real minContentY: catcher.target !== null && catcher.target !== undefined ? -catcher.target.topMargin : 0
+    readonly property real maxContentY: catcher.target !== null && catcher.target !== undefined ? Math.max(catcher.minContentY, catcher.target.originY + catcher.target.contentHeight + catcher.target.bottomMargin - catcher.target.height) : 0
+    readonly property real minContentY: catcher.target !== null && catcher.target !== undefined ? catcher.target.originY - catcher.target.topMargin : 0
     // Прокрутка нужна, только когда контент длиннее области.
     readonly property bool scrollable: catcher.target !== null && catcher.target !== undefined && catcher.maxContentY > catcher.minContentY
     property var target: null
+    onTargetChanged: {
+        if (wheelAnim !== null && wheelAnim !== undefined)
+            wheelAnim.stop();
+    }
 
     // Смещение «пальца»: положительное — палец вниз, контент едет вниз.
     function scrollBy(dy) {
@@ -103,7 +107,7 @@ Item {
     NumberAnimation {
         id: wheelAnim
 
-        duration: 220
+        duration: Theme.pressFeedbackDuration
         easing.type: Easing.OutCubic
         property: "contentY"
         target: catcher.target
@@ -123,6 +127,16 @@ Item {
         wheelAnim.to = catcher.wheelTargetY;
         wheelAnim.restart();
     }
+    // Пиксельные события тачпада уже описывают точное движение жеста.
+    // Повторное сглаживание добавляло задержку и теряло события с angleDelta=0.
+    function wheelPixels(delta) {
+        if (!catcher.scrollable)
+            return;
+        wheelAnim.stop();
+        catcher.target.cancelFlick();
+        catcher.scrollBy(delta);
+        catcher.wheelTargetY = catcher.target.contentY;
+    }
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         enabled: catcher.scrollable
@@ -130,7 +144,12 @@ Item {
         // Колесо вверх показывает более ранний контент — как в списке под
         // курсором; поэтому положительная дельта даёт то же, что палец вниз.
         onWheel: function (event) {
-            catcher.wheelBy(event.angleDelta.y);
+            if (event.pixelDelta.y !== 0)
+                catcher.wheelPixels(event.pixelDelta.y);
+            else if (event.angleDelta.y !== 0)
+                catcher.wheelBy(event.angleDelta.y);
+            else
+                event.accepted = false;
         }
     }
     Connections {

@@ -25,6 +25,34 @@ TestCase {
     property var shell: null
     property var shellWindow: null
 
+    ListModel {
+        id: emptyExercises
+    }
+    QtObject {
+        id: swipeCatalog
+        property var exercise_list: emptyExercises
+        property var muscleGroups: ["chest", "legs", "back", "shoulders", "biceps", "triceps", "abs"]
+        property var equipments: []
+        property bool loading: false
+        property bool fromCache: false
+        property bool canLoadMore: false
+        property string errorKey: ""
+        function setCatalogType(value) {
+        }
+        function setFilters(groups, equipment) {
+        }
+        function reload() {
+        }
+        function loadCatalogs() {
+        }
+        function setQuery(query) {
+        }
+        function setMuscleGroups(groups) {
+        }
+        function setEquipments(equipments) {
+        }
+    }
+
     // Поиск панели навигации в дереве оболочки: её идентификатор снаружи
     // недоступен, а для клика нужен сам элемент, а не координаты корня.
     function findTabBar(item) {
@@ -66,6 +94,196 @@ TestCase {
     function cleanup() {
         shell = null;
         shellWindow = null;
+    }
+
+    function test_overviewSelectedProgramContext_data() {
+        return [
+            {
+                tag: "rules",
+                signal: "rulesRequested"
+            },
+            {
+                tag: "stats",
+                signal: "statsRequested"
+            }
+        ];
+    }
+
+    function test_overviewSelectedProgramContext(data) {
+        shell.openProgramOverview("selected-program");
+        tryCompare(shell, "stackBusy", false);
+        shell.topItem[data.signal]();
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.topItem.programId, "selected-program");
+        shell.showTab(1);
+        tryCompare(shell, "stackBusy", false);
+        shell.openProgramOverview("other-program");
+        tryCompare(shell, "stackBusy", false);
+        shell.showTab(0);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.topItem.programId, "selected-program");
+        shell.goBack();
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.topItem.programId, "selected-program");
+    }
+
+    function test_activeProgramRouteRestoresEmptyContext_data() {
+        return [
+            {
+                tag: "rules",
+                open: "openProgramRules"
+            },
+            {
+                tag: "stats",
+                open: "openProgramStats"
+            }
+        ];
+    }
+
+    function test_activeProgramRouteRestoresEmptyContext(data) {
+        shell[data.open]();
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.topItem.programId, "");
+        shell.showTab(1);
+        tryCompare(shell, "stackBusy", false);
+        shell.openProgramOverview("other-program");
+        tryCompare(shell, "stackBusy", false);
+        shell.showTab(0);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.topItem.programId, "");
+    }
+
+    function test_swipeChangesRootTabInBothDirections() {
+        const view = findChild(shell, "mainSwipeView");
+        tryVerify(() => view.width > 0 && view.currentItem.width > 0);
+        waitForRendering(view);
+        mouseDrag(shellWindow.contentItem, 320, 80, -250, 0);
+        tryCompare(shell, "currentTab", 1);
+        tryVerify(() => !view.contentItem.moving);
+        mouseDrag(shellWindow.contentItem, 70, 80, 250, 0);
+        tryCompare(shell, "currentTab", 0);
+        compare(shell.pushedDepth, 1);
+    }
+    function test_leftEdgeSwipeNavigatesBack() {
+        shell.openProgramOverview();
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 2);
+        mouseDrag(shellWindow.contentItem, 8, 80, 180, 0);
+        tryCompare(shell, "pushedDepth", 1);
+        tryCompare(shell, "stackBusy", false);
+    }
+    function test_swipeRestoresSavedScreenAfterRelease() {
+        shell.showTab(1);
+        shell.openProgramOverview();
+        tryCompare(shell, "stackBusy", false);
+        shell.showTab(0);
+        tryCompare(shell, "stackBusy", false);
+        const view = findChild(shell, "mainSwipeView");
+        tryVerify(() => Math.abs(view.contentItem.contentX) < 1);
+        waitForRendering(view);
+        mousePress(shellWindow.contentItem, 320, 80);
+        mouseMove(shellWindow.contentItem, 200, 80, 50);
+        mouseMove(shellWindow.contentItem, 60, 80, 50);
+        compare(shell.pushedDepth, 1, "сохранённый экран не открывается под удерживаемым пальцем");
+        mouseRelease(shellWindow.contentItem, 60, 80);
+        tryCompare(shell, "currentTab", 1);
+        tryCompare(shell, "pushedDepth", 2);
+        tryCompare(shell, "stackBusy", false);
+        shell.goBack();
+        tryCompare(shell, "stackBusy", false);
+        tryVerify(() => Math.abs(view.contentItem.contentX - view.width) < 1);
+    }
+    function test_shortEdgeSwipeKeepsCurrentScreen() {
+        shell.openProgramOverview();
+        tryCompare(shell, "stackBusy", false);
+        mouseDrag(shellWindow.contentItem, 8, 80, 30, 0);
+        compare(shell.pushedDepth, 2);
+        compare(shell.stackBusy, false);
+    }
+    function test_filterSheetGesturesDoNotChangeTab() {
+        shell.showTab(3);
+        const view = findChild(shell, "mainSwipeView");
+        view.currentItem.viewModel = swipeCatalog;
+        tryVerify(() => Math.abs(view.contentItem.contentX - 3 * view.width) < 1);
+        view.currentItem.openFilters();
+        const popup = view.currentItem.filterPopup;
+        tryCompare(popup, "opened", true);
+        mouseDrag(popup.contentItem, popup.width - 40, popup.height / 2, -160, 0);
+        compare(shell.currentTab, 3);
+        verify(popup.visible);
+        popup.close();
+        tryCompare(popup, "visible", false);
+    }
+    // Дневник — вкладка, а не экран поверх: диагностический переход приводит
+    // на неё же и не увеличивает глубину стека.
+    function test_diaryDiagnosticRoute() {
+        shell.openProgramScreen("diary");
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 1);
+        compare(shell.currentTab, 1);
+    }
+
+    // Кнопка «Дневник» в шапке отметок больше не открывает экран поверх,
+    // а переключает на вкладку с историей по датам.
+    function test_diaryFromTodayOpensTab() {
+        const button = findChild(shell, "todayDiaryButton");
+        verify(button !== null);
+        const header = findChild(shell, "todayCheckinsHeader");
+        verify(header !== null);
+        compare(button.parent, header);
+        compare(button.text, "Дневник");
+        button.clicked();
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.currentTab, 1);
+        compare(shell.pushedDepth, 1);
+        verify(findChild(shell, "mainSwipeView").currentItem.objectName === "diaryPage");
+    }
+
+    // Контекст программы у дневника сохраняется при переключении вкладок:
+    // вкладка живёт всё время, поэтому ей достаточно собственного свойства.
+    function test_diaryKeepsProgramContextAcrossTabs() {
+        shell.openDiary("other-tab-program");
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.currentTab, 1);
+        shell.showTab(0);
+        tryCompare(shell, "stackBusy", false);
+        shell.showTab(1);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.currentTab, 1);
+        compare(shell.pushedDepth, 1);
+        compare(findChild(shell, "mainSwipeView").currentItem.programId, "other-tab-program");
+    }
+
+    // Панель — четыре назначения; профиль вышел из неё.
+    function test_tabBarShowsFourSections() {
+        const bar = findTabBar(shell);
+
+        verify(bar !== null);
+        compare(bar.iconNames.length, 4);
+        compare(bar.titles[0], "Сегодня");
+        compare(bar.titles[1], "Дневник");
+        compare(bar.titles[2], "Программы");
+        compare(bar.titles[3], "Упражнения");
+        verify(bar.iconNames.indexOf("profile") < 0, "профиль больше не вкладка");
+        verify(bar.iconNames.indexOf("diary") >= 0, "у дневника своя иконка");
+    }
+
+    // Профиль — экран поверх вкладок: вход кнопкой в шапке, выход «Назад»,
+    // активная вкладка при этом не меняется.
+    function test_profileOpensFromHeaderAndReturns() {
+        const view = findChild(shell, "mainSwipeView");
+        const tabBefore = shell.currentTab;
+
+        view.currentItem.profileActionRequested();
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 2);
+        compare(shell.topItem.objectName, "profilePage");
+        compare(shell.currentTab, tabBefore);
+
+        shell.goBack();
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 1);
+        compare(shell.currentTab, tabBefore);
     }
 
     // Тап по вкладке с pushed-экрана закрывает поток и открывает раздел.
@@ -129,7 +347,7 @@ TestCase {
     // в корень: день → редактор → каталог → корень.
     function test_backWalksThroughChain() {
         shell.showTab(1);
-        shell.openProgramCatalog();
+        shell.openProgramOverview();
         tryCompare(shell, "stackBusy", false);
         shell.openProgramEditor();
         tryCompare(shell, "stackBusy", false);
@@ -145,7 +363,7 @@ TestCase {
         shell.goBack();
         tryCompare(shell, "stackBusy", false);
         tryCompare(shell, "pushedDepth", 2);
-        verify(shell.topItem instanceof ProgramCatalogPage, "назад из редактора должен открыть каталог");
+        verify(shell.topItem instanceof ProgramOverviewPage, "назад из редактора должен открыть обзор");
 
         shell.goBack();
         tryCompare(shell, "stackBusy", false);
@@ -157,7 +375,7 @@ TestCase {
     // каталог»: назад из восстановленного экрана не должен вести в корень).
     function test_switchingTabRestoresWholeChain() {
         shell.showTab(1);
-        shell.openProgramCatalog();
+        shell.openProgramOverview();
         tryCompare(shell, "stackBusy", false);
         shell.openProgramEditor();
         tryCompare(shell, "stackBusy", false);
@@ -194,6 +412,57 @@ TestCase {
         tryCompare(shell, "stackBusy", false);
         tryCompare(shell, "pushedDepth", 2);
         verify(shell.topItem instanceof ProgramOverviewPage, "восстанавливается обзор, а не закрытая форма создания");
+    }
+
+    // Экран «Программы» — два сегмента: свои программы и шаблоны.
+    function test_programsTabHasTwoSegments() {
+        shell.showTab(2);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.currentTab, 2);
+
+        const segments = findChild(shell, "programsSegments");
+
+        verify(segments !== null, "на вкладке нет сегментов «Мои / Шаблоны»");
+        compare(segments.items.length, 2);
+    }
+
+    // Обзор программы держит сегменты и не плодит стек: переключение меняет
+    // содержимое, а не открывает новый экран.
+    function test_programOverviewSegmentsDoNotGrowStack() {
+        shell.openProgramOverview();
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 2);
+
+        const segments = findChild(shell.topItem, "programSegments");
+
+        verify(segments !== null, "в обзоре нет сегментов «Состав / Прогресс / Правила»");
+        compare(segments.items.length, 3);
+
+        segments.selected(1);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 2, "прогресс открывается внутри обзора");
+        compare(shell.topItem.segment, 1);
+
+        segments.selected(2);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.pushedDepth, 2, "правила открываются внутри обзора");
+        compare(shell.topItem.segment, 2);
+
+        segments.selected(0);
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.topItem.segment, 0);
+    }
+
+    // «Каталог программ» больше не отдельный экран: свои программы показывает
+    // вкладка «Программы».
+    function test_programCatalogOpensProgramsTab() {
+        shell.showTab(0);
+        tryCompare(shell, "stackBusy", false);
+
+        shell.openProgramCatalog();
+        tryCompare(shell, "stackBusy", false);
+        compare(shell.currentTab, 2);
+        compare(shell.pushedDepth, 1);
     }
 
     Component {

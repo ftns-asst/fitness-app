@@ -28,6 +28,13 @@ public:
 	bool Load_Range(const QString &in_user_id, const QString &in_date_from, const QString &in_date_to,
 	                QVector<Program_Model::SBody_Measurement> &out_measurements);
 	bool Load_Latest(const QString &in_user_id, Program_Model::SBody_Measurement &out_measurement);
+	// Дата самого позднего замера. Отсутствие замеров — не ошибка: true и
+	// пустая дата (расписанию нужно именно «замеров ещё не было»).
+	bool Latest_Measurement_Date(const QString &in_user_id, QString &out_date);
+	// Обхваты только по упражнениям указанной текущей программы (все её дни).
+	// Пустая программа/нет упражнений — пустой список; вес доступен независимо.
+	// Это выбор полей ввода, не фильтр сохранённых замеров или истории.
+	bool Load_Program_Measurement_Keys(const QString &in_program_id, QStringList &out_keys);
 
 	// Запись. ID пустой — генерируется; дата обязательна и должна быть
 	// корректной календарной датой YYYY-MM-DD, иначе false.

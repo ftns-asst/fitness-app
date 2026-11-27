@@ -29,6 +29,7 @@ private slots:
 	void catalogListsAllStates();
 	void catalogEmptyStateIsNotError();
 	void catalogFailsWithoutRepository();
+	void switchesActiveProgram();
 
 private:
 	void Seed_Exercise(const QString &in_id);
@@ -369,6 +370,20 @@ void AProgram_VM_Test::catalogListsAllStates()
 	QVERIFY(catalog.Reload("u1"));
 	QCOMPARE(catalog.active_list()->Row_Count(), 1);
 	QCOMPARE(catalog.finished_list()->Row_Count(), 1);
+}
+//-------------------------------------------------------------------------------------------------------------
+void AProgram_VM_Test::switchesActiveProgram()
+{
+	Seed_Program_State(*Program_Repository, "switch_old", "Old", EProgram_State::Active, "u_switch");
+	Seed_Program_State(*Program_Repository, "switch_new", "New", EProgram_State::Paused, "u_switch");
+	Avm_Program vm(Program_Repository, Rule_Repository, this);
+	QVERIFY(vm.Reload("u_switch", "switch_new"));
+	QVERIFY(!vm.activate("other_user"));
+	QVERIFY(vm.Reload("u_switch", "switch_new"));
+	QVERIFY(vm.activate("u_switch"));
+	QCOMPARE(vm.state(), QString("active"));
+	QVERIFY(vm.Reload("u_switch", "switch_old"));
+	QCOMPARE(vm.state(), QString("paused"));
 }
 //-------------------------------------------------------------------------------------------------------------
 void AProgram_VM_Test::catalogEmptyStateIsNotError()

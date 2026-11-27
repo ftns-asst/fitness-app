@@ -73,12 +73,20 @@ private:
 	// файла по id упражнения; файл лежит в app data (images/exercises), а не
 	// в базе — блоб в SQLite разрос бы базу и сломал бы копирование кэша.
 	bool Migrate_Schema_V8_To_V9();
+	// v10 — трекер тела (спринт T1): четыре новых обхвата замера, шаг
+	// расписания замеров программы и пересоздание goal_targets ради нового
+	// списка ключей замера.
+	bool Migrate_Schema_V9_To_V10();
+	// v11 — независимые заметки дня с уникальной парой пользователь/дата (T3).
+	bool Migrate_Schema_V10_To_V11();
 	// Столбец profile_local добавляется один раз: повторный ALTER падает, а
 	// версия схемы могла не записаться при сбое в середине миграции.
 	bool Add_Column_If_Missing(const QString &in_table, const QString &in_column, const QString &in_definition);
 	// DDL program_rules вынесен в метод: смена CHECK требует пересоздания
 	// таблицы, и две копии определения разошлись бы при правке.
 	bool Create_Program_Rules_Table(const QString &in_name);
+	// DDL goal_targets вынесен по той же причине: CHECK ключей замера.
+	bool Create_Goal_Targets_Table(const QString &in_name);
 	// rule_checkins ссылается на program_rules через FK, поэтому создаётся
 	// после неё отдельным вызовом — порядок не должен зависеть от позиции
 	// строки в списке statements.

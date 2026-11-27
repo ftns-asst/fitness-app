@@ -125,6 +125,17 @@ void Avm_Exercises_One::load(const QString &in_exercise_id)
 	if (Exercise_Id_Text.isEmpty() || Repository_Instance == 0)
 		return;
 
+	// Упражнения встроенного шаблона доступны без серверного идентификатора.
+	// Локальная карточка не отправляет бессмысленный GET /exercises/builtin-… .
+	for (const SExercises_Item &item : AExercises_Repository::Base_Exercises())
+		if (item.ID == Exercise_Id_Text)
+		{
+			Apply_Item(item, true);
+			Loading_Flag = false;
+			emit stateChanged();
+			return;
+		}
+
 	// Кэш показывается мгновенно: без сети карточка своя читается из кэша.
 	SExercises_Item cached;
 

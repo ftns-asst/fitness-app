@@ -633,10 +633,12 @@ void AProgram_Edit_VM_Test::copyDayReplacesTargetDay()
 	Avm_Program_Edit *editor = Make_Editor();
 
 	QVERIFY(editor->Reset("u_copy"));
+	QVERIFY(editor->Set_Day_Kind(1, (int)EDay_Kind::Workout));
 	QVERIFY(editor->Add_Day_Exercise(1, "ex_a", 3, 5, 5, 0, false));
 	QVERIFY(editor->Add_Day_Exercise(3, "ex_old", 2, 10, 10, 0, false));
 
 	QVERIFY(editor->Copy_Day(1, 3));
+	QCOMPARE(editor->program_days()->get(2).value("kind").toString(), QString("workout"));
 	QCOMPARE(editor->selectDay(3), 3);
 	// Старое упражнение исчезло, новое пришло из дня 1.
 	QCOMPARE(editor->day_exercises()->Row_Count(), 1);

@@ -108,9 +108,9 @@ void AExercises_Repository_Test::migrationCreatesCacheTables()
 
 	// Миграция v8 (v7 — кэш упражнений и справочников; v8 — метрики правил
 	// питания; v9 — локальные фото техники): таблицы кэша созданы, версия
-	// схемы поднята до текущей (v9).
-	QCOMPARE(database.Get_Schema_Version(), 9);
-	QCOMPARE(database.Get_Current_Schema_Version(), 9);
+	// схемы поднята до текущей (не ниже v9; следующие миграции её только растят).
+	QCOMPARE(database.Get_Schema_Version(), AsSql_Database::Get_Current_Schema_Version());
+	QVERIFY(database.Get_Current_Schema_Version() >= 9);
 
 	QSqlDatabase connection = database.Sql_Connection();
 	QSqlQuery probe(connection);

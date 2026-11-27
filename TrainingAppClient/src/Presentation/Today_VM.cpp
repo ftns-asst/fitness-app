@@ -128,8 +128,7 @@ bool Avm_Today::Load(const QString &in_user_id)
 
 	// Замер читается до проверки программы: `body_measurements` от программы
 	// не зависит (инвариант 20 §4), и без активной программы ввод веса
-	// и обхватов остаётся осмысленным — иначе гость не смог бы
-	// внести ни одного замера.
+	// остаётся доступен; сохранённые обхваты тоже читаются целиком.
 	Input_User_Id = in_user_id;
 	Load_Measurement(in_user_id);
 	Load_Macro_Plan(in_user_id);
@@ -157,6 +156,15 @@ bool Avm_Today::Load(const QString &in_user_id)
 		return false;
 	}
 
+	if (Measurement_Repository_Instance != 0 &&
+	    !Measurement_Repository_Instance->Load_Program_Measurement_Keys(Program_Id_Text, Selected_Measurement_Keys))
+	{
+		Set_Error("undefined_error");
+		emit changed();
+
+		return false;
+	}
+
 	Program_Title_Text = program.Title;
 	Goal_Text = To_String(program.Goal);
 	Program_User_Id = in_user_id;
@@ -166,6 +174,37 @@ bool Avm_Today::Load(const QString &in_user_id)
 	// (program_actual_start_date, В§3.4).
 	Weeks_Total_Value = program.Term.Weeks_Total;
 	Current_Week_Value = Compute_Week(date_of_today(), program);
+	QVector<SBody_Measurement> dashboard_measurements;
+	if (Measurement_Repository_Instance != 0 &&
+	    !Measurement_Repository_Instance->Load_Range(in_user_id, AMeasurement_Schedule::Start_Date_Of(program),
+	                                                 Today_Text, dashboard_measurements))
+	{
+		Set_Error("undefined_error");
+		emit changed();
+
+		return false;
+	}
+	Dashboard = ADashboard_Calculator::Compute(program, targets, dashboard_measurements, Today_Text,
+	                                           Clock_Program_Id == program.ID ? Clock_Paused_Days : program.Paused_Days,
+	                                           Clock_Program_Id == program.ID ? Clock_Paused_On : program.Paused_On);
+	Dashboard.insert("completedSessions7d", QVariant());
+	if (Workout_Repository_Instance != 0)
+	{
+		QVector<SWorkout_Session> recent_sessions;
+		if (!Workout_Repository_Instance->Load_Sessions(
+		        in_user_id, program.ID, date_of_today().addDays(-6).toString(Qt::ISODate), Today_Text, recent_sessions))
+		{
+			Set_Error("undefined_error");
+			emit changed();
+			return false;
+		}
+		int completed_count = 0;
+		for (const SWorkout_Session &session : recent_sessions)
+			if (session.State == EWorkout_State::Completed)
+				++completed_count;
+		Dashboard.insert("completedSessions7d", completed_count);
+	}
+	Prepare_Measurement_Schedule(program);
 
 	const QDate date = date_of_today();
 
@@ -173,7 +212,7 @@ bool Avm_Today::Load(const QString &in_user_id)
 	// значение, что и program_schedule.day_of_week (§3.4).
 	Weekday_Number = date.isValid() ? date.dayOfWeek() : 1;
 
-	Load_Day(week_slots, days);
+	Load_Day(week_slots, days, program);
 	Load_Day_Exercises(Slot_Day_Id_Text);
 	Load_Rules_For_Today();
 	Load_Session();
@@ -219,9 +258,24 @@ int Avm_Today::Compute_Week(const QDate &in_date, const SProgram &in_program) co
 	return week;
 }
 //-------------------------------------------------------------------------------------------------------------
-void Avm_Today::Load_Day(const QVector<SWeek_Slot> &in_slots, const QVector<SProgram_Day> &in_days)
+void Avm_Today::Load_Day(const QVector<SWeek_Slot> &in_slots, const QVector<SProgram_Day> &in_days,
+                         const SProgram &in_program)
 {
 	const SWeek_Slot *slot = Find_Slot(in_slots, Weekday_Number);
+	if (in_program.Schedule_Kind == ESchedule_Kind::Rotation)
+	{
+		slot = 0;
+		int length = 0;
+		for (const SWeek_Slot &candidate : in_slots)
+			length = qMax(length, candidate.Rotation_Index);
+		const QDate start = QDate::fromString(AMeasurement_Schedule::Start_Date_Of(in_program), Qt::ISODate);
+		const int position = length > 0 && start.isValid() && date_of_today() >= start
+		                         ? int(start.daysTo(date_of_today()) % length) + 1
+		                         : 0;
+		for (const SWeek_Slot &candidate : in_slots)
+			if (candidate.Rotation_Index == position)
+				slot = &candidate;
+	}
 
 	// День, которого нет в расписании, — не отдых: отдых назначают
 	// слотом с kind = rest. Здесь плана нет вообще, и показывать его
@@ -396,6 +450,13 @@ void Avm_Today::Clear_Data()
 	Exercises->Set_Rows(QVector<QVariantMap>());
 	Rules->Set_Rows(QVector<QVariantMap>());
 	Measurement = SBody_Measurement();
+	Dashboard.clear();
+	Schedule_Start_Text.clear();
+	Schedule_End_Text.clear();
+	Measurement_Interval_Days = AMeasurement_Schedule::Default_Interval_Days;
+	Measurement_Due_Value = false;
+	Next_Measurement_Date_Text.clear();
+	Selected_Measurement_Keys.clear();
 	Macro_Result = AsMacro_Calculator::SResult();
 	Macro_Calculated_At_Text.clear();
 }
@@ -411,6 +472,18 @@ bool Avm_Today::Set_Error(const QString &in_error_key)
 bool Avm_Today::Has_Program() const
 {
 	return !Program_Id_Text.isEmpty();
+}
+//-------------------------------------------------------------------------------------------------------------
+QVariantMap Avm_Today::dashboard() const
+{
+	return Dashboard;
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Today::Set_Program_Clock(const QString &in_program_id, int in_paused_days, const QString &in_paused_on)
+{
+	Clock_Program_Id = in_program_id;
+	Clock_Paused_Days = qMax(0, in_paused_days);
+	Clock_Paused_On = in_paused_on;
 }
 //-------------------------------------------------------------------------------------------------------------
 QString Avm_Today::programId() const
@@ -547,26 +620,55 @@ const SProgram_Day *Avm_Today::Find_Day(const QVector<SProgram_Day> &in_days, co
 //-------------------------------------------------------------------------------------------------------------
 // Ввод значений (спринт S6, issue 51)
 //-------------------------------------------------------------------------------------------------------------
-bool Avm_Today::saveMeasurement(double in_weight_kg, bool in_has_weight, double in_chest_cm, bool in_has_chest,
-                                double in_waist_cm, bool in_has_waist, double in_hip_cm, bool in_has_hip,
-                                double in_arm_cm, bool in_has_arm, double in_thigh_cm, bool in_has_thigh)
+bool Avm_Today::saveMeasurement(const QVariantMap &in_values)
 {
 	const QString user_id = Current_User_Id();
+	SBody_Measurement values;
+	QVariantMap::const_iterator item;
+	EMeasurement_Key key = EMeasurement_Key::Chest;
+	bool is_number;
+	double number;
 
 	Clear_Error();
 
-	if (!Save_Measurement(user_id, in_weight_kg, in_has_weight, in_chest_cm, in_has_chest, in_waist_cm, in_has_waist,
-	                      in_hip_cm, in_has_hip, in_arm_cm, in_has_arm, in_thigh_cm, in_has_thigh))
+	for (item = in_values.constBegin(); item != in_values.constEnd(); ++item)
+	{
+		number = item.value().toDouble(&is_number);
+
+		// Нечисловое значение или неизвестный ключ — ошибка формы: молча
+		// отбросить показатель значило бы потерять введённое.
+		if (!is_number)
+		{
+			Set_Error("invalid_measurement_value");
+			emit changed();
+
+			return false;
+		}
+
+		if (item.key() == "weight")
+		{
+			values.Weight_Kg = number;
+			values.Has_Weight_Kg = true;
+		}
+		else if (From_String(item.key(), key))
+			Set_Measurement_Value(values, key, number);
+		else
+		{
+			Set_Error("invalid_measurement_key");
+			emit changed();
+
+			return false;
+		}
+	}
+
+	if (!Save_Measurement(user_id, values))
 	{
 		emit changed();
 
 		return false;
 	}
 
-	Load_Measurement(user_id);
-	emit changed();
-
-	return true;
+	return Load(user_id);
 }
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Today::saveCheckin(const QString &in_rule_id, const QString &in_state, double in_value, bool in_has_value)
@@ -706,13 +808,10 @@ bool Avm_Today::Load_Measurement(const QString &in_user_id)
 	return true;
 }
 //-------------------------------------------------------------------------------------------------------------
-bool Avm_Today::Save_Measurement(const QString &in_user_id, double in_weight_kg, bool in_has_weight, double in_chest_cm,
-                                 bool in_has_chest, double in_waist_cm, bool in_has_waist, double in_hip_cm,
-                                 bool in_has_hip, double in_arm_cm, bool in_has_arm, double in_thigh_cm,
-                                 bool in_has_thigh)
+bool Avm_Today::Save_Measurement(const QString &in_user_id, const SBody_Measurement &in_values)
 {
 	SBody_Measurement existing;
-	SBody_Measurement measurement;
+	SBody_Measurement measurement = in_values;
 
 	// Дата записи — сегодняшняя по часам, а не по моменту создания модели.
 	Refresh_Today();
@@ -720,7 +819,7 @@ bool Avm_Today::Save_Measurement(const QString &in_user_id, double in_weight_kg,
 	// Запись без единого значения не пишется: репозиторий всё равно
 	// отверг бы её, а пользователь увидел бы ошибку вместо тихого
 	// «ничего не изменилось».
-	if (!in_has_weight && !in_has_chest && !in_has_waist && !in_has_hip && !in_has_arm && !in_has_thigh)
+	if (!Has_Any_Measurement_Value(in_values))
 	{
 		Set_Error("undefined_error");
 
@@ -734,29 +833,15 @@ bool Avm_Today::Save_Measurement(const QString &in_user_id, double in_weight_kg,
 		return false;
 	}
 
-	// Уже сохранённые значения дня сохраняются: слияние на уровне
-	// репозитория пишет только заданные поля, поэтому утренний вес
-	// пережил бы вечернюю запись обхватов — но без чтения
-	// существующей строки потерялся бы её id, и upsert создал бы вторую
-	// запись за тот же день.
+	// Пишутся только заданные показатели: слияние на уровне репозитория не
+	// затирает остальные, поэтому утренний вес переживает вечернюю запись
+	// обхватов. Идентификатор существующей строки сохраняется, иначе upsert
+	// создал бы вторую запись за тот же день.
 	if (Measurement_Repository_Instance->Find_Measurement(in_user_id, Today_Text, existing))
-		measurement = existing;
-	else
-		measurement.User_Id = in_user_id;
+		measurement.ID = existing.ID;
 
+	measurement.User_Id = in_user_id;
 	measurement.Date = Today_Text;
-	measurement.Weight_Kg = in_weight_kg;
-	measurement.Has_Weight_Kg = in_has_weight;
-	measurement.Chest_Cm = in_chest_cm;
-	measurement.Has_Chest_Cm = in_has_chest;
-	measurement.Waist_Cm = in_waist_cm;
-	measurement.Has_Waist_Cm = in_has_waist;
-	measurement.Hip_Cm = in_hip_cm;
-	measurement.Has_Hip_Cm = in_has_hip;
-	measurement.Arm_Cm = in_arm_cm;
-	measurement.Has_Arm_Cm = in_has_arm;
-	measurement.Thigh_Cm = in_thigh_cm;
-	measurement.Has_Thigh_Cm = in_has_thigh;
 
 	if (!Measurement_Repository_Instance->Save_Measurement(measurement))
 	{
@@ -854,8 +939,120 @@ QString Avm_Today::Current_User_Id() const
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Today::Has_Measurement() const
 {
-	return Measurement.Has_Weight_Kg || Measurement.Has_Chest_Cm || Measurement.Has_Waist_Cm ||
-	       Measurement.Has_Hip_Cm || Measurement.Has_Arm_Cm || Measurement.Has_Thigh_Cm;
+	return Has_Any_Measurement_Value(Measurement);
+}
+//-------------------------------------------------------------------------------------------------------------
+QVariantMap Avm_Today::measurementValues() const
+{
+	QVariantMap values;
+	double number;
+
+	if (Measurement.Has_Weight_Kg)
+		values.insert("weight", Measurement.Weight_Kg);
+
+	for (int i = 0; i < (int)EMeasurement_Key::Max; ++i)
+	{
+		if (Get_Measurement_Value(Measurement, (EMeasurement_Key)i, number))
+			values.insert(To_String((EMeasurement_Key)i), number);
+	}
+
+	return values;
+}
+//-------------------------------------------------------------------------------------------------------------
+QStringList Avm_Today::selectedMeasurementKeys() const
+{
+	return Selected_Measurement_Keys;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Today::measurementDue() const
+{
+	return Measurement_Due_Value;
+}
+//-------------------------------------------------------------------------------------------------------------
+QString Avm_Today::nextMeasurementDate() const
+{
+	return Next_Measurement_Date_Text;
+}
+//-------------------------------------------------------------------------------------------------------------
+int Avm_Today::measurementIntervalDays() const
+{
+	return Measurement_Interval_Days;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Today::setMeasurementInterval(int in_days)
+{
+	Clear_Error();
+
+	if (!AMeasurement_Schedule::Is_Valid_Interval(in_days))
+	{
+		Set_Error("invalid_measurement_interval");
+		emit changed();
+
+		return false;
+	}
+
+	if (Program_Repository_Instance == 0 || Program_Id_Text.isEmpty())
+	{
+		Set_Error("no_active_program");
+		emit changed();
+
+		return false;
+	}
+
+	if (!Program_Repository_Instance->Set_Measurement_Interval(Program_Id_Text, in_days))
+	{
+		Set_Error("undefined_error");
+		emit changed();
+
+		return false;
+	}
+
+	Measurement_Interval_Days = in_days;
+	Refresh_Measurement_Schedule();
+	emit changed();
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Today::Prepare_Measurement_Schedule(const SProgram &in_program)
+{
+	int interval_days = AMeasurement_Schedule::Default_Interval_Days;
+
+	// Старт и финиш считает домен: те же даты нужны динамике на экране статистики.
+	Schedule_Start_Text = AMeasurement_Schedule::Start_Date_Of(in_program);
+	Schedule_End_Text = AMeasurement_Schedule::End_Date_Of(in_program);
+
+	// Сбой чтения шага не ломает экран: остаётся значение по умолчанию.
+	if (Program_Repository_Instance->Get_Measurement_Interval(in_program.ID, interval_days))
+		Measurement_Interval_Days = interval_days;
+	else
+		Measurement_Interval_Days = AMeasurement_Schedule::Default_Interval_Days;
+
+	Refresh_Measurement_Schedule();
+}
+//-------------------------------------------------------------------------------------------------------------
+void Avm_Today::Refresh_Measurement_Schedule()
+{
+	QString last_date;
+	QString from_date;
+
+	Measurement_Due_Value = false;
+	Next_Measurement_Date_Text.clear();
+
+	if (Schedule_Start_Text.isEmpty())
+		return;
+
+	if (Measurement_Repository_Instance != 0)
+		Measurement_Repository_Instance->Latest_Measurement_Date(Input_User_Id, last_date);
+
+	Measurement_Due_Value = AMeasurement_Schedule::Is_Due(Schedule_Start_Text, Schedule_End_Text,
+	                                                      Measurement_Interval_Days, Today_Text, last_date);
+
+	// Ближайшая дата: если замер уже пора делать — сегодня, иначе следующая
+	// точка со следующего дня (сегодняшняя уже закрыта замером).
+	from_date = Measurement_Due_Value ? Today_Text : date_of_today().addDays(1).toString("yyyy-MM-dd");
+	AMeasurement_Schedule::Next_Date(Schedule_Start_Text, Schedule_End_Text, Measurement_Interval_Days, from_date,
+	                                 Next_Measurement_Date_Text);
 }
 //-------------------------------------------------------------------------------------------------------------
 double Avm_Today::weightKg() const

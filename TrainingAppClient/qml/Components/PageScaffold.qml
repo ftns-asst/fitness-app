@@ -15,6 +15,18 @@ Rectangle {
 
     property real bottomInset: 0
     property string caption: ""
+    property bool showHeader: true
+    // Крупная шапка и переход акцента в поверхность: главный экран по макету 13.
+    property bool largeTitle: false
+    property bool heroBackground: false
+    // Профиль больше не вкладка: его точка входа — круглая кнопка в шапке
+    // корневых экранов. Инициалы показываются, когда пользователь вошёл;
+    // у гостя остаётся нейтральная иконка, и «Войти» ждёт внутри профиля.
+    property string profileInitials: ""
+    property bool profileActionVisible: false
+
+    signal profileActionRequested
+    property bool pageActive: visible
     default property alias content: bodyColumn.data
     // Содержимое закреплённой нижней панели: страница задаёт его как
     // `footer: RowLayout { … }`, а каркас держит панель на экране при любой
@@ -24,7 +36,8 @@ Rectangle {
     // Прокручиваемая область экрана. Открыта наружу, чтобы жест по «пустой»
     // области вокруг контента на широком экране тоже листал страницу
     // (`qml/Components/DragToScroll.qml`).
-    readonly property alias pageFlickable: flick
+    property Component scrollViewComponent: null
+    readonly property var pageFlickable: scrollViewLoader.item !== null ? scrollViewLoader.item : flick
     property alias spacing: bodyColumn.spacing
     property string title: ""
     property real topInset: 0
@@ -59,7 +72,38 @@ Rectangle {
 
     color: Theme.background
 
-    Column {
+    // — Переход акцента в поверхность (макет 13) —
+    // Рисуется первым ребёнком, поэтому лежит под шапкой и контентом: карточки
+    // и текст остаются на своём месте, а верх экрана получает цвет программы.
+    Rectangle {
+        objectName: "heroBackgroundGradient"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: Math.min(parent.height * 0.66, 470)
+        visible: scaffold.heroBackground
+
+        gradient: Gradient {
+            GradientStop {
+                color: Theme.heroGradientTop
+                position: 0.0
+            }
+            GradientStop {
+                color: Theme.heroGradientMid
+                position: 0.3
+            }
+            GradientStop {
+                color: Theme.heroGradientSoft
+                position: 0.64
+            }
+            GradientStop {
+                color: Theme.background
+                position: 1.0
+            }
+        }
+    }
+
+    RowLayout {
         id: header
 
         anchors.left: parent.left
@@ -68,24 +112,69 @@ Rectangle {
         anchors.rightMargin: Spacing.screenPadding
         anchors.top: parent.top
         anchors.topMargin: scaffold.topInset + (header.visible ? Spacing.screenPadding : 0)
-        spacing: 4
-        // Пустая шапка (страница сама рисует заголовок) не занимает места.
-        visible: scaffold.title.length > 0 || scaffold.caption.length > 0
+        spacing: Spacing.itemGap
+        // Пустая шапка (страница сама рисует заголовок) не занимает места —
+        // кроме случая, когда в ней есть кнопка профиля.
+        visible: scaffold.showHeader && (scaffold.title.length > 0 || scaffold.caption.length > 0 || scaffold.profileActionVisible)
 
-        Label {
-            color: Theme.textPrimary
-            font: Typography.screenTitle
-            text: scaffold.title
-            width: parent.width
-            wrapMode: Text.WordWrap
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            spacing: 4
+
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textPrimary
+                font: scaffold.largeTitle ? Typography.largeTitle : Typography.screenTitle
+                text: scaffold.title
+                visible: text.length > 0
+                wrapMode: Text.WordWrap
+            }
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textSecondary
+                font: Typography.caption
+                text: scaffold.caption
+                visible: text.length > 0
+                wrapMode: Text.WordWrap
+            }
         }
-        Label {
-            color: Theme.textSecondary
-            font: Typography.caption
-            text: scaffold.caption
-            visible: text.length > 0
-            width: parent.width
-            wrapMode: Text.WordWrap
+
+        // Кнопка профиля: 44 dp область касания вокруг круга 34 dp, как требует
+        // минимальный размер цели на тач-платформах.
+        Item {
+            Layout.alignment: Qt.AlignTop
+            Layout.preferredHeight: Theme.touchMin
+            Layout.preferredWidth: Theme.touchMin
+            visible: scaffold.profileActionVisible
+
+            Accessible.name: qsTr("Профиль")
+            Accessible.role: Accessible.Button
+
+            Rectangle {
+                anchors.centerIn: parent
+                color: Theme.accentTint
+                height: 34
+                radius: height / 2
+                width: 34
+            }
+            Label {
+                anchors.centerIn: parent
+                color: Theme.accent
+                font: Typography.captionStrong
+                text: scaffold.profileInitials
+                visible: text.length > 0
+            }
+            AppIcon {
+                anchors.centerIn: parent
+                iconColor: Theme.accent
+                name: "profile"
+                visible: scaffold.profileInitials.length === 0
+            }
+            MouseArea {
+                anchors.fill: parent
+                onClicked: scaffold.profileActionRequested()
+            }
         }
     }
     // Панель действий: закреплена снизу и отделена от контента тонкой линией.
@@ -133,8 +222,15 @@ Rectangle {
             spacing: Spacing.itemGap
         }
     }
+    Loader {
+        id: scrollViewLoader
+        anchors.fill: flick
+        active: scaffold.scrollViewComponent !== null
+        sourceComponent: scaffold.scrollViewComponent
+    }
     Flickable {
         id: flick
+        visible: scaffold.scrollViewComponent === null
 
         ScrollIndicator.vertical: Theme.touchPlatform ? touchIndicator : null
         anchors.bottom: parent.bottom
@@ -147,8 +243,8 @@ Rectangle {
         anchors.leftMargin: Spacing.screenPadding
         anchors.right: parent.right
         anchors.rightMargin: Spacing.screenPadding
-        anchors.top: header.bottom
-        anchors.topMargin: header.visible ? Spacing.sectionGap : 0
+        anchors.top: header.visible ? header.bottom : parent.top
+        anchors.topMargin: header.visible ? Spacing.sectionGap : scaffold.topInset
         bottomMargin: Spacing.sectionGap
         boundsBehavior: scaffold.elasticScroll ? Flickable.DragAndOvershootBounds : Flickable.StopAtBounds
         clip: true

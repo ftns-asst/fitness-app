@@ -4,6 +4,7 @@
 #include "App/App_Logger.h"
 #include "Data/Exercises/Exercises_Repository.h"
 #include "Presentation/Auth_Qml_Bridge.h"
+#include "Presentation/Diary_VM.h"
 #include "Presentation/Exercises_Editor_VM.h"
 #include "Presentation/Exercises_One_VM.h"
 #include "Presentation/Exercises_VM.h"
@@ -18,10 +19,13 @@
 #include <QCoreApplication>
 #include <QFontDatabase>
 #include <QGuiApplication>
+#include <QImage>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QQuickWindow>
 #include <QStandardPaths>
+#include <QTimer>
 #include <QVariant>
 
 //-------------------------------------------------------------------------------------------------------------
@@ -50,6 +54,53 @@ static int Load_Inter_Fonts()
 	}
 
 	return loaded;
+}
+//-------------------------------------------------------------------------------------------------------------
+// Снимок окна по флагу `--shot <path>` (инструмент ревью вёрстки).
+//
+// `--diag` проверяет геометрию числами (обрезка, нулевые ширины), но наложение
+// текста друг на друга он не видит: по числам оба элемента «на месте». Снимок
+// показывает экран глазами и позволяет сравнить его с макетом без запуска
+// руками. Задержка нужна, чтобы движок успел выполнить первый кадр и
+// асинхронные загрузки модели: `--shot-delay <мс>`, по умолчанию 900 мс.
+// Аргументы: движок и список аргументов процесса. Возврат: нет.
+//-------------------------------------------------------------------------------------------------------------
+static void Save_Screenshot(QQmlApplicationEngine *in_engine, const QStringList &in_arguments)
+{
+	const int shot_index = in_arguments.indexOf("--shot");
+	const int delay_index = in_arguments.indexOf("--shot-delay");
+	QQuickWindow *window = 0;
+	QString path;
+	int delay = 900;
+
+	if (shot_index < 0 || shot_index + 1 >= in_arguments.size())
+		return;
+
+	path = in_arguments.at(shot_index + 1);
+
+	if (delay_index >= 0 && delay_index + 1 < in_arguments.size())
+		delay = in_arguments.at(delay_index + 1).toInt();
+
+	if (in_engine->rootObjects().isEmpty())
+		return;
+
+	window = qobject_cast<QQuickWindow *>(in_engine->rootObjects().first());
+
+	if (window == 0)
+		return;
+
+	QTimer::singleShot(delay, window,
+	                   [window, path]()
+	                   {
+		                   const QImage image = window->grabWindow();
+
+		                   if (!image.isNull() && image.save(path))
+			                   qInfo("shot saved: %s (%dx%d)", qUtf8Printable(path), image.width(), image.height());
+		                   else
+			                   qWarning("shot failed: %s", qUtf8Printable(path));
+
+		                   QCoreApplication::quit();
+	                   });
 }
 //-------------------------------------------------------------------------------------------------------------
 int main(int argc, char *argv[])
@@ -142,7 +193,11 @@ int main(int argc, char *argv[])
 	engine.rootContext()->setContextProperty("ProgramEditVM", (QObject *)app_context.Program_Edit_VM());
 	// Главный экран «Сегодня» на данных (issue 27): C++-слой готов, разметка
 	// TodayPage переводится на него отдельным шагом.
+	engine.rootContext()->setContextProperty("WorkoutVM", (QObject *)app_context.Workout_VM());
+	engine.rootContext()->setContextProperty("StrengthVM", (QObject *)app_context.Strength_VM());
+	engine.rootContext()->setContextProperty("ProgramTemplatesVM", (QObject *)app_context.Program_Templates_VM());
 	engine.rootContext()->setContextProperty("TodayVM", (QObject *)app_context.Today_VM());
+	engine.rootContext()->setContextProperty("DiaryVM", (QObject *)app_context.Diary_VM());
 	// Экран «Рассчитать» КБЖУ (спринт S7): модель считает по формулам домена и
 	// хранит дату рождения и активность в profile_local (схема v5).
 	engine.rootContext()->setContextProperty("MacroVM", (QObject *)app_context.Macro_VM());
@@ -154,6 +209,9 @@ int main(int argc, char *argv[])
 	engine.rootContext()->setContextProperty("ExercisesOneVM", (QObject *)app_context.Exercises_One_VM());
 
 	engine.loadFromModule("TrainingAppClient", "Main");
+
+	// Инструмент ревью вёрстки: снимок экрана и выход (см. Save_Screenshot).
+	Save_Screenshot(&engine, arguments);
 
 	return QGuiApplication::exec();
 }

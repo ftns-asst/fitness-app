@@ -15,9 +15,8 @@
 //-------------------------------------------------------------------------------------------------------------
 // Упражнение из ответа `GET /exercises` (голый массив, docs/03, §3.9).
 // description и owner_id — omitempty: отсутствие не ошибка, Has_Owner
-// различает базовые (owner_id нет) и свои/публичные. is_public в ответе
-// отсутствует (Swagger, observed 10.10.2026) — состояние публикации
-// из объекта упражнения не читается.
+// различает базовые (owner_id нет) и пользовательские. is_public приходит
+// от сервера и сохраняется в кэше для офлайн-раздела «Сообщество».
 //-------------------------------------------------------------------------------------------------------------
 struct SExercises_Item
 {
@@ -26,6 +25,7 @@ struct SExercises_Item
 	QString Description;
 	QString Owner_ID;
 	bool Has_Owner = false;
+	bool Is_Public = false;
 	QStringList Muscle_Groups;
 	QStringList Equipment;
 	QString Created_At;

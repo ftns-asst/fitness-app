@@ -93,19 +93,36 @@ bool Avm_Exercises::Start_Load(int in_offset)
 {
 	int request_id;
 
-	if (Repository_Instance == 0 || (Loading_Flag && in_offset > 0))
+	if (Repository_Instance == 0)
 		return false;
 
-	// Отложенный показ кэша: строки каталога появляются сразу, сетевой ответ
-	// заменяет их, когда придёт (офлайн — это же строки и останутся).
-	if (in_offset == 0)
+	// Гостевые свои упражнения существуют только локально: type=own требует токен.
+	if (Catalog_Type == "own" && !Repository_Instance->Has_Session())
+	{
+		Current_Request_Id = 0;
+		Loading_Flag = false;
+		Error_Key_Text.clear();
+		Has_All_Rows = true;
+		Selection_Changed = false;
 		Show_Cache();
+		emit stateChanged();
+		return true;
+	}
+
+	// Кэш нужен при открытии и смене фильтров. При обновлении той же выборки
+	// оставляем видимые строки: кэш может иметь другой порядок и локальные id.
+	if (in_offset == 0 && (Selection_Changed || Exercise_List->Row_Count() == 0))
+		Show_Cache();
+	// Кэш мог сразу показать больше одной страницы. Первая полная страница
+	// сервера не должна обрезать уже видимую глубину (в том числе после отказа).
+	if (in_offset == 0)
+		Refresh_Row_Count = qMax(Refresh_Row_Count, Exercise_List->Row_Count());
 
 	// Отмена не нужна: устаревший ответ игнорируется по идентификатору, а
 	// загрузка страницы (offset > 0) не мешает новому reload — их ответы
 	// расходятся по Current_Request_Id.
-	request_id =
-	    Repository_Instance->Load_List("all", Muscle_Group_Filter, Equipment_Filter, Query_Text, Page_Size, in_offset);
+	request_id = Repository_Instance->Load_List(Catalog_Type, Muscle_Group_Filter, Equipment_Filter, Query_Text,
+	                                            Page_Size, in_offset);
 
 	if (request_id == 0)
 		return false;
@@ -113,6 +130,8 @@ bool Avm_Exercises::Start_Load(int in_offset)
 	// Ответы устаревших запросов игнорируются по идентификатору: reload на
 	// фоне летящего loadMore не должен склеивать страницы разных выборок.
 	Current_Request_Id = request_id;
+	Request_Offset = in_offset;
+	Selection_Changed = false;
 	Loading_Flag = true;
 	emit stateChanged();
 
@@ -121,6 +140,10 @@ bool Avm_Exercises::Start_Load(int in_offset)
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises::reload()
 {
+	Debounce_Timer->stop();
+	Refresh_Row_Count = Selection_Changed ? 0 : Next_Offset;
+	if (Selection_Changed)
+		Next_Offset = 0;
 	Accumulated_Rows.clear();
 	Has_All_Rows = false;
 
@@ -129,7 +152,7 @@ bool Avm_Exercises::reload()
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises::loadMore()
 {
-	if (!Can_Load_More())
+	if (Loading_Flag || !Can_Load_More())
 		return false;
 
 	return Start_Load(Next_Offset);
@@ -141,30 +164,40 @@ void Avm_Exercises::setQuery(const QString &in_query)
 		return;
 
 	Query_Text = in_query;
+	Selection_Changed = true;
 
 	// Окно debounce перезапускается каждым символом: запрос уходит один —
 	// по последнему слову.
 	Debounce_Timer->start();
 }
 //-------------------------------------------------------------------------------------------------------------
+bool Avm_Exercises::setCatalogType(const QString &in_type)
+{
+	if ((in_type != "all" && in_type != "own" && in_type != "public") || Catalog_Type == in_type)
+		return false;
+	Catalog_Type = in_type;
+	Selection_Changed = true;
+	return reload();
+}
+//-------------------------------------------------------------------------------------------------------------
+bool Avm_Exercises::setFilters(const QStringList &in_groups, const QStringList &in_equipments)
+{
+	if (Muscle_Group_Filter == in_groups && Equipment_Filter == in_equipments)
+		return false;
+	Muscle_Group_Filter = in_groups;
+	Equipment_Filter = in_equipments;
+	Selection_Changed = true;
+	return reload();
+}
+//-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises::setMuscleGroups(const QStringList &in_groups)
 {
-	if (Muscle_Group_Filter == in_groups)
-		return false;
-
-	Muscle_Group_Filter = in_groups;
-
-	return reload();
+	return setFilters(in_groups, Equipment_Filter);
 }
 //-------------------------------------------------------------------------------------------------------------
 bool Avm_Exercises::setEquipments(const QStringList &in_equipments)
 {
-	if (Equipment_Filter == in_equipments)
-		return false;
-
-	Equipment_Filter = in_equipments;
-
-	return reload();
+	return setFilters(Muscle_Group_Filter, in_equipments);
 }
 //-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises::loadCatalogs()
@@ -239,10 +272,9 @@ void Avm_Exercises::Show_Cache()
 		rows.append(Row_Data(cached.at(i)));
 	}
 
-	// Пустую выборку фильтра показом не затираем: пусть остаётся то, что было
-	// (офлайн-ветка репозитория всё равно перечитает кэш целиком).
-	if (!rows.isEmpty())
-		Exercise_List->Set_Rows(rows);
+	// Пустая выборка тоже заменяет список: старый фильтр не должен оставаться.
+	Exercise_List->Update_Rows(rows, "id");
+	From_Cache_Flag = true;
 }
 //-------------------------------------------------------------------------------------------------------------
 // Фильтры кэша — те же, что уходят серверу: поиск по названию без учёта
@@ -250,23 +282,30 @@ void Avm_Exercises::Show_Cache()
 bool Avm_Exercises::Matches_Filters(const SExercises_Item &in_item) const
 {
 	const QString query = Query_Text.trimmed();
+	bool matches_group = Muscle_Group_Filter.isEmpty();
+	bool matches_equipment = Equipment_Filter.isEmpty();
+	if (Catalog_Type == "public" && !in_item.Is_Public)
+		return false;
+	if (Catalog_Type == "own" && Repository_Instance != 0 && !Repository_Instance->Is_Own_Owner(in_item.Owner_ID) &&
+	    !(!Repository_Instance->Has_Session() && in_item.Owner_ID == AExercises_Repository::Local_Owner_Id()))
+		return false;
 
 	if (!query.isEmpty() && !in_item.Name.contains(query, Qt::CaseInsensitive))
 		return false;
 
 	for (int i = 0; i < Muscle_Group_Filter.size(); ++i)
 	{
-		if (!in_item.Muscle_Groups.contains(Muscle_Group_Filter.at(i)))
-			return false;
+		if (in_item.Muscle_Groups.contains(Muscle_Group_Filter.at(i)))
+			matches_group = true;
 	}
 
 	for (int i = 0; i < Equipment_Filter.size(); ++i)
 	{
-		if (!in_item.Equipment.contains(Equipment_Filter.at(i)))
-			return false;
+		if (in_item.Equipment.contains(Equipment_Filter.at(i)))
+			matches_equipment = true;
 	}
 
-	return true;
+	return matches_group && matches_equipment;
 }
 //-------------------------------------------------------------------------------------------------------------
 void Avm_Exercises::on_Debounce_Timeout()
@@ -280,11 +319,15 @@ void Avm_Exercises::on_Debounce_Timeout()
 // Перечитывание делает вызывающий reload().
 bool Avm_Exercises::resetFilters()
 {
-	const bool had_filters = !Query_Text.isEmpty() || !Muscle_Group_Filter.isEmpty() || !Equipment_Filter.isEmpty();
+	const bool had_filters =
+	    !Query_Text.isEmpty() || !Muscle_Group_Filter.isEmpty() || !Equipment_Filter.isEmpty() || Catalog_Type != "all";
 
+	Catalog_Type = "all";
 	Query_Text.clear();
 	Muscle_Group_Filter.clear();
 	Equipment_Filter.clear();
+	Debounce_Timer->stop();
+	Selection_Changed = Selection_Changed || had_filters;
 
 	return had_filters;
 }
@@ -295,35 +338,79 @@ void Avm_Exercises::on_List_Finished(int in_request_id, const QVector<SExercises
 	if (in_request_id != Current_Request_Id)
 		return;
 
-	Loading_Flag = false;
 	Error_Key_Text = in_error.Is_Error() ? in_error.Key() : QString();
 
 	if (!in_error.Is_Error())
 	{
-		From_Cache_Flag = in_from_cache;
+		QVector<QVariantMap> rows;
+		rows.reserve(in_items.size());
 
-		// Дозагрузка дописывает страницы к накопленным; перезагрузка заменяет.
 		for (int i = 0; i < in_items.size(); ++i)
-			Accumulated_Rows.append(Row_Data(in_items.at(i)));
+		{
+			// Офлайн-ответ репозитория — весь каталог, без серверных фильтров.
+			if (!in_from_cache || Matches_Filters(in_items.at(i)))
+				rows.append(Row_Data(in_items.at(i)));
+		}
 
-		Next_Offset = Accumulated_Rows.size();
-		Has_All_Rows = in_items.size() < Page_Size;
-		Exercise_List->Set_Rows(Accumulated_Rows);
+		Has_All_Rows = in_from_cache || in_items.size() < Page_Size;
+
+		if (in_from_cache)
+		{
+			Exercise_List->Update_Rows(rows, "id");
+			Next_Offset = 0;
+		}
+		else if (Request_Offset == 0 || Refresh_Row_Count > 0)
+		{
+			// Сохраняем глубину только для той же последовательности id.
+			// База офлайн и иной серверный порядок — уже другая выборка.
+			if (Request_Offset == 0)
+			{
+				const int common_count = qMin(rows.size(), Exercise_List->Row_Count());
+				for (int i = 0; i < common_count; ++i)
+				{
+					if (rows.at(i).value("id") != Exercise_List->get(i).value("id"))
+					{
+						Refresh_Row_Count = 0;
+						break;
+					}
+				}
+			}
+			Accumulated_Rows.append(rows);
+			// Читаем обычными страницами: глубина каталога не ограничена limit API.
+			if (!Has_All_Rows && Accumulated_Rows.size() < Refresh_Row_Count && Start_Load(Accumulated_Rows.size()))
+				return;
+
+			Next_Offset = Accumulated_Rows.size();
+			Exercise_List->Update_Rows(Accumulated_Rows, "id");
+		}
+		else
+		{
+			Exercise_List->Append_Rows(rows);
+			Next_Offset = Request_Offset + in_items.size();
+		}
+
+		From_Cache_Flag = in_from_cache;
+		Accumulated_Rows.clear();
+		Refresh_Row_Count = 0;
 	}
 	else
 	{
-		// Сервер ответил ошибкой (транспортный сбой репозиторий уже закрыл
-		// кэшем — сюда попадают HTTP-отказы). Список не очищаем: после
-		// долгой «Загрузки…» окно выбора и вкладка каталога оставались бы
-		// пустыми, хотя кэш и базовый каталог никуда не делись. Показываем
-		// кэш/базу, ошибку выводит подпись состояния.
+		// HTTP-отказ: список не очищаем. Транспортный сбой репозиторий
+		// закрывает кэшем; здесь ошибку выводит подпись состояния.
 		Accumulated_Rows.clear();
-		Next_Offset = 0;
-		Has_All_Rows = false;
-		From_Cache_Flag = true;
-		Show_Cache();
+		Refresh_Row_Count = 0;
+		// Ошибка дозагрузки/обновления не меняет видимые строки и offset:
+		// повтор запрашивает ту же страницу, а не добавляет к ней весь кэш.
+		if (Exercise_List->Row_Count() == 0)
+		{
+			From_Cache_Flag = true;
+			Show_Cache();
+		}
 	}
 
+	// Сигналы модели могут вызвать автодогрузку QML синхронно. Открываем её
+	// только после согласования строк и Next_Offset.
+	Loading_Flag = false;
 	emit stateChanged();
 }
 //-------------------------------------------------------------------------------------------------------------

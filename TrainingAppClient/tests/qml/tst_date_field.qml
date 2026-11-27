@@ -69,11 +69,48 @@ TestCase {
         pickedSpy.clear();
     }
     // Поле показывает месяц выбранной даты: это точка отсчёта для обеих стрелок.
+    function test_explicitClosePreservesDate() {
+        const window = createTemporaryObject(dateFieldInWindowComponent, testCase);
+        window.show();
+        field = window.field;
+        field.value = "2026-10-15";
+        field.openPicker();
+        const close = findByName(window.contentItem, "dateCloseButton");
+        verify(close !== null);
+        close.clicked();
+        tryCompare(field, "expanded", false);
+        compare(field.value, "2026-10-15");
+    }
     function test_calendarOpensOnSelectedDate() {
         field.value = "2026-11-02";
 
         compare(field.shownYear, 2026);
         compare(field.shownMonth, 10);
+    }
+    function test_weekdayHeadingsMatchMondayGrid() {
+        compare(field.weekdayInitials[0], new Date(2024, 0, 1).toLocaleDateString(Qt.locale(), "ddd"));
+        compare(field.weekdayInitials[6], new Date(2024, 0, 7).toLocaleDateString(Qt.locale(), "ddd"));
+    }
+    function test_calendarRejectsDaysOutsideAvailableRange() {
+        field.minimumDate = "2026-11-03";
+        field.maximumDate = "2026-11-20";
+        field.pick("2026-11-02");
+        compare(pickedSpy.count, 0);
+        field.pick("2026-11-20");
+        compare(pickedSpy.count, 1);
+    }
+    function test_reopeningReturnsToSelectedMonth() {
+        const window = createTemporaryObject(dateFieldInWindowComponent, testCase);
+        window.show();
+        field = window.field;
+        field.value = "2026-11-05";
+        field.openPicker();
+        field.shiftMonth(3);
+        field.closePicker();
+        tryCompare(field, "expanded", false);
+        field.openPicker();
+        compare(field.shownMonth, 10);
+        compare(field.shownYear, 2026);
     }
     // Шаг по году сохраняет месяц: «+ год» из ноября даёт ноябрь следующего года,
     // а не тот же день через двенадцать месяцев.
@@ -135,6 +172,7 @@ TestCase {
         waitForRendering(field);
         // Содержимое календаря — Popup: его элементы живут в оверлее окна, а не
         // в children поля, поэтому искать нужно по дереву окна.
+        testCase.findByName(window.contentItem, "dateMonthYearButton").clicked();
         const nextYear = testCase.findByName(window.contentItem, "dateNextYearButton");
 
         verify(nextYear !== null, "в календаре нет кнопки следующего года");
@@ -170,7 +208,7 @@ TestCase {
 
         compare(pickedSpy.count, 1);
         compare(pickedSpy.signalArguments[0][0], "2026-11-15");
-        compare(field.expanded, false);
+        tryCompare(field, "expanded", false);
     }
 
     height: 812

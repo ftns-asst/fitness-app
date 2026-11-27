@@ -26,8 +26,11 @@ TestCase {
         id: editStub
 
         property var day_exercises: dayExercisesStub
+        property bool saveSucceeds: true
 
         function addDayExercise(weekday, exerciseId, sets, repsMin, repsMax, weight, hasWeight) {
+            if (!saveSucceeds)
+                return false;
             dayExercisesStub.append({
                 exerciseId: exerciseId,
                 repsText: repsMin + "–" + repsMax,
@@ -97,6 +100,7 @@ TestCase {
         return null;
     }
     function init() {
+        editStub.saveSucceeds = true;
         dayExercisesStub.clear();
         page = createTemporaryObject(dayPageComponent, testCase);
 
@@ -164,6 +168,18 @@ TestCase {
     // Выбор упражнения — в мини-окне: кнопка открывает его, выбор из окна
     // добавляет переданное упражнение с его подходами и весом. ComboBox
     // убран: каталог большой, перебор закрытого списка неудобен.
+    function test_failedAddKeepsPickerAndPrescription() {
+        editStub.saveSucceeds = false;
+        const popup = page.exercisePickerItem;
+        popup.open();
+        popup.pickedRepsMin = 10;
+        popup.pickedRepsMax = 12;
+        popup.picked("builtin-squat", "Присед", 40, 3, 10, 12);
+        verify(popup.visible);
+        compare(popup.pickedRepsMin, 10);
+        compare(popup.pickedRepsMax, 12);
+        compare(page.exerciseCount, 0);
+    }
     function test_pickerOpensAndPicks() {
         const button = testCase.findByName(page, "exercisePickerButton");
 
@@ -185,12 +201,13 @@ TestCase {
         }, 2000, "окно не закрылось по «Закрыть»");
 
         // Явный выбор: упражнение из окна приходит с его подходами и весом.
-        page.addExercise("builtin-squat", 5, 87.5);
+        page.addExercise("builtin-squat", 5, 87.5, 8, 12);
 
         compare(page.exerciseCount, 1);
         compare(dayExercisesStub.get(0).exerciseId, "builtin-squat");
         compare(dayExercisesStub.get(0).sets, 5);
         compare(dayExercisesStub.get(0).targetWeightKg, 87.5);
+        compare(dayExercisesStub.get(0).repsText, "8–12");
     }
     // Строка упражнения дня: карточка делегата ищется по роли exerciseId —
     // objectName делегатам Repeater из модели не задать.

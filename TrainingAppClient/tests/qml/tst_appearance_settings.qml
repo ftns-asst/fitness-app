@@ -171,22 +171,16 @@ TestCase {
 
         waitForRendering(profile);
 
-        profile.sectionIndex = 2;
+        const appearance = findChild(profile, "appearanceCard");
+        const logoutButton = findChild(profile, "profileLogoutButton");
 
-        const appearance = testCase.findByName(profile, "appearanceCard");
-        const logoutButton = testCase.findByName(profile, "profileLogoutButton");
+        verify(appearance !== null, "в настройках профиля нет блока оформления");
+        verify(logoutButton !== null, "в настройках профиля нет кнопки выхода");
 
-        verify(appearance !== null, "в разделе «Параметры» нет блока оформления");
-        verify(logoutButton !== null, "в разделе «Параметры» нет кнопки выхода");
-
-        // Общий родитель с известным элементом раздела: так проверяется, что
-        // блок стоит именно в «Параметрах», а не в другом разделе профиля.
+        // Сегментов «Прогресс / История / Параметры» больше нет: профиль — это
+        // один экран настроек, поэтому блок оформления виден сразу.
         compare(appearance.parent, logoutButton.parent);
         compare(appearance.parent.visible, true);
-
-        profile.sectionIndex = 0;
-
-        compare(appearance.parent.visible, false);
     }
 
     height: 812

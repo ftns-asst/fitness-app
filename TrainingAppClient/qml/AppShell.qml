@@ -49,6 +49,30 @@ Item {
     property var plansViewModel: PlansViewModel
     property var profileViewModel: ProfileViewModel
     property var todayViewModel: TodayVM
+    property var diaryViewModel: typeof DiaryVM !== "undefined" ? DiaryVM : null
+
+    // Инициалы для кнопки профиля в шапке корневых экранов: гостю достаётся
+    // нейтральная иконка, вошедшему — первые буквы имени. Данные приходят из
+    // AuthViewModel, поэтому в тестах дерева QML свойство безопасно пустое.
+    readonly property string profileInitials: {
+        const auth = shell.auth;
+
+        if (auth === undefined || auth === null || auth.authenticated !== true)
+            return "";
+
+        const user = auth.user;
+
+        if (user === undefined || user === null || typeof user.name !== "string")
+            return "";
+
+        const words = user.name.trim().split(/\s+/);
+
+        if (words.length === 0 || words[0].length === 0)
+            return "";
+        if (words.length === 1)
+            return words[0].substring(0, Math.min(2, words[0].length)).toUpperCase();
+        return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+    }
 
     // Отступы под safe area / status bar mock передаёт Main.qml.
     property real topInset: 0
@@ -56,7 +80,8 @@ Item {
     // Отступ низа для pushed-экранов (открываются поверх вкладок): панель
     // навигации теперь видна всегда, и её высота резервируется так же, как
     // safe area, иначе контент и подвал экрана заезжали бы под панель.
-    readonly property real pageBottomInset: bottomInset + Theme.tabBarHeight
+    readonly property bool workoutVisible: pages.depth > 1 && pages.currentItem && pages.currentItem.objectName === "workoutPage"
+    readonly property real pageBottomInset: bottomInset + (workoutVisible ? 0 : Theme.tabBarHeight)
 
     // Запрос на открытие экрана входа из «Профиля» (гость): Main.qml решает,
     // показывать ли экран и куда вернуться после входа.
@@ -68,7 +93,7 @@ Item {
     //
     // Экран в стеке деталей и текущая вкладка лежат в разных контейнерах:
     // у `pages` (StackView) текущий элемент — сам экран, а внутри вкладок это
-    // StackLayout, чьи дети и есть страницы в порядке вкладок.
+    // SwipeView, который отдаёт активную страницу свойством currentItem.
     readonly property var activeFlickable: {
         const top = pages.currentItem;
 
@@ -78,9 +103,9 @@ Item {
         if (pages.depth > 1)
             return top.pageFlickable !== undefined ? top.pageFlickable : null;
 
-        const tab = top.children !== undefined ? top.children[tabBar.currentIndex] : undefined;
+        const tab = top.currentItem !== undefined ? top.currentItem : null;
 
-        return tab !== undefined && tab.pageFlickable !== undefined ? tab.pageFlickable : null;
+        return tab !== null && tab !== undefined && tab.pageFlickable !== undefined ? tab.pageFlickable : null;
     }
 
     function showTab(index) {
@@ -155,13 +180,14 @@ Item {
             "exercise-detail": exerciseDetailComponent,
             "exercise-edit": exerciseEditorComponent,
             "macro-calculator": macroCalculatorComponent,
-            "program-catalog": programCatalogComponent,
+            "profile": profileComponent,
             "program-day": programDayComponent,
             "program-edit": programEditorComponent,
             "program-overview": programOverviewComponent,
             "program-rules": programRulesComponent,
             "program-rules-picker": programRulesPickerComponent,
             "program-stats": programStatsComponent,
+            "strength": strengthComponent,
             "set-entry": setEntryComponent
         };
 
@@ -182,6 +208,11 @@ Item {
 
             if (entry.id !== undefined && entry.id !== null && entry.id !== "")
                 shell.programId = entry.id;
+
+            // Пустой id дневника означает активную программу: после посещения
+            // другой вкладки нельзя наследовать её конкретную программу.
+            if (entry.name === "diary" || entry.name === "program-rules" || entry.name === "program-stats")
+                shell.programId = entry.id || "";
 
             if (entry.name === "exercise-detail")
                 shell.exerciseDetailId = entry.exerciseId || "";
@@ -296,11 +327,77 @@ Item {
 
         anchors.fill: parent
         initialItem: tabsView
+        clip: true
+
+        pushEnter: Transition {
+            NumberAnimation {
+                property: "x"
+                from: pages.width
+                to: 0
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
+            }
+        }
+        pushExit: Transition {
+            NumberAnimation {
+                property: "x"
+                from: 0
+                to: -pages.width * 0.25
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
+            }
+        }
+        popEnter: Transition {
+            NumberAnimation {
+                property: "x"
+                from: -pages.width * 0.25
+                to: 0
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
+            }
+        }
+        popExit: Transition {
+            NumberAnimation {
+                property: "x"
+                from: 0
+                to: pages.width
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
+            }
+        }
+        replaceEnter: Transition {
+            NumberAnimation {
+                property: "opacity"
+                from: 0
+                to: 1
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
+            }
+        }
+        replaceExit: Transition {
+            NumberAnimation {
+                property: "opacity"
+                from: 1
+                to: 0
+                duration: Theme.pageTransitionDuration
+                easing.type: Easing.OutCubic
+            }
+        }
 
         // Переход закончился — стек снова принимает push: очередь отложенной
         // навигации разбирается здесь, потому что pushPage во время busy
         // отбрасывает команду молча.
         onBusyChanged: shell.flushPendingNavigation()
+    }
+    EdgeBackGesture {
+        objectName: "navigationBackEdge"
+        anchors.left: parent.left
+        anchors.top: parent.top
+        height: Math.max(0, shell.height - (shell.workoutVisible ? 0 : Theme.tabBarHeight) - shell.bottomInset)
+        width: 24
+        z: 1
+        enabled: pages.depth > 1 && !pages.busy
+        onBackRequested: shell.goBack()
     }
     // Отложенное открытие окна выбора упражнения для снимка (--popup-shot):
     // стек должен закончить переход, чтобы currentItem был экраном дня.
@@ -349,61 +446,87 @@ Item {
     Component {
         id: tabsView
 
-        StackLayout {
+        SwipeView {
+            id: tabPages
+            objectName: "mainSwipeView"
+            interactive: pages.depth === 1 && !pages.busy
             currentIndex: tabBar.currentIndex
 
+            onCurrentIndexChanged: {
+                if (currentIndex >= 0 && currentIndex < count && currentIndex !== tabBar.currentIndex)
+                    shell.showTab(currentIndex);
+            }
+
             TodayPage {
+                pageActive: SwipeView.isCurrentItem && pages.depth === 1
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
+                profileActionVisible: true
+                profileInitials: shell.profileInitials
                 topInset: shell.topInset
                 viewModel: shell.todayViewModel
 
                 // День отдыха ведёт в обзор активной программы, а пустой
-                // главный экран — на вкладку «Планы», где программу создают.
-                onPlansRequested: shell.showTab(1)
+                // главный экран — на вкладку «Программы», где программу создают.
+                onPlansRequested: shell.showTab(2)
                 onProgramRequested: shell.openProgramOverview()
+                onDiaryRequested: shell.openDiary()
+                onStatisticsRequested: programId => shell.openProgramStats(programId)
+                onWorkoutRequested: programId => shell.openWorkout(programId)
+                onProfileActionRequested: shell.openProfile()
 
                 // Тап по строке упражнения — его обзор: тот же вход, что и из
                 // каталога вкладки «Упражнения».
                 onExerciseOpenRequested: exerciseId => shell.openExerciseDetail(exerciseId)
             }
-            PlansPage {
+            // Дневник — вкладка: у него собственный дом (даты, вес, заметки),
+            // а не кнопка внутри «Сегодня».
+            DiaryPage {
+                objectName: "diaryPage"
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
+                profileActionVisible: true
+                profileInitials: shell.profileInitials
+                programId: shell.programId
+                showBackBar: false
                 topInset: shell.topInset
-                viewModel: shell.plansViewModel
+                viewModel: shell.diaryViewModel
 
-                onMyProgramRequested: shell.openProgramCatalog()
+                onProfileActionRequested: shell.openProfile()
+            }
+            ProgramsPage {
+                bottomInset: shell.bottomInset + Theme.tabBarHeight
+                profileActionVisible: true
+                profileInitials: shell.profileInitials
+                templateVM: typeof ProgramTemplatesVM !== "undefined" ? ProgramTemplatesVM : null
+                onTemplateCreated: programId => shell.openProgramEditor(programId)
+                topInset: shell.topInset
+
+                onCreateRequested: shell.openProgramEditor()
+                onEditRequested: programId => shell.openProgramEditor(programId)
+                onOpenRequested: programId => shell.openProgramOverview(programId)
+                onProfileActionRequested: shell.openProfile()
+                onStatsRequested: programId => shell.openProgramStats(programId)
             }
             ExercisesPage {
+                pageActive: SwipeView.isCurrentItem && pages.depth === 1
                 bottomInset: shell.bottomInset + Theme.tabBarHeight
+                profileActionVisible: true
+                profileInitials: shell.profileInitials
                 topInset: shell.topInset
 
                 onCreateOwnRequested: shell.pushPage(exerciseEditorComponent)
                 onOpenRequested: exerciseId => shell.openExerciseDetail(exerciseId)
-            }
-            ProfilePage {
-                auth: shell.auth
-                bottomInset: shell.bottomInset + Theme.tabBarHeight
-                sectionIndex: shell.profileSection
-                topInset: shell.topInset
-                viewModel: shell.profileViewModel
-
-                onLoginRequested: shell.authPageRequested(3)
-                onLogoutRequested: shell.auth.logout()
+                onProfileActionRequested: shell.openProfile()
             }
         }
     }
-    // Запрос на открытие экрана программы из «Планов» — своей глобальной
-    // программы пользователь не ищет среди шаблонов, он открывает её сам.
-    signal myProgramRequested
-
     // — Экраны глобальной программы (срез W11, issues 41–44) —
     // Отдельный стек поверх вкладок: детали программы живут вне неё, поэтому
     // вкладок не видно, а «назад» возвращает на вкладку, из которой пришли.
+    //
+    // Каталог программ больше не отдельный экран: свои программы показывает
+    // вкладка «Программы» сегментом «Мои», поэтому переход ведёт на неё.
     function openProgramCatalog() {
-        shell.noteTabScreen({
-            name: "program-catalog"
-        });
-        shell.pushPage(programCatalogComponent);
+        shell.showTab(2);
     }
     function openProgramOverview(id) {
         shell.programId = id === undefined ? "" : id;
@@ -423,9 +546,11 @@ Item {
         shell.pushPage(programEditorComponent);
     }
 
-    function openProgramRules() {
+    function openProgramRules(id) {
+        shell.programId = id === undefined ? "" : id;
         shell.noteTabScreen({
-            name: "program-rules"
+            name: "program-rules",
+            id: shell.programId
         });
         shell.pushPage(programRulesComponent);
     }
@@ -439,6 +564,25 @@ Item {
         shell.pushPage(programRulesPickerComponent);
     }
 
+    function openWorkout(id) {
+        if (typeof WorkoutVM === "undefined" || !WorkoutVM)
+            return;
+        const userId = typeof AppContext !== "undefined" ? AppContext.currentUserId : "";
+        const date = shell.todayViewModel ? shell.todayViewModel.today : Qt.formatDate(new Date(), "yyyy-MM-dd");
+        if (!WorkoutVM.startOrResume(userId, id || "", date)) {
+            Demo.notify(WorkoutVM.errorDetail);
+            return;
+        }
+        shell.pushPage(workoutComponent);
+    }
+    function openStrength(id) {
+        shell.programId = id || "";
+        shell.noteTabScreen({
+            name: "strength",
+            id: shell.programId
+        });
+        shell.pushPage(strengthComponent);
+    }
     function openProgramStats(id) {
         shell.programId = id === undefined ? "" : id;
         shell.noteTabScreen({
@@ -446,6 +590,23 @@ Item {
             id: shell.programId
         });
         shell.pushPage(programStatsComponent);
+    }
+
+    // Дневник — вкладка, а не экран поверх: переход из программы задаёт
+    // контекст (`programId`) и переключает вкладку. Пустой id — активная
+    // программа или личные записи, если программы нет.
+    function openDiary(id) {
+        shell.programId = id === undefined ? "" : id;
+        shell.showTab(1);
+    }
+
+    // Профиль — настройки, поэтому он открывается поверх вкладок кнопкой в
+    // шапке, а не занимает одно из четырёх постоянных назначений.
+    function openProfile() {
+        shell.noteTabScreen({
+            name: "profile"
+        });
+        shell.pushPage(profileComponent);
     }
 
     // — Экран авторасчёта КБЖУ (спринт S7) —
@@ -505,8 +666,7 @@ Item {
     // инструменте ревью: это настройка пользователя. Именованный экран нужен,
     // чтобы блок проверялся аудитом вёрстки на всех компоновках.
     function openProfileSettings() {
-        profileSection = 2;
-        shell.showTab(3);
+        shell.openProfile();
     }
 
     // — Завершение сохранения программы —
@@ -542,16 +702,13 @@ Item {
         pages.replace(pages.currentItem, programOverviewComponent);
     }
 
-    // Раздел «Профиля», который открывает именованный экран. «Параметры» нужны
-    // аудиту вёрстки: в них живёт блок «Оформление», и без такого экрана он не
-    // попадал бы в снимки и smoke-проверки.
-    property int profileSection: 0
-
     // Открытие экрана по имени: используется дизайн-ревью (--screen) и
     // восстановление состояния при возврате в приложение.
     function openProgramScreen(name) {
         const map = {
+            "diary": openDiary,
             "macro-calculator": openMacroCalculator,
+            "profile": openProfile,
             "profile-settings": openProfileSettings,
             "set-entry": openSetEntry,
             "exercise-edit": function () {
@@ -574,6 +731,7 @@ Item {
             "program-rules": openProgramRules,
             "program-rules-picker": openProgramRulesPicker,
             "program-stats": openProgramStats,
+            "strength": openStrength,
             // Экран дня для аудита вёрстки открывается на первом дне недели
             // активной программы. Данные грузятся здесь же: редактор перед ним не
             // открывался, поэтому ViewModel оставалась с пустым черновиком, и
@@ -690,29 +848,6 @@ Item {
         }
     }
     Component {
-        id: programCatalogComponent
-
-        ProgramCatalogPage {
-            bottomInset: shell.pageBottomInset
-            topInset: shell.topInset
-
-            onBackRequested: shell.goBack()
-            onCreateRequested: shell.openProgramEditor()
-            // Открытие, правка и статистика приходят идентификатором: каталог
-            // показывает все программы, а не только активную, поэтому и переход
-            // должен нести конкретную программу.
-            onOpenRequested: function (programId) {
-                shell.openProgramOverview(programId);
-            }
-            onEditRequested: function (programId) {
-                shell.openProgramEditor(programId);
-            }
-            onStatsRequested: function (programId) {
-                shell.openProgramStats(programId);
-            }
-        }
-    }
-    Component {
         id: programOverviewComponent
 
         ProgramOverviewPage {
@@ -725,8 +860,11 @@ Item {
             onEditRequested: function (programId) {
                 shell.openProgramEditor(programId);
             }
-            onRulesRequested: shell.openProgramRules()
-            onStatsRequested: shell.openProgramStats()
+            onRulesRequested: shell.openProgramRules(programId)
+            onStatsRequested: shell.openProgramStats(programId)
+            onStrengthRequested: shell.openStrength(programId)
+            onDiaryRequested: shell.openDiary(programId)
+            onActivated: shell.todayViewModel.reload(AppContext.currentUserId)
         }
     }
     Component {
@@ -773,6 +911,7 @@ Item {
         ProgramRulesPage {
             bottomInset: shell.pageBottomInset
             topInset: shell.topInset
+            programId: shell.programId
 
             onBackRequested: shell.goBack()
         }
@@ -791,10 +930,27 @@ Item {
         id: programStatsComponent
 
         ProgramStatsPage {
+            onStrengthRequested: shell.openStrength(programId)
             bottomInset: shell.pageBottomInset
             topInset: shell.topInset
             programId: shell.programId
 
+            onBackRequested: shell.goBack()
+        }
+    }
+    Component {
+        id: profileComponent
+
+        ProfilePage {
+            auth: shell.auth
+            bottomInset: shell.pageBottomInset
+            topInset: shell.topInset
+            viewModel: shell.profileViewModel
+
+            // Вход открывается поверх профиля; originTab = -1 означает
+            // «вернуть на тот же экран», а не переключить вкладку.
+            onLoginRequested: shell.authPageRequested(-1)
+            onLogoutRequested: shell.auth.logout()
             onBackRequested: shell.goBack()
         }
     }
@@ -819,6 +975,43 @@ Item {
             onBackRequested: shell.goBack()
         }
     }
+    Component {
+        id: workoutComponent
+        WorkoutPage {
+            objectName: "workoutPage"
+            topInset: shell.topInset
+            bottomInset: shell.bottomInset
+            onBackRequested: shell.goBack()
+        }
+    }
+    Component {
+        id: strengthComponent
+        StrengthPage {
+            topInset: shell.topInset
+            bottomInset: shell.pageBottomInset
+            programId: shell.programId
+            onBackRequested: shell.goBack()
+        }
+    }
+    Connections {
+        target: typeof WorkoutVM !== "undefined" ? WorkoutVM : null
+        function onSessionFinished(programId) {
+            const userId = AppContext.currentUserId;
+            if (shell.todayViewModel)
+                shell.todayViewModel.reload(userId);
+            if (shell.diaryViewModel)
+                shell.diaryViewModel.reload(userId, programId);
+            if (typeof StrengthVM !== "undefined")
+                StrengthVM.reload(userId, programId);
+        }
+    }
+    Connections {
+        target: shell.todayViewModel
+        function onChanged() {
+            if (typeof WorkoutVM !== "undefined" && typeof AppContext !== "undefined")
+                WorkoutVM.checkPending(AppContext.currentUserId);
+        }
+    }
     BottomTabBar {
         id: tabBar
 
@@ -831,7 +1024,7 @@ Item {
         // разделы доступны с любого экрана одним тапом, как в нативных
         // приложениях. Pushed-страницы резервируют под панель место
         // (shell.pageBottomInset), контент не заезжает под неё.
-        visible: true
+        visible: !shell.workoutVisible
 
         // Сигнал панели раньше никто не слушал: тап менял только подсветку
         // вкладки, а сама страница оставалась на месте — панель выглядела

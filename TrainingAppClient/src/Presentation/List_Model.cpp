@@ -20,6 +20,10 @@ void AList_Model::Set_Roles(const QStringList &in_role_names)
 //-------------------------------------------------------------------------------------------------------------
 void AList_Model::Set_Rows(const QVector<QVariantMap> &in_rows)
 {
+	if (Rows == in_rows)
+		return;
+
+	const bool count_changed = Rows.size() != in_rows.size();
 	beginResetModel();
 
 	// Копия: вызывающий может переиспользовать свой контейнер, а модель
@@ -29,7 +33,54 @@ void AList_Model::Set_Rows(const QVector<QVariantMap> &in_rows)
 	endResetModel();
 	// Сигнал после сброса модели: подписчики count обязаны увидеть новое число
 	// строк уже согласованным с данными.
+	if (count_changed)
+		emit countChanged();
+}
+//-------------------------------------------------------------------------------------------------------------
+void AList_Model::Append_Rows(const QVector<QVariantMap> &in_rows)
+{
+	if (in_rows.isEmpty())
+		return;
+
+	const int first = Rows.size();
+	beginInsertRows(QModelIndex(), first, first + in_rows.size() - 1);
+	Rows.append(in_rows);
+	endInsertRows();
 	emit countChanged();
+}
+//-------------------------------------------------------------------------------------------------------------
+void AList_Model::Update_Rows(const QVector<QVariantMap> &in_rows, const QString &in_id_role)
+{
+	const int common_count = qMin(Rows.size(), in_rows.size());
+
+	for (int i = 0; i < common_count; ++i)
+	{
+		if (!Rows.at(i).contains(in_id_role) || !in_rows.at(i).contains(in_id_role) ||
+		    Rows.at(i).value(in_id_role) != in_rows.at(i).value(in_id_role))
+		{
+			Set_Rows(in_rows);
+			return;
+		}
+	}
+
+	for (int i = 0; i < common_count; ++i)
+	{
+		if (Rows.at(i) == in_rows.at(i))
+			continue;
+
+		Rows[i] = in_rows.at(i);
+		emit dataChanged(index(i), index(i));
+	}
+
+	if (in_rows.size() > Rows.size())
+		Append_Rows(in_rows.mid(Rows.size()));
+	else if (in_rows.size() < Rows.size())
+	{
+		beginRemoveRows(QModelIndex(), in_rows.size(), Rows.size() - 1);
+		Rows.resize(in_rows.size());
+		endRemoveRows();
+		emit countChanged();
+	}
 }
 //-------------------------------------------------------------------------------------------------------------
 int AList_Model::Row_Count() const

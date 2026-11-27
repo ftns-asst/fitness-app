@@ -7,8 +7,9 @@ import TrainingAppClient
 // спал». Поле принимает число с клавиатуры, «−/+» шагают по единице правила
 // (50 ккал, 5 г, 100 мл…). «Сохранить» отправляет значение (состояние выводит
 // модель из цели); «Выполнено — по цели» заполняет число целью одним касанием.
-Popup {
+SwipePopup {
     id: popup
+    dragHandle: ruleGrip
 
     property real current: 0
     // Цель и шаг — с плитки, которая открыла окно.
@@ -45,7 +46,7 @@ Popup {
         input.text = next > 0 ? String(next) : "0";
     }
 
-    anchors.centerIn: parent
+    onAboutToShow: ruleGrip.reset()
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     dim: true
     modal: true
@@ -53,36 +54,13 @@ Popup {
     padding: Spacing.cardPadding
     width: parent !== null ? Math.min(parent.width - Spacing.screenPadding * 2, 420) : 320
 
-    enter: Transition {
-        NumberAnimation {
-            duration: 200
-            easing.type: Easing.OutCubic
-            from: 0
-            property: "opacity"
-            to: 1
-        }
-        NumberAnimation {
-            duration: 240
-            easing.type: Easing.OutBack
-            from: 0.92
-            property: "scale"
-            to: 1
-        }
-    }
-    exit: Transition {
-        NumberAnimation {
-            duration: 120
-            property: "opacity"
-            to: 0
-        }
-    }
-    background: Rectangle {
-        border.color: Theme.border
-        border.width: Theme.borderWidth
-        color: Theme.surface
-        radius: Theme.radiusLg
-    }
     contentItem: ColumnLayout {
+        SwipeDismissHandle {
+            id: ruleGrip
+            Layout.fillWidth: true
+            objectName: "ruleValueGrip"
+            onDismissed: popup.close()
+        }
         spacing: Spacing.itemGap
 
         Label {
@@ -108,26 +86,19 @@ Popup {
 
                 onActivated: popup.shift(-popup.step)
             }
-            TextField {
+            AppInput {
                 id: input
 
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 Layout.preferredHeight: Theme.buttonPrimary
-                color: Theme.textPrimary
                 font: Typography.sectionTitle
                 horizontalAlignment: Text.AlignHCenter
                 inputMethodHints: Qt.ImhFormattedNumbersOnly
                 objectName: "ruleValueInput"
                 placeholderText: "0"
-                placeholderTextColor: Theme.textMuted
 
-                background: Rectangle {
-                    border.color: input.activeFocus ? Theme.accent : Theme.border
-                    border.width: input.activeFocus ? 2 : Theme.borderWidth
-                    color: Theme.surfaceMuted
-                    radius: Theme.radiusMd
-                }
+                focusBorderWidth: 2
                 validator: DoubleValidator {
                     bottom: 0
                     decimals: 2

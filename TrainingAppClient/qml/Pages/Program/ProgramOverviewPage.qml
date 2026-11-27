@@ -9,29 +9,38 @@ import TrainingAppClient
 //
 // Дни недели выводятся из week_slots: слот отдыха виден отдельно от
 // тренировки, поэтому «день без тренировки» не прячется.
-PageScaffold {
+// Обзор программы (экран 41, §5.1) — один экран с сегментами вместо четырёх
+// равнозначных кнопок. Данные — из настоящей БД через Avm_Program.
+//
+// Шапка закреплена сверху: возврат, название и единственное действие
+// «Изменить». Ниже сегменты, а содержимое сегмента грузится отдельно —
+// «Состав» (расписание недели), «Прогресс» и «Правила». Встроенные страницы
+// статистики и правил не рисуют собственную шапку: её держит обзор.
+Item {
     id: page
 
-    // Дни недели в порядке Пн…Вс — ISO 1…7 (§3.4).
     readonly property var weekdayNames: [qsTr("Пн"), qsTr("Вт"), qsTr("Ср"), qsTr("Чт"), qsTr("Пт"), qsTr("Сб"), qsTr("Вс")]
     property var viewModel: ProgramVM
     // Программа для показа. Пусто — активная (вход из вкладок); каталог
     // передаёт идентификатор конкретной программы (срез S2).
     property string programId: ""
-    // Панель возврата обязательна: экраны программы открыты поверх вкладок, где
-    // таб-бара нет.
-    BackBar {
-        Layout.fillWidth: true
-        onClicked: page.backRequested()
-        text: qsTr("Назад")
-        visible: true
-    }
-
-    caption: page.hasProgram ? qsTr("Активная программа") : qsTr("Активной программы пока нет")
-    title: qsTr("Моя программа")
+    // 0 — состав, 1 — прогресс, 2 — правила.
+    property int segment: 0
+    property real bottomInset: 0
+    property real topInset: 0
 
     readonly property bool hasProgram: page.viewModel !== undefined && page.viewModel !== null && page.viewModel.hasProgram
+    readonly property bool readOnly: page.hasProgram && page.viewModel.isReadOnly
     readonly property int weeksTotal: page.hasProgram ? page.viewModel.weeksTotal : 0
+
+    signal activated
+    signal backRequested
+    signal createRequested
+    signal diaryRequested
+    signal editRequested(string programId)
+    signal rulesRequested
+    signal strengthRequested
+    signal statsRequested
 
     // Загрузка идёт при создании и при каждом показе: у страницы, открытой
     // прямо в StackView (например, по --screen), visible не меняется — она
@@ -44,9 +53,9 @@ PageScaffold {
             page.reload();
     }
 
-    // Идентификатор пользователя берётся из общего источника Session, а не из
-    // литерала: раньше значение «u1» повторялось в пяти местах QML, и любое
-    // другое значение (например, посев демо-данных) делало программу невидимой.
+    // Идентификатор пользователя берётся из общего источника Session: раньше
+    // «u1» повторялось в пяти местах QML, и другое значение делало программу
+    // невидимой.
     function currentUserId() {
         return typeof AppContext !== "undefined" && AppContext !== null ? AppContext.currentUserId : "u1";
     }
@@ -57,162 +66,14 @@ PageScaffold {
 
         page.viewModel.reload(page.currentUserId(), page.programId);
     }
-    //MARK_BACK
 
-    readonly property bool readOnly: page.hasProgram && page.viewModel.isReadOnly
+    // Подпись шапки: состояние программы и её срок.
+    function captionText() {
+        if (!page.hasProgram)
+            return qsTr("Активной программы пока нет");
 
-    // — Состояние без программы: приглашение создать первую —
-    AppCard {
-        width: parent.width
-        visible: page.hasProgram === false
-        ColumnLayout {
-            // Внутри AppCard ширину задаёт родитель, а не Layout: содержимое
-            // карточки лежит в обычной Column, где Layout-свойства не работают.
-            width: parent.width
-            spacing: Spacing.itemGap
-
-            Label {
-                Layout.fillWidth: true
-                color: Theme.textPrimary
-                font: Typography.sectionTitle
-                text: qsTr("Начните с программы")
-                wrapMode: Text.WordWrap
-            }
-            Label {
-                Layout.fillWidth: true
-                color: Theme.textSecondary
-                font: Typography.body
-                text: qsTr("Создайте программу: выберите срок и цель, настройте каждый день недели и добавьте правила.")
-                wrapMode: Text.WordWrap
-            }
-            AppButton {
-                Layout.fillWidth: true
-                onClicked: page.createRequested()
-                text: qsTr("Создать программу")
-                variant: AppButton.Primary
-            }
-        }
+        return (page.viewModel.state === "active" ? qsTr("Активная программа") : qsTr("Моя программа")) + (page.weeksTotal > 0 ? qsTr(" · %1 нед.").arg(page.weeksTotal) : "");
     }
-    // — Карточка программы: название, цель, срок —
-    AppCard {
-        width: parent.width
-        visible: page.hasProgram
-        ColumnLayout {
-            // Внутри AppCard ширину задаёт родитель, а не Layout: содержимое
-            // карточки лежит в обычной Column, где Layout-свойства не работают.
-            width: parent.width
-            spacing: Spacing.itemGap
-
-            Label {
-                Layout.fillWidth: true
-                color: Theme.textPrimary
-                font: Typography.screenTitle
-                text: page.viewModel.title
-                wrapMode: Text.WordWrap
-            }
-            Flow {
-                Layout.fillWidth: true
-                spacing: Spacing.itemGap
-
-                TagPill {
-                    text: page.goalText()
-                }
-                TagPill {
-                    text: qsTr("%1 нед.").arg(page.weeksTotal)
-                }
-                TagPill {
-                    text: page.viewModel.startDate
-                }
-            }
-        }
-    }
-    // — Расписание недели: семь дней, у каждого свой план —
-    Label {
-        color: Theme.textMuted
-        font: Typography.sectionTitle
-        text: qsTr("Расписание недели")
-        visible: page.hasProgram
-    }
-    Row {
-        // Ширина задаётся родителем: ряд лежит в обычной Column PageScaffold,
-        // где Layout.fillWidth не действует.
-        id: slotList
-
-        width: parent.width
-        spacing: Spacing.itemGap
-        visible: page.hasProgram
-
-        Repeater {
-            model: page.hasProgram ? page.viewModel.week_slots : []
-
-            delegate: DayTile {
-                // Роли берутся через model.имя: обязательные свойства для
-                // AList_Model не срабатывают, делегат не создаётся.
-                height: heightCompact
-                isActive: model.isToday
-                isToday: model.isToday
-                tileKind: model.kind
-                weekdayName: model.dayOfWeek > 0 ? page.weekdayNames[model.dayOfWeek - 1] : ""
-                // Ширина — от ширины страницы: ширина самого ряда на момент
-                // создания делегата ещё не посчитана.
-                width: widthFor(page.width)
-            }
-        }
-    }
-    // Легенда под рядом: без неё плитки читаются как пёстрая полоса —
-    // чем отличаются тонированные дни и какой отмечен «сегодня» (макет 02).
-    WeekLegend {
-        width: parent.width
-        visible: page.hasProgram
-    }
-    // — Переходы к остальным экранам программы —
-    ColumnLayout {
-        // Ширина задаётся родителем: список лежит в обычной Column
-        // PageScaffold, где Layout.fillWidth не действует.
-        width: parent.width
-        spacing: Spacing.listGap
-        visible: page.hasProgram
-
-        AppButton {
-            Layout.fillWidth: true
-            onClicked: page.rulesRequested()
-            text: qsTr("Правила и отметки")
-            variant: AppButton.Secondary
-        }
-        AppButton {
-            Layout.fillWidth: true
-            onClicked: page.statsRequested()
-            text: qsTr("Статистика программы")
-            variant: AppButton.Secondary
-        }
-        // Кнопка настройки скрыта у завершённой и архивной программы: её
-        // структуру менять нельзя (§3.1), и предложение привело бы к отказу.
-        AppButton {
-            Layout.fillWidth: true
-            onClicked: page.editRequested(page.programId)
-            text: qsTr("Настроить программу")
-            variant: AppButton.Secondary
-            visible: page.readOnly === false
-        }
-        Label {
-            Layout.fillWidth: true
-            // Без снятия минимальной ширины длинный текст держал неявную
-            // ширину и выталкивал ряд за край карточки.
-            Layout.minimumWidth: 0
-            color: Theme.textSecondary
-            font: Typography.caption
-            text: qsTr("Программа завершена — изменить её нельзя")
-            visible: page.readOnly
-            wrapMode: Text.WordWrap
-        }
-    }
-
-    // Запрос возврата: экраны программы открыты поверх вкладок, где таб-бара нет.
-    signal backRequested
-    signal createRequested
-    signal editRequested(string programId)
-    signal rulesRequested
-    signal statsRequested
 
     // Перевод цели enum в подпись: значения приходят строкой (§7).
     function goalText() {
@@ -225,5 +86,275 @@ PageScaffold {
         const key = page.hasProgram ? page.viewModel.goal : "strength";
 
         return goals[key] !== undefined ? goals[key] : qsTr("Сила");
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        color: Theme.background
+    }
+
+    // — Закреплённая шапка: возврат, название, «Изменить», сегменты —
+    Column {
+        id: chrome
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: page.topInset
+        spacing: Spacing.itemGap
+
+        BackBar {
+            objectName: "programBackBar"
+            width: parent.width
+            text: qsTr("Назад")
+            onClicked: page.backRequested()
+        }
+        RowLayout {
+            anchors.left: parent.left
+            anchors.leftMargin: Spacing.screenPadding
+            anchors.right: parent.right
+            anchors.rightMargin: Spacing.screenPadding
+            spacing: Spacing.itemGap
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                spacing: 2
+
+                Label {
+                    Layout.fillWidth: true
+                    color: Theme.textPrimary
+                    elide: Text.ElideRight
+                    font: Typography.largeTitle
+                    objectName: "programOverviewTitle"
+                    text: page.hasProgram ? page.viewModel.title : qsTr("Моя программа")
+                }
+                Label {
+                    Layout.fillWidth: true
+                    color: Theme.textSecondary
+                    elide: Text.ElideRight
+                    font: Typography.caption
+                    text: page.captionText()
+                }
+            }
+            // Кнопка скрыта у завершённой программы: её структуру менять нельзя.
+            AppButton {
+                Layout.alignment: Qt.AlignVCenter
+                compact: true
+                objectName: "programEditAction"
+                text: qsTr("Изменить")
+                variant: AppButton.Secondary
+                visible: page.hasProgram && page.readOnly === false
+
+                onClicked: page.editRequested(page.programId)
+            }
+        }
+        SegmentedControl {
+            anchors.left: parent.left
+            anchors.leftMargin: Spacing.screenPadding
+            anchors.right: parent.right
+            anchors.rightMargin: Spacing.screenPadding
+            currentIndex: page.segment
+            items: [qsTr("Состав"), qsTr("Прогресс"), qsTr("Правила")]
+            objectName: "programSegments"
+
+            onSelected: function (index) {
+                page.segment = index;
+            }
+        }
+    }
+
+    // Содержимое сегмента грузится отдельно: в кадре всегда ровно одна
+    // прокручиваемая страница, поэтому вложенных Flickable нет.
+    Loader {
+        id: body
+
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: chrome.bottom
+        anchors.topMargin: Spacing.itemGap
+        sourceComponent: page.segment === 1 ? statsComponent : page.segment === 2 ? rulesComponent : compositionComponent
+    }
+
+    // — Состав: расписание недели и переходы —
+    Component {
+        id: compositionComponent
+
+        PageScaffold {
+            bottomInset: page.bottomInset
+            showHeader: false
+            topInset: 0
+
+            // — Состояние без программы: приглашение создать первую —
+            AppCard {
+                width: parent.width
+                visible: page.hasProgram === false
+                ColumnLayout {
+                    // Внутри AppCard ширину задаёт родитель, а не Layout: содержимое
+                    // карточки лежит в обычной Column, где Layout-свойства не работают.
+                    width: parent.width
+                    spacing: Spacing.itemGap
+
+                    Label {
+                        Layout.fillWidth: true
+                        color: Theme.textPrimary
+                        font: Typography.sectionTitle
+                        text: qsTr("Начните с программы")
+                        wrapMode: Text.WordWrap
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        color: Theme.textSecondary
+                        font: Typography.body
+                        text: qsTr("Создайте программу: выберите срок и цель, настройте каждый день недели и добавьте правила.")
+                        wrapMode: Text.WordWrap
+                    }
+                    AppButton {
+                        Layout.fillWidth: true
+                        onClicked: page.createRequested()
+                        text: qsTr("Создать программу")
+                        variant: AppButton.Primary
+                    }
+                }
+            }
+            // — Карточка программы: название, цель, срок —
+            AppCard {
+                width: parent.width
+                visible: page.hasProgram
+                ColumnLayout {
+                    // Внутри AppCard ширину задаёт родитель, а не Layout: содержимое
+                    // карточки лежит в обычной Column, где Layout-свойства не работают.
+                    width: parent.width
+                    spacing: Spacing.itemGap
+
+                    Label {
+                        Layout.fillWidth: true
+                        color: Theme.textPrimary
+                        font: Typography.screenTitle
+                        text: page.viewModel.title
+                        wrapMode: Text.WordWrap
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: Spacing.itemGap
+
+                        TagPill {
+                            text: page.goalText()
+                        }
+                        TagPill {
+                            text: qsTr("%1 нед.").arg(page.weeksTotal)
+                        }
+                        TagPill {
+                            text: page.viewModel.startDate
+                        }
+                    }
+                }
+            }
+            // — Расписание недели: семь дней, у каждого свой план —
+            Label {
+                color: Theme.textMuted
+                font: Typography.sectionTitle
+                text: qsTr("Расписание недели")
+                visible: page.hasProgram
+            }
+            Row {
+                // Ширина задаётся родителем: ряд лежит в обычной Column PageScaffold,
+                // где Layout.fillWidth не действует.
+                id: slotList
+
+                width: parent.width
+                spacing: Spacing.itemGap
+                visible: page.hasProgram
+
+                Repeater {
+                    model: page.hasProgram ? page.viewModel.week_slots : []
+
+                    delegate: DayTile {
+                        // Роли берутся через model.имя: обязательные свойства для
+                        // AList_Model не срабатывают, делегат не создаётся.
+                        // В обзоре расписание информационное; настройка дня — в редакторе.
+                        enabled: false
+                        height: heightCompact
+                        isActive: model.isToday
+                        isToday: model.isToday
+                        tileKind: model.kind
+                        weekdayName: model.dayOfWeek > 0 ? page.weekdayNames[model.dayOfWeek - 1] : ""
+                        // Ширина — от ширины страницы: ширина самого ряда на момент
+                        // создания делегата ещё не посчитана.
+                        width: widthFor(page.width)
+                    }
+                }
+            }
+            // Легенда под рядом: без неё плитки читаются как пёстрая полоса —
+            // чем отличаются тонированные дни и какой отмечен «сегодня» (макет 02).
+            WeekLegend {
+                width: parent.width
+                visible: page.hasProgram
+            }
+            // — Переходы, оставшиеся после сегментов: дневник и активация —
+            ColumnLayout {
+                width: parent.width
+                spacing: Spacing.listGap
+                visible: page.hasProgram
+
+                AppButton {
+                    Layout.fillWidth: true
+                    objectName: "programDiaryButton"
+                    onClicked: page.diaryRequested()
+                    text: qsTr("Дневник")
+                    variant: AppButton.Secondary
+                }
+                Label {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    color: Theme.textSecondary
+                    font: Typography.caption
+                    text: qsTr("Программа завершена — изменить её нельзя")
+                    visible: page.readOnly
+                    wrapMode: Text.WordWrap
+                }
+            }
+
+            AppButton {
+                width: parent.width
+                visible: page.hasProgram && page.viewModel.state === "paused"
+                text: qsTr("Сделать активной")
+                variant: AppButton.Primary
+
+                onClicked: {
+                    if (page.viewModel.activate(page.currentUserId())) {
+                        Demo.notify(qsTr("Программа активирована. Предыдущая программа поставлена на паузу."));
+                        page.activated();
+                    } else {
+                        Demo.notify(qsTr("Не удалось активировать программу"));
+                    }
+                }
+            }
+        }
+    }
+
+    // — Прогресс и правила: те же страницы, что открываются из диагностики,
+    //    но без собственной шапки —
+    Component {
+        id: statsComponent
+
+        ProgramStatsPage {
+            onStrengthRequested: page.strengthRequested()
+            bottomInset: page.bottomInset
+            embedded: true
+            programId: page.programId
+            topInset: 0
+        }
+    }
+    Component {
+        id: rulesComponent
+
+        ProgramRulesPage {
+            bottomInset: page.bottomInset
+            embedded: true
+            programId: page.programId
+            topInset: 0
+        }
     }
 }

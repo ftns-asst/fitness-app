@@ -1,7 +1,9 @@
 ﻿#pragma once
 
+#include "Domain/Dashboard_Calculator.h"
 #include "Domain/Error_State.h"
 #include "Domain/Macro_Calculator.h"
+#include "Domain/Measurement_Schedule.h"
 #include "Domain/Program_Model.h"
 #include "Presentation/List_Model.h"
 
@@ -9,6 +11,8 @@
 #include <QLoggingCategory>
 #include <QObject>
 #include <QString>
+#include <QStringList>
+#include <QVariantMap>
 
 using namespace Program_Model;
 
@@ -38,6 +42,7 @@ class Avm_Today : public QObject
 	Q_OBJECT
 
 	Q_PROPERTY(bool hasProgram READ Has_Program NOTIFY changed)
+	Q_PROPERTY(QVariantMap dashboard READ dashboard NOTIFY changed)
 	Q_PROPERTY(QString programId READ programId NOTIFY changed)
 	Q_PROPERTY(QString programTitle READ programTitle NOTIFY changed)
 	Q_PROPERTY(QString goal READ goal NOTIFY changed)
@@ -88,6 +93,17 @@ class Avm_Today : public QObject
 	Q_PROPERTY(double hipCm READ hipCm NOTIFY changed)
 	Q_PROPERTY(double armCm READ armCm NOTIFY changed)
 	Q_PROPERTY(double thighCm READ thighCm NOTIFY changed)
+	// Все заданные показатели сегодняшнего замера одной картой: ключи — "weight"
+	// и EMeasurement_Key (chest, waist, hip, arm, thigh, belly, shoulders,
+	// calves, neck). Незаданных ключей в карте нет — форма не показывает -1.
+	Q_PROPERTY(QVariantMap measurementValues READ measurementValues NOTIFY changed)
+	// Только поля ввода обхватов текущей программы; история и вес не фильтруются.
+	Q_PROPERTY(QStringList selectedMeasurementKeys READ selectedMeasurementKeys NOTIFY changed)
+	// Расписание замеров (FR-T7): пора ли мерить сегодня, ближайшая дата
+	// (YYYY-MM-DD, пусто — программы нет или срок закончился) и шаг в днях.
+	Q_PROPERTY(bool measurementDue READ measurementDue NOTIFY changed)
+	Q_PROPERTY(QString nextMeasurementDate READ nextMeasurementDate NOTIFY changed)
+	Q_PROPERTY(int measurementIntervalDays READ measurementIntervalDays NOTIFY changed)
 
 public:
 	Avm_Today(AProgram_Repository *in_program_repository, ARule_Repository *in_rule_repository,
@@ -106,13 +122,15 @@ public:
 	Q_INVOKABLE bool reloadIfDayChanged(const QString &in_user_id);
 
 	// — Ввод значений (спринт S6, issue 51) —
-	// Замер за сегодня. Незаданные поля (in_has_* = false) не пишутся: запись
+	// Замер за сегодня. В карте только заданные показатели ("weight" и ключи
+	// EMeasurement_Key): отсутствующий ключ — «не измерял», а не ноль. Запись
 	// сливается с уже сохранённой, поэтому утренний вес не теряется при
 	// вечерней записи обхватов. Повторный ввод за день обновляет запись, а не
-	// создаёт вторую (upsert на паре user + date).
-	Q_INVOKABLE bool saveMeasurement(double in_weight_kg, bool in_has_weight, double in_chest_cm, bool in_has_chest,
-	                                 double in_waist_cm, bool in_has_waist, double in_hip_cm, bool in_has_hip,
-	                                 double in_arm_cm, bool in_has_arm, double in_thigh_cm, bool in_has_thigh);
+	// создаёт вторую (upsert на паре user + date). Неизвестный ключ или
+	// нечисловое значение отвергают всю запись.
+	Q_INVOKABLE bool saveMeasurement(const QVariantMap &in_values);
+	// Шаг расписания замеров активной программы, дней (1…30).
+	Q_INVOKABLE bool setMeasurementInterval(int in_days);
 
 	// Отметка правила за сегодня. Запись идемпотентна по паре (rule, date):
 	// повторная отметка тем же состоянием не должна увеличивать счётчик дней
@@ -143,6 +161,9 @@ public:
 	bool Load_Measurement(const QString &in_user_id);
 
 	bool Has_Program() const;
+	QVariantMap dashboard() const;
+	// Данные часов из хранилища жизненного цикла; передать до reload.
+	void Set_Program_Clock(const QString &in_program_id, int in_paused_days, const QString &in_paused_on);
 	QString programId() const;
 	QString programTitle() const;
 	QString goal() const;
@@ -174,11 +195,14 @@ public:
 	double hipCm() const;
 	double armCm() const;
 	double thighCm() const;
+	QVariantMap measurementValues() const;
+	QStringList selectedMeasurementKeys() const;
+	bool measurementDue() const;
+	QString nextMeasurementDate() const;
+	int measurementIntervalDays() const;
 
 	// Ввод значений (спринт S6, issue 51), предметная область —
-	bool Save_Measurement(const QString &in_user_id, double in_weight_kg, bool in_has_weight, double in_chest_cm,
-	                      bool in_has_chest, double in_waist_cm, bool in_has_waist, double in_hip_cm, bool in_has_hip,
-	                      double in_arm_cm, bool in_has_arm, double in_thigh_cm, bool in_has_thigh);
+	bool Save_Measurement(const QString &in_user_id, const SBody_Measurement &in_values);
 	bool Save_Checkin(const QString &in_rule_id, const QString &in_state, double in_value, bool in_has_value);
 	const SProgram_Rule *Find_Loaded_Rule(const QString &in_rule_id) const;
 	// Пользователь, от имени которого идёт ввод: замеры и отметки не зависят
@@ -203,7 +227,8 @@ private:
 	bool Set_Error(const QString &in_error_key);
 	// Вид дня строкой и ближайший тренировочный день. Оба считаются из
 	// расписания, поэтому экран не ищет их сам (§5.1).
-	void Load_Day(const QVector<SWeek_Slot> &in_slots, const QVector<SProgram_Day> &in_days);
+	void Load_Day(const QVector<SWeek_Slot> &in_slots, const QVector<SProgram_Day> &in_days,
+	              const SProgram &in_program);
 	// Ближайший день недели с упражнениями, начиная с сегодняшнего. 0 — такого
 	// дня нет: программа состоит из одних дней отдыха, и тогда подпись про
 	// следующую тренировку показывать нечего.
@@ -219,6 +244,10 @@ private:
 	// (§5.4): кэш удаляется из точки записи, иначе экран статистики продолжал бы
 	// показывать вес, которого уже нет.
 	void Invalidate_Stats();
+	// Расписание замеров берётся из срока активной программы и пересчитывается
+	// после загрузки и после каждого сохранения замера.
+	void Prepare_Measurement_Schedule(const SProgram &in_program);
+	void Refresh_Measurement_Schedule();
 
 	// Слот по ISO-номеру дня недели; nullptr — день расписанием не покрыт.
 	const SWeek_Slot *Find_Slot(const QVector<SWeek_Slot> &in_slots, int in_weekday) const;
@@ -235,6 +264,10 @@ private:
 	// отдельных полей ViewModel: форма читает и пишет её одним объектом, и
 	// раздельные свойства расходились бы с ней при частичном вводе.
 	SBody_Measurement Measurement;
+	QVariantMap Dashboard;
+	QString Clock_Program_Id;
+	int Clock_Paused_Days = 0;
+	QString Clock_Paused_On;
 	// Результат авторасчёта КБЖУ: числа и дата расчёта. Держится структурой
 	// домена, а не набором полей ViewModel: экран показывает числа как есть, и
 	// тот же расчёт на экране «Рассчитать КБЖУ» заполняет эту же структуру.
@@ -255,6 +288,12 @@ private:
 	QString Program_Title_Text;
 	QString Goal_Text;
 	QString Today_Text;
+	QString Schedule_Start_Text;
+	QString Schedule_End_Text;
+	int Measurement_Interval_Days = AMeasurement_Schedule::Default_Interval_Days;
+	bool Measurement_Due_Value = false;
+	QString Next_Measurement_Date_Text;
+	QStringList Selected_Measurement_Keys;
 	bool Today_Is_Pinned = false; // дата задана извне (тесты) и часами не обновляется
 	QString Day_Title_Text;
 	// Идентификатор дня плана, к которому ведёт слот сегодняшнего дня недели.

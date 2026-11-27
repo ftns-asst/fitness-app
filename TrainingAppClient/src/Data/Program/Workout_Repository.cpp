@@ -1,5 +1,7 @@
 ﻿#include "Data/Program/Workout_Repository.h"
 
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -13,7 +15,8 @@
 static const char *Session_Columns =
     "id, user_id, program_id, program_day_id, planned_date, planned_week_index, date, started_at, "
     "completed_at, duration_seconds, state, deviation, exercise_count, set_count, tonnage_kg, avg_rpe, "
-    "program_revision, correction_of_session_id, note, sync_state";
+    "program_revision, correction_of_session_id, note, sync_state, (SELECT plan_json FROM workout_runtime WHERE "
+    "session_id=workouts.id)";
 
 //-------------------------------------------------------------------------------------------------------------
 // AWorkout_Repository
@@ -83,6 +86,9 @@ bool AWorkout_Repository::Read_Session_Row(const QSqlQuery &in_query, int in_fir
 {
 	const int column = in_first_column;
 
+	const QJsonObject snapshot = QJsonDocument::fromJson(in_query.value(column + 20).toString().toUtf8()).object();
+	out_session.Snapshot_Day_Id = snapshot.value("dayId").toString();
+	out_session.Snapshot_Day_Title = snapshot.value("title").toString();
 	out_session.ID = in_query.value(column + 0).toString();
 	out_session.User_Id = in_query.value(column + 1).toString();
 	out_session.Program_Id = in_query.value(column + 2).toString();
@@ -136,7 +142,8 @@ bool AWorkout_Repository::Load_Sets(const QVector<QString> &in_session_ids, QVec
 			return false;
 
 		query.prepare(QString("SELECT id, session_id, day_exercise_id, exercise_id, set_number, is_warmup, weight_kg, "
-		                      "reps, rpe, target_weight_kg, target_reps, done, note FROM sets WHERE session_id IN (%1) "
+		                      "reps, rpe, target_weight_kg, target_reps, done, note, target_reps_min, target_reps_max "
+		                      "FROM sets WHERE session_id IN (%1) "
 		                      "ORDER BY session_id, set_number")
 		                  .arg(placeholders.join(", ")));
 
@@ -150,7 +157,8 @@ bool AWorkout_Repository::Load_Sets(const QVector<QString> &in_session_ids, QVec
 
 		query.prepare(
 		    "SELECT id, session_id, day_exercise_id, exercise_id, set_number, is_warmup, weight_kg, reps, rpe, "
-		    "target_weight_kg, target_reps, done, note FROM sets ORDER BY session_id, set_number");
+		    "target_weight_kg, target_reps, done, note, target_reps_min, target_reps_max FROM sets ORDER BY "
+		    "session_id, set_number");
 	}
 
 	if (!query.exec())
@@ -176,6 +184,9 @@ bool AWorkout_Repository::Load_Sets(const QVector<QString> &in_session_ids, QVec
 		set_log.Target_Reps = query.value(10).toInt();
 		set_log.Done = query.value(11).toInt() != 0;
 		set_log.Note = query.value(12).toString();
+		set_log.Has_Target_Reps_Range = !query.value(13).isNull() && !query.value(14).isNull();
+		set_log.Target_Reps_Min = query.value(13).toInt();
+		set_log.Target_Reps_Max = query.value(14).toInt();
 		out_sets.append(set_log);
 	}
 
@@ -196,6 +207,11 @@ bool AWorkout_Repository::Load_Program_Facts(const QString &in_user_id, const QS
 	for (int i = 0; i < out_sessions.size(); ++i)
 		session_ids.append(out_sessions.at(i).ID);
 
+	if (session_ids.isEmpty())
+	{
+		out_sets.clear();
+		return true;
+	}
 	if (!Load_Sets(session_ids, out_sets))
 		return false;
 
@@ -316,13 +332,14 @@ bool AWorkout_Repository::Save_Set(const SSet_Log &in_set)
 		set_id = QUuid::createUuid().toString(QUuid::WithoutBraces);
 
 	query.prepare("INSERT INTO sets(id, session_id, day_exercise_id, exercise_id, set_number, is_warmup, "
-	              "weight_kg, reps, rpe, target_weight_kg, target_reps, done, note) "
-	              "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+	              "weight_kg, reps, rpe, target_weight_kg, target_reps, done, note, target_reps_min, target_reps_max) "
+	              "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
 	              "ON CONFLICT(id) DO UPDATE SET session_id = excluded.session_id, "
 	              "day_exercise_id = excluded.day_exercise_id, exercise_id = excluded.exercise_id, "
 	              "set_number = excluded.set_number, is_warmup = excluded.is_warmup, weight_kg = excluded.weight_kg, "
 	              "reps = excluded.reps, rpe = excluded.rpe, target_weight_kg = excluded.target_weight_kg, "
-	              "target_reps = excluded.target_reps, done = excluded.done, note = excluded.note");
+	              "target_reps = excluded.target_reps, done = excluded.done, note = excluded.note, target_reps_min = "
+	              "excluded.target_reps_min, target_reps_max = excluded.target_reps_max");
 	query.addBindValue(set_id);
 	query.addBindValue(in_set.Session_Id);
 	query.addBindValue(Text_Column(in_set.Day_Exercise_Id));
@@ -336,6 +353,8 @@ bool AWorkout_Repository::Save_Set(const SSet_Log &in_set)
 	query.addBindValue(Int_Column(in_set.Target_Reps, in_set.Has_Target_Reps));
 	query.addBindValue(in_set.Done ? 1 : 0);
 	query.addBindValue(Text_Column(in_set.Note));
+	query.addBindValue(Int_Column(in_set.Target_Reps_Min, in_set.Has_Target_Reps_Range));
+	query.addBindValue(Int_Column(in_set.Target_Reps_Max, in_set.Has_Target_Reps_Range));
 
 	if (query.exec())
 		return true;
@@ -345,6 +364,7 @@ bool AWorkout_Repository::Save_Set(const SSet_Log &in_set)
 //-------------------------------------------------------------------------------------------------------------
 bool AWorkout_Repository::Find_Session(const QString &in_session_id, SWorkout_Session &out_session)
 {
+	const QString session_id = in_session_id;
 	QSqlQuery query(Connection());
 
 	Clear_Last_Error();
@@ -354,7 +374,7 @@ bool AWorkout_Repository::Find_Session(const QString &in_session_id, SWorkout_Se
 		return false;
 
 	query.prepare(QString("SELECT %1 FROM workouts WHERE id = ?").arg(Session_Columns));
-	query.addBindValue(in_session_id);
+	query.addBindValue(session_id);
 
 	if (!query.exec())
 		return Set_Last_Error(QString("Не удалось прочитать тренировку: %1").arg(query.lastError().text()));
@@ -395,6 +415,45 @@ bool AWorkout_Repository::Find_Draft(const QString &in_user_id, const QString &i
 
 	Read_Session_Row(query, 0, out_session);
 
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+
+bool AWorkout_Repository::Save_Runtime(const QString &in_session_id, const QString &in_plan_json,
+                                       qint64 in_rest_until_ms)
+{
+	Clear_Last_Error();
+	if (!Check_Open())
+		return false;
+	QSqlQuery query(Connection());
+	query.prepare(
+	    "INSERT INTO workout_runtime(session_id, plan_json, rest_until_ms) VALUES(?, ?, ?) "
+	    "ON CONFLICT(session_id) DO UPDATE SET plan_json=excluded.plan_json, rest_until_ms=excluded.rest_until_ms");
+	query.addBindValue(in_session_id);
+	query.addBindValue(in_plan_json);
+	query.addBindValue(in_rest_until_ms);
+	if (!query.exec())
+		return Set_Last_Error(QString("Не удалось сохранить состояние тренировки: %1").arg(query.lastError().text()));
+	return true;
+}
+//-------------------------------------------------------------------------------------------------------------
+bool AWorkout_Repository::Load_Runtime(const QString &in_session_id, QString &out_plan_json, qint64 &out_rest_until_ms)
+{
+	Clear_Last_Error();
+	out_plan_json.clear();
+	out_rest_until_ms = 0;
+	if (!Check_Open())
+		return false;
+	QSqlQuery query(Connection());
+	query.prepare("SELECT plan_json, rest_until_ms FROM workout_runtime WHERE session_id=?");
+	query.addBindValue(in_session_id);
+	if (!query.exec())
+		return Set_Last_Error(QString("Не удалось восстановить тренировку: %1").arg(query.lastError().text()));
+	if (query.next())
+	{
+		out_plan_json = query.value(0).toString();
+		out_rest_until_ms = query.value(1).toLongLong();
+	}
 	return true;
 }
 //-------------------------------------------------------------------------------------------------------------

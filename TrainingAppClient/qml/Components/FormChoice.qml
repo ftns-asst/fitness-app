@@ -34,6 +34,7 @@ Column {
 
                 readonly property bool active: choice.selectedValue === modelData.value
 
+                hoverEnabled: !Theme.touchPlatform
                 height: Theme.touchMin
                 width: Math.max(92, optionLabel.implicitWidth + Spacing.screenPadding * 2)
 
@@ -42,16 +43,36 @@ Column {
                     // транслюцентная accentTint: Pill лежит на surface, и
                     // смешанный цвет даёт тот же тон без ставки на альфу,
                     // которая на некоторых Android-сборках терялась при
-                    // композитинге (см. HeroCard).
+                    // композитинге (см. Theme.accentSurface).
                     border.color: optionButton.active ? Theme.accent : Theme.border
                     border.width: optionButton.active ? 2 : Theme.borderWidth
-                    color: optionButton.active ? Theme.accentSurface : Theme.surfaceMuted
+                    color: optionButton.down || optionButton.hovered ? Theme.accentTint : optionButton.active ? Theme.accentSurface : Theme.surfaceMuted
                     radius: Theme.radiusMd
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: Theme.pressFeedbackDuration
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+                    Behavior on border.color {
+                        ColorAnimation {
+                            duration: Theme.pressFeedbackDuration
+                            easing.type: Easing.OutCubic
+                        }
+                    }
                 }
                 contentItem: Label {
                     id: optionLabel
 
                     color: optionButton.active ? Theme.accent : Theme.textSecondary
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: Theme.pressFeedbackDuration
+                            easing.type: Easing.OutCubic
+                        }
+                    }
                     font: Typography.captionStrong
                     horizontalAlignment: Text.AlignHCenter
                     text: modelData.label

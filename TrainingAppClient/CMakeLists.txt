@@ -24,6 +24,10 @@ qt_add_executable(appTrainingAppClient
 # Presentation наполняются в следующих issues, зависимости Network/Sql уже
 # фиксируют границу инфраструктурного слоя.
 add_library(TrainingAppCore STATIC
+    src/Domain/Diary_Calculator.h
+    src/Domain/Diary_Calculator.cpp
+    src/Presentation/Diary_VM.h
+    src/Presentation/Diary_VM.cpp
     src/Presentation/List_Model.h
     src/Presentation/List_Model.cpp
     src/Presentation/Program_Rows.h
@@ -53,9 +57,25 @@ add_library(TrainingAppCore STATIC
     src/Domain/Program_Model.h
     src/Domain/Program_Model.cpp
     src/Domain/Program_Service.h
+    src/Domain/Measurement_Schedule.h
+    src/Domain/Measurement_Trend.h
     src/Domain/Program_Service.cpp
+    src/Domain/Measurement_Schedule.cpp
+    src/Domain/Measurement_Trend.cpp
     src/Domain/Rule_Engine.h
     src/Domain/Rule_Engine.cpp
+    src/Domain/Dashboard_Calculator.h
+    src/Domain/Dashboard_Calculator.cpp
+    src/Domain/Strength_Calculator.h
+    src/Domain/Strength_Calculator.cpp
+    src/Domain/Program_Template_Service.h
+    src/Domain/Program_Template_Service.cpp
+    src/Presentation/Strength_VM.h
+    src/Presentation/Strength_VM.cpp
+    src/Presentation/Program_Templates_VM.h
+    src/Presentation/Program_Templates_VM.cpp
+    src/Presentation/Workout_VM.h
+    src/Presentation/Workout_VM.cpp
     src/Domain/Workout_Logger.h
     src/Domain/Workout_Logger.cpp
     src/Domain/Progress_Stats.h
@@ -73,6 +93,8 @@ add_library(TrainingAppCore STATIC
     src/Domain/Program_Stats_Calculator.cpp
     src/Data/Program/Program_Repository_Base.h
     src/Data/Program/Program_Repository_Base.cpp
+    src/Data/Program/Day_Note_Repository.h
+    src/Data/Program/Day_Note_Repository.cpp
     src/Data/Program/Workout_Repository.h
     src/Data/Program/Workout_Repository.cpp
     src/Data/Program/Program_Repository.h
@@ -155,6 +177,9 @@ set_source_files_properties(
     qml/Mock/MockTokenStore.qml
     qml/Presentation/AuthViewModel.qml
     qml/Presentation/ExerciseTexts.qml
+    qml/Presentation/RuleTexts.qml
+    qml/Presentation/MeasurementTexts.qml
+    qml/Presentation/StatisticsUi.qml
     qml/Presentation/PlansViewModel.qml
     qml/Presentation/ProfileViewModel.qml
     qml/Components/BackRouter.qml
@@ -169,7 +194,13 @@ qt_add_qml_module(appTrainingAppClient
         src/Presentation/Program_Qml.h
         src/Presentation/Program_Qml.cpp
     QML_FILES
-        qml/Pages/Program/ProgramCatalogPage.qml
+        qml/Components/WorkoutValueRow.qml
+        qml/Components/WorkoutResultRow.qml
+        qml/Components/StatisticsPlot.qml
+        qml/Components/StatisticValue.qml
+        qml/Pages/Program/WorkoutPage.qml
+        qml/Pages/Program/StrengthPage.qml
+        qml/Pages/Diary/DiaryPage.qml
     qml/Pages/Program/ProgramOverviewPage.qml
         qml/Pages/Program/ProgramEditPage.qml
         qml/Pages/Program/ProgramDayPage.qml
@@ -182,6 +213,9 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/BackBar.qml
         qml/Components/DateField.qml
         qml/Components/DragToScroll.qml
+        qml/Components/SwipeDismissHandle.qml
+        qml/Components/SwipePopup.qml
+        qml/Components/EdgeBackGesture.qml
         qml/Components/AppComboBox.qml
     qml/Components/AppNumberField.qml
     qml/Components/CatalogProgramRow.qml
@@ -206,13 +240,21 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Presentation/AuthFormController.qml
         qml/Presentation/AuthViewModel.qml
         qml/Presentation/ExerciseTexts.qml
+        qml/Presentation/RuleTexts.qml
+        qml/Presentation/MeasurementTexts.qml
+    qml/Presentation/StatisticsUi.qml
         qml/Presentation/PlansViewModel.qml
         qml/Presentation/ProfileViewModel.qml
 
         # UI components
         qml/Components/AppButton.qml
         qml/Components/AppCard.qml
+        qml/Components/DisclosureCard.qml
+        qml/Components/ProgramWeekStrip.qml
         qml/Components/AppIcon.qml
+        qml/Components/ExerciseAttributeCard.qml
+        qml/Components/AppInput.qml
+        qml/Components/ExerciseFiltersPopup.qml
         qml/Components/AppTextField.qml
         qml/Components/AppTextArea.qml
         qml/Components/AppearanceCard.qml
@@ -222,6 +264,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/CatalogExerciseRow.qml
         qml/Components/CatalogExerciseTile.qml
         qml/Components/CompactStepper.qml
+        qml/Components/SelectionMark.qml
         qml/Components/RuleTile.qml
         qml/Components/RuleValuePopup.qml
         qml/Components/ShiftButton.qml
@@ -230,8 +273,9 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         qml/Components/FilterChips.qml
         qml/Components/FormChoice.qml
         qml/Components/FpsOverlay.qml
-        qml/Components/HeroCard.qml
         qml/Components/LineChartCard.qml
+        qml/Components/MeasurementChangeMap.qml
+        qml/Components/MeasurementTrendRow.qml
         qml/Components/MetricCard.qml
         qml/Components/MetricTile.qml
         qml/Components/NutritionPlanCard.qml
@@ -250,7 +294,7 @@ qml/Pages/Program/ProgramRulesPickerPage.qml
         # Screens
         qml/Pages/Auth/AuthPage.qml
         qml/Pages/Today/TodayPage.qml
-        qml/Pages/Plans/PlansPage.qml
+        qml/Pages/Programs/ProgramsPage.qml
         qml/Pages/Exercises/ExercisesPage.qml
     qml/Pages/Exercises/ExercisesEditorPage.qml
     qml/Pages/Exercises/ExerciseDetailPage.qml

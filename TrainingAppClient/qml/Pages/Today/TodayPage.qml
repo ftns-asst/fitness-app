@@ -21,6 +21,9 @@ PageScaffold {
     // и создают. Экран только сообщает намерение, путь выбирает каркас.
     signal plansRequested
     signal programRequested
+    signal diaryRequested
+    signal workoutRequested(string programId)
+    signal statisticsRequested(string programId)
 
     // Строка упражнения на главном — самостоятельный объект: тап открывает
     // его обзор (спринт U6), а не молчит заглушкой. Экран сообщает намерение,
@@ -34,16 +37,21 @@ PageScaffold {
     // тестах дерева QML). Такие ошибки забивают вывод и маскируют настоящие:
     // в прогоне тестов они давали сотни QWARN на каждый прогон.
     readonly property bool hasModel: page.viewModel !== undefined && page.viewModel !== null
+    readonly property var dashboard: page.hasModel && page.viewModel.dashboard !== undefined ? page.viewModel.dashboard : ({})
 
     caption: page.weekdayLabel()
-    title: page.dayTitleText()
+    // Заголовок «Сегодня» крупной шапкой: верх экрана заполнен, а название
+    // программы и день стоят в hero — так же, как в макете 13.
+    heroBackground: true
+    largeTitle: true
+    title: qsTr("Сегодня")
 
     // Загрузка идёт при создании и при каждом показе: у страницы вкладки
     // onVisibleChanged не срабатывает при первом открытии, а данные должны быть
     // актуальны и после смены дня.
     Component.onCompleted: page.reload()
-    onVisibleChanged: {
-        if (visible)
+    onPageActiveChanged: {
+        if (pageActive)
             page.reload();
     }
 
@@ -56,6 +64,8 @@ PageScaffold {
             return;
 
         page.viewModel.reload(page.currentUserId());
+        if (typeof WorkoutVM !== "undefined" && WorkoutVM !== null && typeof WorkoutVM.checkPending === "function")
+            WorkoutVM.checkPending(page.currentUserId());
     }
 
     // Сутки сменились, пока приложение было открыто или лежало в фоне: «сегодня»
@@ -70,12 +80,12 @@ PageScaffold {
             return;
 
         if (page.viewModel.reloadIfDayChanged(page.currentUserId()))
-            page.syncMeasurementFromModel(true);
+            page.refreshCheckableRules();
     }
 
     Connections {
         function onStateChanged() {
-            if (Application.state === Qt.ApplicationActive)
+            if (page.pageActive && Application.state === Qt.ApplicationActive)
                 page.reloadIfDayChanged();
         }
 
@@ -87,7 +97,7 @@ PageScaffold {
     Timer {
         interval: 60000
         repeat: true
-        running: page.visible
+        running: page.pageActive
         onTriggered: page.reloadIfDayChanged()
     }
 
@@ -122,32 +132,246 @@ PageScaffold {
             }
         }
     }
-    // — Hero card (§4.2): CTA внутри карточки, а не в прокручиваемом списке —
-    HeroCard {
-        badgesText: page.heroBadges()
-        // Кнопка «Начать тренировку» у дня отдыха обещала бы работу, которой
-        // нет, поэтому у неё другое действие.
-        ctaText: page.hasModel && page.viewModel.isRestDay ? qsTr("Открыть программу") : qsTr("Начать тренировку")
-        summaryText: page.heroSummary()
-        weekIndex: page.hasModel ? page.viewModel.currentWeek : 0
-        weeksTotal: page.hasModel ? page.viewModel.weeksTotal : 0
+    AppButton {
+        width: parent.width
+        visible: page.hasModel && !page.viewModel.hasProgram && typeof WorkoutVM !== "undefined" && WorkoutVM !== null && WorkoutVM.hasPending
+        text: qsTr("Продолжить тренировку")
+        onClicked: page.workoutRequested("")
+    }
+    // — Hero: программа, день, срок и главное действие —
+    // Карточки-обёртки нет: фон под шапкой и первым блоком — переход акцента в
+    // поверхность (PageScaffold.heroBackground), поэтому содержимое стоит прямо
+    // на нём. Так же сделано в макете 13 и в 12-app.
+    Column {
+        id: hero
+
+        objectName: "todayHero"
+        spacing: Spacing.itemGap
+        visible: page.hasModel && page.viewModel.hasProgram
+        width: parent.width
+
+        RowLayout {
+            spacing: Spacing.itemGap
+            width: parent.width
+
+            Label {
+                color: Theme.accent
+                elide: Text.ElideRight
+                font: Typography.overline
+                text: page.heroOverline()
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Layout.alignment: Qt.AlignVCenter
+            }
+            AppButton {
+                id: pageLink
+
+                compact: true
+                objectName: "todayStatisticsLink"
+                text: qsTr("Статистика")
+                variant: AppButton.Ghost
+
+                onClicked: page.statisticsRequested(page.viewModel.programId)
+            }
+        }
+        Label {
+            color: Theme.textPrimary
+            font: Typography.largeTitle
+            text: page.heroTitle()
+            width: parent.width
+            wrapMode: Text.WordWrap
+        }
+        Label {
+            color: Theme.textSecondary
+            font: Typography.body
+            text: page.heroSummary()
+            width: parent.width
+            wrapMode: Text.WordWrap
+        }
+
+        Label {
+            objectName: "todaySessionBadge"
+            color: Theme.accent
+            font: Typography.captionStrong
+            text: qsTr("✓ Тренировка записана")
+            visible: page.hasModel && page.viewModel.sessionCompleted === true
+            width: parent.width
+        }
+
+        // Срок программы: «День N из M» и полоса прогресса. Это протяжённость
+        // программы, а не выполнение тренировок — подпись говорит об этом прямо.
+        Column {
+            id: termBlock
+
+            objectName: "todayTerm"
+            spacing: 4
+            visible: page.dashboard.currentDay !== undefined && page.dashboard.currentDay !== null
+            width: parent.width
+
+            RowLayout {
+                spacing: 0
+                width: parent.width
+
+                Label {
+                    Layout.fillWidth: true
+                    color: Theme.textSecondary
+                    font: Typography.caption
+                    text: page.totalDays() > 0 ? qsTr("День %1 из %2").arg(page.passedDays()).arg(page.totalDays()) : qsTr("День %1 · открытый срок").arg(page.passedDays())
+                }
+                Label {
+                    Layout.alignment: Qt.AlignRight
+                    color: Theme.textSecondary
+                    font: Typography.caption
+                    text: qsTr("Осталось %1 дн.").arg(page.leftDays())
+                    visible: page.totalDays() > 0
+                }
+            }
+            Rectangle {
+                color: Theme.surfaceMuted
+                height: 6
+                radius: 3
+                visible: page.totalDays() > 0
+                width: parent.width
+
+                Rectangle {
+                    color: Theme.accent
+                    height: parent.height
+                    radius: parent.radius
+                    width: parent.width * page.termProgress()
+                }
+            }
+        }
+
+        AppButton {
+            objectName: "todayStartButton"
+            text: typeof WorkoutVM !== "undefined" && WorkoutVM !== null && WorkoutVM.hasPending ? qsTr("Продолжить тренировку") : (page.hasModel && page.viewModel.isRestDay ? qsTr("Открыть программу") : qsTr("Начать тренировку"))
+            variant: AppButton.Primary
+            width: parent.width
+
+            onClicked: {
+                if (typeof WorkoutVM !== "undefined" && WorkoutVM !== null && WorkoutVM.hasPending) {
+                    page.workoutRequested(page.viewModel.programId);
+                    return;
+                }
+                if (page.hasModel && page.viewModel.isRestDay) {
+                    page.programRequested();
+
+                    return;
+                }
+
+                page.workoutRequested(page.viewModel.programId);
+            }
+        }
+    }
+    // — «В фокусе»: вес и расписание замеров без ввода —
+    // Ввод веса и обхватов живёт в дневнике: два места записи одного факта
+    // расходились, и непонятно было, какое из них главное. Здесь только
+    // чтение и переход туда, где значение действительно меняется.
+    //
+    // Тап-слой стоит ПОВЕРХ карточки, а не внутри неё: `MetricCard` — это
+    // `AppCard`, а содержимое карточки живёт в собственной `Column`. Якорный
+    // ребёнок внутри позиционера обнуляет её `implicitHeight` (проверено:
+    // 84 → 28 px), и карточка рисуется ниже своего содержимого — значение и
+    // тренд выезжали на заголовок «Отметки дня». Обёртка `Item` держит клик и
+    // не вмешивается в раскладку карточки.
+    RowLayout {
+        id: focusRow
+
+        objectName: "todayFocus"
+        spacing: Spacing.itemGap
+        visible: page.hasModel && page.viewModel.hasProgram
+        width: parent.width
+
+        Item {
+            id: weightCell
+
+            Layout.fillWidth: true
+            implicitHeight: weightCard.implicitHeight
+
+            MetricCard {
+                id: weightCard
+
+                width: parent.width
+                objectName: "todayFocusWeight"
+                deltaText: page.focusWeightHint()
+                deltaKind: "neutral"
+                highlight: page.hasModel && page.viewModel.hasMeasurement
+                label: page.hasModel && page.viewModel.hasMeasurement ? qsTr("Вес сегодня") : page.dashboard.currentWeightDate ? qsTr("Вес · %1").arg(StatisticsUi.date(page.dashboard.currentWeightDate)) : qsTr("Последний вес")
+                valueText: page.focusWeightText()
+            }
+            MouseArea {
+                objectName: "todayFocusWeightTap"
+                anchors.fill: parent
+                onClicked: page.diaryRequested()
+            }
+        }
+        Item {
+            id: measurementCell
+
+            Layout.fillWidth: true
+            implicitHeight: measurementCard.implicitHeight
+
+            MetricCard {
+                id: measurementCard
+
+                width: parent.width
+                objectName: "todayFocusMeasurements"
+                deltaText: page.measurementIsDue() ? qsTr("По расписанию") : page.hasModel ? StatisticsUi.date(page.viewModel.nextMeasurementDate) : ""
+                highlight: false
+                label: qsTr("Замеры по плану")
+                valueText: page.measurementIsDue() ? qsTr("Пора") : qsTr("По графику")
+            }
+            MouseArea {
+                objectName: "todayFocusMeasurementsTap"
+                anchors.fill: parent
+                onClicked: page.diaryRequested()
+            }
+        }
+    }
+
+    AppCard {
+        objectName: "todayWeeklySummary"
         width: parent.width
         visible: page.hasModel && page.viewModel.hasProgram
-
-        // День отдыха: «Открыть программу» ведёт в обзор активной программы.
-        // Тренировочный день — этап D2: запись подходов ещё не реализована, и
-        // кнопка честно сообщает об этом вместо молчаливого нажатия.
-        onStartClicked: {
-            if (page.hasModel && page.viewModel.isRestDay) {
-                page.programRequested();
-
-                return;
+        elevated: false
+        spacing: 16
+        Label {
+            width: parent.width
+            text: qsTr("Последние 7 дней")
+            font: Typography.bodyMedium
+            color: Theme.textPrimary
+        }
+        RowLayout {
+            width: parent.width
+            spacing: 16
+            StatisticValue {
+                objectName: "todayAverageWeight"
+                Layout.fillWidth: true
+                label: qsTr("Средний вес")
+                valueText: StatisticsUi.number(page.dashboard.average7Kg) + (StatisticsUi.has(page.dashboard.average7Kg) ? " " + qsTr("кг") : "")
+                detail: StatisticsUi.has(page.dashboard.average7Kg) ? qsTr("По записям: %1").arg(page.dashboard.weightReadings7d) : qsTr("Нет замеров за 7 дней")
+                valueFont: Typography.inputNumber
             }
-
-            Demo.notify(qsTr("Запись тренировки — этап D2"));
+            StatisticValue {
+                objectName: "todayWeeklyWorkouts"
+                Layout.fillWidth: true
+                label: qsTr("Тренировок")
+                valueText: StatisticsUi.has(page.dashboard.completedSessions7d) ? String(page.dashboard.completedSessions7d) : "—"
+                detail: qsTr("В текущей программе")
+                valueFont: Typography.inputNumber
+            }
+        }
+        Label {
+            width: parent.width
+            visible: StatisticsUi.has(page.dashboard.targetWeightKg)
+            text: qsTr("Цель веса: %1 кг").arg(StatisticsUi.number(page.dashboard.targetWeightKg)) + (StatisticsUi.has(page.dashboard.remainingKg) ? qsTr(" · осталось %1 кг").arg(StatisticsUi.number(page.dashboard.remainingKg)) : "")
+            font: Typography.detail
+            color: Theme.textSecondary
+            wrapMode: Text.WordWrap
         }
     }
     Label {
+        objectName: "todayPlanTitle"
         color: Theme.textSecondary
         font: Typography.captionStrong
         text: qsTr("План на сегодня")
@@ -155,6 +379,7 @@ PageScaffold {
         width: parent.width
     }
     AppCard {
+        objectName: "todayPlan"
         paddingHorizontal: 0
         paddingVertical: Spacing.itemGap
         spacing: 0
@@ -229,38 +454,52 @@ PageScaffold {
         }
     }
 
-    // — Два равноширинных secondary-действия (референс 2080). RowLayout вместо
-    // ручного расчёта ширины: кнопки честно делят строку на любой ширине —
-    RowLayout {
-        spacing: Spacing.itemGap
+    AppButton {
         width: parent.width
-
-        AppButton {
-            Layout.fillWidth: true
-            text: qsTr("Другой план")
-            variant: AppButton.Secondary
-
-            onClicked: Demo.notify(qsTr("Каталог планов — вкладка «Планы»"))
-        }
-        AppButton {
-            Layout.fillWidth: true
-            text: qsTr("История")
-            variant: AppButton.Secondary
-
-            onClicked: Demo.notify(qsTr("История — вкладка «Профиль», этап D4"))
-        }
+        text: qsTr("Другой план")
+        variant: AppButton.Secondary
+        onClicked: page.plansRequested()
     }
 
     // — Правила дня плитками: по две в строке, отметка одним касанием —
     // Раньше были два вертикальных списка («Отметки дня» и «Правила на сегодня»), строки которых
     // дублировали друг друга. Теперь одна сетка: тап по плитке ставит/снимает «выполнено»;
     // у рекомендации текстом отметки нет (§3.6), плитка информационная.
-    Label {
-        color: Theme.textSecondary
-        font: Typography.captionStrong
-        text: page.doneRuleCount + " / " + page.checkableRuleCount + " " + qsTr("правил выполнено")
-        visible: page.checkableRuleCount > 0
+    // Сегодня — быстрые отметки; дневник рядом с ними открывает историю по датам.
+    RowLayout {
+        objectName: "todayCheckinsHeader"
+        spacing: Spacing.listGap
+        visible: page.hasModel && page.viewModel.hasProgram
         width: parent.width
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            spacing: 2
+
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textPrimary
+                font: Typography.sectionTitle
+                text: qsTr("Отметки дня")
+                wrapMode: Text.WordWrap
+            }
+            Label {
+                Layout.fillWidth: true
+                color: Theme.textSecondary
+                font: Typography.caption
+                text: page.doneRuleCount + " / " + page.checkableRuleCount + " " + qsTr("выполнено")
+                visible: page.checkableRuleCount > 0
+                wrapMode: Text.WordWrap
+            }
+        }
+        AppButton {
+            objectName: "todayDiaryButton"
+            text: qsTr("Дневник")
+            variant: AppButton.Ghost
+            onClicked: page.diaryRequested()
+            Accessible.description: qsTr("Дневник: отметки, вес и заметки за прошлые дни")
+        }
     }
     Flow {
         id: ruleFlow
@@ -328,137 +567,9 @@ PageScaffold {
         onValueSaved: (ruleId, value) => page.saveRuleValue(ruleId, value)
     }
 
-    // — Замеры: вес и обхваты за сегодня (спринт S6) —
-    Label {
-        color: Theme.textSecondary
-        font: Typography.captionStrong
-        text: qsTr("Замеры")
-        width: parent.width
-    }
-    AppCard {
-        spacing: Spacing.itemGap
-        width: parent.width
-
-        Label {
-            color: Theme.textMuted
-            font: Typography.caption
-            text: qsTr("Вес и обхваты за сегодня. Повторный ввод обновляет запись, а не создаёт новую.")
-            width: parent.width
-            wrapMode: Text.WordWrap
-        }
-        // Замеры тела — ползунком: шаг 0,1 кг на диапазоне 0–300 кнопками набирался
-        // сотнями нажатий, а смена веса за день (плюс-минус килограмм от воды и
-        // еды) — это ровно тот случай, где нажатия и не нужны. Шаг 0,1 и диапазон
-        // 0–300 сохранены: измерение отличается от инвентаря на плитах, и здесь
-        // нужна десятая доля.
-        WeightRuler {
-            // Ширина — явно по родителю: карточка держит детей в обычной Column,
-            // где `Layout.fillWidth` не работает (см. PageScaffold.qml), и без
-            // привязки линейка брала свой implicitWidth — сжатая полоса слева.
-            width: parent.width
-            // Диапазон 35–200 кг вместо 0–300. На 300 делениях шаг 0,1
-            // приходился на 0,1 px: метки сливались в серую полосу, и вес нельзя
-            // было поставить пальцем. Для замеров шаг 0,1 сохранён — измерение
-            // отличается от инвентаря на плитах, и десятая доля тут нужна.
-            from: 35
-            step: 0.1
-            title: qsTr("Вес")
-            to: 200
-            unit: qsTr("кг")
-            value: page.measurementValue("weight")
-            valueDecimals: 1
-
-            onEdited: function (newValue) {
-                page.setMeasurementValue("weight", newValue);
-            }
-        }
-        // Обхваты спрятаны: их пять, а измеряют их раз в месяц, поэтому
-        // постоянно занимаемое ими место на главной было бы неоправданно.
-        AppButton {
-            text: page.girthsOpen ? qsTr("Скрыть обхваты") : qsTr("Обхваты")
-            variant: AppButton.Secondary
-            width: parent.width
-
-            onClicked: page.girthsOpen = !page.girthsOpen
-        }
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: Spacing.itemGap
-            visible: page.girthsOpen
-
-            Repeater {
-                model: [
-                    {
-                        key: "chest",
-                        label: qsTr("Грудь, см")
-                    },
-                    {
-                        key: "waist",
-                        label: qsTr("Талия, см")
-                    },
-                    {
-                        key: "hip",
-                        label: qsTr("Бёдра, см")
-                    },
-                    {
-                        key: "arm",
-                        label: qsTr("Бедро, см")
-                    },
-                    {
-                        key: "thigh",
-                        label: qsTr("Голень, см")
-                    }
-                ]
-
-                delegate: WeightRuler {
-                    id: girthField
-
-                    required property var model
-
-                    Layout.fillWidth: true
-                    // Диапазон 50–150 см покрывает любой обхват взрослого человека
-                    // и делает шкалу читаемой: на прежних 0–300 шаг 0,5 приходился на
-                    // 0,5 px, и метки сливались в сплошную полосу.
-                    from: 50
-                    step: 0.5
-                    title: girthField.model.label
-                    to: 150
-                    unit: qsTr("см")
-                    value: page.measurementValue(girthField.model.key)
-                    valueDecimals: 1
-
-                    onEdited: function (newValue) {
-                        page.setMeasurementValue(girthField.model.key, newValue);
-                    }
-                }
-            }
-        }
-        AppButton {
-            Layout.fillWidth: true
-            text: qsTr("Сохранить замеры")
-            variant: AppButton.Primary
-
-            onClicked: page.saveMeasurements()
-        }
-    }
-
     // Имена дней недели в ISO-порядке 1…7 (§3.4): номер приходит из C++, а
     // название переводит разметка.
     readonly property var weekdayNames: [qsTr("Понедельник"), qsTr("Вторник"), qsTr("Среда"), qsTr("Четверг"), qsTr("Пятница"), qsTr("Суббота"), qsTr("Воскресенье")]
-
-    // — Состояние формы замеров —
-    // Обхваты раскрываются по требованию: измеряют их раз в месяц, а пять полей
-    // на главной занимали бы место каждый день.
-    property bool girthsOpen: false
-    // Значения полей формы и «было ли это поле задано» — двумя словами, а не
-    // одним числом: пустой обхват — это «не измерял», а 0 см — измерение,
-    // и запись без этого различия затирала бы прежнее значение (upsert).
-    property var measurementValues: ({})
-
-    // Есть ли несохранённый ввод. Без этого флага любое обновление модели
-    // перезаписывало бы форму данными из базы и стирало бы набранное.
-    property bool measurementDirty: false
-    property var measurementFilled: ({})
 
     // Сколько правил можно отметить вручную. Пересчитывается при изменении
     // модели: обращения к ней внутри функции QML не отслеживает, поэтому
@@ -479,7 +590,6 @@ PageScaffold {
 
     Connections {
         function onChanged() {
-            page.syncMeasurementFromModel();
             page.refreshCheckableRules();
         }
 
@@ -545,17 +655,7 @@ PageScaffold {
 
     // Подпись единицы правила; значения приходят строкой из домена.
     function unitLabel(unit) {
-        const labels = {
-            g: qsTr("г"),
-            gPerKg: qsTr("г/кг"),
-            kg: qsTr("кг"),
-            kcal: qsTr("ккал"),
-            ml: qsTr("мл"),
-            hours: qsTr("ч"),
-            rpe: "RPE"
-        };
-
-        return labels[unit] !== undefined ? labels[unit] : "";
+        return RuleTexts.unitLabel(unit, "");
     }
 
     // Шаг кнопок «−/+» в окне ввода: калории по 50, вода по 100 мл — по
@@ -573,110 +673,123 @@ PageScaffold {
         return steps[unit] !== undefined ? steps[unit] : 1;
     }
 
-    function measurementValue(key) {
-        const values = page.measurementValues;
-
-        return values[key] !== undefined ? values[key] : 0;
+    function measurementIsDue() {
+        return page.hasModel && page.viewModel.measurementDue === true;
     }
 
-    function setMeasurementValue(key, newValue) {
-        const values = Object.assign({}, page.measurementValues);
+    // — «В фокусе»: только чтение. Значения берутся из модели, ввод — в дневнике.
+    function focusWeightText() {
+        if (!page.hasModel)
+            return "—";
+        if (page.viewModel.hasMeasurement !== true)
+            return StatisticsUi.has(page.dashboard.currentWeightKg) ? page.dashboardNumber("currentWeightKg") + " " + qsTr("кг") : "—";
 
-        values[key] = newValue;
-        page.measurementValues = values;
-
-        const filled = Object.assign({}, page.measurementFilled);
-
-        // Поле считается заполненным с первого нажатия «+»: значение 0 —
-        // допустимое измерение, и без этого флага запись молча ушла бы в
-        // «не измерял».
-        filled[key] = true;
-        page.measurementFilled = filled;
-        page.measurementDirty = true;
+        return page.formatDecimal(page.viewModel.weightKg) + " " + qsTr("кг");
     }
 
-    // Переносит сохранённый замер в форму.
-    //
-    // Только при первой загрузке и после собственного сохранения. Раньше
-    // функция вызывалась на каждое `changed` модели — а его эмитит и отметка
-    // правила, — и набор полей у человека исчезал на глазах: отметил «сон» и
-    // потерял только что введённый вес.
-    function syncMeasurementFromModel(force) {
-        if (page.viewModel === undefined || page.viewModel === null)
-            return;
+    function focusWeightHint() {
+        if (!page.hasModel)
+            return "";
 
-        // Несохранённый ввод — источник истины о форме: перезаписывать его
-        // данными из базы нельзя, пока пользователь его не подтвердил.
-        if (page.measurementDirty === true && force !== true)
-            return;
+        if (page.viewModel.hasMeasurement !== true)
+            return StatisticsUi.has(page.dashboard.weightDeltaKg) ? page.dashboardNumber("weightDeltaKg", true) + qsTr(" кг от старта") : qsTr("Добавьте в дневнике");
 
-        const map = {
-            arm: "armCm",
-            chest: "chestCm",
-            hip: "hipCm",
-            thigh: "thighCm",
-            waist: "waistCm",
-            weight: "weightKg"
-        };
-        const values = {};
-        const filled = {};
-
-        for (const key in map) {
-            // Только заполненные поля: у незаданного обхвата значение -1, и
-            // показывать его в поле значило бы выдумать измерение.
-            if (page.viewModel.hasMeasurement) {
-                const raw = page.viewModel[map[key]];
-
-                if (raw !== undefined && raw >= 0) {
-                    values[key] = raw;
-                    filled[key] = true;
-                }
-            }
-        }
-
-        page.measurementValues = values;
-        page.measurementFilled = filled;
-        // Форма приведена к базе — ввод считается несохранённым только после
-        // того, как человек сам что-то поменяет.
-        page.measurementDirty = false;
+        return qsTr("Изменить — в дневнике");
     }
 
-    function saveMeasurements() {
-        if (page.viewModel === undefined || page.viewModel === null)
-            return;
+    // «82.4» → «82,4»: запятая как десятичный разделитель в русской локали.
+    function formatDecimal(value) {
+        const number = Number(value);
 
-        const filled = page.measurementFilled;
-        const values = page.measurementValues;
-        // Флаг и значение идут отдельными аргументами: незаполненное поле
-        // передаётся как «не задано», а не как ноль, иначе оно затирало бы
-        // значение, введённое ранее.
-        const saved = page.viewModel.saveMeasurement(values.weight !== undefined ? values.weight : -1, filled.weight === true, values.chest !== undefined ? values.chest : -1, filled.chest === true, values.waist !== undefined ? values.waist : -1, filled.waist === true, values.hip !== undefined ? values.hip : -1, filled.hip === true, values.arm !== undefined ? values.arm : -1, filled.arm === true, values.thigh !== undefined ? values.thigh : -1, filled.thigh === true);
+        if (!isFinite(number))
+            return "—";
 
-        if (saved === false) {
-            Demo.notify(qsTr("Заполните хотя бы одно поле"));
-
-            return;
-        }
-
-        // Модель эмитит `changed` и внутри saveMeasurement, но форма в этот
-        // момент ещё «грязная» и от синхронизации отказалась бы: сбросить её
-        // явно нужно, иначе значения остались бы только в памяти до перезахода.
-        page.measurementDirty = false;
-        page.syncMeasurementFromModel(true);
-        Demo.notify(qsTr("Замеры сохранены"));
+        return String(Math.round(number * 10) / 10).replace(".", ",");
     }
 
-    // Заголовок главной — название программы, а не вид дня: вид дня относится
-    // к плану, а не к тому, чем является приложение.
-    function dayTitleText() {
-        if (page.viewModel === undefined || page.viewModel === null || page.viewModel.hasProgram === false)
+    // «2026-10-07» → «7 октября»: дата приходит из C++ строкой ISO.
+    function formatShortDate(isoDate) {
+        const parts = String(isoDate).split("-");
+
+        return Qt.formatDate(new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])), "d MMMM");
+    }
+
+    // Подсказка расписания замеров: пора мерить сейчас либо дата ближайшего.
+    // Пустая строка — программы нет, и показывать нечего.
+    function measurementHint() {
+        if (!page.hasModel)
+            return "";
+
+        if (page.viewModel.measurementDue === true)
+            return qsTr("Пора мерить: замер по расписанию");
+
+        const next = page.viewModel.nextMeasurementDate;
+
+        if (next === undefined || next === null || String(next).length === 0)
+            return "";
+
+        return qsTr("Следующий замер — %1").arg(page.formatShortDate(next));
+    }
+
+    // Подпись hero: программа и её срок — то, что человек выбрал сам. Срок не
+    // повторяется, если он уже в названии («Сила 8 недель · 8 недель» — то же
+    // число дважды подряд читается как ошибка данных).
+    function heroOverline() {
+        if (!page.hasModel || page.viewModel.hasProgram === false)
+            return "";
+
+        const title = String(page.viewModel.programTitle);
+        const weeks = page.weeksTotal();
+
+        if (weeks <= 0)
+            return title;
+        if (title.indexOf(String(weeks)) >= 0)
+            return title;
+
+        return qsTr("%1 · %2 недель").arg(title).arg(weeks);
+    }
+
+    // Крупный заголовок hero: что это за день.
+    function heroTitle() {
+        if (!page.hasModel || page.viewModel.hasProgram === false)
             return qsTr("Сегодня");
 
-        return page.viewModel.programTitle;
+        const title = page.viewModel.dayTitle;
+        const kind = page.dayKindText();
+
+        return title !== undefined && title !== null && String(title).length > 0 ? title : kind;
     }
 
-    // Подпись заголовка — дата и день недели: без неё «Сила 8 недель» не даёт
-    // понять, какой это день.
+    function weeksTotal() {
+        return page.hasModel ? page.viewModel.weeksTotal : 0;
+    }
+
+    function totalDays() {
+        return page.dashboard.totalDays !== undefined && page.dashboard.totalDays !== null ? page.dashboard.totalDays : 0;
+    }
+
+    function passedDays() {
+        return page.dashboard.currentDay !== undefined && page.dashboard.currentDay !== null ? page.dashboard.currentDay : 0;
+    }
+
+    function leftDays() {
+        return page.dashboard.daysLeft !== undefined && page.dashboard.daysLeft !== null ? page.dashboard.daysLeft : 0;
+    }
+
+    function termProgress() {
+        return page.dashboard.termProgress !== undefined && page.dashboard.termProgress !== null ? page.dashboard.termProgress : 0;
+    }
+
+    function dashboardNumber(key, signed) {
+        const value = page.dashboard[key];
+        if (value === undefined || value === null)
+            return "—";
+
+        return (signed && value > 0 ? "+" : "") + Qt.locale().toString(Number(value), "f", 1);
+    }
+
+    // Подпись заголовка — дата и день недели: без неё «Сегодня» не даёт понять,
+    // какой это день программы.
     function weekdayLabel() {
         if (page.viewModel === undefined || page.viewModel === null)
             return "";
@@ -685,21 +798,6 @@ PageScaffold {
         const name = index >= 0 && index < page.weekdayNames.length ? page.weekdayNames[index] : "";
 
         return name.length > 0 ? name + " · " + page.viewModel.today : page.viewModel.today;
-    }
-
-    // Бейджи hero: цель программы, вид дня и отметка о завершённой тренировке.
-    // Отметка важна: повторно начать записанный день — ошибка пользователя, а
-    // экран обязан её предотвращать подписью (§5.5).
-    function heroBadges() {
-        if (page.viewModel === undefined || page.viewModel === null || page.viewModel.hasProgram === false)
-            return "";
-
-        const badges = [page.goalText(), page.dayKindText()];
-
-        if (page.viewModel.sessionCompleted)
-            badges.push(qsTr("Тренировка записана"));
-
-        return badges.join(" · ");
     }
 
     // Сводка дня: сколько упражнений и сколько минут. В дне без упражнений
@@ -739,20 +837,6 @@ PageScaffold {
         const key = page.viewModel.dayKindName;
 
         return names[key] !== undefined ? names[key] : "";
-    }
-
-    // Цель программы: значение приходит строкой из enum, разметка переводит его
-    // в подпись.
-    function goalText() {
-        const goals = {
-            strength: qsTr("Сила"),
-            fatLoss: qsTr("Похудение"),
-            muscle: qsTr("Масса"),
-            maintain: qsTr("Поддержание")
-        };
-        const key = page.viewModel.goal;
-
-        return goals[key] !== undefined ? goals[key] : qsTr("Программа");
     }
 
     // Подходы и повторы одной строкой. Пустое предписание не показывается

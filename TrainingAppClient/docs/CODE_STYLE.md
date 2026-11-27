@@ -351,9 +351,24 @@ _error_exit:
 - порядок членов класса (§4.1), инициализация в описании класса (§7.2);
 - `#pragma once`, UTF-8 BOM, иерархия include.
 
-Запуск: `clang-format -i src/**/*.cpp src/**/*.h` (или формат-при-сохранении
-в VS Code: `editor.formatOnSave` + расширение clang-format). Проверка в CI:
-`clang-format --dry-run --Werror`.
+Версия форматтера закреплена в `/.clang-format-version` — **18.1.8**.
+Локальная проверка и CI используют эту версию: разные выпуски LLVM могут
+по-разному переносить цепочки `<<` и выравнивать комментарии.
+
+Установка и запуск из `TrainingAppClient`:
+
+```powershell
+$formatVersion = (Get-Content ../.clang-format-version -Raw).Trim()
+python -m pip install "clang-format==$formatVersion"
+.\scripts\format-cpp.ps1         # применить форматирование ко всем C++-файлам
+.\scripts\format-cpp.ps1 -Check  # --dry-run --Werror без изменения файлов
+```
+
+Явный путь можно передать через `-ClangFormat` или переменную `CLANG_FORMAT`.
+`run-gates.ps1` принимает тот же параметр. Версия проверяется до обработки
+исходников; несовпадение не пропускает проверку и не переключает её на случайный
+форматтер из Qt Creator. Для форматирования при сохранении в IDE также следует
+указать исполняемый файл закреплённой версии.
 
 ### 10.2. clang-tidy (опционально, пост-MVP)
 Для частичной автоматизации запретов возможен `.clang-tidy` с включёнными

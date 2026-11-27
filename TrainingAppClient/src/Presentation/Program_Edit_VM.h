@@ -48,6 +48,7 @@ class Avm_Program_Edit : public QObject
 	// create(). Экран редактирования обязан показывать семь дней недели и
 	// введённые значения по черновику, иначе до создания программы экран пуст.
 	Q_PROPERTY(bool hasDraft READ Has_Draft NOTIFY changed)
+	Q_PROPERTY(bool isDraft READ Is_Draft NOTIFY changed)
 	// Автосохранение мутаций в БД со статусом Draft. Выключено по умолчанию,
 	// чтобы тесты оставались детерминированными: экраны редактора включают
 	// его при открытии. Отзыв: «добавил упражнение, нажал назад — ничего не
@@ -61,6 +62,8 @@ class Avm_Program_Edit : public QObject
 	Q_PROPERTY(QString errorDetail READ errorDetail NOTIFY changed)
 	Q_PROPERTY(QString title READ title NOTIFY changed)
 	Q_PROPERTY(int weeks READ weeks NOTIFY changed)
+	Q_PROPERTY(bool rotation READ Is_Rotation NOTIFY changed)
+	Q_PROPERTY(int repTolerance READ Rep_Tolerance NOTIFY changed)
 	Q_PROPERTY(QString startDate READ startDate NOTIFY changed)
 	// Производная дата окончания (§3.3): старт + срок − 1 день. Считает домен, а
 	// не экран: та же формула уже участвует в статистике, и вторая её копия в
@@ -122,6 +125,9 @@ public:
 	Q_INVOKABLE void setLevel(int in_level);
 	Q_INVOKABLE void setStartDate(const QString &in_date);
 	Q_INVOKABLE void setWeeks(int in_weeks);
+	Q_INVOKABLE bool setRepTolerance(int in_tolerance);
+	bool Is_Rotation() const;
+	int Rep_Tolerance() const;
 	Q_INVOKABLE bool setDayKind(int in_weekday, int in_kind);
 	Q_INVOKABLE bool addDayExercise(int in_weekday, const QString &in_exercise_id, int in_sets, int in_reps_min,
 	                                int in_reps_max, double in_target_weight_kg, bool in_has_target_weight);
@@ -234,6 +240,10 @@ public:
 	bool Has_Draft() const
 	{
 		return !Draft.User_Id.isEmpty();
+	}
+	bool Is_Draft() const
+	{
+		return Draft.State == EProgram_State::Draft;
 	}
 
 	bool canCreate() const;

@@ -55,6 +55,9 @@ compile_commands.json
 *_qmlcache.qrc
 
 TrainingAppClient/build/
+# Local design prototypes and visual references
+/TrainingAppClient/docs/mockups-programs/
+/TrainingAppClient/docs/reference-ui/
 *.apk
 *.aab
 *.pro.user

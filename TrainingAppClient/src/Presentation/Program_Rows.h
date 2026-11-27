@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Domain/Measurement_Trend.h"
 #include "Domain/Program_Model.h"
 #include "Domain/Progress_Stats.h"
 
@@ -100,6 +101,18 @@ QVector<QVariantMap> Build_Goal_Targets(const QVector<SGoal_Target> &in_targets,
 QVector<QVariantMap> Build_Checkins(const QVector<SRule_Checkin> &in_checkins);
 //-------------------------------------------------------------------------------------------------------------
 QVector<QVariantMap> Build_Measurements(const QVector<SBody_Measurement> &in_measurements);
+
+// Динамика тела (T2). Параметры без единого замера в таблицу не попадают:
+// строка «нет данных» с прочерками ничего не говорит. Незаданные числа — null.
+QStringList Trend_Roles();
+QVector<QVariantMap> Build_Trends(const QVector<SMeasurement_Trend> &in_trends);
+QStringList Weight_Point_Roles();
+QVector<QVariantMap> Build_Weight_Series(const QVector<SWeight_Point> &in_points);
+// Строка карты: дата и список ячеек `cells` по параметрам: param, fromStart и
+// fromPrevious (число или null), startIntensity и previousIntensity (0…1 — доля
+// изменения от наибольшего в столбце, тон ячейки).
+QStringList Change_Row_Roles();
+QVector<QVariantMap> Build_Change_Map(const QVector<SChange_Row> &in_rows);
 
 // best_program_id — программа с лучшей метрикой (роль isBest, §5.3).
 QVector<QVariantMap> Build_Program_Summaries(const QVector<SProgram_Summary> &in_summaries,

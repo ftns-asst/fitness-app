@@ -14,8 +14,10 @@ class ASql_Database_Test : public QObject
 private slots:
 	void createsCurrentSchema();
 	void migrationIsIdempotent();
+	void migratesV10PreservingMeasurementsAndNotes();
 	void seedsBuiltinExerciseCatalog();
 	void migratesV1DatabaseToCurrent();
+	void migratesGoalTargetsForNewMeasurementKeys();
 	void enforcesProgramSchemaConstraints();
 	void storesBackendAlignedCache();
 	void enforcesConstraintsAndForeignKeys();
@@ -679,6 +681,76 @@ void ASql_Database_Test::keepsRulesWhenAddingMacroNutrientMetrics()
 	QCOMPARE(query.value(0).toInt(), 2);
 }
 //-------------------------------------------------------------------------------------------------------------
+// База версии 9: цель по обхвату груди уже есть. После v10 она уцелела, а
+// ключи нового замера (живот, плечи, икры, шея) принимаются CHECK'ом.
+//-------------------------------------------------------------------------------------------------------------
+void ASql_Database_Test::migratesGoalTargetsForNewMeasurementKeys()
+{
+	QTemporaryDir directory;
+	AsSql_Database database;
+	AsSql_Database builder;
+	QSqlQuery query;
+	QString path;
+
+	QVERIFY(directory.isValid());
+	path = directory.filePath("v9.sqlite3");
+
+	QVERIFY(builder.Open(path));
+	Seed_Program_Fixture(builder.Sql_Connection(), query);
+
+	// Возвращаем goal_targets и версию к виду v9: прежний список ключей.
+	QVERIFY2(query.exec("DROP TABLE goal_targets"), qPrintable(query.lastError().text()));
+	QVERIFY2(query.exec("CREATE TABLE goal_targets (id TEXT PRIMARY KEY NOT NULL, "
+	                    "program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE, "
+	                    "metric TEXT NOT NULL CHECK (metric IN ('bodyWeightKg', 'workingWeightKg', 'bodyFatPercent', "
+	                    "'measurementCm', 'workoutsPerWeek', 'tonnagePerWeekKg', 'repsAtWeight')), "
+	                    "exercise_id TEXT REFERENCES exercises(id) ON DELETE SET NULL, "
+	                    "measurement_key TEXT CHECK (measurement_key IS NULL OR measurement_key IN ('chest', "
+	                    "'waist', 'hip', 'arm', 'thigh')), unit TEXT NOT NULL CHECK (unit IN ('kg', 'percent', "
+	                    "'cm', 'count', 'timesPerWeek')), start_value REAL, target_value REAL NOT NULL, "
+	                    "target_weight_kg REAL, target_reps INTEGER, direction TEXT NOT NULL CHECK (direction IN "
+	                    "('increase', 'decrease', 'maintain')), target_date TEXT, state TEXT NOT NULL DEFAULT "
+	                    "'active' CHECK (state IN ('active', 'achieved', 'dropped')))"),
+	         qPrintable(query.lastError().text()));
+	QVERIFY2(query.exec("INSERT INTO goal_targets(id, program_id, metric, measurement_key, unit, start_value, "
+	                    "target_value, direction) VALUES('g_old', 'p1', 'measurementCm', 'chest', 'cm', 100, 95, "
+	                    "'decrease')"),
+	         qPrintable(query.lastError().text()));
+	QVERIFY2(!query.exec("INSERT INTO goal_targets(id, program_id, metric, measurement_key, unit, target_value, "
+	                     "direction) VALUES('g_bad', 'p1', 'measurementCm', 'belly', 'cm', 90, 'decrease')"),
+	         "до миграции живот не должен приниматься");
+	QVERIFY(query.exec("UPDATE schema_version SET version = 9 WHERE id = 1"));
+	builder.Close();
+
+	QVERIFY(database.Open(path));
+	QCOMPARE(database.Get_Schema_Version(), AsSql_Database::Get_Current_Schema_Version());
+	query = QSqlQuery(database.Sql_Connection());
+
+	QVERIFY(query.exec("SELECT measurement_key, start_value, target_value FROM goal_targets WHERE id = 'g_old'"));
+	QVERIFY(query.next());
+	QCOMPARE(query.value(0).toString(), QString("chest"));
+	QCOMPARE(query.value(1).toDouble(), 100.0);
+	QCOMPARE(query.value(2).toDouble(), 95.0);
+
+	const QStringList keys = {"belly", "shoulders", "calves", "neck"};
+
+	for (int i = 0; i < keys.size(); ++i)
+	{
+		QVERIFY2(query.exec(QString("INSERT INTO goal_targets(id, program_id, metric, measurement_key, unit, "
+		                            "target_value, direction) VALUES('g_%1', 'p1', 'measurementCm', '%1', 'cm', "
+		                            "50, 'decrease')")
+		                        .arg(keys.at(i))),
+		         qPrintable(keys.at(i) + ": " + query.lastError().text()));
+	}
+
+	// Новые поля замера и шаг расписания на месте.
+	QVERIFY(query.exec("SELECT belly_cm, shoulders_cm, calves_cm, neck_cm FROM body_measurements"));
+	QVERIFY(query.exec("SELECT measurement_interval_days FROM programs WHERE id = 'p1'"));
+	QVERIFY(query.next());
+	QCOMPARE(query.value(0).toInt(), 3);
+	QVERIFY(!query.exec("UPDATE programs SET measurement_interval_days = 0 WHERE id = 'p1'"));
+}
+//-------------------------------------------------------------------------------------------------------------
 void ASql_Database_Test::reportsOpenError()
 {
 	QTemporaryDir directory;
@@ -887,6 +959,26 @@ void ASql_Database_Test::enforcesProgramSchemaConstraints()
 
 //-------------------------------------------------------------------------------------------------------------
 
+void ASql_Database_Test::migratesV10PreservingMeasurementsAndNotes()
+{
+	QTemporaryDir directory;
+	AsSql_Database database;
+	QVERIFY(database.Open(directory.filePath("v10.sqlite3")));
+	QSqlQuery query(database.Sql_Connection());
+	QVERIFY(query.exec("INSERT INTO body_measurements(id,user_id,date,weight_kg) VALUES('m','u','2026-10-01',80)"));
+	QVERIFY(query.exec("DROP TABLE day_notes"));
+	QVERIFY(query.exec("UPDATE schema_version SET version = 10"));
+	QVERIFY(database.Migrate());
+	QVERIFY(query.exec("INSERT INTO day_notes(user_id,date,note) VALUES('u','2026-10-01','note')"));
+	QVERIFY(database.Migrate());
+	QVERIFY(query.exec("SELECT weight_kg FROM body_measurements WHERE id='m'"));
+	QVERIFY(query.next());
+	QCOMPARE(query.value(0).toDouble(), 80.0);
+	QVERIFY(query.exec("SELECT note FROM day_notes WHERE user_id='u'"));
+	QVERIFY(query.next());
+	QCOMPARE(query.value(0).toString(), QString("note"));
+}
+//-------------------------------------------------------------------------------------------------------------
 QTEST_MAIN(ASql_Database_Test)
 
 #include "tst_Sql_Database.moc"

@@ -42,6 +42,7 @@ public:
 	bool Delete_Checkin(const QString &in_rule_id, const QString &in_date);
 
 private:
+	friend class AProgram_Repository;
 	bool Read_Program_State(const QString &in_program_id, EProgram_State &out_state, int &out_revision);
 	bool Insert_Rules_Internal(const QString &in_program_id, const QVector<SProgram_Rule> &in_rules);
 	bool Validate_Rules(const QVector<SProgram_Rule> &in_rules) const;

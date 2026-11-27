@@ -179,25 +179,16 @@ PageScaffold {
             onTapped: photoDialog.open()
         }
     }
-    TextField {
+    AppInput {
         id: nameField
 
-        color: Theme.textPrimary
         height: Theme.touchMin
-        font: Typography.body
         leftPadding: Spacing.screenPadding
         placeholderText: qsTr("Название упражнения")
-        placeholderTextColor: Theme.textMuted
         rightPadding: Spacing.screenPadding
-        verticalAlignment: Text.AlignVCenter
         width: parent.width
 
-        background: Rectangle {
-            border.color: nameField.activeFocus ? Theme.accent : Theme.border
-            border.width: Theme.borderWidth
-            color: Theme.surface
-            radius: Theme.radiusMd
-        }
+        surfaceColor: Theme.surface
 
         onTextChanged: {
             if (page.hasViewModel)
@@ -269,88 +260,32 @@ PageScaffold {
             variant: AppButton.Secondary
         }
     }
-    // — Группы мышц: карточка-секция со счётчиком выбранного —
-    AppCard {
+    ExerciseAttributeCard {
         width: parent.width
-
-        ColumnLayout {
-            spacing: Spacing.itemGap
-            width: parent.width
-
-            RowLayout {
-                Layout.fillWidth: true
-
-                Label {
-                    Layout.fillWidth: true
-                    color: Theme.textPrimary
-                    font: Typography.bodyStrong
-                    text: qsTr("Группы мышц")
-                }
-                Label {
-                    color: Theme.accent
-                    font: Typography.captionStrong
-                    text: page.hasViewModel && page.viewModel.selectedMuscleGroups.length > 0 ? qsTr("Выбрано: %1").arg(page.viewModel.selectedMuscleGroups.length) : ""
-                    visible: text.length > 0
-                }
-            }
-            Flow {
-                Layout.fillWidth: true
-                spacing: Spacing.listGap
-
-                Repeater {
-                    model: page.hasViewModel ? page.viewModel.availableMuscleGroups : []
-
-                    delegate: MuscleChip {
-                        chipText: ExerciseTexts.muscleGroupTitle(modelData)
-                        chipValue: modelData
-                        selected: page.hasViewModel && page.viewModel.selectedMuscleGroups.indexOf(modelData) >= 0
-
-                        onChipTapped: name => page.viewModel.toggleMuscleGroup(name)
-                    }
-                }
-            }
+        title: qsTr("Группы мышц")
+        options: page.hasViewModel ? page.viewModel.availableMuscleGroups.map(function (key) {
+            return {
+                key: key,
+                title: ExerciseTexts.muscleGroupTitle(key)
+            };
+        }) : []
+        selectedKeys: page.hasViewModel ? page.viewModel.selectedMuscleGroups : []
+        onToggled: function (key) {
+            page.viewModel.toggleMuscleGroup(key);
         }
     }
-    // — Инвентарь —
-    AppCard {
+    ExerciseAttributeCard {
         width: parent.width
-
-        ColumnLayout {
-            spacing: Spacing.itemGap
-            width: parent.width
-
-            RowLayout {
-                Layout.fillWidth: true
-
-                Label {
-                    Layout.fillWidth: true
-                    color: Theme.textPrimary
-                    font: Typography.bodyStrong
-                    text: qsTr("Инвентарь")
-                }
-                Label {
-                    color: Theme.accent
-                    font: Typography.captionStrong
-                    text: page.hasViewModel && page.viewModel.selectedEquipments.length > 0 ? qsTr("Выбрано: %1").arg(page.viewModel.selectedEquipments.length) : ""
-                    visible: text.length > 0
-                }
-            }
-            Flow {
-                Layout.fillWidth: true
-                spacing: Spacing.listGap
-
-                Repeater {
-                    model: page.hasViewModel ? page.viewModel.availableEquipments : []
-
-                    delegate: MuscleChip {
-                        chipText: ExerciseTexts.equipmentTitle(modelData)
-                        chipValue: modelData
-                        selected: page.hasViewModel && page.viewModel.selectedEquipments.indexOf(modelData) >= 0
-
-                        onChipTapped: name => page.viewModel.toggleEquipment(name)
-                    }
-                }
-            }
+        title: qsTr("Инвентарь")
+        options: page.hasViewModel ? page.viewModel.availableEquipments.map(function (key) {
+            return {
+                key: key,
+                title: ExerciseTexts.equipmentTitle(key)
+            };
+        }) : []
+        selectedKeys: page.hasViewModel ? page.viewModel.selectedEquipments : []
+        onToggled: function (key) {
+            page.viewModel.toggleEquipment(key);
         }
     }
     // — Видимость: переключатель и пояснение, что он значит —
@@ -385,39 +320,6 @@ PageScaffold {
                 text: visibilitySelector.currentIndex === 1 ? qsTr("Публичное упражнение увидят другие пользователи в каталоге") : qsTr("Приватное упражнение видно только вам")
                 wrapMode: Text.WordWrap
             }
-        }
-    }
-
-    // — Чип multi-выбора: выбран обведён акцентом, тап переключает —
-    // chipValue — ключ справочника (уходит в ViewModel), chipText — перевод
-    // для показа. Тап с переводом ломал выбор: toggleMuscleGroup кладёт в
-    // selected значение ключа, а selected-проверка сравнивает с ключом.
-    component MuscleChip: Rectangle {
-        id: chip
-
-        property bool selected: false
-        property string chipText: ""
-        property string chipValue: ""
-
-        signal chipTapped(string name)
-
-        border.color: chip.selected ? Theme.accent : "transparent"
-        border.width: Theme.borderWidth
-        color: chip.selected ? Theme.accentTint : Theme.surfaceMuted
-        height: Theme.touchMin * 0.75
-        implicitWidth: chipLabel.implicitWidth + Spacing.listGap * 2
-        radius: height / 2
-
-        TapHandler {
-            onTapped: chip.chipTapped(chip.chipValue)
-        }
-        Label {
-            id: chipLabel
-
-            anchors.centerIn: parent
-            color: chip.selected ? Theme.accent : Theme.textSecondary
-            font: Typography.captionStrong
-            text: chip.chipText
         }
     }
 

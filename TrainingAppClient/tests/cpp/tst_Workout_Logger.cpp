@@ -29,6 +29,8 @@ private slots:
 	void finishRejectsForeignSession();
 	void draftRecoversAfterRestart();
 	void soloSessionHasNoProgramLinks();
+	void cannotFinishWithoutWorkingSets();
+	void completedSetNeedsPositiveReps();
 
 private:
 	void Seed_Exercise();
@@ -303,6 +305,27 @@ SSet_Log AWorkout_Logger_Test::Make_Set(const QString &in_session_id, const QStr
 }
 //-------------------------------------------------------------------------------------------------------------
 
+void AWorkout_Logger_Test::cannotFinishWithoutWorkingSets()
+{
+	AsWorkout_Logger logger(Workout_Repository, Program_Repository);
+	SWorkout_Session session;
+	QVERIFY(logger.Start_Session("u1", "2026-11-01", "p1", "d3", "", session));
+	QVERIFY(!logger.Finish_Session("u1", session.ID, session));
+	QVERIFY(Workout_Repository->Find_Session(session.ID, session));
+	QCOMPARE(session.State, EWorkout_State::Draft);
+}
+//-------------------------------------------------------------------------------------------------------------
+void AWorkout_Logger_Test::completedSetNeedsPositiveReps()
+{
+	AsWorkout_Logger logger(Workout_Repository, Program_Repository);
+	SWorkout_Session session;
+	QVERIFY(logger.Start_Session("u1", "2026-11-02", "p1", "d3", "", session));
+	SSet_Log set = Make_Set(session.ID, "ex_squat", 1);
+	set.Reps = 0;
+	set.Done = true;
+	QVERIFY(!logger.Save_Set("u1", set));
+}
+//-------------------------------------------------------------------------------------------------------------
 QTEST_GUILESS_MAIN(AWorkout_Logger_Test)
 #include "tst_Workout_Logger.moc"
 //-------------------------------------------------------------------------------------------------------------

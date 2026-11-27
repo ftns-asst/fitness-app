@@ -38,7 +38,7 @@ Item {
         anchors.fill: parent
         border.color: tile.isAdded ? Theme.borderSubtle : Theme.border
         border.width: Theme.borderWidth
-        color: tile.isAdded ? Theme.surfaceMuted : Theme.surface
+        color: tile.isAdded ? Theme.surfaceMuted : tap.pressed || hover.hovered ? Theme.accentTint : Theme.surface
         radius: Theme.radiusMd
 
         Behavior on color {
@@ -85,7 +85,14 @@ Item {
             }
         }
     }
+    HoverHandler {
+        id: hover
+
+        enabled: !Theme.touchPlatform && tile.canAdd
+    }
     TapHandler {
+        id: tap
+
         enabled: tile.canAdd
 
         onTapped: tile.clicked()

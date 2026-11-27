@@ -55,6 +55,8 @@ public:
 	// Черновик пользователя на дату: незавершённая сессия этого дня.
 	bool Find_Draft(const QString &in_user_id, const QString &in_date, SWorkout_Session &out_session);
 	bool Find_Session(const QString &in_session_id, SWorkout_Session &out_session);
+	bool Save_Runtime(const QString &in_session_id, const QString &in_plan_json, qint64 in_rest_until_ms);
+	bool Load_Runtime(const QString &in_session_id, QString &out_plan_json, qint64 &out_rest_until_ms);
 
 private:
 	// Общий разбор строки workouts; out_index — номер колонки с отступом,

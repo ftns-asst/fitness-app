@@ -35,6 +35,10 @@ public:
 	// смена ролей сама инвалидирует модель.
 	void Set_Roles(const QStringList &in_role_names);
 	void Set_Rows(const QVector<QVariantMap> &in_rows);
+	void Append_Rows(const QVector<QVariantMap> &in_rows);
+	// Сохраняет индексы при прежнем порядке id, включая добавление/удаление хвоста.
+	// Замена id или перестановка строк — reset.
+	void Update_Rows(const QVector<QVariantMap> &in_rows, const QString &in_id_role);
 
 	// Строка целиком по номеру. Существует, чтобы QML не доставал поля вручную:
 	// роль по имени в QML не найти (roleNames отдаёт байты, а не числа), и без
@@ -52,7 +56,7 @@ public:
 	QHash<int, QByteArray> roleNames() const override;
 
 signals:
-	// Состав строк меняет только Set_Rows, поэтому сигнал выдаётся оттуда:
+	// Сигнал после изменения числа строк:
 	// привязкам QML на count («упражнений: N», видимость группы) больше нечего
 	// ждать — иначе они остались бы на значении, прочитанном при создании экрана.
 	void countChanged();

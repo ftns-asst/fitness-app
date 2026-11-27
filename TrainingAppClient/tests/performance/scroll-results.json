@@ -1,0 +1,133 @@
+{
+  "environment": {
+    "qt": "6.11.2",
+    "compiler": "MinGW GCC 13.1.0 x64",
+    "platform": "Windows, offscreen",
+    "controlsStyle": "Basic",
+    "fonts": "Inter Regular/Medium/SemiBold/Bold",
+    "viewport": [
+      390,
+      812
+    ],
+    "rows": 500,
+    "photos": false,
+    "runs": 3,
+    "warmupMs": 1000,
+    "scrollMs": 5000,
+    "baselineComponentsRevision": "c99673e",
+    "notes": "Same current shared components in both runs; baseline catalog and wheel handler loaded from c99673e. FrameAnimation intervals are not GPU timings or input-to-display latency.",
+    "muscleGroups": [
+      "legs",
+      "chest"
+    ],
+    "equipments": [
+      "barbell",
+      "dumbbell"
+    ],
+    "measurementDate": "2026-10-31"
+  },
+  "before": [
+    {
+      "run": 1,
+      "rows": 500,
+      "readyMs": 142,
+      "tiles": 500,
+      "frames": 267,
+      "p50Ms": 21.5365,
+      "p95Ms": 32.5553,
+      "p99Ms": 32.880199999999995,
+      "overBudget60": 151,
+      "maxMs": 33.0565
+    },
+    {
+      "run": 2,
+      "rows": 500,
+      "readyMs": 135,
+      "tiles": 500,
+      "frames": 260,
+      "p50Ms": 21.55,
+      "p95Ms": 32.544999999999995,
+      "p99Ms": 32.5952,
+      "overBudget60": 148,
+      "maxMs": 33.051700000000004
+    },
+    {
+      "run": 3,
+      "rows": 500,
+      "readyMs": 125,
+      "tiles": 500,
+      "frames": 275,
+      "p50Ms": 21.5035,
+      "p95Ms": 32.4347,
+      "p99Ms": 32.571799999999996,
+      "overBudget60": 146,
+      "maxMs": 32.5815
+    }
+  ],
+  "wheelAfter": [
+    {
+      "run": 1,
+      "settleMs": 170
+    },
+    {
+      "run": 2,
+      "settleMs": 174
+    },
+    {
+      "run": 3,
+      "settleMs": 155
+    }
+  ],
+  "wheelBefore": [
+    {
+      "run": 1,
+      "settleMs": 226
+    },
+    {
+      "run": 2,
+      "settleMs": 221
+    },
+    {
+      "run": 3,
+      "settleMs": 222
+    }
+  ],
+  "after": [
+    {
+      "run": 1,
+      "rows": 500,
+      "readyMs": 16,
+      "tiles": 18,
+      "frames": 261,
+      "p50Ms": 20.532600000000002,
+      "p95Ms": 31.199399999999997,
+      "p99Ms": 31.5921,
+      "overBudget60": 163,
+      "maxMs": 32.0546
+    },
+    {
+      "run": 2,
+      "rows": 500,
+      "readyMs": 7,
+      "tiles": 18,
+      "frames": 261,
+      "p50Ms": 20.5364,
+      "p95Ms": 31.0962,
+      "p99Ms": 31.5675,
+      "overBudget60": 164,
+      "maxMs": 31.590899999999998
+    },
+    {
+      "run": 3,
+      "rows": 500,
+      "readyMs": 17,
+      "tiles": 18,
+      "frames": 261,
+      "p50Ms": 20.533800000000003,
+      "p95Ms": 31.2215,
+      "p99Ms": 31.578000000000003,
+      "overBudget60": 164,
+      "maxMs": 31.5881
+    }
+  ]
+}
